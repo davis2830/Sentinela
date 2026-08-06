@@ -46,3 +46,12 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     old_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True, min_length=8)
+
+
+class RegisterSerializer(serializers.Serializer):
+    """Serializer for user registration request."""
+
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=8)
+    first_name = serializers.CharField(max_length=150, required=False, default="")
+    last_name = serializers.CharField(max_length=150, required=False, default="")

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel - Observabilidad Avanzada</title>
+    <!-- Importar iconos y fuentes para igualar la estética original -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0d0d; /* Fondo oscuro original */
+            --green-primary: #10b981; /* Verde esmeralda original */
+            --green-glow: #34d399; /* Verde más claro para brillo */
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --panel-bg: #111827;
+            --border-color: #1f2937;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .main-container {
+            width: 90%;
+            max-width: 1400px;
+            display: grid;
+            grid-template-columns: 2fr 1.2fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        /* --- Estilos del Panel Izquierdo (Hero) --- */
+        .hero-panel h1 {
+            font-size: 4rem;
+            line-height: 1.1;
+            margin-bottom: 20px;
+        }
+
+        .platform-name {
+            color: var(--green-primary);
+            text-shadow: 0 0 15px var(--green-glow);
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-panel p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            max-width: 600px;
+        }
+
+        /* Menú de Monitores con Iconos */
+        .monitor-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 250px;
+        }
+
+        .monitor-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .monitor-item:hover {
+            border-color: var(--green-primary);
+        }
+
+        .monitor-item i {
+            font-size: 1.2rem;
+            color: var(--green-primary);
+        }
+
+        .monitor-item span {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* --- Estilos del Panel Derecho (Login) --- */
+        .login-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 50px;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        /* Icono de Escudo de Sentinel */
+        .sentinel-shield {
+            color: var(--green-primary);
+            font-size: 4rem;
+            text-shadow: 0 0 20px var(--green-glow);
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .login-panel h2 {
+            text-align: center;
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        input {
+            width: 100%;
+            padding: 15px 15px 15px 45px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--green-primary);
+        }
+
+        .forgot-password {
+            text-align: right;
+            margin-top: -10px;
+            margin-bottom: 20px;
+        }
+
+        .forgot-password a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .forgot-password a:hover {
+            color: var(--text-primary);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 15px;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .btn-login:hover {
+            background: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Panel de Bienvenida y Menú -->
+        <div class="hero-panel">
+            <h1><span class="platform-name">Sentinel:</span> Generando Confianza mediante <span class="gradient-text">Observabilidad</span></h1>
+            <p>Vigilancia avanzada para SSL, Uptime, DNS y APIs con Smart Alerts integradas para tu infraestructura crítica.</p>
+            
+            <!-- Menú de Monitores con Iconos -->
+            <div class="monitor-menu">
+                <div class="monitor-item">
+                    <i class="fas fa-lock"></i>
+                    <span>SSL Monitoring</span>
+                </div>
+                <div class="monitor-item">
+                    <i class="fas fa-heartbeat"></i>
+                    <span>Uptime Monitoring</span>
+                </div>
+                <div class="monitor-item">
+                    <i class="fas fa-network-wired"></i>
+                    <span>DNS Monitoring</span>
+                </div>
+                <div class="monitor-item">
+                    <i class="fas fa-plug"></i>
+                    <span>API Monitoring</span>
+                </div>
+                <div class="monitor-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Security Headers</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Iniciar Sesión -->
+        <div class="login-panel">
+            <div class="sentinel-shield">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <h2>Iniciar Sesión en Sentinel</h2>
+            <form>
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" placeholder="Email" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-key"></i>
+                        <input type="password" placeholder="Contraseña" required>
+                    </div>
+                </div>
+                <div class="forgot-password">
+                    <a href="#">¿Olvidé mi contraseña?</a>
+                </div>
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

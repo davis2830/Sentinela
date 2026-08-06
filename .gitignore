@@ -1,2 +1,117 @@
-/.clinerules
+# ============================================
+# Environment & Secrets
+# ============================================
+.env
+.env.*
+!.env.example
 *.env
+
+# ============================================
+# Python / Django
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+sdist/
+wheels/
+*.manifest
+*.spec
+
+# Django
+*.log
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+local_settings.py
+settings.py.bak
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+.hypothesis/
+htmlcov/
+pytest-coverage.txt
+coverage.xml
+*.cover
+*.py,cover
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================
+# Node / React / Frontend
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================
+# Docker
+# ============================================
+*.pid
+*.seed
+*.pid.lock
+.dockerignore
+
+# ============================================
+# OS files
+# ============================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================================
+# Misc
+# ============================================
+*.swp
+*.bak
+*~
+*.tmp
+.cache/
+.tmp/

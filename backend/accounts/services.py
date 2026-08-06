@@ -7,7 +7,7 @@ from .models import User
 class AuthService:
     """Service for authentication and identity management.
 
-    Handles login, logout, token refresh, and password change.
+    Handles login, logout, token refresh, password change, and registration.
     All business logic lives here, not in views.
     """
 
@@ -98,3 +98,45 @@ class AuthService:
             raise ValueError("Current password is incorrect.")
         user.set_password(new_password)
         user.save()
+
+    @staticmethod
+    def register(email, password, first_name="", last_name=""):
+        """Register a new user.
+
+        Creates a new user account and returns JWT tokens
+        so the user is immediately authenticated after registration.
+
+        Args:
+            email: The user's email address.
+            password: The user's plain text password.
+            first_name: Optional first name.
+            last_name: Optional last name.
+
+        Returns:
+            dict with access_token, refresh_token, and user data.
+
+        Raises:
+            ValueError if the email is already registered.
+        """
+        if User.objects.filter(email=email).exists():
+            raise ValueError("A user with this email already exists.")
+
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+
+        refresh = RefreshToken.for_user(user)
+        return {
+            "access_token": str(refresh.access_token),
+            "refresh_token": str(refresh),
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "is_staff": user.is_staff,
+            },
+        }

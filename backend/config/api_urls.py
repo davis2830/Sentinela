@@ -17,7 +17,7 @@ urlpatterns = [
     path("ssl-certificates/", include("ssl_monitor.urls")),
 
     # DNS
-    path("dns-records/", include("dns.urls")),
+    path("dns-records/", include("dns_monitor.urls")),
 
     # Domain (WHOIS)
     path("domains/", include("domain.urls")),

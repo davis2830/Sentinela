@@ -107,6 +107,19 @@ services:
       redis:
         condition: service_healthy
 
+  frontend:
+    build: ./frontend
+    container_name: sentinel_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+
   prometheus:
     image: prom/prometheus:latest
     container_name: sentinel_prometheus

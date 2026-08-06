@@ -9,6 +9,7 @@ from .serializers import (
     LoginSerializer,
     LogoutSerializer,
     RefreshTokenSerializer,
+    RegisterSerializer,
 )
 from .services import AuthService
 
@@ -39,6 +40,40 @@ class LoginView(APIView):
         except ValueError as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_401_UNAUTHORIZED
+            )
+
+
+class RegisterView(APIView):
+    """Endpoint for user registration.
+
+    POST /api/v1/auth/register/
+    """
+
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                "Invalid input.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = AuthService.register(
+                email=serializer.validated_data["email"],
+                password=serializer.validated_data["password"],
+                first_name=serializer.validated_data.get("first_name", ""),
+                last_name=serializer.validated_data.get("last_name", ""),
+            )
+            return success_response(
+                result,
+                status_code=status.HTTP_201_CREATED,
+            )
+        except ValueError as exc:
+            return error_response(
+                str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
 
 

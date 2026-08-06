@@ -32,7 +32,7 @@ INSTALLED_APPS = [
     "users",
     "monitoring",
     "ssl_monitor",
-    "dns",
+    "dns_monitor",
     "domain",
     "api_checks",
     "security_headers",
@@ -81,7 +81,7 @@ DATABASES = {
         "NAME": os.environ.get("POSTGRES_DB", "sentinel"),
         "USER": os.environ.get("POSTGRES_USER", "sentinel"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "sentinel"),
-        "HOST": os.environ.get("POSTGRES_HOST", "db"),
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
@@ -145,9 +145,9 @@ SIMPLE_JWT = {
 }
 
 # Celery
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get(
-    "CELERY_RESULT_BACKEND", "redis://redis:6379/1"
+    "CELERY_RESULT_BACKEND", "redis://localhost:6379/1"
 )
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_TRACK_STARTED = True
