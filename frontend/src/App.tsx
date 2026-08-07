@@ -11,6 +11,7 @@ import APIChecksPage from './pages/APIChecksPage';
 import SecurityHeadersPage from './pages/SecurityHeadersPage';
 import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
+import ProfilePage from './pages/ProfilePage';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './store/authStore';
 
@@ -158,6 +159,16 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <IncidentsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProfilePage />
                 </AppLayout>
               </ProtectedRoute>
             }

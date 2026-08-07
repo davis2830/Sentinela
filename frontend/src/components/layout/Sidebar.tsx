@@ -9,6 +9,7 @@ import {
   Bell,
   AlertTriangle,
   FileText,
+  User,
 } from 'lucide-react';
 
 const navSections = [
@@ -30,6 +31,7 @@ const navSections = [
       { to: '/alerts', icon: Bell, label: 'Smart Alerts' },
       { to: '/incidents', icon: AlertTriangle, label: 'Incidentes' },
       { to: '/reports', icon: FileText, label: 'Reportes' },
+      { to: '/profile', icon: User, label: 'Perfil de Usuario' },
     ],
   },
 ];
