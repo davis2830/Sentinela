@@ -1,9 +1,10 @@
-﻿from django.urls import path
+from django.urls import path
 
 from .views import (
     SecurityHeaderResultListView,
     SecurityHeaderTargetDetailView,
     SecurityHeaderTargetListView,
+    SecurityHeaderTargetScanView,
 )
 
 urlpatterns = [
@@ -12,6 +13,11 @@ urlpatterns = [
         "<uuid:target_id>/",
         SecurityHeaderTargetDetailView.as_view(),
         name="security_header_target_detail",
+    ),
+    path(
+        "<uuid:target_id>/scan/",
+        SecurityHeaderTargetScanView.as_view(),
+        name="security_header_target_scan",
     ),
     path(
         "<uuid:target_id>/results/",

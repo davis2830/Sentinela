@@ -31,6 +31,17 @@ class AuthService:
         if not user.is_active:
             raise ValueError("User account is disabled.")
 
+        # Ensure user has an organization assigned (multi-tenancy safety)
+        if user.organization is None:
+            from organizations.models import Organization
+            org = Organization.objects.first()
+            if not org:
+                from django.utils.text import slugify
+                import uuid
+                org = Organization.objects.create(name="Default Org", slug=f"default-{str(uuid.uuid4())[:8]}")
+            user.organization = org
+            user.save(update_fields=["organization"])
+
         refresh = RefreshToken.for_user(user)
         return {
             "access_token": str(refresh.access_token),
@@ -121,11 +132,20 @@ class AuthService:
         if User.objects.filter(email=email).exists():
             raise ValueError("A user with this email already exists.")
 
+        from organizations.models import Organization
+        from django.utils.text import slugify
+        import uuid
+
+        org_name = f"{first_name or email.split('@')[0]}'s Organization"
+        slug = f"{slugify(org_name) or 'org'}-{str(uuid.uuid4())[:8]}"
+        org = Organization.objects.create(name=org_name, slug=slug)
+
         user = User.objects.create_user(
             email=email,
             password=password,
             first_name=first_name,
             last_name=last_name,
+            organization=org,
         )
 
         refresh = RefreshToken.for_user(user)

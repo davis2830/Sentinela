@@ -63,6 +63,20 @@ class DNSMonitorService:
 
     @staticmethod
     @transaction.atomic
+    def update_record(record_id, organization_id, domain=None, record_type=None):
+        """Update domain or record_type for a DNS record."""
+        record = DNSRecord.objects.get(
+            id=record_id, organization_id=organization_id
+        )
+        if domain:
+            record.domain = domain
+        if record_type:
+            record.record_type = record_type
+        record.save()
+        return record
+
+    @staticmethod
+    @transaction.atomic
     def update_record_scan(record_id, new_value, ttl):
         """Update a DNS record with scan results and detect changes.
 

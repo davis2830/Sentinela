@@ -75,6 +75,26 @@ class DomainDetailView(APIView):
                 "Domain not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
+    def patch(self, request, domain_id):
+        org_id = request.user.organization_id
+        domain = request.data.get("domain")
+        if not domain:
+            return error_response(
+                "Domain is required.", status_code=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            domain_info = DomainService.update_domain_record(
+                domain_id, org_id, domain
+            )
+            from .tasks import scan_whois
+            scan_whois.delay(str(domain_info.id))
+            serializer = DomainInfoSerializer(domain_info)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(
+                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+            )
+
     def delete(self, request, domain_id):
         org_id = request.user.organization_id
         try:
@@ -84,6 +104,27 @@ class DomainDetailView(APIView):
             return error_response(
                 "Domain not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+class DomainScanView(APIView):
+    """Endpoint to trigger manual WHOIS scan.
+
+    POST /api/v1/domains/{id}/scan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, domain_id):
+        org_id = request.user.organization_id
+        try:
+            domain_info = DomainService.get_domain(domain_id, org_id)
+            from .tasks import scan_whois
+            scan_whois(str(domain_info.id))
+            updated_domain = DomainService.get_domain(domain_id, org_id)
+            serializer = DomainInfoSerializer(updated_domain)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DomainExpiringSoonView(APIView):

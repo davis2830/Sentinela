@@ -64,8 +64,9 @@ def run_api_check(self, target_id):
 
         status_ok = http_status == target.expected_status
         time_ok = elapsed <= target.expected_response_time_ms
+        schema_ok = schema_valid is None or schema_valid is True
 
-        if not status_ok or not json_valid:
+        if not status_ok or not schema_ok or not headers_valid:
             result_status = "fail"
         elif not time_ok:
             result_status = "slow"

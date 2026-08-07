@@ -1,8 +1,9 @@
-﻿from django.urls import path
+from django.urls import path
 
 from .views import (
     SSLCertificateDetailView,
     SSLCertificateListView,
+    SSLCertificateScanView,
     SSLExpiredView,
     SSLExpiringSoonView,
 )
@@ -15,5 +16,10 @@ urlpatterns = [
         "<uuid:certificate_id>/",
         SSLCertificateDetailView.as_view(),
         name="ssl_certificate_detail",
+    ),
+    path(
+        "<uuid:certificate_id>/scan/",
+        SSLCertificateScanView.as_view(),
+        name="ssl_certificate_scan",
     ),
 ]

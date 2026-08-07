@@ -78,6 +78,23 @@ class DNSRecordDetailView(APIView):
                 "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
+    def patch(self, request, record_id):
+        org_id = request.user.organization_id
+        domain = request.data.get("domain")
+        record_type = request.data.get("record_type")
+        try:
+            record = DNSMonitorService.update_record(
+                record_id, org_id, domain=domain, record_type=record_type
+            )
+            from .tasks import scan_dns_records
+            scan_dns_records.delay(str(record.id))
+            serializer = DNSRecordSerializer(record)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(
+                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+            )
+
     def delete(self, request, record_id):
         org_id = request.user.organization_id
         try:
@@ -87,6 +104,27 @@ class DNSRecordDetailView(APIView):
             return error_response(
                 "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+class DNSRecordScanView(APIView):
+    """Endpoint to trigger manual DNS scan.
+
+    POST /api/v1/dns-records/{id}/scan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, record_id):
+        org_id = request.user.organization_id
+        try:
+            record = DNSMonitorService.get_record(record_id, org_id)
+            from .tasks import scan_dns_records
+            scan_dns_records(str(record.id))
+            updated_record = DNSMonitorService.get_record(record_id, org_id)
+            serializer = DNSRecordSerializer(updated_record)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DNSChangeHistoryView(APIView):

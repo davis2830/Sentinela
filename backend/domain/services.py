@@ -106,6 +106,17 @@ class DomainService:
         domain_info.delete()
 
     @staticmethod
+    @transaction.atomic
+    def update_domain_record(domain_id, organization_id, domain):
+        """Update domain name for an existing WHOIS domain record."""
+        domain_info = DomainInfo.objects.get(
+            id=domain_id, organization_id=organization_id
+        )
+        domain_info.domain = domain
+        domain_info.save()
+        return domain_info
+
+    @staticmethod
     def get_expiring_soon(organization_id, days=30):
         """Return domains expiring within the given number of days.
 

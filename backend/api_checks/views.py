@@ -43,7 +43,10 @@ class APICheckTargetListView(APIView):
                 organization_id=org_id,
                 **serializer.validated_data,
             )
-            response_serializer = APICheckTargetSerializer(target)
+            from .tasks import run_api_check
+            run_api_check(str(target.id))
+            updated_target = APICheckService.get_target(target.id, org_id)
+            response_serializer = APICheckTargetSerializer(updated_target)
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -108,6 +111,27 @@ class APICheckTargetDetailView(APIView):
                 "API check target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
+
+
+class APICheckTargetScanView(APIView):
+    """Endpoint to trigger manual API check.
+
+    POST /api/v1/api-checks/{id}/scan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = APICheckService.get_target(target_id, org_id)
+            from .tasks import run_api_check
+            run_api_check(str(target.id))
+            updated_target = APICheckService.get_target(target_id, org_id)
+            serializer = APICheckTargetSerializer(updated_target)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class APICheckResultListView(APIView):

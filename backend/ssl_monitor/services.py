@@ -109,6 +109,17 @@ class SSLMonitorService:
         cert.delete()
 
     @staticmethod
+    @transaction.atomic
+    def update_certificate_domain(certificate_id, organization_id, domain):
+        """Update domain for an existing SSL certificate."""
+        cert = SSLCertificate.objects.get(
+            id=certificate_id, organization_id=organization_id
+        )
+        cert.domain = domain
+        cert.save()
+        return cert
+
+    @staticmethod
     def get_expiring_soon(organization_id, days=15):
         """Return certificates expiring within the given number of days.
 

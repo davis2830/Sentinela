@@ -4,6 +4,13 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import MonitoringPage from './pages/MonitoringPage';
+import SSLCertificatesPage from './pages/SSLCertificatesPage';
+import DNSRecordsPage from './pages/DNSRecordsPage';
+import DomainsPage from './pages/DomainsPage';
+import APIChecksPage from './pages/APIChecksPage';
+import SecurityHeadersPage from './pages/SecurityHeadersPage';
+import AlertsPage from './pages/AlertsPage';
+import IncidentsPage from './pages/IncidentsPage';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './store/authStore';
 
@@ -90,7 +97,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Monitoreo SSL" />
+                  <SSLCertificatesPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -100,7 +107,17 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="DNS & WHOIS" />
+                  <DNSRecordsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/domains"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <DomainsPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -110,7 +127,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="API Endpoints" />
+                  <APIChecksPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -120,7 +137,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Security Headers" />
+                  <SecurityHeadersPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -130,7 +147,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Smart Alerts" />
+                  <AlertsPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -140,7 +157,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Incidentes" />
+                  <IncidentsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

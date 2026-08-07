@@ -10,6 +10,7 @@ export default {
       colors: {
         // Background colors from mockup
         'bg-dark': '#090D11',
+        'bg-main': '#090D11',
         'bg-card': '#111720',
         'bg-card-hover': '#17202C',
         'border-base': '#1E293B',

@@ -18,6 +18,33 @@
   a {
     @apply no-underline;
   }
+
+  /* Force dark background & bright white text on inputs */
+  input, select, textarea {
+    background-color: #090D11;
+    color: #F8FAFC;
+    border-color: #1E293B;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #64748B;
+  }
+
+  /* Fix browser autofill dark mode styling */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus, 
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: #F8FAFC !important;
+    -webkit-box-shadow: 0 0 0px 1000px #090D11 inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* Fix text selection */
+  ::selection {
+    background-color: #10b981;
+    color: #000000;
+  }
 }
 
 @layer components {

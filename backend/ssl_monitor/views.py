@@ -75,6 +75,26 @@ class SSLCertificateDetailView(APIView):
                 "Certificate not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
+    def patch(self, request, certificate_id):
+        org_id = request.user.organization_id
+        domain = request.data.get("domain")
+        if not domain:
+            return error_response(
+                "Domain is required.", status_code=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            cert = SSLMonitorService.update_certificate_domain(
+                certificate_id, org_id, domain
+            )
+            from .tasks import scan_ssl_certificate
+            scan_ssl_certificate.delay(str(cert.id))
+            serializer = SSLCertificateSerializer(cert)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(
+                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+            )
+
     def delete(self, request, certificate_id):
         org_id = request.user.organization_id
         try:
@@ -84,6 +104,27 @@ class SSLCertificateDetailView(APIView):
             return error_response(
                 "Certificate not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+class SSLCertificateScanView(APIView):
+    """Endpoint to trigger manual SSL scan.
+
+    POST /api/v1/ssl-certificates/{id}/scan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, certificate_id):
+        org_id = request.user.organization_id
+        try:
+            cert = SSLMonitorService.get_certificate(certificate_id, org_id)
+            from .tasks import scan_ssl_certificate
+            scan_ssl_certificate(str(cert.id))
+            updated_cert = SSLMonitorService.get_certificate(certificate_id, org_id)
+            serializer = SSLCertificateSerializer(updated_cert)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SSLExpiringSoonView(APIView):

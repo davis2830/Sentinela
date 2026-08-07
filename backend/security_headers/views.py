@@ -91,6 +91,27 @@ class SecurityHeaderTargetDetailView(APIView):
             )
 
 
+class SecurityHeaderTargetScanView(APIView):
+    """Endpoint to trigger manual Security Headers scan.
+
+    POST /api/v1/security-headers/{id}/scan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = SecurityHeadersService.get_target(target_id, org_id)
+            from .tasks import scan_security_headers
+            scan_security_headers(str(target.id))
+            updated_target = SecurityHeadersService.get_target(target_id, org_id)
+            serializer = SecurityHeaderTargetSerializer(updated_target)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
 class SecurityHeaderResultListView(APIView):
     """Endpoint for listing scan results for a target.
 
