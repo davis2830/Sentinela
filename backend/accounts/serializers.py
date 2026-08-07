@@ -55,3 +55,29 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(max_length=150, required=False, default="")
     last_name = serializers.CharField(max_length=150, required=False, default="")
+
+
+class UserUpdateSerializer(serializers.Serializer):
+    """Serializer for updating user profile."""
+
+    first_name = serializers.CharField(max_length=150, required=False)
+    last_name = serializers.CharField(max_length=150, required=False)
+    email = serializers.EmailField(required=False)
+
+
+from .models import APIToken
+
+
+class APITokenSerializer(serializers.ModelSerializer):
+    """Serializer for APIToken model."""
+
+    class Meta:
+        model = APIToken
+        fields = ("id", "name", "token", "created_at", "last_used_at")
+        read_only_fields = ("id", "token", "created_at", "last_used_at")
+
+
+class APITokenCreateSerializer(serializers.Serializer):
+    """Serializer for APIToken creation."""
+
+    name = serializers.CharField(max_length=255)

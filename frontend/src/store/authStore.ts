@@ -13,6 +13,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  updateUser: (user: Partial<User>) => void;
   clearError: () => void;
 }
 
@@ -96,6 +97,11 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
         });
       },
+
+      updateUser: (updatedUser) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updatedUser } : null,
+        })),
 
       clearError: () => set({ error: null }),
     }),

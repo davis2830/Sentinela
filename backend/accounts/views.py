@@ -163,16 +163,39 @@ class ChangePasswordView(APIView):
             )
 
 
+import secrets
+from .models import APIToken, User
+from .serializers import (
+    APITokenCreateSerializer,
+    APITokenSerializer,
+    ChangePasswordSerializer,
+    LoginSerializer,
+    LogoutSerializer,
+    RefreshTokenSerializer,
+    RegisterSerializer,
+    UserUpdateSerializer,
+)
+
+
 class MeView(APIView):
-    """Endpoint for current user info.
+    """Endpoint for current user info and profile updates.
 
     GET /api/v1/auth/me/
+    PATCH /api/v1/auth/me/
     """
 
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         user = request.user
+        org_data = None
+        if user.organization:
+            org_data = {
+                "id": str(user.organization.id),
+                "name": user.organization.name,
+                "timezone": user.organization.timezone,
+                "locale": user.organization.locale,
+            }
         return success_response(
             {
                 "id": str(user.id),
@@ -181,5 +204,108 @@ class MeView(APIView):
                 "last_name": user.last_name,
                 "is_staff": user.is_staff,
                 "is_active": user.is_active,
+                "organization": org_data,
             }
         )
+
+    def patch(self, request):
+        user = request.user
+        serializer = UserUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                "Invalid input.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if "first_name" in serializer.validated_data:
+            user.first_name = serializer.validated_data["first_name"]
+        if "last_name" in serializer.validated_data:
+            user.last_name = serializer.validated_data["last_name"]
+        if "email" in serializer.validated_data:
+            email = serializer.validated_data["email"]
+            if User.objects.filter(email=email).exclude(id=user.id).exists():
+                return error_response(
+                    "A user with this email already exists.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            user.email = email
+
+        user.save()
+
+        org_data = None
+        if user.organization:
+            org_data = {
+                "id": str(user.organization.id),
+                "name": user.organization.name,
+                "timezone": user.organization.timezone,
+                "locale": user.organization.locale,
+            }
+
+        return success_response(
+            {
+                "id": str(user.id),
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "is_staff": user.is_staff,
+                "is_active": user.is_active,
+                "organization": org_data,
+            }
+        )
+
+
+class APITokenListView(APIView):
+    """Endpoint for listing and creating user API tokens.
+
+    GET /api/v1/auth/api-tokens/
+    POST /api/v1/auth/api-tokens/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        tokens = APIToken.objects.filter(user=request.user)
+        serializer = APITokenSerializer(tokens, many=True)
+        return success_response(serializer.data)
+
+    def post(self, request):
+        serializer = APITokenCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                "Invalid input.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_token = f"snt_{secrets.token_hex(24)}"
+        api_token = APIToken.objects.create(
+            user=request.user,
+            name=serializer.validated_data["name"],
+            token=raw_token,
+        )
+        response_serializer = APITokenSerializer(api_token)
+        return success_response(
+            response_serializer.data,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+
+class APITokenDetailView(APIView):
+    """Endpoint for deleting an API token.
+
+    DELETE /api/v1/auth/api-tokens/{id}/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def delete(self, request, token_id):
+        try:
+            token = APIToken.objects.get(id=token_id, user=request.user)
+            token.delete()
+            return success_response({"detail": "API token revoked."})
+        except APIToken.DoesNotExist:
+            return error_response(
+                "API token not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )

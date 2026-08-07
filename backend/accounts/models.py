@@ -69,3 +69,21 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+
+
+class APIToken(models.Model):
+    """API token for programmatic access to Sentinel endpoints."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_tokens")
+    name = models.CharField(max_length=255)
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        db_table = "accounts_api_token"
+
+    def __str__(self):
+        return f"{self.name} ({self.user.email})"

@@ -32,10 +32,14 @@ export default function Navbar() {
 
       {/* User + Logout */}
       <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 text-sm">
+        <Link
+          to="/profile"
+          className="hidden sm:flex items-center gap-2 text-sm text-text-muted hover:text-accent-green transition-colors"
+          title="Ver perfil de usuario"
+        >
           <Activity className="text-accent-green" size={16} />
-          <span className="text-text-muted">{user?.email || 'admin@sentinel.local'}</span>
-        </div>
+          <span>{user?.email || 'admin@sentinel.local'}</span>
+        </Link>
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 text-text-muted hover:text-accent-red transition-colors text-sm"
