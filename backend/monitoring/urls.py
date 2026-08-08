@@ -1,9 +1,10 @@
-﻿from django.urls import path
+from django.urls import path
 
 from .views import (
     MonitoringCheckListView,
     MonitoringTargetDetailView,
     MonitoringTargetListView,
+    MonitoringTargetScanView,
     MonitoringUptimeView,
 )
 
@@ -12,4 +13,5 @@ urlpatterns = [
     path("<uuid:target_id>/", MonitoringTargetDetailView.as_view(), name="target_detail"),
     path("<uuid:target_id>/checks/", MonitoringCheckListView.as_view(), name="target_checks"),
     path("<uuid:target_id>/uptime/", MonitoringUptimeView.as_view(), name="target_uptime"),
+    path("<uuid:target_id>/scan/", MonitoringTargetScanView.as_view(), name="target_scan"),
 ]

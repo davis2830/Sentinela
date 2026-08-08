@@ -1,4 +1,4 @@
-import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil } from 'lucide-react';
+import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -21,10 +21,13 @@ interface TargetCardProps {
   target: MonitoringTarget;
   onEdit: (target: MonitoringTarget) => void;
   onDelete: (target: MonitoringTarget) => void;
+  onScan: (target: MonitoringTarget) => void;
+  onAlert?: (target: MonitoringTarget) => void;
+  isScanning?: boolean;
   onClick: (target: MonitoringTarget) => void;
 }
 
-export default function TargetCard({ target, onEdit, onDelete, onClick }: TargetCardProps) {
+export default function TargetCard({ target, onEdit, onDelete, onScan, onAlert, isScanning, onClick }: TargetCardProps) {
   const Icon = typeIcons[target.target_type] || Globe;
   const status = target.last_status || 'unknown';
   const statusClass = statusColors[status] || 'bg-gray-500/10 text-gray-400 border-gray-500';
@@ -44,16 +47,35 @@ export default function TargetCard({ target, onEdit, onDelete, onClick }: Target
             <p className="text-xs text-text-dim font-mono">{target.endpoint}</p>
           </div>
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onScan(target); }}
+            disabled={isScanning}
+            className="p-1.5 text-accent-green hover:bg-accent-green/10 rounded transition-colors disabled:opacity-50"
+            title="Escanear ahora"
+          >
+            <RefreshCw size={16} className={isScanning ? 'animate-spin' : ''} />
+          </button>
+          {onAlert && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAlert(target); }}
+              className="p-1.5 text-text-muted hover:text-accent-yellow transition-colors"
+              title="Vincular regla de alerta"
+            >
+              <Bell size={16} />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(target); }}
             className="p-1.5 text-text-muted hover:text-accent-blue transition-colors"
+            title="Editar target"
           >
             <Pencil size={16} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(target); }}
             className="p-1.5 text-text-muted hover:text-accent-red transition-colors"
+            title="Eliminar target"
           >
             <Trash2 size={16} />
           </button>
