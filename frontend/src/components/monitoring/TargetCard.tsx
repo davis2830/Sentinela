@@ -37,17 +37,17 @@ export default function TargetCard({ target, onEdit, onDelete, onScan, onAlert, 
       className="bg-bg-card border border-border-base rounded-xl p-5 cursor-pointer hover:border-accent-green/50 transition-all"
       onClick={() => onClick(target)}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center">
+      <div className="flex items-start justify-between mb-3 gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center shrink-0">
             <Icon className="text-accent-green" size={20} />
           </div>
-          <div>
-            <h3 className="font-semibold text-text-main">{target.name}</h3>
-            <p className="text-xs text-text-dim font-mono">{target.endpoint}</p>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-text-main truncate" title={target.name}>{target.name}</h3>
+            <p className="text-xs text-text-dim font-mono truncate" title={target.endpoint}>{target.endpoint}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); onScan(target); }}
             disabled={isScanning}

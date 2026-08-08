@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from celery import shared_task
@@ -51,6 +52,25 @@ def run_monitoring_check(self, target_id):
         )
 
 
+def _resolve_internal_url(url: str, headers: dict) -> tuple[str, dict]:
+    """Resolves localhost/127.0.0.1 URLs inside Docker containers to host.docker.internal
+
+    while preserving original Host header.
+    """
+    req_headers = dict(headers or {})
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    if hostname in ("localhost", "127.0.0.1"):
+        netloc = parsed.netloc.replace(hostname, "host.docker.internal")
+        target_url = urlunparse(parsed._replace(netloc=netloc))
+        if "Host" not in req_headers and "host" not in req_headers:
+            req_headers["Host"] = parsed.netloc
+        return target_url, req_headers
+
+    return url, req_headers
+
+
 def _run_http_check(target):
     """Perform an HTTP/HTTPS check with custom method, headers and status validation."""
     url = target.endpoint
@@ -63,12 +83,14 @@ def _run_http_check(target):
     expected_status = target.expected_status or 200
     max_latency = target.max_latency_ms or 2000
 
+    request_url, request_headers = _resolve_internal_url(url, headers)
+
     start = timezone.now()
     try:
         response = requests.request(
             method=method,
-            url=url,
-            headers=headers,
+            url=request_url,
+            headers=request_headers,
             data=body,
             timeout=10,
             allow_redirects=True,
@@ -122,6 +144,9 @@ def _run_tcp_check(target):
     host = parts[0]
     port = int(parts[1]) if len(parts) > 1 else 80
 
+    if host in ("localhost", "127.0.0.1"):
+        host = "host.docker.internal"
+
     start = timezone.now()
     try:
         sock = socket.create_connection((host, port), timeout=5)
@@ -131,7 +156,7 @@ def _run_tcp_check(target):
             target_id=target.id,
             status="up",
             latency=round(elapsed, 2),
-            details={"host": host, "port": port},
+            details={"host": target.endpoint.split(":")[0], "port": port},
         )
     except (socket.timeout, ConnectionRefusedError, OSError) as exc:
         MonitoringService.record_check(

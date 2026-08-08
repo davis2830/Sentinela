@@ -66,7 +66,9 @@ export default function MonitoringPage() {
     },
     onSuccess: (updatedTarget) => {
       queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['target-checks'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-checks'] });
+      queryClient.invalidateQueries({ queryKey: ['target-checks-chart'] });
+      queryClient.invalidateQueries({ queryKey: ['target-uptime-sla'] });
       if (selectedTarget && updatedTarget && selectedTarget.id === updatedTarget.id) {
         setSelectedTarget(updatedTarget);
       }

@@ -30,6 +30,14 @@
     color: #F8FAFC;
     border-color: #1E293B;
     color-scheme: dark;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+  }
+
+  /* Disable ligatures on monospace text so slashes (//) render cleanly without merging */
+  .font-mono {
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
   }
 
   /* Fix native select options dropdown list on Windows/Chrome */
@@ -37,11 +45,6 @@
     background-color: #090D11 !important;
     color: #F8FAFC !important;
     padding: 8px;
-  }
-
-  select option {
-    background-color: #090D11 !important;
-    color: #F8FAFC !important;
   }
 
   input::placeholder, textarea::placeholder {
