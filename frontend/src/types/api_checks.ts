@@ -44,3 +44,11 @@ export interface APICheckResult {
   checked_at: string;
   created_at: string;
 }
+
+export interface APICheckStats {
+  total: number;
+  pass_count: number;
+  slow_count: number;
+  fail_count: number;
+  avg_latency: number;
+}

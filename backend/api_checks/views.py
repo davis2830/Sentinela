@@ -154,3 +154,34 @@ class APICheckResultListView(APIView):
                 "API check target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
+
+
+class APICheckStatsView(APIView):
+    """Endpoint for API check KPI summary statistics.
+
+    GET /api/v1/api-checks/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats_data = APICheckService.get_api_check_stats(org_id)
+        return success_response(stats_data)
+
+
+class APICheckBulkScanView(APIView):
+    """Endpoint to trigger bulk execution for all API checks.
+
+    POST /api/v1/api-checks/scan-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .tasks import run_all_api_checks
+            run_all_api_checks.delay()
+            return success_response({"message": "Validación masiva de API Endpoints iniciada."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
