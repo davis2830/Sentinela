@@ -207,14 +207,6 @@ export default function SSLCertificatesPage() {
           </button>
 
           <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
-            title="Refrescar certificados"
-          >
-            <RefreshCw size={18} className={isRefetching ? 'animate-spin' : ''} />
-          </button>
-          <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
           >
