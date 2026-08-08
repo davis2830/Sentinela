@@ -64,6 +64,13 @@ class MonitoringService:
                 SSLMonitorService.get_or_create_certificate(organization_id, endpoint)
             except Exception:
                 pass
+
+        try:
+            from dns_monitor.services import DNSMonitorService
+            DNSMonitorService.get_or_create_dns_record(organization_id, endpoint, record_type="A")
+        except Exception:
+            pass
+
         return target
 
     @staticmethod

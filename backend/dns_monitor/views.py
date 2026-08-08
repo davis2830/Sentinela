@@ -162,3 +162,34 @@ class DNSDomainsView(APIView):
         org_id = request.user.organization_id
         domains = DNSMonitorService.get_domains(org_id)
         return success_response({"domains": list(domains)})
+
+
+class DNSStatsView(APIView):
+    """Endpoint for DNS record KPI summary statistics.
+
+    GET /api/v1/dns-records/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats_data = DNSMonitorService.get_dns_stats(org_id)
+        return success_response(stats_data)
+
+
+class DNSBulkScanView(APIView):
+    """Endpoint to trigger bulk resolution for all DNS records.
+
+    POST /api/v1/dns-records/scan-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .tasks import scan_all_dns_records
+            scan_all_dns_records.delay()
+            return success_response({"message": "Re-resolución masiva de registros DNS iniciada."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

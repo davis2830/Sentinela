@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { DNSRecord, DNSRecordType, DNSChangeHistory, CreateDNSRecordData } from '../types/dns';
+import type { DNSRecord, DNSRecordType, DNSChangeHistory, CreateDNSRecordData, DNSStats } from '../types/dns';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
 import {
@@ -16,6 +16,10 @@ import {
   Clock,
   ArrowRight,
   Pencil,
+  AlertTriangle,
+  Layers,
+  ShieldAlert,
+  CheckCircle2,
 } from 'lucide-react';
 
 const RECORD_TYPES: DNSRecordType[] = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME'];
@@ -27,7 +31,18 @@ export default function DNSRecordsPage() {
   const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
   const [domainInput, setDomainInput] = useState('');
   const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>('A');
+  const [typeFilter, setTypeFilter] = useState<'all' | DNSRecordType>('all');
   const [deleteTarget, setDeleteTarget] = useState<DNSRecord | null>(null);
+
+  // Stats query
+  const { data: stats } = useQuery({
+    queryKey: ['dns-stats'],
+    queryFn: async () => {
+      const response = await api.get('dns-records/stats/');
+      return (response.data?.data || {}) as DNSStats;
+    },
+    refetchInterval: 15000,
+  });
 
   // Main DNS records query
   const { data: records, isLoading, refetch, isRefetching } = useQuery({
@@ -56,6 +71,7 @@ export default function DNSRecordsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
       handleCloseModal();
     },
   });
@@ -66,6 +82,7 @@ export default function DNSRecordsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
       handleCloseModal();
     },
   });
@@ -77,9 +94,20 @@ export default function DNSRecordsPage() {
     },
     onSuccess: (updatedRecord) => {
       queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
       if (selectedRecord && updatedRecord) {
         setSelectedRecord(updatedRecord);
       }
+    },
+  });
+
+  const scanAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('dns-records/scan-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
     },
   });
 
@@ -89,6 +117,7 @@ export default function DNSRecordsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
       if (selectedRecord?.id === deleteTarget?.id) {
         setSelectedRecord(null);
       }
@@ -335,6 +364,11 @@ export default function DNSRecordsPage() {
     );
   }
 
+  const filteredRecords = (records || []).filter((r: DNSRecord) => {
+    if (typeFilter === 'all') return true;
+    return r.record_type === typeFilter;
+  });
+
   // Main list view
   return (
     <div>
@@ -352,13 +386,15 @@ export default function DNSRecordsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
-            title="Refrescar registros"
+            onClick={() => scanAllMutation.mutate()}
+            disabled={scanAllMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            title="Re-resolver todos los registros DNS inmediatamente"
           >
-            <RefreshCw size={18} className={isRefetching ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
+            Re-resolver Todos
           </button>
+
           <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
@@ -369,12 +405,85 @@ export default function DNSRecordsPage() {
         </div>
       </div>
 
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+            <Layers size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Total Registros</p>
+            <p className="text-xl font-bold font-mono text-text-main">{stats?.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+            <Globe size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Dominios Únicos</p>
+            <p className="text-xl font-bold font-mono text-accent-green">{stats?.unique_domains || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Cambios (24h)</p>
+            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.changes_24h || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Sin Resolver</p>
+            <p className="text-xl font-bold font-mono text-accent-red">{stats?.unresolved || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Record Type Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-border-base mb-6 overflow-x-auto pb-1">
+        <button
+          onClick={() => setTypeFilter('all')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors shrink-0 ${
+            typeFilter === 'all'
+              ? 'border-accent-green text-accent-green font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          Todos ({records?.length || 0})
+        </button>
+        {RECORD_TYPES.map((type) => {
+          const count = (records || []).filter((r: DNSRecord) => r.record_type === type).length;
+          return (
+            <button
+              key={type}
+              onClick={() => setTypeFilter(type)}
+              className={`px-3.5 py-2 text-sm font-mono font-medium border-b-2 transition-colors shrink-0 ${
+                typeFilter === type
+                  ? 'border-accent-green text-accent-green font-bold'
+                  : 'border-transparent text-text-muted hover:text-text-main'
+              }`}
+            >
+              {type} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Table view */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
-      ) : records && records.length > 0 ? (
+      ) : filteredRecords && filteredRecords.length > 0 ? (
         <div className="bg-bg-card border border-border-base rounded-xl overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
@@ -389,7 +498,7 @@ export default function DNSRecordsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-base/50">
-                {records.map((record: DNSRecord) => (
+                {filteredRecords.map((record: DNSRecord) => (
                   <tr
                     key={record.id}
                     onClick={() => setSelectedRecord(record)}

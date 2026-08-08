@@ -25,3 +25,10 @@ export interface DNSChangeHistory {
   new_value: string;
   changed_at: string;
 }
+
+export interface DNSStats {
+  total: number;
+  unique_domains: number;
+  changes_24h: number;
+  unresolved: number;
+}
