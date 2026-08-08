@@ -153,6 +153,12 @@ CELERY_TIMEZONE = "UTC"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "evaluate-alert-rules-every-30s": {
+        "task": "alerts.evaluate_rules",
+        "schedule": 30.0,
+    },
+}
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True

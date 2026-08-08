@@ -17,6 +17,7 @@ class AlertRuleSerializer(serializers.ModelSerializer):
             "threshold",
             "severity",
             "enabled",
+            "target_id",
             "last_triggered_at",
             "created_at",
             "updated_at",
@@ -54,6 +55,7 @@ class AlertRuleCreateSerializer(serializers.Serializer):
         choices=["critical", "warning", "info"], default="warning"
     )
     enabled = serializers.BooleanField(default=True)
+    target_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class AlertRuleUpdateSerializer(serializers.Serializer):
@@ -82,10 +84,14 @@ class AlertRuleUpdateSerializer(serializers.Serializer):
         choices=["critical", "warning", "info"], required=False
     )
     enabled = serializers.BooleanField(required=False)
+    target_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class AlertSerializer(serializers.ModelSerializer):
-    """Serializer for Alert model."""
+    """Serializer for Alert model with incident correlation info."""
+
+    incident_id = serializers.SerializerMethodField()
+    incident_title = serializers.SerializerMethodField()
 
     class Meta:
         model = Alert
@@ -99,6 +105,8 @@ class AlertSerializer(serializers.ModelSerializer):
             "status",
             "target_type",
             "target_id",
+            "incident_id",
+            "incident_title",
             "triggered_at",
             "resolved_at",
             "created_at",
@@ -115,6 +123,16 @@ class AlertSerializer(serializers.ModelSerializer):
             "triggered_at",
             "created_at",
         )
+
+    def get_incident_id(self, obj):
+        from incidents.models import IncidentAlert
+        link = IncidentAlert.objects.filter(alert_id=obj.id).first()
+        return str(link.incident_id) if link else None
+
+    def get_incident_title(self, obj):
+        from incidents.models import IncidentAlert
+        link = IncidentAlert.objects.filter(alert_id=obj.id).select_related("incident").first()
+        return link.incident.title if link and link.incident else None
 
 
 class AlertUpdateSerializer(serializers.Serializer):

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { AlertRule, Alert, CreateAlertRuleData, AlertSeverity, AlertStatus } from '../types/alerts';
+import type { AlertRule, Alert, CreateAlertRuleData, AlertSeverity, AlertStatus, AlertStats } from '../types/alerts';
 import SeverityBadge from '../components/common/SeverityBadge';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
@@ -19,6 +19,12 @@ import {
   CheckCircle,
   Eye,
   Sliders,
+  ShieldAlert,
+  AlertTriangle,
+  CheckCircle2,
+  CheckCheck,
+  CheckSquare,
+  Flame,
 } from 'lucide-react';
 
 type MainTab = 'rules' | 'alerts';
@@ -44,6 +50,16 @@ export default function AlertsPage() {
       return response.data?.data || [];
     },
     refetchInterval: 30000,
+  });
+
+  // Alerts stats query
+  const { data: stats } = useQuery({
+    queryKey: ['alerts-stats'],
+    queryFn: async () => {
+      const response = await api.get('alerts/stats/');
+      return (response.data?.data || {}) as AlertStats;
+    },
+    refetchInterval: 15000,
   });
 
   // Alerts query
@@ -100,6 +116,38 @@ export default function AlertsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+    },
+  });
+
+  const acknowledgeAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('alerts/acknowledge-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+    },
+  });
+
+  const resolveAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('alerts/resolve-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+    },
+  });
+
+  const createIncidentMutation = useMutation({
+    mutationFn: async (alertId: string) => {
+      await api.post(`alerts/${alertId}/create-incident/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
     },
   });
 
@@ -128,6 +176,19 @@ export default function AlertsPage() {
     });
   };
 
+  // Evaluate rules mutation
+  const evaluateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await api.post('alert-rules/evaluate/');
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+    },
+  });
+
   return (
     <div>
       {/* Header */}
@@ -143,6 +204,16 @@ export default function AlertsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => evaluateMutation.mutate()}
+            disabled={evaluateMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            title="Ejecutar evaluación de reglas inmediatamente"
+          >
+            <RefreshCw size={16} className={evaluateMutation.isPending ? 'animate-spin' : ''} />
+            Evaluar Reglas Ahora
+          </button>
+
           <button
             onClick={() => (activeTab === 'rules' ? refetchRules() : refetchAlerts())}
             disabled={isRefetchingRules || isRefetchingAlerts}
@@ -195,7 +266,52 @@ export default function AlertsPage() {
       {/* TAB 1: ALERTS LIST */}
       {activeTab === 'alerts' && (
         <div>
-          {/* Sub Filters */}
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+                <ShieldAlert size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-mono uppercase text-text-muted">Críticas Activas</p>
+                <p className="text-xl font-bold font-mono text-accent-red">{stats?.active_critical || 0}</p>
+              </div>
+            </div>
+
+            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-mono uppercase text-text-muted">Advertencias</p>
+                <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.active_warning || 0}</p>
+              </div>
+            </div>
+
+            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+                <CheckCircle2 size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-mono uppercase text-text-muted">Resueltas</p>
+                <p className="text-xl font-bold font-mono text-text-main">{stats?.resolved || 0}</p>
+              </div>
+            </div>
+
+            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+                <Clock size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-mono uppercase text-text-muted">MTTR Promedio</p>
+                <p className="text-xl font-bold font-mono text-accent-green">
+                  {stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '0m'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Sub Filters & Bulk Actions */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-bg-card border border-border-base p-4 rounded-xl shadow-md">
             <div className="flex items-center gap-2 flex-wrap text-xs">
               <span className="text-text-dim font-mono uppercase font-bold mr-1">Estado:</span>
@@ -214,21 +330,44 @@ export default function AlertsPage() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-text-dim font-mono uppercase font-bold mr-1">Severidad:</span>
-              {(['all', 'critical', 'warning', 'info'] as FilterSeverity[]).map((sv) => (
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <span className="text-text-dim font-mono uppercase font-bold mr-1">Severidad:</span>
+                {(['all', 'critical', 'warning', 'info'] as FilterSeverity[]).map((sv) => (
+                  <button
+                    key={sv}
+                    onClick={() => setSeverityFilter(sv)}
+                    className={`px-3 py-1.5 rounded-lg border font-mono capitalize transition-all ${
+                      severityFilter === sv
+                        ? 'bg-accent-blue/10 border-accent-blue/40 text-accent-blue font-bold'
+                        : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
+                    }`}
+                  >
+                    {sv === 'all' ? 'Todas' : sv}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 border-l border-border-base pl-3">
                 <button
-                  key={sv}
-                  onClick={() => setSeverityFilter(sv)}
-                  className={`px-3 py-1.5 rounded-lg border font-mono capitalize transition-all ${
-                    severityFilter === sv
-                      ? 'bg-accent-blue/10 border-accent-blue/40 text-accent-blue font-bold'
-                      : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
-                  }`}
+                  onClick={() => acknowledgeAllMutation.mutate()}
+                  disabled={acknowledgeAllMutation.isPending || !stats?.total_active}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-base bg-bg-dark text-text-muted hover:text-text-main text-xs font-medium transition-colors disabled:opacity-40"
+                  title="Marcar todas las alertas activas como reconocidas"
                 >
-                  {sv === 'all' ? 'Todas' : sv}
+                  <CheckCheck size={14} className="text-accent-yellow" />
+                  Reconocer Todas
                 </button>
-              ))}
+                <button
+                  onClick={() => resolveAllMutation.mutate()}
+                  disabled={resolveAllMutation.isPending || (!stats?.total_active && !stats?.acknowledged)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-base bg-bg-dark text-text-muted hover:text-accent-green text-xs font-medium transition-colors disabled:opacity-40"
+                  title="Marcar todas las alertas como resueltas"
+                >
+                  <CheckSquare size={14} className="text-accent-green" />
+                  Resolver Todas
+                </button>
+              </div>
             </div>
           </div>
 
@@ -267,6 +406,25 @@ export default function AlertsPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                    {alert.incident_id ? (
+                      <span
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 border border-accent-red/30 text-accent-red rounded-lg text-xs font-mono font-bold"
+                        title={alert.incident_title || 'Incidente vinculado'}
+                      >
+                        <Flame size={14} /> Incidente Vinc.
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => createIncidentMutation.mutate(alert.id)}
+                        disabled={createIncidentMutation.isPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                        title="Elevar esta alerta a Incidente"
+                      >
+                        <Flame size={14} />
+                        Crear Incidente
+                      </button>
+                    )}
+
                     {alert.status === 'active' && (
                       <button
                         onClick={() =>
@@ -276,7 +434,7 @@ export default function AlertsPage() {
                         title="Reconocer alerta"
                       >
                         <Eye size={14} />
-                        Reconocer (Acknowledge)
+                        Reconocer
                       </button>
                     )}
                     {alert.status !== 'resolved' && (

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../services/api';
 import type {
   AlertRule,
   CreateAlertRuleData,
@@ -6,6 +8,7 @@ import type {
   AlertCondition,
   AlertSeverity,
 } from '../../types/alerts';
+import type { MonitoringTarget } from '../../types/monitoring';
 import { X, Loader2, BellRing } from 'lucide-react';
 
 interface AlertRuleFormProps {
@@ -42,8 +45,19 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
   const [condition, setCondition] = useState<AlertCondition>('status_down');
   const [threshold, setThreshold] = useState<number>(0);
   const [severity, setSeverity] = useState<AlertSeverity>('warning');
+  const [targetId, setTargetId] = useState<string>('');
   const [enabled, setEnabled] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Fetch monitoring targets for target_id dropdown selection
+  const { data: monitoringTargets } = useQuery({
+    queryKey: ['monitoring-targets'],
+    queryFn: async () => {
+      const response = await api.get('monitoring/');
+      return (response.data?.data || []) as MonitoringTarget[];
+    },
+    enabled: targetType === 'monitoring',
+  });
 
   useEffect(() => {
     if (rule) {
@@ -52,6 +66,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
       setCondition(rule.condition);
       setThreshold(rule.threshold);
       setSeverity(rule.severity);
+      setTargetId(rule.target_id || '');
       setEnabled(rule.enabled);
     } else {
       setName('');
@@ -59,6 +74,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
       setCondition('status_down');
       setThreshold(0);
       setSeverity('warning');
+      setTargetId('');
       setEnabled(true);
     }
   }, [rule]);
@@ -76,6 +92,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
         threshold: Number(threshold),
         severity,
         enabled,
+        target_id: targetId || null,
       });
       onClose();
     } finally {
@@ -124,7 +141,10 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
               </label>
               <select
                 value={targetType}
-                onChange={(e) => setTargetType(e.target.value as AlertTargetType)}
+                onChange={(e) => {
+                  setTargetType(e.target.value as AlertTargetType);
+                  setTargetId('');
+                }}
                 className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
               >
                 {TARGET_TYPES.map((t) => (
@@ -151,6 +171,28 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              Aplicar a Target Especifico
+            </label>
+            <select
+              value={targetId}
+              onChange={(e) => setTargetId(e.target.value)}
+              className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+            >
+              <option value="">Todos los targets (Regla Global)</option>
+              {targetType === 'monitoring' &&
+                (monitoringTargets || []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.endpoint})
+                  </option>
+                ))}
+            </select>
+            <p className="text-xs text-text-dim mt-1">
+              Selecciona un target específico o aplica la regla de forma global a todos.
+            </p>
           </div>
 
           <div>
