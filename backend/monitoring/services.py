@@ -71,6 +71,12 @@ class MonitoringService:
         except Exception:
             pass
 
+        try:
+            from domain.services import DomainService
+            DomainService.get_or_create_domain(organization_id, endpoint)
+        except Exception:
+            pass
+
         return target
 
     @staticmethod

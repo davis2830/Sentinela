@@ -156,3 +156,34 @@ class DomainExpiredView(APIView):
         domains = DomainService.get_expired(org_id)
         serializer = DomainInfoSerializer(domains, many=True)
         return success_response(serializer.data)
+
+
+class DomainStatsView(APIView):
+    """Endpoint for WHOIS domain KPI summary statistics.
+
+    GET /api/v1/domains/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats_data = DomainService.get_domain_stats(org_id)
+        return success_response(stats_data)
+
+
+class DomainBulkScanView(APIView):
+    """Endpoint to trigger bulk WHOIS scan for all domains.
+
+    POST /api/v1/domains/scan-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .tasks import scan_all_domains
+            scan_all_domains.delay()
+            return success_response({"message": "Consulta WHOIS masiva de dominios iniciada."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
