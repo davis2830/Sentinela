@@ -34,10 +34,16 @@ def run_api_check(self, target_id):
     logger.info("Running API check: %s %s", target.method, target.url)
 
     try:
+        target_url = target.url
+        if "localhost:8000" in target_url:
+            target_url = target_url.replace("localhost:8000", "backend:8000")
+        elif "127.0.0.1:8000" in target_url:
+            target_url = target_url.replace("127.0.0.1:8000", "backend:8000")
+
         start = timezone.now()
         response = requests.request(
             method=target.method,
-            url=target.url,
+            url=target_url,
             headers=target.request_headers or {},
             json=target.request_body or None,
             timeout=15,

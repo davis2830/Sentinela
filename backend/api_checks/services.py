@@ -59,7 +59,7 @@ class APICheckService:
         Returns:
             The created APICheckTarget instance.
         """
-        return APICheckTarget.objects.create(
+        target = APICheckTarget.objects.create(
             organization_id=organization_id,
             name=name,
             url=url,
@@ -72,6 +72,31 @@ class APICheckService:
             request_body=request_body or {},
             enabled=enabled,
         )
+        try:
+            from .tasks import run_api_check
+            run_api_check.delay(str(target.id))
+        except Exception:
+            pass
+        return target
+
+    @staticmethod
+    @transaction.atomic
+    def get_or_create_api_target(organization_id, name, url, method="GET"):
+        """Get or auto-create API check target for monitoring targets."""
+        if not url or url in ("http://localhost", "http://127.0.0.1"):
+            return None
+        target, created = APICheckTarget.objects.get_or_create(
+            organization_id=organization_id,
+            url=url,
+            defaults={"name": name, "method": method},
+        )
+        if created:
+            try:
+                from .tasks import run_api_check
+                run_api_check.delay(str(target.id))
+            except Exception:
+                pass
+        return target
 
     @staticmethod
     @transaction.atomic
@@ -84,7 +109,40 @@ class APICheckService:
             if value is not None:
                 setattr(target, field, value)
         target.save()
+        try:
+            from .tasks import run_api_check
+            run_api_check.delay(str(target.id))
+        except Exception:
+            pass
         return target
+
+    @staticmethod
+    def get_api_check_stats(organization_id):
+        """Returns KPI summary statistics for API check targets."""
+        targets = APICheckTarget.objects.filter(organization_id=organization_id)
+        total = targets.count()
+        pass_count = targets.filter(last_status="pass").count()
+        slow_count = targets.filter(last_status="slow").count()
+        fail_count = targets.filter(last_status__in=["fail", "error"]).count()
+
+        # Calculate average response time across recent results
+        recent_results = APICheckResult.objects.filter(
+            target__organization_id=organization_id,
+            response_time_ms__isnull=False,
+        ).order_by("-checked_at")[:100]
+
+        avg_latency = 0
+        if recent_results.exists():
+            times = [r.response_time_ms for r in recent_results if r.response_time_ms]
+            avg_latency = round(sum(times) / len(times), 1) if times else 0
+
+        return {
+            "total": total,
+            "pass_count": pass_count,
+            "slow_count": slow_count,
+            "fail_count": fail_count,
+            "avg_latency": avg_latency,
+        }
 
     @staticmethod
     @transaction.atomic

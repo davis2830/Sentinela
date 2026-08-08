@@ -77,6 +77,14 @@ class MonitoringService:
         except Exception:
             pass
 
+        try:
+            from api_checks.services import APICheckService
+            method = "GET"
+            full_url = endpoint if endpoint.startswith("http") else f"https://{endpoint}"
+            APICheckService.get_or_create_api_target(organization_id, name, full_url, method=method)
+        except Exception:
+            pass
+
         return target
 
     @staticmethod

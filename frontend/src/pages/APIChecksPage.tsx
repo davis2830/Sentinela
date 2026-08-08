@@ -5,6 +5,7 @@ import type {
   APICheckTarget,
   APICheckResult,
   CreateAPICheckTargetData,
+  APICheckStats,
 } from '../types/api_checks';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
@@ -23,7 +24,11 @@ import {
   XCircle,
   ExternalLink,
   Zap,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
+
+type StatusFilterType = 'all' | 'pass' | 'slow' | 'fail';
 
 export default function APIChecksPage() {
   const queryClient = useQueryClient();
@@ -31,6 +36,17 @@ export default function APIChecksPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingTarget, setEditingTarget] = useState<APICheckTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<APICheckTarget | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('all');
+
+  // Stats query
+  const { data: stats } = useQuery({
+    queryKey: ['api-check-stats'],
+    queryFn: async () => {
+      const response = await api.get('api-checks/stats/');
+      return (response.data?.data || {}) as APICheckStats;
+    },
+    refetchInterval: 15000,
+  });
 
   // List targets query
   const { data: targets, isLoading, refetch, isRefetching } = useQuery({
@@ -60,6 +76,7 @@ export default function APIChecksPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
     },
   });
 
@@ -69,6 +86,7 @@ export default function APIChecksPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
     },
   });
 
@@ -79,10 +97,21 @@ export default function APIChecksPage() {
     },
     onSuccess: (updatedTarget) => {
       queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
       queryClient.invalidateQueries({ queryKey: ['api-check-results', selectedTarget?.id] });
       if (selectedTarget && updatedTarget) {
         setSelectedTarget(updatedTarget);
       }
+    },
+  });
+
+  const scanAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('api-checks/scan-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
     },
   });
 
@@ -92,6 +121,7 @@ export default function APIChecksPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
       if (selectedTarget?.id === deleteTarget?.id) {
         setSelectedTarget(null);
       }
@@ -117,6 +147,14 @@ export default function APIChecksPage() {
     setEditingTarget(target);
     setShowForm(true);
   };
+
+  const filteredTargets = (targets || []).filter((t: APICheckTarget) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'pass') return t.last_status === 'pass';
+    if (statusFilter === 'slow') return t.last_status === 'slow';
+    if (statusFilter === 'fail') return t.last_status === 'fail' || t.last_status === 'error';
+    return true;
+  });
 
   // Detail View for an API Check Target
   if (selectedTarget) {
@@ -252,43 +290,37 @@ export default function APIChecksPage() {
                       <td className="py-3 px-4">
                         <StatusBadge status={res.status} />
                       </td>
-                      <td className="py-3 px-4 font-bold">
-                        {res.http_status ? (
-                          <span
-                            className={
-                              res.http_status >= 200 && res.http_status < 300
-                                ? 'text-accent-green'
-                                : 'text-accent-red'
-                            }
-                          >
-                            {res.http_status}
-                          </span>
-                        ) : (
-                          '-'
-                        )}
+                      <td className="py-3 px-4 font-bold text-text-main">
+                        {res.http_status ?? 'N/A'}
                       </td>
-                      <td className="py-3 px-4 text-text-main font-semibold">
-                        {res.response_time_ms !== null ? `${res.response_time_ms} ms` : '-'}
+                      <td className="py-3 px-4 font-bold text-accent-blue">
+                        {res.response_time_ms !== null ? `${res.response_time_ms} ms` : 'N/A'}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        {res.json_valid ? (
-                          <CheckCircle2 size={18} className="text-accent-green mx-auto" />
+                        {res.json_valid === true ? (
+                          <CheckCircle2 size={16} className="text-accent-green mx-auto" />
+                        ) : res.json_valid === false ? (
+                          <XCircle size={16} className="text-accent-red mx-auto" />
                         ) : (
-                          <XCircle size={18} className="text-accent-red mx-auto" />
+                          <span className="text-text-dim text-xs">-</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        {res.schema_valid ? (
-                          <CheckCircle2 size={18} className="text-accent-green mx-auto" />
+                        {res.schema_valid === true ? (
+                          <CheckCircle2 size={16} className="text-accent-green mx-auto" />
+                        ) : res.schema_valid === false ? (
+                          <XCircle size={16} className="text-accent-red mx-auto" />
                         ) : (
-                          <XCircle size={18} className="text-accent-red mx-auto" />
+                          <span className="text-text-dim text-xs">-</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        {res.headers_valid ? (
-                          <CheckCircle2 size={18} className="text-accent-green mx-auto" />
+                        {res.headers_valid === true ? (
+                          <CheckCircle2 size={16} className="text-accent-green mx-auto" />
+                        ) : res.headers_valid === false ? (
+                          <XCircle size={16} className="text-accent-red mx-auto" />
                         ) : (
-                          <XCircle size={18} className="text-accent-red mx-auto" />
+                          <span className="text-text-dim text-xs">-</span>
                         )}
                       </td>
                     </tr>
@@ -298,7 +330,7 @@ export default function APIChecksPage() {
             </div>
           ) : (
             <p className="text-text-dim text-sm py-6 text-center font-mono">
-              No hay historial de chequeos aún para este endpoint.
+              No hay ejecuciones registradas para esta API.
             </p>
           )}
         </div>
@@ -343,12 +375,13 @@ export default function APIChecksPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
-            title="Refrescar targets"
+            onClick={() => scanAllMutation.mutate()}
+            disabled={scanAllMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            title="Ejecutar validación de todas las APIs inmediatamente"
           >
-            <RefreshCw size={18} className={isRefetching ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
+            Ejecutar Checks Todos
           </button>
           <button
             onClick={handleOpenCreate}
@@ -360,14 +393,104 @@ export default function APIChecksPage() {
         </div>
       </div>
 
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+            <Plug size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Total Monitoreados</p>
+            <p className="text-xl font-bold font-mono text-text-main">{stats?.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+            <CheckCircle2 size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">APIs Exitosas (Pass)</p>
+            <p className="text-xl font-bold font-mono text-accent-green">{stats?.pass_count || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">APIs Lentas (Slow)</p>
+            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.slow_count || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Con Fallos / Errores</p>
+            <p className="text-xl font-bold font-mono text-accent-red">{stats?.fail_count || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-border-base mb-6">
+        <button
+          onClick={() => setStatusFilter('all')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            statusFilter === 'all'
+              ? 'border-accent-green text-accent-green font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          Todos ({stats?.total || 0})
+        </button>
+        <button
+          onClick={() => setStatusFilter('pass')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            statusFilter === 'pass'
+              ? 'border-accent-green text-accent-green font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <CheckCircle2 size={15} />
+          Exitosas ({stats?.pass_count || 0})
+        </button>
+        <button
+          onClick={() => setStatusFilter('slow')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            statusFilter === 'slow'
+              ? 'border-accent-yellow text-accent-yellow font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <AlertTriangle size={15} />
+          Lentas ({stats?.slow_count || 0})
+        </button>
+        <button
+          onClick={() => setStatusFilter('fail')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            statusFilter === 'fail'
+              ? 'border-accent-red text-accent-red font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <ShieldAlert size={15} />
+          Con Fallos ({stats?.fail_count || 0})
+        </button>
+      </div>
+
       {/* Targets Cards Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
-      ) : targets && targets.length > 0 ? (
+      ) : filteredTargets && filteredTargets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {targets.map((target: APICheckTarget) => (
+          {filteredTargets.map((target: APICheckTarget) => (
             <div
               key={target.id}
               onClick={() => setSelectedTarget(target)}
