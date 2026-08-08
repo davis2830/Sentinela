@@ -39,6 +39,11 @@
     padding: 8px;
   }
 
+  select option {
+    background-color: #090D11 !important;
+    color: #F8FAFC !important;
+  }
+
   input::placeholder, textarea::placeholder {
     color: #64748B;
   }

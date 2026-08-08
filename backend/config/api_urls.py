@@ -12,6 +12,7 @@ urlpatterns = [
 
     # Monitoring
     path("monitoring-targets/", include("monitoring.urls")),
+    path("monitoring/", include("monitoring.urls")),
 
     # SSL
     path("ssl-certificates/", include("ssl_monitor.urls")),

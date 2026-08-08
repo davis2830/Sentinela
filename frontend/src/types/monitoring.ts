@@ -6,6 +6,11 @@ export interface MonitoringTarget {
   endpoint: string;
   interval: number;
   enabled: boolean;
+  http_method?: string;
+  expected_status?: number;
+  custom_headers?: Record<string, string>;
+  request_body?: string;
+  max_latency_ms?: number;
   last_checked_at: string | null;
   last_status: string | null;
   last_latency: number | null;
@@ -37,6 +42,11 @@ export interface CreateTargetData {
   endpoint: string;
   interval: number;
   enabled: boolean;
+  http_method?: string;
+  expected_status?: number;
+  custom_headers?: Record<string, string>;
+  request_body?: string;
+  max_latency_ms?: number;
 }
 
 export interface UpdateTargetData {
@@ -45,4 +55,9 @@ export interface UpdateTargetData {
   endpoint?: string;
   interval?: number;
   enabled?: boolean;
+  http_method?: string;
+  expected_status?: number;
+  custom_headers?: Record<string, string>;
+  request_body?: string;
+  max_latency_ms?: number;
 }

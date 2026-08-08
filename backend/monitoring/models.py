@@ -30,6 +30,11 @@ class MonitoringTarget(OrganizationOwnedModel):
         help_text="Check interval in seconds.",
     )
     enabled = models.BooleanField(default=True)
+    http_method = models.CharField(max_length=10, default="GET")
+    expected_status = models.PositiveIntegerField(default=200)
+    custom_headers = models.JSONField(default=dict, blank=True)
+    request_body = models.TextField(blank=True, default="")
+    max_latency_ms = models.PositiveIntegerField(default=2000)
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, null=True, blank=True)
     last_latency = models.FloatField(null=True, blank=True)
