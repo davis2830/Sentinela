@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { SSLCertificate, CreateSSLCertificateData } from '../types/ssl';
+import type { SSLCertificate, CreateSSLCertificateData, SSLStats } from '../types/ssl';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
@@ -24,6 +24,7 @@ import {
   ShieldAlert,
   Cpu,
   Fingerprint,
+  Globe,
 } from 'lucide-react';
 
 type FilterType = 'all' | 'expiring' | 'expired';
@@ -59,6 +60,15 @@ export default function SSLCertificatesPage() {
     }
   };
 
+  const { data: stats } = useQuery({
+    queryKey: ['ssl-stats'],
+    queryFn: async () => {
+      const response = await api.get('ssl-certificates/stats/');
+      return (response.data?.data || {}) as SSLStats;
+    },
+    refetchInterval: 15000,
+  });
+
   const { data: certificates, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['ssl-certificates', filter],
     queryFn: async () => {
@@ -74,6 +84,7 @@ export default function SSLCertificatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
       handleCloseModal();
     },
   });
@@ -84,6 +95,7 @@ export default function SSLCertificatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
       handleCloseModal();
     },
   });
@@ -95,9 +107,20 @@ export default function SSLCertificatesPage() {
     },
     onSuccess: (updatedCert) => {
       queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
       if (selectedCert && updatedCert) {
         setSelectedCert(updatedCert);
       }
+    },
+  });
+
+  const scanAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('ssl-certificates/scan-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
     },
   });
 
@@ -107,6 +130,7 @@ export default function SSLCertificatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
       if (selectedCert?.id === deleteTarget?.id) {
         setSelectedCert(null);
       }
@@ -173,6 +197,16 @@ export default function SSLCertificatesPage() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => scanAllMutation.mutate()}
+            disabled={scanAllMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            title="Re-escanear todos los certificados inmediatamente"
+          >
+            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
+            Escanear Todos
+          </button>
+
+          <button
             onClick={() => refetch()}
             disabled={isRefetching}
             className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
@@ -190,38 +224,81 @@ export default function SSLCertificatesPage() {
         </div>
       </div>
 
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Total Monitoreados</p>
+            <p className="text-xl font-bold font-mono text-text-main">{stats?.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+            <Check size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Certificados Válidos</p>
+            <p className="text-xl font-bold font-mono text-accent-green">{stats?.valid || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Por Expirar (≤15d)</p>
+            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.expiring_15d || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Expirados / Errores</p>
+            <p className="text-xl font-bold font-mono text-accent-red">{(stats?.expired || 0) + (stats?.invalid || 0)}</p>
+          </div>
+        </div>
+      </div>
+
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 border-b border-border-base mb-6">
         <button
           onClick={() => setFilter('all')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             filter === 'all'
-              ? 'border-accent-green text-accent-green'
+              ? 'border-accent-green text-accent-green font-bold'
               : 'border-transparent text-text-muted hover:text-text-main'
           }`}
         >
-          Todos
+          Todos ({stats?.total || 0})
         </button>
         <button
           onClick={() => setFilter('expiring')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
             filter === 'expiring'
-              ? 'border-accent-yellow text-accent-yellow'
+              ? 'border-accent-yellow text-accent-yellow font-bold'
               : 'border-transparent text-text-muted hover:text-text-main'
           }`}
         >
           <AlertTriangle size={15} />
-          Por expirar (&le; 15 días)
+          Por expirar ({stats?.expiring_15d || 0})
         </button>
         <button
           onClick={() => setFilter('expired')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
             filter === 'expired'
-              ? 'border-accent-red text-accent-red'
+              ? 'border-accent-red text-accent-red font-bold'
               : 'border-transparent text-text-muted hover:text-text-main'
           }`}
         >
-          Expirados
+          Expirados ({(stats?.expired || 0) + (stats?.invalid || 0)})
         </button>
       </div>
 
@@ -534,8 +611,8 @@ export default function SSLCertificatesPage() {
                     </div>
                   </div>
 
-                  {/* Algorithm & Fingerprint */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Algorithm & Fingerprint & TLS Version */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="bg-bg-dark border border-border-base rounded-xl p-4">
                       <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
                         <Cpu size={14} /> Algoritmo de Firma
@@ -547,11 +624,20 @@ export default function SSLCertificatesPage() {
 
                     <div className="bg-bg-dark border border-border-base rounded-xl p-4">
                       <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
+                        <ShieldCheck size={14} /> Protocolo TLS
+                      </div>
+                      <div className="font-mono text-sm font-bold text-accent-blue mt-1">
+                        {selectedCert.tls_version || 'TLSv1.3'}
+                      </div>
+                    </div>
+
+                    <div className="bg-bg-dark border border-border-base rounded-xl p-4">
+                      <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
                         <Fingerprint size={14} /> Fingerprint SHA-256
                       </div>
                       {selectedCert.fingerprint ? (
                         <div className="flex items-center justify-between gap-2 mt-1">
-                          <span className="font-mono text-xs text-text-muted truncate max-w-[180px]" title={selectedCert.fingerprint}>
+                          <span className="font-mono text-xs text-text-muted truncate max-w-[140px]" title={selectedCert.fingerprint}>
                             {selectedCert.fingerprint}
                           </span>
                           <button
@@ -567,6 +653,25 @@ export default function SSLCertificatesPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Subject Alternative Names (SANs) */}
+                  {selectedCert.san_domains && selectedCert.san_domains.length > 0 && (
+                    <div className="bg-bg-dark border border-border-base rounded-xl p-4">
+                      <div className="text-xs text-text-dim uppercase font-mono mb-2 flex items-center gap-1.5">
+                        <Globe size={14} /> Dominios Alternativos Protegidos (SANs)
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedCert.san_domains.map((san, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2.5 py-1 rounded bg-bg-card border border-border-base text-text-main text-xs font-mono"
+                          >
+                            {san}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

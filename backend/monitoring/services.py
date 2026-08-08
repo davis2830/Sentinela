@@ -50,7 +50,7 @@ class MonitoringService:
         Returns:
             The created MonitoringTarget instance.
         """
-        return MonitoringTarget.objects.create(
+        target = MonitoringTarget.objects.create(
             organization_id=organization_id,
             name=name,
             target_type=target_type,
@@ -58,6 +58,13 @@ class MonitoringService:
             interval=interval,
             enabled=enabled,
         )
+        if target_type.lower() in ("https", "ssl"):
+            try:
+                from ssl_monitor.services import SSLMonitorService
+                SSLMonitorService.get_or_create_certificate(organization_id, endpoint)
+            except Exception:
+                pass
+        return target
 
     @staticmethod
     @transaction.atomic

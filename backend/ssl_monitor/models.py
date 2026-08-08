@@ -20,6 +20,8 @@ class SSLCertificate(OrganizationOwnedModel):
     is_valid = models.BooleanField(default=True)
     last_scanned_at = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True)
+    san_domains = models.JSONField(default=list, blank=True)
+    tls_version = models.CharField(max_length=50, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
