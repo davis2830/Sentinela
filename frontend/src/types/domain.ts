@@ -19,3 +19,12 @@ export interface DomainInfo {
 export interface CreateDomainInfoData {
   domain: string;
 }
+
+export interface DomainStats {
+  total: number;
+  active: number;
+  expiring_30d: number;
+  expiring_15d: number;
+  expired: number;
+  error: number;
+}

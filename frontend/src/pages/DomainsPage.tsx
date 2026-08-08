@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { DomainInfo, CreateDomainInfoData } from '../types/domain';
+import type { DomainInfo, CreateDomainInfoData, DomainStats } from '../types/domain';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Flag,
+  CheckCircle2,
 } from 'lucide-react';
 
 type FilterType = 'all' | 'expiring' | 'expired';
@@ -47,6 +48,15 @@ export default function DomainsPage() {
     }
   };
 
+  const { data: stats } = useQuery({
+    queryKey: ['domain-stats'],
+    queryFn: async () => {
+      const response = await api.get('domains/stats/');
+      return (response.data?.data || {}) as DomainStats;
+    },
+    refetchInterval: 15000,
+  });
+
   const { data: domains, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['domains-whois', filter],
     queryFn: async () => {
@@ -62,6 +72,7 @@ export default function DomainsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['domains-whois'] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
       handleCloseModal();
     },
   });
@@ -72,6 +83,7 @@ export default function DomainsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['domains-whois'] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
       handleCloseModal();
     },
   });
@@ -83,9 +95,20 @@ export default function DomainsPage() {
     },
     onSuccess: (updatedDomain) => {
       queryClient.invalidateQueries({ queryKey: ['domains-whois'] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
       if (selectedDomain && updatedDomain) {
         setSelectedDomain(updatedDomain);
       }
+    },
+  });
+
+  const scanAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('domains/scan-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['domains-whois'] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
     },
   });
 
@@ -95,6 +118,7 @@ export default function DomainsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['domains-whois'] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
       if (selectedDomain?.id === deleteTarget?.id) {
         setSelectedDomain(null);
       }
@@ -160,13 +184,15 @@ export default function DomainsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
-            title="Refrescar dominios"
+            onClick={() => scanAllMutation.mutate()}
+            disabled={scanAllMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            title="Consultar datos WHOIS de todos los dominios inmediatamente"
           >
-            <RefreshCw size={18} className={isRefetching ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
+            Consultar WHOIS Todos
           </button>
+
           <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
@@ -177,38 +203,81 @@ export default function DomainsPage() {
         </div>
       </div>
 
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+            <Globe2 size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Total Monitoreados</p>
+            <p className="text-xl font-bold font-mono text-text-main">{stats?.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+            <CheckCircle2 size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Dominios Activos</p>
+            <p className="text-xl font-bold font-mono text-accent-green">{stats?.active || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Por Expirar (≤30d)</p>
+            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.expiring_30d || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Expirados / Errores</p>
+            <p className="text-xl font-bold font-mono text-accent-red">{(stats?.expired || 0) + (stats?.error || 0)}</p>
+          </div>
+        </div>
+      </div>
+
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 border-b border-border-base mb-6">
         <button
           onClick={() => setFilter('all')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             filter === 'all'
-              ? 'border-accent-green text-accent-green'
+              ? 'border-accent-green text-accent-green font-bold'
               : 'border-transparent text-text-muted hover:text-text-main'
           }`}
         >
-          Todos
+          Todos ({stats?.total || 0})
         </button>
         <button
           onClick={() => setFilter('expiring')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
             filter === 'expiring'
-              ? 'border-accent-yellow text-accent-yellow'
+              ? 'border-accent-yellow text-accent-yellow font-bold'
               : 'border-transparent text-text-muted hover:text-text-main'
           }`}
         >
           <AlertTriangle size={15} />
-          Por expirar (&le; 30 días)
+          Por expirar ({stats?.expiring_30d || 0})
         </button>
         <button
           onClick={() => setFilter('expired')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
             filter === 'expired'
-              ? 'border-accent-red text-accent-red'
+              ? 'border-accent-red text-accent-red font-bold'
               : 'border-transparent text-text-muted hover:text-text-main'
           }`}
         >
-          Expirados
+          Expirados ({(stats?.expired || 0) + (stats?.error || 0)})
         </button>
       </div>
 

@@ -31,22 +31,27 @@ class DomainService:
     @staticmethod
     @transaction.atomic
     def create_domain(organization_id, domain):
-        """Create a new domain info record.
-
-        The actual WHOIS data will be populated by the
-        scan_whois Celery task.
-
-        Args:
-            organization_id: UUID of the organization.
-            domain: Domain name to monitor.
-
-        Returns:
-            The created DomainInfo instance.
-        """
-        return DomainInfo.objects.create(
+        """Create a new domain info record and trigger immediate WHOIS scan."""
+        clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+        domain_info, created = DomainInfo.objects.get_or_create(
             organization_id=organization_id,
-            domain=domain,
+            domain=clean_domain,
         )
+        try:
+            from .tasks import scan_whois
+            scan_whois.delay(str(domain_info.id))
+        except Exception:
+            pass
+        return domain_info
+
+    @staticmethod
+    @transaction.atomic
+    def get_or_create_domain(organization_id, domain):
+        """Get or auto-create domain info for monitoring targets."""
+        clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+        if not clean_domain or clean_domain in ("localhost", "127.0.0.1", "host.docker.internal"):
+            return None
+        return DomainService.create_domain(organization_id, clean_domain)
 
     @staticmethod
     @transaction.atomic
@@ -62,26 +67,7 @@ class DomainService:
         days_until_expiration,
         error_message="",
     ):
-        """Update a domain info record with WHOIS scan results.
-
-        Called by the scan_whois Celery task after retrieving
-        the WHOIS data for the domain.
-
-        Args:
-            domain_id: UUID of the DomainInfo record.
-            registrar: Domain registrar name.
-            creation_date: Domain creation date.
-            expiration_date: Domain expiration date.
-            last_updated: Last WHOIS update date.
-            status: Domain status string.
-            name_servers: Name servers string.
-            registrant_country: Registrant country code.
-            days_until_expiration: Days until expiration.
-            error_message: Error message if scan failed.
-
-        Returns:
-            The updated DomainInfo instance.
-        """
+        """Update a domain info record with WHOIS scan results."""
         domain_info = DomainInfo.objects.get(id=domain_id)
         domain_info.registrar = registrar
         domain_info.creation_date = creation_date
@@ -97,6 +83,26 @@ class DomainService:
         return domain_info
 
     @staticmethod
+    def get_domain_stats(organization_id):
+        """Returns KPI summary statistics for monitored WHOIS domains."""
+        domains = DomainInfo.objects.filter(organization_id=organization_id)
+        total = domains.count()
+        active = domains.filter(error_message="", days_until_expiration__gt=30).count()
+        expiring_30d = domains.filter(error_message="", days_until_expiration__gte=0, days_until_expiration__lte=30).count()
+        expiring_15d = domains.filter(error_message="", days_until_expiration__gte=0, days_until_expiration__lte=15).count()
+        expired = domains.filter(error_message="", days_until_expiration__lt=0).count()
+        error = domains.exclude(error_message="").count()
+
+        return {
+            "total": total,
+            "active": active,
+            "expiring_30d": expiring_30d,
+            "expiring_15d": expiring_15d,
+            "expired": expired,
+            "error": error,
+        }
+
+    @staticmethod
     @transaction.atomic
     def delete_domain(domain_id, organization_id):
         """Delete a domain info record."""
@@ -109,24 +115,22 @@ class DomainService:
     @transaction.atomic
     def update_domain_record(domain_id, organization_id, domain):
         """Update domain name for an existing WHOIS domain record."""
+        clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         domain_info = DomainInfo.objects.get(
             id=domain_id, organization_id=organization_id
         )
-        domain_info.domain = domain
+        domain_info.domain = clean_domain
         domain_info.save()
+        try:
+            from .tasks import scan_whois
+            scan_whois.delay(str(domain_info.id))
+        except Exception:
+            pass
         return domain_info
 
     @staticmethod
     def get_expiring_soon(organization_id, days=30):
-        """Return domains expiring within the given number of days.
-
-        Args:
-            organization_id: UUID of the organization.
-            days: Number of days threshold (default 30).
-
-        Returns:
-            QuerySet of DomainInfo instances expiring soon.
-        """
+        """Return domains expiring within the given number of days."""
         threshold = timezone.now() + timedelta(days=days)
         return DomainInfo.objects.filter(
             organization_id=organization_id,
