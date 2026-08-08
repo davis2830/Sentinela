@@ -35,21 +35,9 @@ class AlertRuleService:
         threshold=0,
         severity="warning",
         enabled=True,
+        target_id=None,
     ):
-        """Create a new alert rule.
-
-        Args:
-            organization_id: UUID of the organization.
-            name: Display name for the rule.
-            target_type: One of ssl, monitoring, dns, domain, api_check, security_headers.
-            condition: Condition type (e.g. ssl_expiring, uptime_below).
-            threshold: Threshold value for the condition.
-            severity: Alert severity (critical, warning, info).
-            enabled: Whether the rule is active (default True).
-
-        Returns:
-            The created AlertRule instance.
-        """
+        """Create a new alert rule."""
         return AlertRule.objects.create(
             organization_id=organization_id,
             name=name,
@@ -58,6 +46,7 @@ class AlertRuleService:
             threshold=threshold,
             severity=severity,
             enabled=enabled,
+            target_id=target_id,
         )
 
     @staticmethod
@@ -142,7 +131,77 @@ class AlertService:
         alert.status = Alert.Status.RESOLVED
         alert.resolved_at = timezone.now()
         alert.save(update_fields=["status", "resolved_at"])
-        return alert
+    @staticmethod
+    @transaction.atomic
+    def auto_resolve_alert(organization_id, rule_id, target_id=None):
+        """Auto-resolves active or acknowledged alerts for a rule when the issue is resolved."""
+        now = timezone.now()
+        qs = Alert.objects.filter(
+            organization_id=organization_id,
+            rule_id=rule_id,
+            status__in=[Alert.Status.ACTIVE, Alert.Status.ACKNOWLEDGED],
+        )
+        if target_id:
+            qs = qs.filter(target_id=target_id)
+        
+        updated_count = qs.update(
+            status=Alert.Status.RESOLVED,
+            resolved_at=now,
+        )
+        return updated_count
+
+    @staticmethod
+    @transaction.atomic
+    def acknowledge_all(organization_id):
+        """Acknowledge all active alerts for an organization."""
+        updated = Alert.objects.filter(
+            organization_id=organization_id,
+            status=Alert.Status.ACTIVE,
+        ).update(status=Alert.Status.ACKNOWLEDGED)
+        return updated
+
+    @staticmethod
+    @transaction.atomic
+    def resolve_all(organization_id):
+        """Resolve all active or acknowledged alerts for an organization."""
+        now = timezone.now()
+        updated = Alert.objects.filter(
+            organization_id=organization_id,
+            status__in=[Alert.Status.ACTIVE, Alert.Status.ACKNOWLEDGED],
+        ).update(status=Alert.Status.RESOLVED, resolved_at=now)
+        return updated
+
+    @staticmethod
+    def get_alert_stats(organization_id):
+        """Returns KPI statistics for organization alerts."""
+        alerts = Alert.objects.filter(organization_id=organization_id)
+        active_critical = alerts.filter(status=Alert.Status.ACTIVE, severity="critical").count()
+        active_warning = alerts.filter(status=Alert.Status.ACTIVE, severity="warning").count()
+        active_info = alerts.filter(status=Alert.Status.ACTIVE, severity="info").count()
+        acknowledged = alerts.filter(status=Alert.Status.ACKNOWLEDGED).count()
+        resolved = alerts.filter(status=Alert.Status.RESOLVED).count()
+
+        resolved_alerts = alerts.filter(status=Alert.Status.RESOLVED, resolved_at__isnull=False)
+        total_minutes = 0
+        count = 0
+        for a in resolved_alerts:
+            if a.resolved_at and a.triggered_at:
+                diff = (a.resolved_at - a.triggered_at).total_seconds() / 60.0
+                if diff >= 0:
+                    total_minutes += diff
+                    count += 1
+
+        avg_mttr_minutes = round(total_minutes / count, 1) if count > 0 else 0
+
+        return {
+            "active_critical": active_critical,
+            "active_warning": active_warning,
+            "active_info": active_info,
+            "total_active": active_critical + active_warning + active_info,
+            "acknowledged": acknowledged,
+            "resolved": resolved,
+            "avg_mttr_minutes": avg_mttr_minutes,
+        }
 
     @staticmethod
     @transaction.atomic
@@ -155,22 +214,27 @@ class AlertService:
         target_type="",
         target_id=None,
     ):
-        """Create a new alert from a rule evaluation.
+        """Create or update active alert from rule evaluation."""
+        if rule_id and target_id:
+            existing = Alert.objects.filter(
+                organization_id=organization_id,
+                rule_id=rule_id,
+                target_id=target_id,
+                status__in=[Alert.Status.ACTIVE, Alert.Status.ACKNOWLEDGED],
+            ).first()
 
-        Called by the AlertEvaluatorService when a rule condition is met.
+            if existing:
+                existing.title = title
+                existing.message = message
+                existing.severity = severity
+                existing.triggered_at = timezone.now()
+                existing.save(update_fields=["title", "message", "severity", "triggered_at"])
 
-        Args:
-            organization_id: UUID of the organization.
-            rule_id: UUID of the rule that triggered (or None).
-            title: Alert title.
-            message: Alert message with details.
-            severity: Alert severity (critical, warning, info).
-            target_type: Type of the target that triggered.
-            target_id: UUID of the target that triggered.
+                rule = AlertRule.objects.get(id=rule_id)
+                rule.last_triggered_at = timezone.now()
+                rule.save(update_fields=["last_triggered_at"])
+                return existing
 
-        Returns:
-            The created Alert instance.
-        """
         alert = Alert.objects.create(
             organization_id=organization_id,
             rule_id=rule_id,
@@ -186,7 +250,77 @@ class AlertService:
             rule.last_triggered_at = timezone.now()
             rule.save(update_fields=["last_triggered_at"])
 
+        AlertService.correlate_alert_with_incident(alert)
         return alert
+
+    @staticmethod
+    @transaction.atomic
+    def correlate_alert_with_incident(alert):
+        """Auto-correlates an alert with an active incident or creates a new incident if critical."""
+        from incidents.models import Incident, IncidentAlert
+        from incidents.services import IncidentService
+
+        open_incidents = Incident.objects.filter(
+            organization_id=alert.organization_id,
+            status__in=[Incident.Status.OPEN, Incident.Status.INVESTIGATING],
+        )
+
+        target_incident = None
+        if alert.target_id:
+            target_links = IncidentAlert.objects.filter(
+                incident__in=open_incidents
+            ).values_list("incident_id", flat=True)
+            if target_links.exists():
+                target_incident = Incident.objects.filter(id__in=target_links).first()
+
+        if not target_incident and open_incidents.exists():
+            target_incident = open_incidents.first()
+
+        if target_incident:
+            IncidentService.add_alert(target_incident.id, alert.id)
+            return target_incident
+
+        if alert.severity == "critical":
+            priority = "critical"
+            incident = IncidentService.create_incident(
+                organization_id=alert.organization_id,
+                title=f"Incidente: {alert.title}",
+                description=f"Incidente generado automáticamente por alerta de severidad crítica.\n\nMensaje: {alert.message}",
+                priority=priority,
+            )
+            IncidentService.add_alert(incident.id, alert.id)
+            return incident
+
+        return None
+
+    @staticmethod
+    @transaction.atomic
+    def create_incident_for_alert(alert_id, organization_id):
+        """Manually creates/links an incident for a given alert."""
+        from incidents.models import IncidentAlert
+        from incidents.services import IncidentService
+
+        alert = Alert.objects.get(id=alert_id, organization_id=organization_id)
+
+        existing_link = IncidentAlert.objects.filter(alert_id=alert.id).select_related("incident").first()
+        if existing_link:
+            return existing_link.incident
+
+        priority_map = {
+            "critical": "critical",
+            "warning": "high",
+            "info": "medium",
+        }
+        priority = priority_map.get(alert.severity, "medium")
+
+        incident = IncidentService.create_incident(
+            organization_id=organization_id,
+            title=f"Incidente: {alert.title}",
+            description=f"Incidente elevado manualmente desde alerta.\n\nMensaje: {alert.message}",
+            priority=priority,
+        )
+        IncidentService.add_alert(incident.id, alert.id)
+        return incident
 
 
 class AlertEvaluatorService:
@@ -254,6 +388,9 @@ class AlertEvaluatorService:
             organization_id=rule.organization_id,
             is_valid=True,
         )
+        if rule.target_id:
+            certs = certs.filter(id=rule.target_id)
+
         now = timezone.now()
         threshold_date = now + timedelta(days=int(threshold))
 
@@ -281,6 +418,9 @@ class AlertEvaluatorService:
             organization_id=rule.organization_id,
             enabled=True,
         )
+        if rule.target_id:
+            targets = targets.filter(id=rule.target_id)
+
         since = timezone.now() - timedelta(hours=24)
         triggered = False
 
@@ -307,38 +447,51 @@ class AlertEvaluatorService:
 
     @staticmethod
     def _check_status_down(rule):
-        """Check if any monitoring targets are currently down."""
+        """Check if any monitoring targets are currently down. Auto-resolves if recovered."""
         from monitoring.models import MonitoringTarget
 
-        targets = MonitoringTarget.objects.filter(
+        all_targets = MonitoringTarget.objects.filter(
             organization_id=rule.organization_id,
             enabled=True,
-            last_status="down",
         )
+        if rule.target_id:
+            all_targets = all_targets.filter(id=rule.target_id)
+
         triggered = False
 
-        for target in targets:
-            AlertService.create_alert(
-                organization_id=rule.organization_id,
-                rule_id=rule.id,
-                title=f"Target is down: {target.name}",
-                message=f"Monitoring target {target.name} ({target.endpoint}) is currently down.",
-                severity=rule.severity,
-                target_type="monitoring",
-                target_id=target.id,
-            )
-            triggered = True
+        for target in all_targets:
+            if target.last_status == "down":
+                AlertService.create_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    title=f"Target is down: {target.name}",
+                    message=f"Monitoring target {target.name} ({target.endpoint}) is currently down.",
+                    severity=rule.severity,
+                    target_type="monitoring",
+                    target_id=target.id,
+                )
+                triggered = True
+            elif target.last_status == "up":
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+
         return triggered
 
     @staticmethod
     def _check_response_time(rule, threshold):
-        """Check if any monitoring targets have response time above threshold."""
+        """Check if any monitoring targets have response time above threshold. Auto-resolves if normal."""
         from monitoring.models import MonitoringTarget
 
         targets = MonitoringTarget.objects.filter(
             organization_id=rule.organization_id,
             enabled=True,
         )
+        if rule.target_id:
+            targets = targets.filter(id=rule.target_id)
+
         triggered = False
 
         for target in targets:
@@ -353,6 +506,13 @@ class AlertEvaluatorService:
                     target_id=target.id,
                 )
                 triggered = True
+            elif target.last_latency and target.last_latency <= threshold:
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+
         return triggered
 
     @staticmethod

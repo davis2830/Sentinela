@@ -175,3 +175,81 @@ class AlertDetailView(APIView):
             return error_response(
                 "Alert not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+class AlertRuleEvaluateView(APIView):
+    """Endpoint for manual on-demand evaluation of all alert rules.
+
+    POST /api/v1/alert-rules/evaluate/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .services import AlertEvaluatorService
+            count = AlertEvaluatorService.evaluate_all_rules()
+            return success_response({"alerts_created": count, "message": "Evaluación completada."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class AlertBulkAcknowledgeView(APIView):
+    """Endpoint for acknowledging all active alerts.
+
+    POST /api/v1/alerts/acknowledge-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        count = AlertService.acknowledge_all(org_id)
+        return success_response({"updated": count, "message": f"{count} alertas reconocidas."})
+
+
+class AlertBulkResolveView(APIView):
+    """Endpoint for resolving all active/acknowledged alerts.
+
+    POST /api/v1/alerts/resolve-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        count = AlertService.resolve_all(org_id)
+        return success_response({"updated": count, "message": f"{count} alertas resueltas."})
+
+
+class AlertStatsView(APIView):
+    """Endpoint for retrieving alert KPI metrics.
+
+    GET /api/v1/alerts/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats = AlertService.get_alert_stats(org_id)
+        return success_response(stats)
+
+
+class AlertCreateIncidentView(APIView):
+    """Endpoint to elevate an alert into an Incident.
+
+    POST /api/v1/alerts/<alert_id>/create-incident/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, alert_id):
+        org_id = request.user.organization_id
+        try:
+            incident = AlertService.create_incident_for_alert(alert_id, org_id)
+            from incidents.serializers import IncidentSerializer
+            serializer = IncidentSerializer(incident)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

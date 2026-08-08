@@ -52,6 +52,11 @@ class AlertRule(OrganizationOwnedModel):
         default=Severity.WARNING,
     )
     enabled = models.BooleanField(default=True)
+    target_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="Specific target ID or None for all targets of this type",
+    )
     last_triggered_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

@@ -29,6 +29,7 @@ export interface AlertRule {
   threshold: number;
   severity: AlertSeverity;
   enabled: boolean;
+  target_id?: string | null;
   last_triggered_at: string | null;
   created_at: string;
   updated_at: string;
@@ -41,6 +42,7 @@ export interface CreateAlertRuleData {
   threshold: number;
   severity: AlertSeverity;
   enabled?: boolean;
+  target_id?: string | null;
 }
 
 export interface UpdateAlertRuleData {
@@ -50,6 +52,7 @@ export interface UpdateAlertRuleData {
   threshold?: number;
   severity?: AlertSeverity;
   enabled?: boolean;
+  target_id?: string | null;
 }
 
 export interface Alert {
@@ -62,7 +65,19 @@ export interface Alert {
   status: AlertStatus;
   target_type: AlertTargetType;
   target_id: string;
+  incident_id?: string | null;
+  incident_title?: string | null;
   triggered_at: string;
   resolved_at: string | null;
   created_at: string;
+}
+
+export interface AlertStats {
+  active_critical: number;
+  active_warning: number;
+  active_info: number;
+  total_active: number;
+  acknowledged: number;
+  resolved: number;
+  avg_mttr_minutes: number;
 }

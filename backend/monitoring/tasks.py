@@ -42,6 +42,12 @@ def run_monitoring_check(self, target_id):
             _run_dns_check(target)
         elif target.target_type == "ssl":
             _run_ssl_check(target)
+
+        try:
+            from alerts.services import AlertEvaluatorService
+            AlertEvaluatorService.evaluate_all_rules()
+        except Exception as eval_exc:
+            logger.warning("Could not evaluate alert rules after check: %s", eval_exc)
     except Exception as exc:
         logger.exception("Error checking target %s: %s", target.name, exc)
         MonitoringService.record_check(
@@ -171,34 +177,99 @@ def _run_dns_check(target):
     """Perform a DNS resolution check."""
     import socket
 
+    endpoint = target.endpoint.strip()
+    if "://" in endpoint:
+        endpoint = endpoint.split("://")[1]
+    host = endpoint.split("/")[0].split(":")[0]
+
     start = timezone.now()
     try:
-        result = socket.getaddrinfo(target.endpoint, None)
+        result = socket.getaddrinfo(host, None)
         elapsed = (timezone.now() - start).total_seconds() * 1000
-        addresses = [r[4][0] for r in result]
+        addresses = list(set(r[4][0] for r in result))
         MonitoringService.record_check(
             target_id=target.id,
             status="up",
             latency=round(elapsed, 2),
-            details={"addresses": addresses},
+            details={"addresses": addresses, "host": host},
         )
     except socket.gaierror as exc:
         MonitoringService.record_check(
             target_id=target.id,
             status="down",
             latency=None,
-            details={"error": str(exc), "domain": target.endpoint},
+            details={"error": str(exc), "domain": host},
         )
 
 
 def _run_ssl_check(target):
-    """Perform an SSL certificate check.
+    """Perform an SSL certificate check for a monitoring target."""
+    import socket
+    import ssl as ssl_module
+    from datetime import datetime, timezone as dt_timezone
 
-    Delegates to the ssl_monitor app's task for detailed analysis.
-    """
-    from ssl_monitor.tasks import scan_ssl_certificate
+    endpoint = target.endpoint.strip()
+    if "://" in endpoint:
+        endpoint = endpoint.split("://")[1]
+    host = endpoint.split("/")[0].split(":")[0]
 
-    scan_ssl_certificate.delay(str(target.id))
+    if host in ("localhost", "127.0.0.1"):
+        host = "host.docker.internal"
+
+    start = timezone.now()
+    try:
+        context = ssl_module.create_default_context()
+        with socket.create_connection((host, 443), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=host) as ssock:
+                cert_info = ssock.getpeercert()
+
+        elapsed = (timezone.now() - start).total_seconds() * 1000
+
+        issuer_info = dict(x[0] for x in cert_info.get("issuer", []))
+        issuer_name = issuer_info.get("organizationName") or issuer_info.get("commonName") or "Unknown"
+
+        not_after = cert_info.get("notAfter", "")
+        expiration_date = None
+        days_remaining = None
+        if not_after:
+            try:
+                expiration_date = datetime.strptime(
+                    not_after, "%b %d %H:%M:%S %Y %Z"
+                ).replace(tzinfo=dt_timezone.utc)
+                now = datetime.now(dt_timezone.utc)
+                days_remaining = (expiration_date - now).days
+            except ValueError:
+                pass
+
+        status = "up"
+        if elapsed > (target.max_latency_ms or 2000):
+            status = "slow"
+
+        MonitoringService.record_check(
+            target_id=target.id,
+            status=status,
+            latency=round(elapsed, 2),
+            details={
+                "host": host,
+                "days_remaining": days_remaining,
+                "issuer": issuer_name,
+                "expiration_date": expiration_date.isoformat() if expiration_date else None,
+            },
+        )
+    except ssl_module.SSLError as exc:
+        MonitoringService.record_check(
+            target_id=target.id,
+            status="down",
+            latency=None,
+            details={"error": f"SSL error: {exc}", "host": host},
+        )
+    except (socket.timeout, socket.gaierror, ConnectionRefusedError, OSError) as exc:
+        MonitoringService.record_check(
+            target_id=target.id,
+            status="down",
+            latency=None,
+            details={"error": f"Connection error: {exc}", "host": host},
+        )
 
 
 @shared_task(name="monitoring.schedule_checks")
