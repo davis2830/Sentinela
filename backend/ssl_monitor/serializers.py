@@ -21,6 +21,8 @@ class SSLCertificateSerializer(serializers.ModelSerializer):
             "is_valid",
             "last_scanned_at",
             "error_message",
+            "san_domains",
+            "tls_version",
             "created_at",
             "updated_at",
         )
@@ -36,6 +38,8 @@ class SSLCertificateSerializer(serializers.ModelSerializer):
             "is_valid",
             "last_scanned_at",
             "error_message",
+            "san_domains",
+            "tls_version",
             "created_at",
             "updated_at",
         )

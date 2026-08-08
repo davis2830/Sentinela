@@ -156,3 +156,34 @@ class SSLExpiredView(APIView):
         certs = SSLMonitorService.get_expired(org_id)
         serializer = SSLCertificateSerializer(certs, many=True)
         return success_response(serializer.data)
+
+
+class SSLStatsView(APIView):
+    """Endpoint for SSL certificate KPI summary statistics.
+
+    GET /api/v1/ssl-certificates/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats_data = SSLMonitorService.get_certificate_stats(org_id)
+        return success_response(stats_data)
+
+
+class SSLBulkScanView(APIView):
+    """Endpoint to trigger bulk scan for all certificates.
+
+    POST /api/v1/ssl-certificates/scan-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .tasks import scan_all_certificates
+            scan_all_certificates.delay()
+            return success_response({"message": "Re-escaneo masivo de certificados iniciado."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

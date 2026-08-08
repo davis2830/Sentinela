@@ -31,14 +31,23 @@ def scan_ssl_certificate(self, certificate_id):
     logger.info("Scanning SSL certificate for domain: %s", domain)
 
     try:
+        tls_version = ""
         context = ssl_module.create_default_context()
         with socket.create_connection((domain, 443), timeout=10) as sock:
             with context.wrap_socket(sock, server_hostname=domain) as ssock:
                 cert_der = ssock.getpeercert(binary_form=True)
                 cert_info = ssock.getpeercert()
+                tls_version = ssock.version() or ""
 
         issuer = dict(x[0] for x in cert_info.get("issuer", []))
         subject = dict(x[0] for x in cert_info.get("subject", []))
+
+        san_domains = []
+        san_entries = cert_info.get("subjectAltName", [])
+        for entry_type, entry_value in san_entries:
+            if entry_type.lower() in ("dns", "uri", "ip address"):
+                if entry_value not in san_domains:
+                    san_domains.append(entry_value)
 
         issuer_str = ", ".join(
             f"{k}={v}" for k, v in issuer.items()
@@ -79,6 +88,8 @@ def scan_ssl_certificate(self, certificate_id):
             days_remaining=days_remaining,
             is_valid=True,
             error_message="",
+            san_domains=san_domains,
+            tls_version=tls_version,
         )
 
         logger.info(
