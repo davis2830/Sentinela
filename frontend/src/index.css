@@ -26,6 +26,11 @@
     border-color: #1E293B;
   }
 
+  select option {
+    background-color: #090D11 !important;
+    color: #F8FAFC !important;
+  }
+
   input::placeholder, textarea::placeholder {
     color: #64748B;
   }

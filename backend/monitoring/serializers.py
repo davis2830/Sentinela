@@ -16,6 +16,11 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "endpoint",
             "interval",
             "enabled",
+            "http_method",
+            "expected_status",
+            "custom_headers",
+            "request_body",
+            "max_latency_ms",
             "last_checked_at",
             "last_status",
             "last_latency",
@@ -43,6 +48,11 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     endpoint = serializers.CharField(max_length=500)
     interval = serializers.IntegerField(min_value=10, default=60)
     enabled = serializers.BooleanField(default=True)
+    http_method = serializers.CharField(max_length=10, required=False, default="GET")
+    expected_status = serializers.IntegerField(required=False, default=200)
+    custom_headers = serializers.JSONField(required=False, default=dict)
+    request_body = serializers.CharField(required=False, default="", allow_blank=True)
+    max_latency_ms = serializers.IntegerField(required=False, default=2000)
 
 
 class MonitoringTargetUpdateSerializer(serializers.Serializer):
@@ -55,6 +65,11 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
     endpoint = serializers.CharField(max_length=500, required=False)
     interval = serializers.IntegerField(min_value=10, required=False)
     enabled = serializers.BooleanField(required=False)
+    http_method = serializers.CharField(max_length=10, required=False)
+    expected_status = serializers.IntegerField(required=False)
+    custom_headers = serializers.JSONField(required=False)
+    request_body = serializers.CharField(required=False, allow_blank=True)
+    max_latency_ms = serializers.IntegerField(required=False)
 
 
 class MonitoringCheckSerializer(serializers.ModelSerializer):

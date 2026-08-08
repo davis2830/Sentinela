@@ -30,7 +30,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post<{ success: boolean; data: AuthResponse }>('/auth/login/', {
+          const response = await api.post<{ success: boolean; data: AuthResponse }>('auth/login/', {
             email,
             password,
           });
@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>()(
       register: async (email, password, firstName, lastName) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post<{ success: boolean; data: AuthResponse }>('/auth/register/', {
+          const response = await api.post<{ success: boolean; data: AuthResponse }>('auth/register/', {
             email,
             password,
             first_name: firstName,
@@ -83,7 +83,7 @@ export const useAuthStore = create<AuthState>()(
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
           try {
-            await api.post('/auth/logout/', { refresh_token: refreshToken });
+            await api.post('auth/logout/', { refresh_token: refreshToken });
           } catch {
             // Ignore errors on logout
           }

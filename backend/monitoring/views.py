@@ -152,3 +152,26 @@ class MonitoringUptimeView(APIView):
             return error_response(
                 "Target not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+class MonitoringTargetScanView(APIView):
+    """Endpoint for manual execution of a monitoring target check.
+
+    POST /api/v1/monitoring/{id}/scan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = MonitoringService.get_target(target_id, org_id)
+            from .tasks import run_monitoring_check
+            run_monitoring_check(str(target.id))
+            target.refresh_from_db()
+            serializer = MonitoringTargetSerializer(target)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(
+                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+            )

@@ -52,21 +52,35 @@ def run_monitoring_check(self, target_id):
 
 
 def _run_http_check(target):
-    """Perform an HTTP/HTTPS check.
-
-    Measures response time and checks for valid status codes.
-    """
+    """Perform an HTTP/HTTPS check with custom method, headers and status validation."""
     url = target.endpoint
     if not url.startswith("http"):
         url = f"https://{url}"
 
+    headers = target.custom_headers or {}
+    method = (target.http_method or "GET").upper()
+    body = target.request_body.encode("utf-8") if target.request_body else None
+    expected_status = target.expected_status or 200
+    max_latency = target.max_latency_ms or 2000
+
     start = timezone.now()
     try:
-        response = requests.get(url, timeout=10, allow_redirects=True)
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            data=body,
+            timeout=10,
+            allow_redirects=True,
+        )
         elapsed = (timezone.now() - start).total_seconds() * 1000
 
-        if response.status_code < 400:
-            if elapsed > 2000:
+        status_matches = response.status_code == expected_status or (
+            expected_status == 200 and response.status_code < 400
+        )
+
+        if status_matches:
+            if elapsed > max_latency:
                 status = "slow"
             else:
                 status = "up"
@@ -79,6 +93,8 @@ def _run_http_check(target):
             latency=round(elapsed, 2),
             details={
                 "status_code": response.status_code,
+                "expected_status": expected_status,
+                "method": method,
                 "url": url,
             },
         )
