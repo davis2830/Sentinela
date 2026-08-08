@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    color-scheme: dark;
+  }
+
   * {
     box-sizing: border-box;
     margin: 0;
@@ -13,17 +17,26 @@
     @apply bg-bg-dark text-text-main font-sans;
     min-height: 100vh;
     overflow-x: hidden;
+    color-scheme: dark;
   }
 
   a {
     @apply no-underline;
   }
 
-  /* Force dark background & bright white text on inputs */
+  /* Force dark background & bright white text on inputs and select dropdowns */
   input, select, textarea {
     background-color: #090D11;
     color: #F8FAFC;
     border-color: #1E293B;
+    color-scheme: dark;
+  }
+
+  /* Fix native select options dropdown list on Windows/Chrome */
+  select option {
+    background-color: #090D11 !important;
+    color: #F8FAFC !important;
+    padding: 8px;
   }
 
   input::placeholder, textarea::placeholder {

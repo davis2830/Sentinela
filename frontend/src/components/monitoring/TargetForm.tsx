@@ -96,10 +96,12 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             <select
               value={targetType}
               onChange={(e) => setTargetType(e.target.value as CreateTargetData['target_type'])}
-              className="input-base"
+              className="input-base cursor-pointer bg-[#090D11] text-text-main"
             >
               {targetTypes.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+                <option key={t.value} value={t.value} className="bg-[#090D11] text-text-main py-1">
+                  {t.label}
+                </option>
               ))}
             </select>
           </div>
