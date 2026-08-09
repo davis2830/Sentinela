@@ -3,17 +3,37 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
 import { useAuthStore } from '../store/authStore';
-import { Users, UserPlus, Edit2, Trash2, Loader2, Check, X, Shield, Lock, Search, Power } from 'lucide-react';
+import {
+  Users,
+  UserPlus,
+  Edit2,
+  Trash2,
+  Loader2,
+  Check,
+  X,
+  Shield,
+  Lock,
+  Search,
+  Power,
+  Mail,
+  Send,
+  AlertTriangle,
+  Building,
+  UserX,
+} from 'lucide-react';
 
-interface UserItem {
+interface TeamMember {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
+  role: string;
   is_active: boolean;
-  is_staff: boolean;
-  last_login: string | null;
-  created_at: string;
+  status_code: 'active' | 'pending' | 'revoked';
+  status_label: string;
+  date_joined: string;
+  last_login?: string | null;
+  is_invitation?: boolean;
 }
 
 export default function UsersPage() {
@@ -21,8 +41,9 @@ export default function UsersPage() {
   const { user: currentUser } = useAuthStore();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [mode, setMode] = useState<'invite' | 'direct' | 'edit'>('invite');
+  const [editingUser, setEditingUser] = useState<TeamMember | null>(null);
 
   // Form states
   const [email, setEmail] = useState('');
@@ -32,22 +53,33 @@ export default function UsersPage() {
   const [role, setRole] = useState('member');
   const [isActive, setIsActive] = useState(true);
 
-  // Query Users
-  const { data: users, isLoading } = useQuery({
-    queryKey: ['users-list'],
+  // Query Unified Members & Invitations List
+  const { data: members, isLoading } = useQuery({
+    queryKey: ['org-members-unified'],
     queryFn: async () => {
-      const response = await api.get('users/');
-      return (response.data?.data || []) as UserItem[];
+      const response = await api.get('organizations/members/');
+      return (response.data?.data || []) as TeamMember[];
     },
   });
 
-  // Create User Mutation
-  const createMutation = useMutation({
+  // Invite via SMTP Magic Link Mutation
+  const inviteMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await api.post('organizations/members/', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-members-unified'] });
+      closeModal();
+    },
+  });
+
+  // Create Direct User Mutation
+  const createDirectMutation = useMutation({
     mutationFn: async (data: any) => {
       await api.post('users/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['org-members-unified'] });
       closeModal();
     },
   });
@@ -58,26 +90,26 @@ export default function UsersPage() {
       await api.patch(`users/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['org-members-unified'] });
       closeModal();
     },
   });
 
-  // Delete User Mutation
+  // Delete User or Revoke Invitation Mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`users/${id}/`);
+      await api.delete(`organizations/members/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['org-members-unified'] });
     },
     onError: (err: any) => {
-      alert(err.response?.data?.message || err.response?.data?.detail || 'Error al eliminar usuario.');
+      alert(err.response?.data?.message || err.response?.data?.detail || 'Error al eliminar usuario o revocar invitación.');
     },
   });
 
   const closeModal = () => {
-    setShowCreateModal(false);
+    setShowModal(false);
     setEditingUser(null);
     setEmail('');
     setPassword('');
@@ -85,21 +117,24 @@ export default function UsersPage() {
     setLastName('');
     setRole('member');
     setIsActive(true);
+    setMode('invite');
   };
 
-  const handleOpenEdit = (u: UserItem) => {
+  const handleOpenEdit = (u: TeamMember) => {
     setEditingUser(u);
+    setMode('edit');
     setEmail(u.email);
     setFirstName(u.first_name || '');
     setLastName(u.last_name || '');
-    setRole(u.is_staff ? 'admin' : 'member');
+    setRole(u.role || 'member');
     setIsActive(u.is_active);
-    setShowCreateModal(true);
+    setShowModal(true);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingUser) {
+
+    if (mode === 'edit' && editingUser) {
       updateMutation.mutate({
         id: editingUser.id,
         data: {
@@ -109,8 +144,15 @@ export default function UsersPage() {
           is_active: isActive,
         },
       });
+    } else if (mode === 'invite') {
+      inviteMutation.mutate({
+        email: email.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        role,
+      });
     } else {
-      createMutation.mutate({
+      createDirectMutation.mutate({
         email: email.trim(),
         password,
         first_name: firstName.trim(),
@@ -121,9 +163,13 @@ export default function UsersPage() {
     }
   };
 
-  const handleToggleActive = (u: UserItem) => {
+  const handleToggleActive = (u: TeamMember) => {
     if (currentUser?.email === u.email) {
       alert('No puedes desactivar tu propia cuenta actual.');
+      return;
+    }
+    if (u.is_invitation) {
+      alert('Esta es una invitación pendiente. Para gestionarla puedes revocar la invitación.');
       return;
     }
     updateMutation.mutate({
@@ -132,24 +178,28 @@ export default function UsersPage() {
     });
   };
 
-  const handleDelete = (u: UserItem) => {
+  const handleDelete = (u: TeamMember) => {
     if (currentUser?.email === u.email) {
       alert('No puedes eliminar tu propio usuario.');
       return;
     }
-    if (confirm(`¿Estás seguro de que deseas eliminar permanentemente al usuario ${u.email}?`)) {
+    const actionText = u.is_invitation ? 'revocar la invitación pendiente para' : 'eliminar al usuario';
+    if (confirm(`¿Estás seguro de que deseas ${actionText} ${u.email}?`)) {
       deleteMutation.mutate(u.id);
     }
   };
 
-  const filteredUsers = (users || []).filter((u) => {
+  const filteredMembers = (members || []).filter((m) => {
     const q = searchTerm.toLowerCase();
     return (
-      u.email.toLowerCase().includes(q) ||
-      u.first_name.toLowerCase().includes(q) ||
-      u.last_name.toLowerCase().includes(q)
+      m.email.toLowerCase().includes(q) ||
+      m.first_name.toLowerCase().includes(q) ||
+      m.last_name.toLowerCase().includes(q)
     );
   });
+
+  const activeMutationError =
+    inviteMutation.error || createDirectMutation.error || updateMutation.error;
 
   return (
     <div>
@@ -158,23 +208,37 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
             <Users className="text-accent-green" size={28} />
-            Módulo de Gestión de Usuarios
+            Módulo de Usuarios & Equipo
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Administración completa de cuentas, nombres, roles de acceso y activación de usuarios en la plataforma
+            Gestión unificada de miembros del equipo, invitaciones seguras por correo SMTP y control de roles
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            closeModal();
-            setShowCreateModal(true);
-          }}
-          className="flex items-center gap-2 bg-accent-green text-black font-bold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
-        >
-          <UserPlus size={18} />
-          Crear Nuevo Usuario
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              closeModal();
+              setMode('invite');
+              setShowModal(true);
+            }}
+            className="flex items-center gap-2 bg-accent-green text-black font-bold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
+          >
+            <Send size={16} />
+            Invitar por Correo (SMTP)
+          </button>
+          <button
+            onClick={() => {
+              closeModal();
+              setMode('direct');
+              setShowModal(true);
+            }}
+            className="flex items-center gap-2 bg-bg-card border border-border-base text-text-main hover:border-accent-green font-mono px-3.5 py-2 rounded-md text-sm transition-colors"
+          >
+            <UserPlus size={16} className="text-accent-blue" />
+            Crear Usuario Directo
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -182,20 +246,20 @@ export default function UsersPage() {
         <Search size={16} className="text-accent-green shrink-0" />
         <input
           type="text"
-          placeholder="Buscar por correo electrónico o nombre..."
+          placeholder="Buscar miembros por correo electrónico o nombre..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-transparent text-xs font-mono text-text-main placeholder:text-text-dim focus:outline-none"
         />
       </div>
 
-      {/* Users Table */}
+      {/* Unified Users & Team Table */}
       <div className="bg-bg-card border border-border-base rounded-xl p-6 shadow-xl">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="animate-spin text-accent-green" size={28} />
           </div>
-        ) : filteredUsers.length > 0 ? (
+        ) : filteredMembers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
               <thead>
@@ -203,55 +267,67 @@ export default function UsersPage() {
                   <th className="py-3 px-4">Usuario / Nombre</th>
                   <th className="py-3 px-4">Correo Electrónico</th>
                   <th className="py-3 px-4">Rol Asignado</th>
-                  <th className="py-3 px-4">Estado (Activar/Desactivar)</th>
-                  <th className="py-3 px-4">Última Sesión</th>
+                  <th className="py-3 px-4">Estado de Cuenta</th>
+                  <th className="py-3 px-4">Último Ingreso</th>
                   <th className="py-3 px-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-base/50">
-                {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-bg-dark/50 transition-colors">
+                {filteredMembers.map((m) => (
+                  <tr key={m.id} className="hover:bg-bg-dark/50 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-text-main">
-                      {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}` : 'Usuario'}
+                      {m.first_name || m.last_name ? `${m.first_name} ${m.last_name}` : 'Usuario'}
                     </td>
-                    <td className="py-3.5 px-4 text-text-muted">{u.email}</td>
+                    <td className="py-3.5 px-4 text-text-muted">{m.email}</td>
                     <td className="py-3.5 px-4">
                       <span className="uppercase px-2.5 py-1 bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-md font-bold text-[11px]">
-                        {u.is_staff ? 'Administrador' : 'Ingeniero Operaciones'}
+                        {m.role === 'admin' ? 'Administrador' : m.role === 'member' ? 'Ingeniero Operaciones' : 'Visualizador'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <button
-                        onClick={() => handleToggleActive(u)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase transition-colors ${u.is_active
-                          ? 'bg-accent-green/10 text-accent-green border border-accent-green/30 hover:bg-accent-red/10 hover:text-accent-red hover:border-accent-red/30'
-                          : 'bg-accent-red/10 text-accent-red border border-accent-red/30 hover:bg-accent-green/10 hover:text-accent-green hover:border-accent-green/30'
+                      {m.status_code === 'pending' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 rounded-md font-bold text-[11px] uppercase">
+                          <AlertTriangle size={12} />
+                          Invitación Pendiente
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleActive(m)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase transition-colors ${
+                            m.is_active
+                              ? 'bg-accent-green/10 text-accent-green border border-accent-green/30 hover:bg-accent-red/10 hover:text-accent-red hover:border-accent-red/30'
+                              : 'bg-accent-red/10 text-accent-red border border-accent-red/30 hover:bg-accent-green/10 hover:text-accent-green hover:border-accent-green/30'
                           }`}
-                        title="Haz clic para cambiar estado Activo/Inactivo"
-                      >
-                        <Power size={12} />
-                        {u.is_active ? 'Activo' : 'Desactivado'}
-                      </button>
+                          title="Haz clic para cambiar estado Activo/Desactivado"
+                        >
+                          <Power size={12} />
+                          {m.is_active ? 'Activo' : 'Desactivado'}
+                        </button>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-text-dim">
-                      {u.last_login ? new Date(u.last_login).toLocaleString('es-ES') : 'Sin ingresos'}
+                      {m.last_login ? new Date(m.last_login).toLocaleString('es-ES') : 'Sin ingresos'}
                     </td>
                     <td className="py-3.5 px-4 text-right flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleOpenEdit(u)}
-                        className="p-1.5 border border-border-base hover:border-accent-blue text-text-muted hover:text-accent-blue rounded-lg transition-colors"
-                        title="Editar nombre, rol o estado"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      {currentUser?.email !== u.email && (
+                      {!m.is_invitation && (
                         <button
-                          onClick={() => handleDelete(u)}
-                          className="p-1.5 border border-border-base hover:border-accent-red text-text-muted hover:text-accent-red rounded-lg transition-colors"
-                          title="Eliminar usuario"
+                          onClick={() => handleOpenEdit(m)}
+                          className="p-1.5 border border-border-base hover:border-accent-blue text-text-muted hover:text-accent-blue rounded-lg transition-colors"
+                          title="Editar usuario"
                         >
-                          <Trash2 size={14} />
+                          <Edit2 size={14} />
                         </button>
+                      )}
+                      {currentUser?.email !== m.email ? (
+                        <button
+                          onClick={() => handleDelete(m)}
+                          className="p-1.5 border border-border-base hover:border-accent-red text-text-muted hover:text-accent-red rounded-lg transition-colors"
+                          title={m.is_invitation ? 'Revocar Invitación' : 'Eliminar Usuario'}
+                        >
+                          {m.is_invitation ? <UserX size={14} /> : <Trash2 size={14} />}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-text-dim italic">Su Cuenta</span>
                       )}
                     </td>
                   </tr>
@@ -261,13 +337,13 @@ export default function UsersPage() {
           </div>
         ) : (
           <p className="text-text-dim text-xs py-8 text-center font-mono">
-            No se encontraron usuarios coincidentes.
+            No se encontraron usuarios ni invitaciones registradas.
           </p>
         )}
       </div>
 
-      {/* Create / Edit Modal */}
-      {showCreateModal && (
+      {/* Modal */}
+      {showModal && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4"
           onClick={closeModal}
@@ -279,7 +355,11 @@ export default function UsersPage() {
             <div className="flex items-center justify-between border-b border-border-base pb-3">
               <h3 className="text-base font-bold text-text-main flex items-center gap-2 font-mono">
                 <Users size={18} className="text-accent-green" />
-                {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
+                {mode === 'edit'
+                  ? 'Editar Usuario'
+                  : mode === 'invite'
+                  ? 'Invitar Miembro (Enlace Mágico SMTP)'
+                  : 'Crear Usuario Directo'}
               </h3>
               <button onClick={closeModal} className="text-text-muted hover:text-text-main">
                 <X size={18} />
@@ -292,7 +372,7 @@ export default function UsersPage() {
                 <input
                   type="email"
                   required
-                  disabled={!!editingUser}
+                  disabled={mode === 'edit'}
                   placeholder="usuario@empresa.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -300,7 +380,7 @@ export default function UsersPage() {
                 />
               </div>
 
-              {!editingUser && (
+              {mode === 'direct' && (
                 <div>
                   <label className="block font-mono uppercase text-text-muted mb-1 font-bold">Contraseña Inicial</label>
                   <input
@@ -344,24 +424,34 @@ export default function UsersPage() {
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 font-mono text-text-main focus:outline-none focus:border-accent-green"
                 >
-                  <option value="admin">Administrador (Staff con acceso total)</option>
+                  <option value="admin">Administrador (Acceso total)</option>
                   <option value="member">Ingeniero Operaciones (Editar y Gestionar)</option>
                   <option value="viewer">Visualizador (Lectura Únicamente)</option>
                 </select>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="isActiveToggle"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="w-4 h-4 rounded border-border-base bg-bg-dark text-accent-green focus:ring-accent-green"
-                />
-                <label htmlFor="isActiveToggle" className="font-mono text-xs text-text-main cursor-pointer">
-                  Usuario Activo (Permite iniciar sesión)
-                </label>
-              </div>
+              {mode !== 'invite' && (
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="isActiveToggle"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    className="w-4 h-4 rounded border-border-base bg-bg-dark text-accent-green focus:ring-accent-green"
+                  />
+                  <label htmlFor="isActiveToggle" className="font-mono text-xs text-text-main cursor-pointer">
+                    Usuario Activo (Permite iniciar sesión)
+                  </label>
+                </div>
+              )}
+
+              {activeMutationError && (
+                <div className="p-3 bg-accent-red/10 border border-accent-red/30 rounded-xl text-accent-red text-xs font-mono">
+                  {(activeMutationError as any)?.response?.data?.message ||
+                    (activeMutationError as any)?.response?.data?.detail ||
+                    'Error al procesar la solicitud.'}
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-base">
                 <button
@@ -373,13 +463,15 @@ export default function UsersPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="px-4 py-1.5 bg-accent-green text-black font-bold rounded-lg hover:opacity-90 disabled:opacity-50 font-mono"
+                  disabled={inviteMutation.isPending || createDirectMutation.isPending || updateMutation.isPending}
+                  className="px-4 py-1.5 bg-accent-green text-black font-bold rounded-lg hover:opacity-90 disabled:opacity-50 font-mono flex items-center gap-2"
                 >
-                  {createMutation.isPending || updateMutation.isPending ? (
+                  {inviteMutation.isPending || createDirectMutation.isPending || updateMutation.isPending ? (
                     <Loader2 size={14} className="animate-spin" />
-                  ) : editingUser ? (
+                  ) : mode === 'edit' ? (
                     'Guardar Cambios'
+                  ) : mode === 'invite' ? (
+                    'Enviar Invitación SMTP'
                   ) : (
                     'Crear Usuario'
                   )}

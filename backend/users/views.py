@@ -47,7 +47,17 @@ class UserListView(APIView):
                 organization_id=org_id,
                 first_name=serializer.validated_data.get("first_name", ""),
                 last_name=serializer.validated_data.get("last_name", ""),
+                role=serializer.validated_data.get("role", "member"),
                 is_active=serializer.validated_data.get("is_active", True),
+            )
+            from audit.services import AuditService
+            AuditService.log(
+                action="create",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} creó la cuenta {user.email}.",
             )
             response_serializer = UserListSerializer(user)
             return success_response(
@@ -95,6 +105,15 @@ class UserDetailView(APIView):
             user = UserService.update_user(
                 user_id, org_id, **serializer.validated_data
             )
+            from audit.services import AuditService
+            AuditService.log(
+                action="update",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} actualizó al usuario {user.email} (Estado: {'Activo' if user.is_active else 'Desactivado'}).",
+            )
             response_serializer = UserListSerializer(user)
             return success_response(response_serializer.data)
         except Exception:
@@ -105,7 +124,18 @@ class UserDetailView(APIView):
     def delete(self, request, user_id):
         org_id = request.user.organization_id
         try:
+            target_user = UserService.get_user(user_id, org_id)
+            target_email = target_user.email
             UserService.delete_user(user_id, org_id)
+            from audit.services import AuditService
+            AuditService.log(
+                action="delete",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} eliminó la cuenta {target_email}.",
+            )
             return success_response({"detail": "User deleted."})
         except Exception:
             return error_response(

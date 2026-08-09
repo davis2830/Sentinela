@@ -245,6 +245,16 @@ class OrganizationMembersView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        from audit.services import AuditService
+        AuditService.log(
+            action="create",
+            module="users",
+            organization_id=org_id,
+            user_id=request.user.id,
+            user_email=request.user.email,
+            description=f"El usuario {request.user.email} envió una invitación por correo a {email} con rol {role.upper()}.",
+        )
+
         return success_response({
             "id": str(inv_token.id),
             "email": inv_token.email,
@@ -274,11 +284,21 @@ class OrganizationMemberDetailView(APIView):
         org_id = request.user.organization_id
         from accounts.models import User
         from .models import InvitationToken
+        from audit.services import AuditService
 
         # Try revoking registered user
         try:
             target_user = User.objects.get(id=user_id, organization_id=org_id)
+            target_email = target_user.email
             target_user.delete()
+            AuditService.log(
+                action="delete",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} eliminó al miembro {target_email}.",
+            )
             return success_response({"detail": "Usuario eliminado exitosamente."})
         except User.DoesNotExist:
             pass
@@ -286,7 +306,16 @@ class OrganizationMemberDetailView(APIView):
         # Try revoking pending invitation token
         try:
             inv = InvitationToken.objects.get(id=user_id, organization_id=org_id)
+            inv_email = inv.email
             inv.delete()
+            AuditService.log(
+                action="delete",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} revocó la invitación pendiente de {inv_email}.",
+            )
             return success_response({"detail": "Invitación revocada exitosamente."})
         except InvitationToken.DoesNotExist:
             return error_response("Miembro o invitación no encontrada.", status_code=status.HTTP_404_NOT_FOUND)
