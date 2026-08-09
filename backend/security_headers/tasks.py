@@ -30,10 +30,15 @@ def scan_security_headers(self, target_id):
         return
 
     url = target.url
+    headers = {}
+    if "localhost:8000" in url or "127.0.0.1:8000" in url:
+        url = url.replace("localhost:8000", "backend:8000").replace("127.0.0.1:8000", "backend:8000")
+        headers["Host"] = "localhost"
+
     logger.info("Scanning security headers for: %s", url)
 
     try:
-        response = requests.get(url, timeout=15, allow_redirects=True)
+        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
         raw_headers = dict(response.headers)
 
         analysis = SecurityHeadersService.analyze_headers(raw_headers)

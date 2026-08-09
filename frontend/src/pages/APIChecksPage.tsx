@@ -55,7 +55,7 @@ export default function APIChecksPage() {
       const response = await api.get('api-checks/');
       return response.data?.data || [];
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 
   // Target results history query
@@ -518,9 +518,13 @@ export default function APIChecksPage() {
                     <span className="text-text-dim">Status Esperado:</span>
                     <span className="text-accent-green font-bold">{target.expected_status}</span>
                   </div>
-                  <div className="flex justify-between pb-1">
+                  <div className="flex justify-between border-b border-border-base/50 pb-1.5">
                     <span className="text-text-dim">Max Latencia:</span>
                     <span className="text-text-main font-semibold">{target.expected_response_time_ms} ms</span>
+                  </div>
+                  <div className="flex justify-between pb-1">
+                    <span className="text-text-dim">Frecuencia:</span>
+                    <span className="text-accent-blue font-bold">Cada {target.check_interval || 60}s</span>
                   </div>
                 </div>
               </div>

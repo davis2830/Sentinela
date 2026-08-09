@@ -85,6 +85,12 @@ class MonitoringService:
         except Exception:
             pass
 
+        try:
+            from security_headers.services import SecurityHeadersService
+            SecurityHeadersService.get_or_create_target(organization_id, name, endpoint)
+        except Exception:
+            pass
+
         return target
 
     @staticmethod

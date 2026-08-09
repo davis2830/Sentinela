@@ -222,12 +222,22 @@ def _validate_headers(response_headers, expected_headers):
 
 @shared_task(name="api_checks.run_all")
 def run_all_api_checks():
-    """Run API checks for all enabled targets.
+    """Run API checks for all enabled targets whose check interval has elapsed.
 
-    Runs periodically via Celery Beat.
+    Runs periodically via Celery Beat every 30 seconds.
     """
+    now = timezone.now()
     targets = APICheckTarget.objects.filter(enabled=True)
+    count = 0
     for target in targets:
-        run_api_check.delay(str(target.id))
+        if not target.last_checked_at:
+            run_api_check.delay(str(target.id))
+            count += 1
+        else:
+            elapsed_sec = (now - target.last_checked_at).total_seconds()
+            interval = target.check_interval or 60
+            if elapsed_sec >= (interval - 5):
+                run_api_check.delay(str(target.id))
+                count += 1
 
-    logger.info("Scheduled API checks for %d targets.", targets.count())
+    logger.info("Scheduled periodic API checks for %d targets (total active: %d).", count, targets.count())
