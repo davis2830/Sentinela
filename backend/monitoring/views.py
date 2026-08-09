@@ -47,6 +47,13 @@ class MonitoringTargetListView(APIView):
                 interval=serializer.validated_data.get("interval", 60),
                 enabled=serializer.validated_data.get("enabled", True),
             )
+            from audit.services import AuditService
+            AuditService.log_from_request(
+                request,
+                action="create",
+                module="monitoring",
+                description=f"El usuario creó el objetivo de monitoreo {target.name} ({target.target_type.upper()}: {target.endpoint}).",
+            )
             response_serializer = MonitoringTargetSerializer(target)
             return success_response(
                 response_serializer.data,
@@ -93,6 +100,13 @@ class MonitoringTargetDetailView(APIView):
             target = MonitoringService.update_target(
                 target_id, org_id, **serializer.validated_data
             )
+            from audit.services import AuditService
+            AuditService.log_from_request(
+                request,
+                action="update",
+                module="monitoring",
+                description=f"El usuario actualizó el objetivo de monitoreo {target.name}.",
+            )
             response_serializer = MonitoringTargetSerializer(target)
             return success_response(response_serializer.data)
         except Exception:
@@ -103,7 +117,17 @@ class MonitoringTargetDetailView(APIView):
     def delete(self, request, target_id):
         org_id = request.user.organization_id
         try:
+            target = MonitoringService.get_target(target_id, org_id)
+            target_name = target.name
+            target_endpoint = target.endpoint
             MonitoringService.delete_target(target_id, org_id)
+            from audit.services import AuditService
+            AuditService.log_from_request(
+                request,
+                action="delete",
+                module="monitoring",
+                description=f"El usuario eliminó el objetivo de monitoreo {target_name} ({target_endpoint}).",
+            )
             return success_response({"detail": "Target deleted."})
         except Exception:
             return error_response(
