@@ -1,9 +1,12 @@
+import logging
 from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
 
 from .models import Alert, AlertRule
+
+logger = logging.getLogger(__name__)
 
 
 class AlertRuleService:
@@ -118,19 +121,39 @@ class AlertService:
     @staticmethod
     @transaction.atomic
     def resolve_alert(alert_id, organization_id):
-        """Mark an alert as resolved.
-
-        Args:
-            alert_id: UUID of the alert.
-            organization_id: UUID of the organization.
-
-        Returns:
-            The updated Alert instance.
-        """
+        """Mark an alert as resolved."""
         alert = Alert.objects.get(id=alert_id, organization_id=organization_id)
-        alert.status = Alert.Status.RESOLVED
-        alert.resolved_at = timezone.now()
-        alert.save(update_fields=["status", "resolved_at"])
+        if alert.status != Alert.Status.RESOLVED:
+            alert.status = Alert.Status.RESOLVED
+            alert.resolved_at = timezone.now()
+            alert.save(update_fields=["status", "resolved_at"])
+
+            try:
+                from notifications.services import NotificationService
+                rule_name = alert.rule.name if alert.rule else alert.title
+                now_str = alert.resolved_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+                title = f"✅ [RESOLVED] {alert.title}"
+                body = (
+                    f"✅ **[RESOLVED] ALERTA RESUELTA**\n\n"
+                    f"• **Estado**: `RESOLVED` ✅\n"
+                    f"• **Severidad Previa**: `{alert.severity.upper()}`\n"
+                    f"• **Origen**: `{alert.target_type.upper() if alert.target_type else 'SISTEMA'}`\n"
+                    f"• **Regla**: `{rule_name}`\n"
+                    f"• **Detalle**: El servicio u objetivo se ha recuperado y opera dentro de los parámetros normales.\n\n"
+                    f"🕒 **Hora de resolución**: `{now_str}`\n"
+                    f"🆔 **ID de Alerta**: `{alert.id}`"
+                )
+                NotificationService.send_to_all_channels(
+                    organization_id=organization_id,
+                    title=title,
+                    message=body,
+                    alert_id=alert.id,
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch RESOLVED notification: %s", exc)
+
+        return alert
+
     @staticmethod
     @transaction.atomic
     def auto_resolve_alert(organization_id, rule_id, target_id=None):
@@ -144,10 +167,39 @@ class AlertService:
         if target_id:
             qs = qs.filter(target_id=target_id)
         
-        updated_count = qs.update(
-            status=Alert.Status.RESOLVED,
-            resolved_at=now,
-        )
+        alerts_to_resolve = list(qs)
+        updated_count = 0
+
+        for alert in alerts_to_resolve:
+            alert.status = Alert.Status.RESOLVED
+            alert.resolved_at = now
+            alert.save(update_fields=["status", "resolved_at"])
+            updated_count += 1
+
+            try:
+                from notifications.services import NotificationService
+                rule_name = alert.rule.name if alert.rule else alert.title
+                now_str = now.strftime("%Y-%m-%d %H:%M:%S UTC")
+                title = f"✅ [RESOLVED] {alert.title}"
+                body = (
+                    f"✅ **[RESOLVED] ALERTA RESUELTA**\n\n"
+                    f"• **Estado**: `RESOLVED` ✅\n"
+                    f"• **Severidad Previa**: `{alert.severity.upper()}`\n"
+                    f"• **Origen**: `{alert.target_type.upper() if alert.target_type else 'SISTEMA'}`\n"
+                    f"• **Regla**: `{rule_name}`\n"
+                    f"• **Detalle**: La métrica de monitoreo se ha normalizado y cumple con el umbral configurado.\n\n"
+                    f"🕒 **Hora de resolución**: `{now_str}`\n"
+                    f"🆔 **ID de Alerta**: `{alert.id}`"
+                )
+                NotificationService.send_to_all_channels(
+                    organization_id=organization_id,
+                    title=title,
+                    message=body,
+                    alert_id=alert.id,
+                )
+            except Exception as exc:
+                logger.warning("Failed to dispatch auto RESOLVED notification: %s", exc)
+
         return updated_count
 
     @staticmethod
@@ -251,6 +303,35 @@ class AlertService:
             rule.save(update_fields=["last_triggered_at"])
 
         AlertService.correlate_alert_with_incident(alert)
+
+        # Dispatch automatic Grafana-style FIRING notifications to all enabled channels
+        try:
+            from notifications.services import NotificationService
+            rule_obj = AlertRule.objects.filter(id=rule_id).first() if rule_id else None
+            rule_name = rule_obj.name if rule_obj else title
+            now_str = timezone.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+            notif_title = f"🔥 [FIRING:1] {severity.upper()}: {title}"
+            notif_body = (
+                f"🔥 **[FIRING:1] ALERTA DE SISTEMA**\n\n"
+                f"• **Estado**: `FIRING` 🔥\n"
+                f"• **Severidad**: `{severity.upper()}`\n"
+                f"• **Origen / Servicio**: `{target_type.upper() if target_type else 'SISTEMA'}`\n"
+                f"• **Regla de Alerta**: `{rule_name}`\n"
+                f"• **Detalle**: {message}\n\n"
+                f"🕒 **Hora de activación**: `{now_str}`\n"
+                f"🆔 **ID de Alerta**: `{alert.id}`"
+            )
+
+            NotificationService.send_to_all_channels(
+                organization_id=organization_id,
+                title=notif_title,
+                message=notif_body,
+                alert_id=alert.id,
+            )
+        except Exception as notif_err:
+            logger.warning("Failed to dispatch alert notification: %s", notif_err)
+
         return alert
 
     @staticmethod
