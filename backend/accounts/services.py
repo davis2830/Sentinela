@@ -28,8 +28,9 @@ class AuthService:
         user = authenticate(email=email, password=password)
         if user is None:
             raise ValueError("Invalid email or password.")
-        if not user.is_active:
-            raise ValueError("User account is disabled.")
+        # Update last_login timestamp
+        from django.utils import timezone
+        user.last_login = timezone.now()
 
         # Ensure user has an organization assigned (multi-tenancy safety)
         if user.organization is None:
@@ -40,7 +41,9 @@ class AuthService:
                 import uuid
                 org = Organization.objects.create(name="Default Org", slug=f"default-{str(uuid.uuid4())[:8]}")
             user.organization = org
-            user.save(update_fields=["organization"])
+            user.save(update_fields=["organization", "last_login"])
+        else:
+            user.save(update_fields=["last_login"])
 
         refresh = RefreshToken.for_user(user)
         return {

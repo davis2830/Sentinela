@@ -16,6 +16,8 @@ import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
 import ProfilePage from './pages/ProfilePage';
 import ReportsPage from './pages/ReportsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
+import OrganizationSettingsPage from './pages/OrganizationSettingsPage';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './store/authStore';
 
@@ -204,6 +206,26 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <ReportsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AuditLogsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organization"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <OrganizationSettingsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

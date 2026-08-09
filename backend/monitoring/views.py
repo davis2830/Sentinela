@@ -175,3 +175,106 @@ class MonitoringTargetScanView(APIView):
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
+
+
+class GlobalSearchView(APIView):
+    """Unified search endpoint for Omnibar Ctrl+K.
+
+    GET /api/v1/monitoring/search/?q=query
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        query = request.query_params.get("q", "").strip()
+        if not query or len(query) < 2:
+            return success_response([])
+
+        org_id = request.user.organization_id
+        results = []
+
+        # 1. Monitoring Targets
+        from .models import MonitoringTarget
+        targets = MonitoringTarget.objects.filter(
+            organization_id=org_id, name__icontains=query
+        )[:5]
+        for t in targets:
+            results.append({
+                "id": str(t.id),
+                "title": t.name,
+                "subtitle": t.endpoint,
+                "category": "Uptime & Servidores",
+                "url": "/monitoring",
+            })
+
+        # 2. SSL Certificates
+        from ssl_monitor.models import SSLCertificate
+        certs = SSLCertificate.objects.filter(
+            organization_id=org_id, domain__icontains=query
+        )[:5]
+        for c in certs:
+            results.append({
+                "id": str(c.id),
+                "title": c.domain,
+                "subtitle": f"Emisor: {c.issuer or 'Desconocido'}",
+                "category": "Certificados SSL",
+                "url": "/ssl",
+            })
+
+        # 3. DNS Records
+        from dns_monitor.models import DNSRecord
+        dns_recs = DNSRecord.objects.filter(
+            organization_id=org_id, domain__icontains=query
+        )[:5]
+        for d in dns_recs:
+            results.append({
+                "id": str(d.id),
+                "title": f"{d.domain} ({d.record_type})",
+                "subtitle": d.value or "",
+                "category": "Registros DNS",
+                "url": "/dns",
+            })
+
+        # 4. API Endpoints
+        from api_checks.models import APICheckTarget
+        api_t = APICheckTarget.objects.filter(
+            organization_id=org_id, name__icontains=query
+        )[:5]
+        for a in api_t:
+            results.append({
+                "id": str(a.id),
+                "title": a.name,
+                "subtitle": a.url,
+                "category": "API Endpoints",
+                "url": "/api-checks",
+            })
+
+        # 5. Alerts
+        from alerts.models import Alert
+        alerts = Alert.objects.filter(
+            organization_id=org_id, title__icontains=query
+        )[:5]
+        for al in alerts:
+            results.append({
+                "id": str(al.id),
+                "title": al.title,
+                "subtitle": f"Severidad: {al.severity.upper()}",
+                "category": "Smart Alerts",
+                "url": "/alerts",
+            })
+
+        # 6. Incidents
+        from incidents.models import Incident
+        incidents = Incident.objects.filter(
+            organization_id=org_id, title__icontains=query
+        )[:5]
+        for inc in incidents:
+            results.append({
+                "id": str(inc.id),
+                "title": inc.title,
+                "subtitle": f"Estado: {inc.status.upper()}",
+                "category": "Incidentes",
+                "url": "/incidents",
+            })
+
+        return success_response(results)
