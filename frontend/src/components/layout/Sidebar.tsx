@@ -13,6 +13,7 @@ import {
   User,
   ShieldAlert,
   Building,
+  Users,
 } from 'lucide-react';
 
 const navSections = [
@@ -38,6 +39,7 @@ const navSections = [
       { to: '/reports', icon: FileText, label: 'Reportes' },
       { to: '/audit-logs', icon: ShieldAlert, label: 'Logs de Auditoría' },
       { to: '/organization', icon: Building, label: 'Organización & Equipo' },
+      { to: '/users', icon: Users, label: 'Gestión de Usuarios' },
       { to: '/profile', icon: User, label: 'Perfil de Usuario' },
     ],
   },
