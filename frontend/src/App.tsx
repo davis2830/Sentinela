@@ -15,6 +15,7 @@ import PublicStatusPage from './pages/PublicStatusPage';
 import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
 import ProfilePage from './pages/ProfilePage';
+import ReportsPage from './pages/ReportsPage';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './store/authStore';
 
@@ -202,7 +203,7 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <PlaceholderPage title="Reportes" />
+                  <ReportsPage />
                 </AppLayout>
               </ProtectedRoute>
             }
