@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -8,7 +9,7 @@ from .serializers import (
     ReportCreateSerializer,
     ReportSerializer,
 )
-from .services import ReportService
+from .services import ReportService, ReportExporter
 
 
 class ReportListView(APIView):
@@ -46,8 +47,6 @@ class ReportListView(APIView):
                 period_start=serializer.validated_data.get("period_start"),
                 period_end=serializer.validated_data.get("period_end"),
             )
-            from .tasks import generate_report_task
-            generate_report_task.delay(str(report.id))
 
             response_serializer = ReportSerializer(report)
             return success_response(
@@ -89,3 +88,61 @@ class ReportDetailView(APIView):
             return error_response(
                 "Report not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+def _get_authenticated_user(request):
+    if request.user and request.user.is_authenticated:
+        return request.user
+    token = request.query_params.get("token")
+    if token:
+        from rest_framework_simplejwt.tokens import AccessToken
+        from users.models import User
+        try:
+            validated = AccessToken(token)
+            user_id = validated.get("user_id")
+            return User.objects.get(id=user_id)
+        except Exception:
+            pass
+    return None
+
+
+class ReportExportCSVView(APIView):
+    """Endpoint for exporting a report to CSV format."""
+
+    permission_classes = ()
+
+    def get(self, request, report_id):
+        user = _get_authenticated_user(request)
+        if not user or not user.organization_id:
+            return error_response("Authentication credentials were not provided.", status_code=status.HTTP_401_UNAUTHORIZED)
+        org_id = user.organization_id
+        try:
+            report = ReportService.get_report(report_id, org_id)
+            csv_content, filename = ReportExporter.export_csv(report)
+
+            response = HttpResponse(csv_content, content_type="text/csv")
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+
+
+class ReportExportPDFView(APIView):
+    """Endpoint for exporting an executive PDF/HTML report document."""
+
+    permission_classes = ()
+
+    def get(self, request, report_id):
+        user = _get_authenticated_user(request)
+        if not user or not user.organization_id:
+            return error_response("Authentication credentials were not provided.", status_code=status.HTTP_401_UNAUTHORIZED)
+        org_id = user.organization_id
+        try:
+            report = ReportService.get_report(report_id, org_id)
+            html_content, filename = ReportExporter.export_html_pdf(report)
+
+            response = HttpResponse(html_content, content_type="text/html; charset=utf-8")
+            response["Content-Disposition"] = f'inline; filename="{filename}"'
+            return response
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)

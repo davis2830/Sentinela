@@ -1,18 +1,13 @@
+import csv
+import io
 from datetime import timedelta
-
 from django.db import transaction
 from django.utils import timezone
-
 from .models import Report
 
 
 class ReportService:
-    """Service for report generation and management.
-
-    Handles CRUD operations for reports and delegates
-    data generation to specialized generators based on type.
-    All business logic lives here, not in views.
-    """
+    """Service for report generation and management."""
 
     @staticmethod
     def list_reports(organization_id, report_type=None):
@@ -28,6 +23,43 @@ class ReportService:
         return Report.objects.get(id=report_id, organization_id=organization_id)
 
     @staticmethod
+    def calculate_mttr_mttd(organization_id, period_start, period_end):
+        """Calculate Mean Time to Repair (MTTR) and Mean Time to Detect (MTTD) in minutes."""
+        from incidents.models import Incident
+
+        incidents = Incident.objects.filter(
+            organization_id=organization_id,
+            opened_at__gte=period_start,
+            opened_at__lte=period_end,
+        )
+
+        resolved_incidents = [i for i in incidents if i.closed_at is not None]
+        if resolved_incidents:
+            total_repair_time_seconds = sum(
+                (i.closed_at - i.opened_at).total_seconds() for i in resolved_incidents
+            )
+            mttr_minutes = round(total_repair_time_seconds / len(resolved_incidents) / 60.0, 1)
+        else:
+            mttr_minutes = 0.0
+
+        # MTTD calculation (Detection lag or default 5 minutes)
+        if incidents.exists():
+            detection_times = []
+            for i in incidents:
+                lag = (i.opened_at - i.created_at).total_seconds() / 60.0
+                detection_times.append(max(lag, 1.0))
+            mttd_minutes = round(sum(detection_times) / len(detection_times), 1)
+        else:
+            mttd_minutes = 0.0
+
+        return {
+            "mttr_minutes": mttr_minutes,
+            "mttd_minutes": mttd_minutes,
+            "total_incidents": len(incidents),
+            "resolved_incidents": len(resolved_incidents),
+        }
+
+    @staticmethod
     @transaction.atomic
     def create_report(
         organization_id,
@@ -37,31 +69,21 @@ class ReportService:
         period_start=None,
         period_end=None,
     ):
-        """Create a new report record.
-
-        The actual data generation is handled by the generate_report
-        Celery task.
-
-        Args:
-            organization_id: UUID of the organization.
-            report_type: One of sla, availability, ssl, incidents, trends, summary.
-            title: Report title.
-            parameters: Optional dict of generation parameters.
-            period_start: Optional start of the reporting period.
-            period_end: Optional end of the reporting period.
-
-        Returns:
-            The created Report instance.
-        """
-        return Report.objects.create(
+        """Create a new report record and immediately trigger data generation."""
+        report = Report.objects.create(
             organization_id=organization_id,
             report_type=report_type,
             title=title,
             parameters=parameters or {},
-            period_start=period_start,
-            period_end=period_end,
+            period_start=period_start or (timezone.now() - timedelta(days=30)),
+            period_end=period_end or timezone.now(),
             status=Report.Status.PENDING,
         )
+
+        # Synchronously generate report data for instant UI response
+        ReportService.generate_report(report.id)
+        report.refresh_from_db()
+        return report
 
     @staticmethod
     @transaction.atomic
@@ -73,17 +95,7 @@ class ReportService:
     @staticmethod
     @transaction.atomic
     def generate_report(report_id):
-        """Generate report data based on the report type.
-
-        Delegates to the appropriate generator and updates the
-        report with the generated data.
-
-        Args:
-            report_id: UUID of the report to generate.
-
-        Returns:
-            bool: True if generation succeeded, False otherwise.
-        """
+        """Generate report data based on the report type."""
         try:
             report = Report.objects.get(id=report_id)
         except Report.DoesNotExist:
@@ -125,15 +137,10 @@ class ReportService:
 
 
 class SLAReportGenerator:
-    """Generates SLA reports from monitoring data."""
+    """Generates SLA reports from monitoring & API data."""
 
     @staticmethod
     def generate(report):
-        """Calculate SLA metrics for all monitoring targets.
-
-        Returns:
-            dict with targets SLA data.
-        """
         from monitoring.models import MonitoringTarget
 
         period_start = report.period_start or (timezone.now() - timedelta(days=30))
@@ -151,7 +158,8 @@ class SLAReportGenerator:
             )
             total = checks.count()
             up = checks.filter(status="up").count()
-            sla_percentage = (up / total * 100) if total > 0 else 0.0
+            down = checks.filter(status="down").count()
+            sla_percentage = (up / total * 100) if total > 0 else 100.0
 
             results.append({
                 "target_id": str(target.id),
@@ -160,18 +168,26 @@ class SLAReportGenerator:
                 "endpoint": target.endpoint,
                 "total_checks": total,
                 "up_checks": up,
+                "down_checks": down,
                 "sla_percentage": round(sla_percentage, 2),
             })
 
         overall_sla = (
             sum(r["sla_percentage"] for r in results) / len(results)
-            if results else 0.0
+            if results else 100.0
+        )
+
+        mttr_mttd = ReportService.calculate_mttr_mttd(
+            report.organization_id, period_start, period_end
         )
 
         return {
             "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(),
             "overall_sla": round(overall_sla, 2),
+            "mttr_minutes": mttr_mttd["mttr_minutes"],
+            "mttd_minutes": mttr_mttd["mttd_minutes"],
+            "total_incidents": mttr_mttd["total_incidents"],
             "targets": results,
         }
 
@@ -181,10 +197,6 @@ class AvailabilityReportGenerator:
 
     @staticmethod
     def generate(report):
-        """Calculate availability metrics for all monitoring targets.
-
-        Similar to SLA but focuses on downtime analysis.
-        """
         from monitoring.models import MonitoringTarget
 
         period_start = report.period_start or (timezone.now() - timedelta(days=30))
@@ -206,7 +218,7 @@ class AvailabilityReportGenerator:
             slow = checks.filter(status="slow").count()
             error = checks.filter(status="error").count()
 
-            availability = (up / total * 100) if total > 0 else 0.0
+            availability = (up / total * 100) if total > 0 else 100.0
             downtime_pct = (down / total * 100) if total > 0 else 0.0
 
             results.append({
@@ -234,7 +246,6 @@ class SSLReportGenerator:
 
     @staticmethod
     def generate(report):
-        """Summarize SSL certificate status for all domains."""
         from ssl_monitor.models import SSLCertificate
 
         certs = SSLCertificate.objects.filter(
@@ -273,11 +284,10 @@ class SSLReportGenerator:
 
 
 class IncidentsReportGenerator:
-    """Generates incident summary reports."""
+    """Generates incident summary reports with MTTR and MTTD."""
 
     @staticmethod
     def generate(report):
-        """Summarize incidents within the reporting period."""
         from incidents.models import Incident
 
         period_start = report.period_start or (timezone.now() - timedelta(days=30))
@@ -293,6 +303,8 @@ class IncidentsReportGenerator:
         by_status = {
             "open": incidents.filter(status="open").count(),
             "investigating": incidents.filter(status="investigating").count(),
+            "identified": incidents.filter(status="identified").count(),
+            "mitigated": incidents.filter(status="mitigated").count(),
             "resolved": incidents.filter(status="resolved").count(),
             "closed": incidents.filter(status="closed").count(),
         }
@@ -314,10 +326,16 @@ class IncidentsReportGenerator:
                 "closed_at": inc.closed_at.isoformat() if inc.closed_at else None,
             })
 
+        mttr_mttd = ReportService.calculate_mttr_mttd(
+            report.organization_id, period_start, period_end
+        )
+
         return {
             "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(),
             "total_incidents": total,
+            "mttr_minutes": mttr_mttd["mttr_minutes"],
+            "mttd_minutes": mttr_mttd["mttd_minutes"],
             "by_status": by_status,
             "by_priority": by_priority,
             "incidents": incident_list,
@@ -329,7 +347,6 @@ class TrendsReportGenerator:
 
     @staticmethod
     def generate(report):
-        """Analyze monitoring trends over the reporting period."""
         from monitoring.models import MonitoringTarget
 
         period_start = report.period_start or (timezone.now() - timedelta(days=30))
@@ -368,40 +385,186 @@ class TrendsReportGenerator:
 
 
 class SummaryReportGenerator:
-    """Generates a comprehensive summary report."""
+    """Generates a comprehensive summary report across all modules."""
 
     @staticmethod
     def generate(report):
-        """Generate a summary across all modules."""
         from alerts.models import Alert
         from incidents.models import Incident
         from monitoring.models import MonitoringTarget
         from ssl_monitor.models import SSLCertificate
 
         org_id = report.organization_id
+        period_start = report.period_start or (timezone.now() - timedelta(days=30))
+        period_end = report.period_end or timezone.now()
 
-        monitoring_count = MonitoringTarget.objects.filter(
+        monitoring_targets = MonitoringTarget.objects.filter(
             organization_id=org_id, enabled=True
-        ).count()
+        )
 
-        ssl_count = SSLCertificate.objects.filter(
-            organization_id=org_id
-        ).count()
-
-        active_alerts = Alert.objects.filter(
-            organization_id=org_id, status="active"
-        ).count()
-
+        ssl_count = SSLCertificate.objects.filter(organization_id=org_id).count()
+        active_alerts = Alert.objects.filter(organization_id=org_id, status="active").count()
         open_incidents = Incident.objects.filter(
-            organization_id=org_id, status__in=["open", "investigating"]
+            organization_id=org_id, status__in=["open", "investigating", "identified", "mitigated"]
         ).count()
+
+        mttr_mttd = ReportService.calculate_mttr_mttd(org_id, period_start, period_end)
+
+        # Calculate overall SLA
+        total_checks = 0
+        total_up = 0
+        for t in monitoring_targets:
+            c_qs = t.checks.filter(checked_at__gte=period_start, checked_at__lte=period_end)
+            t_cnt = c_qs.count()
+            u_cnt = c_qs.filter(status="up").count()
+            total_checks += t_cnt
+            total_up += u_cnt
+
+        overall_sla = round((total_up / total_checks * 100), 2) if total_checks > 0 else 100.0
 
         return {
             "generated_at": timezone.now().isoformat(),
+            "period_start": period_start.isoformat(),
+            "period_end": period_end.isoformat(),
             "summary": {
-                "monitoring_targets": monitoring_count,
+                "overall_sla_percentage": overall_sla,
+                "mttr_minutes": mttr_mttd["mttr_minutes"],
+                "mttd_minutes": mttr_mttd["mttd_minutes"],
+                "monitoring_targets": len(monitoring_targets),
                 "ssl_certificates": ssl_count,
                 "active_alerts": active_alerts,
                 "open_incidents": open_incidents,
             },
         }
+
+
+class ReportExporter:
+    """Handles exporting report data into CSV or HTML/PDF formats."""
+
+    @staticmethod
+    def export_csv(report):
+        """Generate CSV file content for a report."""
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        writer.writerow(["REPORT TITLE", report.title])
+        writer.writerow(["REPORT TYPE", report.report_type.upper()])
+        writer.writerow(["GENERATED AT", report.generated_at.strftime("%Y-%m-%d %H:%M:%S") if report.generated_at else "N/A"])
+        writer.writerow([])
+
+        data = report.data or {}
+
+        if report.report_type in ["sla", "availability", "trends"]:
+            targets = data.get("targets", [])
+            if targets:
+                headers = list(targets[0].keys())
+                writer.writerow([h.upper().replace("_", " ") for h in headers])
+                for t in targets:
+                    writer.writerow([t.get(h, "") for h in headers])
+        elif report.report_type == "incidents":
+            incidents = data.get("incidents", [])
+            if incidents:
+                writer.writerow(["ID", "TITLE", "STATUS", "PRIORITY", "OPENED AT", "CLOSED AT"])
+                for i in incidents:
+                    writer.writerow([
+                        i.get("id"),
+                        i.get("title"),
+                        i.get("status"),
+                        i.get("priority"),
+                        i.get("opened_at"),
+                        i.get("closed_at", "N/A"),
+                    ])
+
+        filename = f"report_{report.report_type}_{report.id.hex[:8]}.csv"
+        return output.getvalue(), filename
+
+    @staticmethod
+    def export_html_pdf(report):
+        """Generate executive HTML printable document for PDF export."""
+        data = report.data or {}
+        gen_at = report.generated_at.strftime("%Y-%m-%d %H:%M:%S") if report.generated_at else "N/A"
+        p_start = report.period_start.strftime("%Y-%m-%d") if report.period_start else "N/A"
+        p_end = report.period_end.strftime("%Y-%m-%d") if report.period_end else "N/A"
+
+        targets = data.get("targets", [])
+        overall_sla = data.get("overall_sla", data.get("summary", {}).get("overall_sla_percentage", 100.0))
+        mttr = data.get("mttr_minutes", data.get("summary", {}).get("mttr_minutes", 0.0))
+        mttd = data.get("mttd_minutes", data.get("summary", {}).get("mttd_minutes", 0.0))
+
+        rows_html = ""
+        for t in targets:
+            rows_html += f"""
+            <tr>
+                <td style="padding:10px; border-bottom:1px solid #E5E7EB; font-weight:bold;">{t.get('target_name', 'Servicio')}</td>
+                <td style="padding:10px; border-bottom:1px solid #E5E7EB;">{t.get('endpoint', '-')}</td>
+                <td style="padding:10px; border-bottom:1px solid #E5E7EB;">{t.get('total_checks', 0)}</td>
+                <td style="padding:10px; border-bottom:1px solid #E5E7EB; font-weight:bold; color:#10B981;">{t.get('sla_percentage', 100.0)}%</td>
+            </tr>
+            """
+
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{report.title}</title>
+    <style>
+        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111827; margin: 40px; line-height: 1.5; }}
+        .header {{ border-bottom: 2px solid #10B981; padding-bottom: 20px; margin-bottom: 30px; }}
+        .title {{ font-size: 24px; font-weight: bold; color: #111827; margin: 0; }}
+        .subtitle {{ font-size: 14px; color: #6B7280; margin-top: 5px; }}
+        .kpi-container {{ display: flex; gap: 20px; margin-bottom: 30px; }}
+        .kpi-card {{ flex: 1; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 15px; text-align: center; }}
+        .kpi-value {{ font-size: 22px; font-weight: bold; color: #10B981; margin-top: 5px; }}
+        .kpi-label {{ font-size: 11px; text-transform: uppercase; color: #6B7280; font-weight: bold; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; font-size: 13px; }}
+        th {{ background: #F3F4F6; padding: 10px; border-bottom: 2px solid #E5E7EB; text-transform: uppercase; font-size: 11px; color: #374151; }}
+        .footer {{ margin-top: 50px; font-size: 11px; color: #9CA3AF; text-align: center; border-top: 1px solid #E5E7EB; padding-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">Sentinela &bull; {report.title}</div>
+        <div class="subtitle">Informe Ejecutivo de Cumplimiento de SLA y Métricas de Disponibilidad</div>
+        <div style="font-size:12px; color:#4B5563; margin-top:10px;">
+            Período: <strong>{p_start}</strong> al <strong>{p_end}</strong> | Generado el: <strong>{gen_at}</strong>
+        </div>
+    </div>
+
+    <div class="kpi-container">
+        <div class="kpi-card">
+            <div class="kpi-label">Cumplimiento de SLA Global</div>
+            <div class="kpi-value">{overall_sla}%</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">MTTR (Tiempo Medio Reparación)</div>
+            <div class="kpi-value" style="color:#3B82F6;">{mttr} min</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">MTTD (Tiempo Medio Detección)</div>
+            <div class="kpi-value" style="color:#F59E0B;">{mttd} min</div>
+        </div>
+    </div>
+
+    <h3>Desglose de Cumplimiento por Objetivo Monitoreado</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Servicio / Target</th>
+                <th>Endpoint / Recurso</th>
+                <th>Verificaciones</th>
+                <th>SLA Cumplido (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html if rows_html else '<tr><td colspan="4" style="padding:15px; text-align:center;">No hay objetivos registrados en el período.</td></tr>'}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Este documento es un informe ejecutivo oficial generado automáticamente por la Plataforma de Observabilidad Sentinela.
+    </div>
+</body>
+</html>"""
+
+        filename = f"report_{report.report_type}_{report.id.hex[:8]}.html"
+        return html_content, filename
