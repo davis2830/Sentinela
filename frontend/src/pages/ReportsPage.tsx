@@ -111,24 +111,37 @@ export default function ReportsPage() {
   };
 
   // Export handlers
-  const handleExportCSV = (reportId: string, e: React.MouseEvent) => {
+  const handleExportCSV = async (reportId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const token = localStorage.getItem('access_token');
-    const url = `${api.defaults.baseURL}reports/${reportId}/export/csv/`;
-    
-    // Download via link
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', '');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const response = await api.get(`reports/${reportId}/export/csv/`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `reporte_${reportId.substring(0, 8)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error al exportar CSV:', err);
+    }
   };
 
-  const handleExportPDF = (reportId: string, e: React.MouseEvent) => {
+  const handleExportPDF = async (reportId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${api.defaults.baseURL}reports/${reportId}/export/pdf/`;
-    window.open(url, '_blank');
+    try {
+      const response = await api.get(`reports/${reportId}/export/pdf/`, {
+        responseType: 'blob',
+      });
+      const file = new Blob([response.data], { type: 'text/html;charset=utf-8' });
+      const fileURL = window.URL.createObjectURL(file);
+      window.open(fileURL, '_blank');
+    } catch (err) {
+      console.error('Error al exportar PDF:', err);
+    }
   };
 
   // KPI Calculations
