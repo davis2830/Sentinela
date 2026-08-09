@@ -90,14 +90,17 @@ class StatusPageService:
                     status = "up" if day_uptime >= 99 else "degraded" if day_uptime >= 80 else "down"
                     total_up += stats["up"]
                     total_checks += stats["total"]
+                    day_checks_count = stats["total"]
                 else:
                     day_uptime = 100.0
                     status = "up"
+                    day_checks_count = 0
 
                 day_blocks.append({
                     "date": d.strftime("%Y-%m-%d"),
                     "status": status,
                     "uptime_pct": round(day_uptime, 2),
+                    "total_checks": day_checks_count,
                 })
 
             service_status = "up" if target.last_status == "up" else "down"
@@ -110,6 +113,7 @@ class StatusPageService:
                 "id": str(target.id),
                 "name": target.name,
                 "type": "uptime",
+                "category": "Websites & Portales Web",
                 "current_status": service_status,
                 "uptime_90_days_pct": overall_uptime_pct,
                 "history_90_days": day_blocks,
@@ -144,14 +148,17 @@ class StatusPageService:
                     status = "up" if day_uptime >= 99 else "degraded" if day_uptime >= 80 else "down"
                     total_pass += stats["pass"]
                     total_checks += stats["total"]
+                    day_checks_count = stats["total"]
                 else:
                     day_uptime = 100.0
                     status = "up"
+                    day_checks_count = 0
 
                 day_blocks.append({
                     "date": d.strftime("%Y-%m-%d"),
                     "status": status,
                     "uptime_pct": round(day_uptime, 2),
+                    "total_checks": day_checks_count,
                 })
 
             api_status = "up" if api_t.last_status in ["pass", "ok"] else "down"
@@ -164,6 +171,7 @@ class StatusPageService:
                 "id": str(api_t.id),
                 "name": api_t.name,
                 "type": "api",
+                "category": "APIs & Integraciones Backend",
                 "current_status": api_status,
                 "uptime_90_days_pct": overall_uptime_pct,
                 "history_90_days": day_blocks,
@@ -192,6 +200,26 @@ class StatusPageService:
             for inc in active_incidents
         ]
 
+        # Past Incidents (Resolved/Closed in last 30 days)
+        past_incidents = Incident.objects.filter(
+            organization_id=org_id,
+            status__in=[Incident.Status.RESOLVED, Incident.Status.CLOSED],
+            opened_at__gte=now - timedelta(days=30),
+        ).order_by("-opened_at")[:5]
+
+        past_incidents_data = [
+            {
+                "id": str(inc.id),
+                "title": inc.title,
+                "description": inc.description,
+                "priority": inc.priority,
+                "status": inc.status,
+                "opened_at": inc.opened_at.isoformat(),
+                "closed_at": inc.closed_at.isoformat() if inc.closed_at else None,
+            }
+            for inc in past_incidents
+        ]
+
         # 3. Scheduled Maintenances
         maintenances = ScheduledMaintenance.objects.filter(
             organization_id=org_id,
@@ -210,17 +238,21 @@ class StatusPageService:
             for m in maintenances
         ]
 
-        # Global Status Summary
+        # Global Status Summary & High-Level KPIs
+        total_services_count = len(services_data)
+        operational_services_count = sum(1 for s in services_data if s["current_status"] == "up")
+        avg_uptime = (
+            round(sum(s["uptime_90_days_pct"] for s in services_data) / total_services_count, 2)
+            if total_services_count > 0
+            else 100.0
+        )
+
         if overall_outage:
             system_status = "outage"
             system_status_label = "Interrupción importante de servicio"
         elif len(active_incidents) > 0 or any(m.status == "in_progress" for m in maintenances):
             system_status = "degraded"
             system_status_label = "Degradación parcial de servicio"
-        else:
-            system_status = "operational"
-            system_status_label = "Todos los sistemas operacionales"
-
         return {
             "company_name": config.company_name,
             "description": config.description,
@@ -228,8 +260,12 @@ class StatusPageService:
             "support_email": config.support_email,
             "system_status": system_status,
             "system_status_label": system_status_label,
+            "global_uptime_pct": avg_uptime,
+            "total_services_count": total_services_count,
+            "operational_services_count": operational_services_count,
             "services": services_data,
             "active_incidents": incidents_data,
+            "past_incidents": past_incidents_data,
             "maintenances": maintenances_data,
             "updated_at": now.isoformat(),
         }

@@ -31,12 +31,14 @@ export interface DayHistoryBlock {
   date: string;
   status: 'up' | 'degraded' | 'down';
   uptime_pct: number;
+  total_checks?: number;
 }
 
 export interface ServiceStatusItem {
   id: string;
   name: string;
   type: 'uptime' | 'api';
+  category?: string;
   current_status: 'up' | 'down';
   uptime_90_days_pct: number;
   history_90_days: DayHistoryBlock[];
@@ -49,6 +51,9 @@ export interface PublicStatusData {
   support_email: string;
   system_status: SystemHealthStatus;
   system_status_label: string;
+  global_uptime_pct: number;
+  total_services_count: number;
+  operational_services_count: number;
   services: ServiceStatusItem[];
   active_incidents: Array<{
     id: string;
@@ -57,6 +62,15 @@ export interface PublicStatusData {
     priority: string;
     status: string;
     opened_at: string;
+  }>;
+  past_incidents?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    opened_at: string;
+    closed_at: string | null;
   }>;
   maintenances: ScheduledMaintenanceItem[];
   updated_at: string;

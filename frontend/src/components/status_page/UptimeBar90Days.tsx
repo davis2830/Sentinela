@@ -15,8 +15,16 @@ export default function UptimeBar90Days({ history, overallPct }: UptimeBar90Days
       <div className="flex items-center justify-between text-xs font-mono">
         <div className="text-text-muted flex items-center gap-2">
           {hoveredDay ? (
-            <span className="text-text-main font-semibold bg-bg-dark px-2 py-0.5 rounded border border-border-base">
-              {hoveredDay.date}: <span className={hoveredDay.status === 'up' ? 'text-accent-green' : hoveredDay.status === 'degraded' ? 'text-accent-yellow' : 'text-accent-red'}>{hoveredDay.uptime_pct}% disponible</span>
+            <span className="text-text-main font-semibold bg-bg-dark px-2 py-0.5 rounded border border-border-base flex items-center gap-1.5">
+              <span>{hoveredDay.date}:</span>
+              <span className={hoveredDay.status === 'up' ? 'text-accent-green font-bold' : hoveredDay.status === 'degraded' ? 'text-accent-yellow font-bold' : 'text-accent-red font-bold'}>
+                {hoveredDay.uptime_pct}% disponible
+              </span>
+              <span className="text-text-dim text-[10px]">
+                {hoveredDay.total_checks && hoveredDay.total_checks > 0
+                  ? `(${hoveredDay.total_checks} verificaciones reales)`
+                  : '(Sin incidentes registrados)'}
+              </span>
             </span>
           ) : (
             <span>Histórico de 90 días</span>
