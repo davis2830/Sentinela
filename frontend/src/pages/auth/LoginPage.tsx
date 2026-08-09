@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Key, LogIn, Loader2, AlertCircle } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Mail, Key, LogIn, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuthStore } from '../../store/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = location.state?.message;
   const { login, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +23,13 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <h2 className="text-center text-2xl font-bold mt-8 mb-8">Iniciar Sesion en Sentinel</h2>
+
+      {successMessage && (
+        <div className="mb-4 flex items-center gap-2 bg-accent-green/10 border border-accent-green/50 text-accent-green px-4 py-3 rounded-lg text-sm font-mono">
+          <CheckCircle size={18} className="shrink-0" />
+          <span>{successMessage}</span>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 flex items-center gap-2 bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">

@@ -72,14 +72,17 @@ class UserCreateSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(max_length=150, required=False, default="")
     last_name = serializers.CharField(max_length=150, required=False, default="")
+    role = serializers.CharField(max_length=20, required=False, default="member")
     is_active = serializers.BooleanField(required=False, default=True)
 
 
 class UserUpdateSerializer(serializers.Serializer):
     """Serializer for user updates."""
 
+    email = serializers.EmailField(required=False)
     first_name = serializers.CharField(max_length=150, required=False)
     last_name = serializers.CharField(max_length=150, required=False)
+    role = serializers.CharField(max_length=20, required=False)
     is_active = serializers.BooleanField(required=False)
 
 

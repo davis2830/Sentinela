@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import DashboardPage from './pages/DashboardPage';
 import MonitoringPage from './pages/MonitoringPage';
 import SSLCertificatesPage from './pages/SSLCertificatesPage';
@@ -16,6 +17,9 @@ import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
 import ProfilePage from './pages/ProfilePage';
 import ReportsPage from './pages/ReportsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
+import OrganizationSettingsPage from './pages/OrganizationSettingsPage';
+import UsersPage from './pages/UsersPage';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './store/authStore';
 
@@ -77,6 +81,7 @@ export default function App() {
               </PublicRoute>
             }
           />
+          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
           <Route
             path="/dashboard"
             element={
@@ -204,6 +209,36 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <ReportsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AuditLogsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/organization"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <OrganizationSettingsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <UsersPage />
                 </AppLayout>
               </ProtectedRoute>
             }

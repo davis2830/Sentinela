@@ -36,44 +36,30 @@ class UserService:
         organization_id,
         first_name="",
         last_name="",
+        role="member",
         is_active=True,
     ):
-        """Create a new user within an organization.
-
-        Args:
-            email: User's email address.
-            password: Plain text password (will be hashed).
-            organization_id: UUID of the organization.
-            first_name: Optional first name.
-            last_name: Optional last name.
-            is_active: Whether the user is active (default True).
-
-        Returns:
-            The created User instance.
-        """
+        """Create a new user within an organization."""
+        is_staff = (role == "admin")
         return User.objects.create_user(
             email=email,
             password=password,
             organization_id=organization_id,
             first_name=first_name,
             last_name=last_name,
+            is_staff=is_staff,
             is_active=is_active,
         )
 
     @staticmethod
     @transaction.atomic
     def update_user(user_id, organization_id, **fields):
-        """Update an existing user.
-
-        Args:
-            user_id: UUID of the user.
-            organization_id: UUID of the organization (for scoping).
-            **fields: Fields to update (first_name, last_name, is_active).
-
-        Returns:
-            The updated User instance.
-        """
+        """Update an existing user."""
         user = User.objects.get(id=user_id, organization_id=organization_id)
+        
+        if "role" in fields and fields["role"] is not None:
+            user.is_staff = (fields.pop("role") == "admin")
+            
         for field, value in fields.items():
             if value is not None:
                 setattr(user, field, value)

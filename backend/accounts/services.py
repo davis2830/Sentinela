@@ -27,9 +27,22 @@ class AuthService:
         """
         user = authenticate(email=email, password=password)
         if user is None:
-            raise ValueError("Invalid email or password.")
+            from .models import User
+            existing_user = User.objects.filter(email=email).first()
+            if existing_user:
+                if existing_user.check_password(password):
+                    if not existing_user.is_active:
+                        raise ValueError("Tu cuenta ha sido desactivada por un administrador.")
+                    if not existing_user.organization:
+                        raise ValueError("Tu cuenta ya no pertenece a ninguna organización.")
+            raise ValueError("Correo electrónico o contraseña incorrectos.")
+
         if not user.is_active:
-            raise ValueError("User account is disabled.")
+            raise ValueError("Tu cuenta ha sido desactivada por un administrador.")
+
+        # Update last_login timestamp
+        from django.utils import timezone
+        user.last_login = timezone.now()
 
         # Ensure user has an organization assigned (multi-tenancy safety)
         if user.organization is None:
@@ -40,7 +53,19 @@ class AuthService:
                 import uuid
                 org = Organization.objects.create(name="Default Org", slug=f"default-{str(uuid.uuid4())[:8]}")
             user.organization = org
-            user.save(update_fields=["organization"])
+            user.save(update_fields=["organization", "last_login"])
+        else:
+            user.save(update_fields=["last_login"])
+
+        from audit.services import AuditService
+        AuditService.log(
+            action="login",
+            module="accounts",
+            organization_id=user.organization_id,
+            user_id=user.id,
+            user_email=user.email,
+            description=f"El usuario {user.email} inició sesión exitosamente.",
+        )
 
         refresh = RefreshToken.for_user(user)
         return {
