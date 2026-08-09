@@ -177,3 +177,35 @@ class NotificationDetailView(APIView):
             return error_response(
                 "Notification not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+
+
+class NotificationChannelTestView(APIView):
+    """Endpoint to trigger a test notification for a channel.
+
+    POST /api/v1/notifications/channels/{id}/test/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, channel_id):
+        org_id = request.user.organization_id
+        try:
+            notification = NotificationService.test_channel(channel_id, org_id)
+            serializer = NotificationSerializer(notification)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationStatsView(APIView):
+    """Endpoint for notifications KPI statistics.
+
+    GET /api/v1/notifications/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats_data = NotificationService.get_notification_stats(org_id)
+        return success_response(stats_data)

@@ -14,6 +14,8 @@ class NotificationChannel(OrganizationOwnedModel):
         EMAIL = "email", "Email"
         SLACK = "slack", "Slack"
         TEAMS = "teams", "Microsoft Teams"
+        DISCORD = "discord", "Discord"
+        TELEGRAM = "telegram", "Telegram"
         WEBHOOK = "webhook", "Webhook"
 
     name = models.CharField(max_length=255)

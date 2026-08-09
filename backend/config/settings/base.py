@@ -149,9 +149,19 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/
 CELERY_RESULT_BACKEND = os.environ.get(
     "CELERY_RESULT_BACKEND", "redis://localhost:6379/1"
 )
-CELERY_TIMEZONE = "UTC"
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_IMPORTS = (
+    "monitoring.tasks",
+    "ssl_monitor.tasks",
+    "dns_monitor.tasks",
+    "domain.tasks",
+    "api_checks.tasks",
+    "security_headers.tasks",
+    "alerts.tasks",
+    "notifications.tasks",
+    "incidents.tasks",
+    "reports.tasks",
+)
+
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "evaluate-alert-rules-every-30s": {

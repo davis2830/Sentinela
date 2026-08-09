@@ -171,6 +171,10 @@ class NotificationService:
                 response = SlackDeliveryHandler.send(channel, notification)
             elif channel.channel_type == "teams":
                 response = TeamsDeliveryHandler.send(channel, notification)
+            elif channel.channel_type == "discord":
+                response = DiscordDeliveryHandler.send(channel, notification)
+            elif channel.channel_type == "telegram":
+                response = TelegramDeliveryHandler.send(channel, notification)
             elif channel.channel_type == "webhook":
                 response = WebhookDeliveryHandler.send(channel, notification)
             else:
@@ -222,47 +226,95 @@ class NotificationService:
                 message=message,
                 alert_id=alert_id,
             )
-            from .tasks import send_notification_task
-            send_notification_task.delay(str(notification.id))
+            try:
+                NotificationService.send_notification(notification.id)
+            except Exception as send_err:
+                logger.warning("Failed to send notification %s: %s", notification.id, send_err)
             count += 1
-
         return count
+
+    @staticmethod
+    def test_channel(channel_id, organization_id):
+        """Send a test notification to a specific channel."""
+        channel = NotificationChannel.objects.get(
+            id=channel_id, organization_id=organization_id
+        )
+        notification = NotificationService.create_notification(
+            organization_id=organization_id,
+            channel_id=channel.id,
+            title="🔔 Sentinela - Notificación de Prueba",
+            message=f"Esta es una notificación de prueba para validar la integración con el canal '{channel.name}' ({channel.channel_type}).",
+        )
+        from .tasks import send_notification_task
+        send_notification_task(str(notification.id))
+        notification.refresh_from_db()
+        return notification
+
+    @staticmethod
+    def get_notification_stats(organization_id):
+        """Returns KPI summary statistics for notifications."""
+        channels = NotificationChannel.objects.filter(organization_id=organization_id)
+        notifications = Notification.objects.filter(organization_id=organization_id)
+
+        total_channels = channels.count()
+        enabled_channels = channels.filter(enabled=True).count()
+        total_sent = notifications.filter(status=Notification.Status.SENT).count()
+        total_failed = notifications.filter(status=Notification.Status.FAILED).count()
+        active_types_count = channels.values("channel_type").distinct().count()
+
+        return {
+            "total_channels": total_channels,
+            "enabled_channels": enabled_channels,
+            "total_sent": total_sent,
+            "total_failed": total_failed,
+            "active_types_count": active_types_count,
+        }
 
 
 class EmailDeliveryHandler:
-    """Handles email notification delivery."""
+    """Handles email notification delivery via custom or default SMTP."""
 
     @staticmethod
     def send(channel, notification):
-        """Send an email notification.
-
-        Expects channel.config to contain:
-            - recipients: List of email addresses
-            - from_email: Optional sender address (defaults to settings)
-
-        Args:
-            channel: NotificationChannel instance.
-            notification: Notification instance.
-
-        Returns:
-            str: Delivery confirmation.
-        """
         config = channel.config or {}
         recipients = config.get("recipients", [])
-        from_email = config.get("from_email", None)
 
         if not recipients:
             raise ValueError("No recipients configured for email channel.")
 
-        send_mail(
-            subject=notification.title,
-            message=notification.message,
-            from_email=from_email,
-            recipient_list=recipients,
-            fail_silently=False,
-        )
+        smtp_host = config.get("smtp_host")
+        from_email = config.get("from_email") or config.get("smtp_user") or "alertas@sentinela.local"
 
-        return f"Email sent to {len(recipients)} recipients."
+        if smtp_host:
+            from django.core.mail import EmailMessage, get_connection
+            connection = get_connection(
+                backend="django.core.mail.backends.smtp.EmailBackend",
+                host=smtp_host,
+                port=int(config.get("smtp_port", 587)),
+                username=config.get("smtp_user"),
+                password=config.get("smtp_password"),
+                use_tls=config.get("use_tls", True),
+                use_ssl=config.get("use_ssl", False),
+                timeout=10,
+            )
+            email = EmailMessage(
+                subject=notification.title,
+                body=notification.message,
+                from_email=from_email,
+                to=recipients,
+                connection=connection,
+            )
+            email.send(fail_silently=False)
+        else:
+            send_mail(
+                subject=notification.title,
+                message=notification.message,
+                from_email=from_email,
+                recipient_list=recipients,
+                fail_silently=False,
+            )
+
+        return f"Email sent to {len(recipients)} recipients via {smtp_host or 'default SMTP'}."
 
 
 class SlackDeliveryHandler:
@@ -381,3 +433,49 @@ class WebhookDeliveryHandler:
         response.raise_for_status()
 
         return f"Webhook notification sent (HTTP {response.status_code})."
+
+
+class DiscordDeliveryHandler:
+    """Handles Discord notification delivery via Webhook."""
+
+    @staticmethod
+    def send(channel, notification):
+        config = channel.config or {}
+        webhook_url = config.get("webhook_url")
+
+        if not webhook_url:
+            raise ValueError("No webhook_url configured for Discord channel.")
+
+        payload = {
+            "content": f"**{notification.title}**\n{notification.message}",
+        }
+
+        response = requests.post(webhook_url, json=payload, timeout=10)
+        response.raise_for_status()
+
+        return f"Discord notification sent (HTTP {response.status_code})."
+
+
+class TelegramDeliveryHandler:
+    """Handles Telegram notification delivery via Bot API."""
+
+    @staticmethod
+    def send(channel, notification):
+        config = channel.config or {}
+        bot_token = config.get("bot_token")
+        chat_id = config.get("chat_id")
+
+        if not bot_token or not chat_id:
+            raise ValueError("bot_token and chat_id are required for Telegram channel.")
+
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": f"*{notification.title}*\n\n{notification.message}",
+            "parse_mode": "Markdown",
+        }
+
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+
+        return f"Telegram message sent to chat {chat_id}."

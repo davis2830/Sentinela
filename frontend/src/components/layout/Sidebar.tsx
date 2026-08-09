@@ -6,6 +6,7 @@ import {
   Globe,
   Plug,
   ShieldCheck,
+  Send,
   Bell,
   AlertTriangle,
   FileText,
@@ -28,6 +29,7 @@ const navSections = [
   {
     title: 'Gestion',
     items: [
+      { to: '/notifications', icon: Send, label: 'Notificaciones' },
       { to: '/alerts', icon: Bell, label: 'Smart Alerts' },
       { to: '/incidents', icon: AlertTriangle, label: 'Incidentes' },
       { to: '/reports', icon: FileText, label: 'Reportes' },

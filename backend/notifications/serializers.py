@@ -26,7 +26,7 @@ class NotificationChannelCreateSerializer(serializers.Serializer):
 
     name = serializers.CharField(max_length=255)
     channel_type = serializers.ChoiceField(
-        choices=["email", "slack", "teams", "webhook"]
+        choices=["email", "slack", "teams", "discord", "telegram", "webhook"]
     )
     config = serializers.DictField(required=False, default=dict)
     enabled = serializers.BooleanField(default=True)
@@ -37,7 +37,7 @@ class NotificationChannelUpdateSerializer(serializers.Serializer):
 
     name = serializers.CharField(max_length=255, required=False)
     channel_type = serializers.ChoiceField(
-        choices=["email", "slack", "teams", "webhook"], required=False
+        choices=["email", "slack", "teams", "discord", "telegram", "webhook"], required=False
     )
     config = serializers.DictField(required=False)
     enabled = serializers.BooleanField(required=False)

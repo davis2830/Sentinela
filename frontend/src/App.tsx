@@ -9,6 +9,7 @@ import DNSRecordsPage from './pages/DNSRecordsPage';
 import DomainsPage from './pages/DomainsPage';
 import APIChecksPage from './pages/APIChecksPage';
 import SecurityHeadersPage from './pages/SecurityHeadersPage';
+import NotificationsPage from './pages/NotificationsPage';
 import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -139,6 +140,16 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <SecurityHeadersPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <NotificationsPage />
                 </AppLayout>
               </ProtectedRoute>
             }
