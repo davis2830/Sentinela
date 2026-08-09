@@ -61,6 +61,36 @@ export default function StatusBadge({ status, label, className = '' }: StatusBad
       defaultLabel = 'SLOW';
       break;
 
+    case 'open':
+      styles = 'bg-accent-red/10 text-accent-red border-accent-red/30 font-bold';
+      defaultLabel = 'ABIERTO';
+      break;
+
+    case 'investigating':
+      styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30 font-bold';
+      defaultLabel = 'INVESTIGANDO';
+      break;
+
+    case 'identified':
+      styles = 'bg-accent-blue/10 text-accent-blue border-accent-blue/30 font-bold';
+      defaultLabel = 'IDENTIFICADO';
+      break;
+
+    case 'mitigated':
+      styles = 'bg-accent-yellow/20 text-accent-yellow border-accent-yellow/40 font-bold';
+      defaultLabel = 'MITIGADO';
+      break;
+
+    case 'resolved':
+      styles = 'bg-accent-green/10 text-accent-green border-accent-green/30 font-bold';
+      defaultLabel = 'RESUELTO';
+      break;
+
+    case 'closed':
+      styles = 'bg-bg-dark text-text-muted border-border-base font-bold';
+      defaultLabel = 'CERRADO';
+      break;
+
     case 'inactive':
       styles = 'bg-gray-500/10 text-gray-400 border-gray-500/30';
       defaultLabel = 'INACTIVO';

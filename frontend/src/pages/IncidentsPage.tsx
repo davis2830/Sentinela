@@ -29,7 +29,21 @@ import {
   Bell,
   Search,
   Check,
+  Wrench,
+  ShieldAlert,
+  Activity,
+  ChevronRight,
+  UserCheck,
 } from 'lucide-react';
+
+const LIFECYCLE_STEPS: { status: IncidentStatus; label: string; icon: any; color: string }[] = [
+  { status: 'open', label: 'Abierto', icon: AlertOctagon, color: 'text-accent-red border-accent-red/30' },
+  { status: 'investigating', label: 'Investigando', icon: Search, color: 'text-accent-yellow border-accent-yellow/30' },
+  { status: 'identified', label: 'Identificado', icon: Wrench, color: 'text-accent-blue border-accent-blue/30' },
+  { status: 'mitigated', label: 'Mitigado', icon: ShieldAlert, color: 'text-accent-yellow border-accent-yellow/40' },
+  { status: 'resolved', label: 'Resuelto', icon: CheckCircle2, color: 'text-accent-green border-accent-green/30' },
+  { status: 'closed', label: 'Cerrado', icon: XCircle, color: 'text-text-dim border-border-base' },
+];
 
 export default function IncidentsPage() {
   const queryClient = useQueryClient();
@@ -46,7 +60,7 @@ export default function IncidentsPage() {
       const response = await api.get('incidents/');
       return response.data?.data || [];
     },
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
   // Timeline events query for selected incident
@@ -70,6 +84,7 @@ export default function IncidentsPage() {
       return response.data?.data || [];
     },
     enabled: !!selectedIncident,
+    refetchInterval: 10000,
   });
 
   // Mutations
@@ -140,6 +155,8 @@ export default function IncidentsPage() {
 
   // Detail View for an Incident
   if (selectedIncident) {
+    const currentStepIndex = LIFECYCLE_STEPS.findIndex((s) => s.status === selectedIncident.status);
+
     return (
       <div>
         <button
@@ -152,7 +169,7 @@ export default function IncidentsPage() {
 
         {/* Incident Header Card */}
         <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 shadow-xl">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <PriorityBadge priority={selectedIncident.priority} />
@@ -162,60 +179,58 @@ export default function IncidentsPage() {
               <p className="text-text-muted text-sm mt-2">{selectedIncident.description || 'Sin descripción adicional.'}</p>
             </div>
 
-            {/* Lifecycle Quick Buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {selectedIncident.status === 'open' && (
-                <button
-                  onClick={() => handleStatusChange('investigating')}
-                  disabled={updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow hover:bg-accent-yellow hover:text-black rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                >
-                  <Search size={14} />
-                  Investigar (Investigating)
-                </button>
-              )}
+            <button
+              onClick={() => setDeleteTarget(selectedIncident)}
+              className="p-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-lg text-xs font-semibold transition-colors"
+              title="Eliminar incidente"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
 
-              {(selectedIncident.status === 'open' || selectedIncident.status === 'investigating') && (
-                <button
-                  onClick={() => handleStatusChange('resolved')}
-                  disabled={updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                >
-                  <CheckCircle2 size={14} />
-                  Resolver (Resolved)
-                </button>
-              )}
+          {/* Stepper Flow Bar */}
+          <div className="bg-bg-dark border border-border-base/70 rounded-xl p-4 mb-6">
+            <h4 className="text-xs font-mono uppercase text-text-muted font-bold mb-3 flex items-center gap-2">
+              <Activity size={14} className="text-accent-green" />
+              Flujo de Vida del Incidente (Lifecycle Controller)
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {LIFECYCLE_STEPS.map((step, idx) => {
+                const Icon = step.icon;
+                const isCurrent = step.status === selectedIncident.status;
+                const isPast = idx <= currentStepIndex;
 
-              {selectedIncident.status === 'resolved' && (
-                <button
-                  onClick={() => handleStatusChange('closed')}
-                  disabled={updateMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-bg-dark border border-border-base text-text-muted hover:text-text-main rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                >
-                  <XCircle size={14} />
-                  Cerrar (Closed)
-                </button>
-              )}
-
-              <button
-                onClick={() => setDeleteTarget(selectedIncident)}
-                className="p-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-lg text-xs font-semibold transition-colors"
-                title="Eliminar incidente"
-              >
-                <Trash2 size={16} />
-              </button>
+                return (
+                  <button
+                    key={step.status}
+                    onClick={() => handleStatusChange(step.status)}
+                    disabled={updateMutation.isPending}
+                    className={`p-2.5 rounded-lg border text-xs font-mono font-bold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                      isCurrent
+                        ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-md scale-102'
+                        : isPast
+                        ? 'bg-bg-card border-border-base text-text-main hover:border-accent-green/50'
+                        : 'bg-bg-dark border-border-base/50 text-text-dim hover:text-text-muted'
+                    }`}
+                  >
+                    <Icon size={16} className={isCurrent ? 'text-accent-green animate-pulse' : 'text-text-dim'} />
+                    <span className="text-[11px] truncate w-full text-center">{step.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-border-base text-xs font-mono">
+          {/* Metadata Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-border-base text-xs font-mono">
             <div>
-              <span className="text-text-dim uppercase">Apertura:</span>
+              <span className="text-text-dim uppercase">Fecha Apertura:</span>
               <div className="text-text-main font-bold mt-1">
                 {new Date(selectedIncident.opened_at).toLocaleString('es-ES')}
               </div>
             </div>
             <div>
-              <span className="text-text-dim uppercase">Cierre:</span>
+              <span className="text-text-dim uppercase">Fecha Cierre:</span>
               <div className="text-text-main font-bold mt-1">
                 {selectedIncident.closed_at
                   ? new Date(selectedIncident.closed_at).toLocaleString('es-ES')
@@ -223,17 +238,17 @@ export default function IncidentsPage() {
               </div>
             </div>
             <div>
-              <span className="text-text-dim uppercase">Alertas Vinculadas:</span>
+              <span className="text-text-dim uppercase">Alertas Agrupadas:</span>
               <div className="text-accent-green font-bold mt-1">
-                {selectedIncident.alerts_count} alertas
+                {selectedIncident.alerts_count} alertas vinculadas
               </div>
             </div>
           </div>
         </div>
 
-        {/* Content Layout: Timeline + Notes & Linked Alerts */}
+        {/* Layout: Timeline + Add Note & Linked Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Timeline & Add Note */}
+          {/* Left: Add Note & Timeline */}
           <div className="lg:col-span-2 space-y-6">
             {/* Add Note Form */}
             <div className="bg-bg-card border border-border-base rounded-xl p-5 shadow-xl">
@@ -281,7 +296,7 @@ export default function IncidentsPage() {
             </div>
           </div>
 
-          {/* Right Column: Linked Alerts */}
+          {/* Right: Linked Alerts Enriched */}
           <div>
             <div className="bg-bg-card border border-border-base rounded-xl p-5 shadow-xl">
               <h3 className="text-sm font-bold text-text-main mb-4 flex items-center gap-2 border-b border-border-base pb-3 font-mono uppercase">
@@ -293,12 +308,19 @@ export default function IncidentsPage() {
                   {linkedAlerts.map((item: IncidentAlert) => (
                     <div
                       key={item.id}
-                      className="p-3 bg-bg-dark border border-border-base rounded-lg flex items-center justify-between"
+                      className="p-3 bg-bg-dark border border-border-base/70 rounded-xl space-y-2 hover:border-accent-green/40 transition-colors"
                     >
-                      <span className="text-text-muted truncate">ID Alerta: {item.alert_id}</span>
-                      <span className="text-text-dim text-[10px]">
-                        {new Date(item.added_at).toLocaleTimeString('es-ES')}
-                      </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <PriorityBadge priority={(item.alert_severity as any) || 'warning'} />
+                        <StatusBadge status={item.alert_status || 'active'} />
+                      </div>
+                      <h4 className="font-bold text-text-main text-xs line-clamp-2">
+                        {item.alert_title || `Alerta ${item.alert_id.substring(0, 8)}`}
+                      </h4>
+                      <div className="flex items-center justify-between text-[10px] text-text-dim border-t border-border-base/40 pt-1.5">
+                        <span className="truncate">ID: {item.alert_id.substring(0, 12)}...</span>
+                        <span>{new Date(item.added_at).toLocaleTimeString('es-ES')}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -345,7 +367,7 @@ export default function IncidentsPage() {
             Gestión de Incidentes
           </h1>
           <p className="text-text-muted text-sm mt-1">
-            Centro de control de respuesta a incidentes, gestión de ciclo de vida y línea de tiempo técnica
+            Centro de control de respuesta a incidentes, gestión del flujo en 5 etapas y línea de tiempo técnica
           </p>
         </div>
 
@@ -406,7 +428,7 @@ export default function IncidentsPage() {
                 </span>
                 <span className="flex items-center gap-1 text-accent-green font-bold">
                   <Bell size={12} />
-                  {incident.alerts_count} alertas
+                  {incident.alerts_count} alertas agrupadas
                 </span>
               </div>
             </div>

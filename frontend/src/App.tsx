@@ -10,6 +10,8 @@ import DomainsPage from './pages/DomainsPage';
 import APIChecksPage from './pages/APIChecksPage';
 import SecurityHeadersPage from './pages/SecurityHeadersPage';
 import NotificationsPage from './pages/NotificationsPage';
+import StatusPageAdmin from './pages/StatusPageAdmin';
+import PublicStatusPage from './pages/PublicStatusPage';
 import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -154,6 +156,17 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/status-page"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <StatusPageAdmin />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/status/:slug" element={<PublicStatusPage />} />
           <Route
             path="/alerts"
             element={
