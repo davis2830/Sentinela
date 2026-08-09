@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from .models import SecurityHeaderResult, SecurityHeaderTarget
@@ -79,12 +79,80 @@ class SecurityHeadersService:
         Returns:
             The created SecurityHeaderTarget instance.
         """
-        return SecurityHeaderTarget.objects.create(
+        target = SecurityHeaderTarget.objects.create(
             organization_id=organization_id,
             name=name,
             url=url,
             enabled=enabled,
         )
+        try:
+            from .tasks import scan_security_headers
+            scan_security_headers.delay(str(target.id))
+        except Exception:
+            pass
+        return target
+
+    @staticmethod
+    @transaction.atomic
+    def update_target(target_id, organization_id, **fields):
+        """Update an existing security header target."""
+        target = SecurityHeaderTarget.objects.get(
+            id=target_id, organization_id=organization_id
+        )
+        for field, value in fields.items():
+            if value is not None:
+                setattr(target, field, value)
+        target.save()
+        try:
+            from .tasks import scan_security_headers
+            scan_security_headers.delay(str(target.id))
+        except Exception:
+            pass
+        return target
+
+    @staticmethod
+    @transaction.atomic
+    def get_or_create_target(organization_id, name, url):
+        """Get or auto-create security header target for monitoring targets."""
+        if not url or url in ("http://localhost", "http://127.0.0.1"):
+            return None
+        full_url = url if url.startswith("http") else f"https://{url}"
+        target, created = SecurityHeaderTarget.objects.get_or_create(
+            organization_id=organization_id,
+            url=full_url,
+            defaults={"name": name},
+        )
+        if created:
+            try:
+                from .tasks import scan_security_headers
+                scan_security_headers.delay(str(target.id))
+            except Exception:
+                pass
+        return target
+
+    @staticmethod
+    def get_security_header_stats(organization_id):
+        """Returns KPI summary statistics for security header targets."""
+        targets = SecurityHeaderTarget.objects.filter(organization_id=organization_id)
+        total = targets.count()
+
+        # Grade A / A+: score >= 85
+        grade_a = targets.filter(last_score__gte=85).count()
+        # Grade B / C: 55 <= score < 85
+        grade_bc = targets.filter(last_score__gte=55, last_score__lt=85).count()
+        # Grade D / F / Error: score < 55 or null
+        grade_df = targets.filter(models.Q(last_score__lt=55) | models.Q(last_score__isnull=True)).count()
+
+        scores = [t.last_score for t in targets if t.last_score is not None]
+        avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+
+        return {
+            "total": total,
+            "grade_a": grade_a,
+            "grade_bc": grade_bc,
+            "grade_df": grade_df,
+            "avg_score": avg_score,
+        }
 
     @staticmethod
     @transaction.atomic

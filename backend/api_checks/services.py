@@ -39,26 +39,10 @@ class APICheckService:
         expected_schema=None,
         request_headers=None,
         request_body=None,
+        check_interval=60,
         enabled=True,
     ):
-        """Create a new API check target.
-
-        Args:
-            organization_id: UUID of the organization.
-            name: Display name for the check.
-            url: API endpoint URL.
-            method: HTTP method (GET, POST, PUT, PATCH).
-            expected_status: Expected HTTP status code (default 200).
-            expected_response_time_ms: Max acceptable response time (default 2000).
-            expected_headers: Dict of expected response headers.
-            expected_schema: JSON schema to validate response body.
-            request_headers: Dict of headers to send with request.
-            request_body: JSON body to send with request.
-            enabled: Whether checks are active (default True).
-
-        Returns:
-            The created APICheckTarget instance.
-        """
+        """Create a new API check target."""
         target = APICheckTarget.objects.create(
             organization_id=organization_id,
             name=name,
@@ -70,6 +54,7 @@ class APICheckService:
             expected_schema=expected_schema or {},
             request_headers=request_headers or {},
             request_body=request_body or {},
+            check_interval=check_interval or 60,
             enabled=enabled,
         )
         try:

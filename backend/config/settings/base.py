@@ -158,6 +158,30 @@ CELERY_BEAT_SCHEDULE = {
         "task": "alerts.evaluate_rules",
         "schedule": 30.0,
     },
+    "run-api-checks-every-30s": {
+        "task": "api_checks.run_all",
+        "schedule": 30.0,
+    },
+    "run-monitoring-checks-every-30s": {
+        "task": "monitoring.check_all",
+        "schedule": 30.0,
+    },
+    "run-ssl-checks-every-5m": {
+        "task": "ssl_monitor.check_all",
+        "schedule": 300.0,
+    },
+    "run-dns-checks-every-5m": {
+        "task": "dns_monitor.check_all",
+        "schedule": 300.0,
+    },
+    "run-domain-checks-every-1h": {
+        "task": "domain.check_all",
+        "schedule": 3600.0,
+    },
+    "run-security-headers-checks-every-1h": {
+        "task": "security_headers.scan_all",
+        "schedule": 3600.0,
+    },
 }
 
 # CORS

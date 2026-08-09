@@ -26,33 +26,39 @@ export default function StatusBadge({ status, label, className = '' }: StatusBad
 
   switch (normalized) {
     case 'up':
+    case 'pass':
     case 'valid':
     case 'active':
-      styles = 'bg-accent-green/10 text-accent-green border-accent-green/30';
+    case 'ok':
+      styles = 'bg-accent-green/10 text-accent-green border-accent-green/30 font-bold';
       if (normalized === 'valid') defaultLabel = 'VÁLIDO';
       if (normalized === 'active') defaultLabel = 'ACTIVO';
       if (normalized === 'up') defaultLabel = 'UP';
+      if (normalized === 'pass') defaultLabel = 'PASS';
+      if (normalized === 'ok') defaultLabel = 'OK';
       break;
 
     case 'expiring':
-      styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30';
+      styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30 font-bold';
       defaultLabel = 'POR EXPIRAR';
       break;
 
     case 'down':
+    case 'fail':
     case 'expired':
     case 'invalid':
     case 'error':
-      styles = 'bg-accent-red/10 text-accent-red border-accent-red/30';
+      styles = 'bg-accent-red/10 text-accent-red border-accent-red/30 font-bold';
       if (normalized === 'expired') defaultLabel = 'EXPIRADO';
       if (normalized === 'invalid') defaultLabel = 'INVÁLIDO';
       if (normalized === 'down') defaultLabel = 'DOWN';
+      if (normalized === 'fail') defaultLabel = 'FAIL';
       if (normalized === 'error') defaultLabel = 'ERROR';
       break;
 
     case 'slow':
-      styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30';
-      defaultLabel = 'LENTO';
+      styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30 font-bold';
+      defaultLabel = 'SLOW';
       break;
 
     case 'inactive':

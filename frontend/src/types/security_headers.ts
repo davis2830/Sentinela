@@ -30,3 +30,11 @@ export interface SecurityHeaderResult {
   checked_at: string;
   created_at: string;
 }
+
+export interface SecurityHeaderStats {
+  total: number;
+  grade_a: number;
+  grade_bc: number;
+  grade_df: number;
+  avg_score: number;
+}

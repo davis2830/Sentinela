@@ -12,6 +12,7 @@ export interface APICheckTarget {
   expected_schema?: Record<string, any>;
   request_headers?: Record<string, string>;
   request_body?: Record<string, any>;
+  check_interval: number;
   enabled: boolean;
   last_checked_at: string | null;
   last_status: string | null;
@@ -25,6 +26,7 @@ export interface CreateAPICheckTargetData {
   method: HTTPMethod;
   expected_status: number;
   expected_response_time_ms: number;
+  check_interval?: number;
   enabled?: boolean;
   request_headers?: Record<string, string>;
   request_body?: Record<string, any>;

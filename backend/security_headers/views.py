@@ -134,3 +134,34 @@ class SecurityHeaderResultListView(APIView):
                 "Security header target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
+
+
+class SecurityHeaderStatsView(APIView):
+    """Endpoint for Security Headers KPI summary statistics.
+
+    GET /api/v1/security-headers/stats/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        stats_data = SecurityHeadersService.get_security_header_stats(org_id)
+        return success_response(stats_data)
+
+
+class SecurityHeaderBulkScanView(APIView):
+    """Endpoint to trigger bulk scan for all security header targets.
+
+    POST /api/v1/security-headers/scan-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .tasks import scan_all_security_headers
+            scan_all_security_headers.delay()
+            return success_response({"message": "Escaneo masivo de Security Headers iniciado."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

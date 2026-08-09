@@ -20,6 +20,7 @@ class APICheckTargetSerializer(serializers.ModelSerializer):
             "expected_schema",
             "request_headers",
             "request_body",
+            "check_interval",
             "enabled",
             "last_checked_at",
             "last_status",
@@ -50,6 +51,7 @@ class APICheckTargetCreateSerializer(serializers.Serializer):
     expected_schema = serializers.DictField(required=False, default=dict)
     request_headers = serializers.DictField(required=False, default=dict)
     request_body = serializers.DictField(required=False, default=dict)
+    check_interval = serializers.IntegerField(required=False, default=60)
     enabled = serializers.BooleanField(default=True)
 
 
@@ -67,6 +69,7 @@ class APICheckTargetUpdateSerializer(serializers.Serializer):
     expected_schema = serializers.DictField(required=False)
     request_headers = serializers.DictField(required=False)
     request_body = serializers.DictField(required=False)
+    check_interval = serializers.IntegerField(required=False)
     enabled = serializers.BooleanField(required=False)
 
 

@@ -5,6 +5,7 @@ import type {
   SecurityHeaderTarget,
   SecurityHeaderResult,
   CreateSecurityHeaderTargetData,
+  SecurityHeaderStats,
 } from '../types/security_headers';
 import GradeBadge from '../components/common/GradeBadge';
 import EmptyState from '../components/common/EmptyState';
@@ -24,7 +25,11 @@ import {
   ExternalLink,
   Shield,
   FileCode2,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
+
+type GradeFilterType = 'all' | 'grade_a' | 'grade_bc' | 'grade_df';
 
 export default function SecurityHeadersPage() {
   const queryClient = useQueryClient();
@@ -32,6 +37,17 @@ export default function SecurityHeadersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingTarget, setEditingTarget] = useState<SecurityHeaderTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SecurityHeaderTarget | null>(null);
+  const [gradeFilter, setGradeFilter] = useState<GradeFilterType>('all');
+
+  // Stats query
+  const { data: stats } = useQuery({
+    queryKey: ['security-header-stats'],
+    queryFn: async () => {
+      const response = await api.get('security-headers/stats/');
+      return (response.data?.data || {}) as SecurityHeaderStats;
+    },
+    refetchInterval: 15000,
+  });
 
   // Targets query
   const { data: targets, isLoading, refetch, isRefetching } = useQuery({
@@ -60,6 +76,7 @@ export default function SecurityHeadersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
     },
   });
 
@@ -70,10 +87,21 @@ export default function SecurityHeadersPage() {
     },
     onSuccess: (updatedTarget) => {
       queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
       queryClient.invalidateQueries({ queryKey: ['security-header-results', selectedTarget?.id] });
       if (selectedTarget && updatedTarget) {
         setSelectedTarget(updatedTarget);
       }
+    },
+  });
+
+  const scanAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('security-headers/scan-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
     },
   });
 
@@ -83,6 +111,7 @@ export default function SecurityHeadersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
       if (selectedTarget?.id === deleteTarget?.id) {
         setSelectedTarget(null);
       }
@@ -110,6 +139,15 @@ export default function SecurityHeadersPage() {
     if (Array.isArray(headers)) return headers;
     return Object.keys(headers);
   };
+
+  const filteredTargets = (targets || []).filter((t: SecurityHeaderTarget) => {
+    if (gradeFilter === 'all') return true;
+    const score = t.last_score;
+    if (gradeFilter === 'grade_a') return score !== null && score >= 85;
+    if (gradeFilter === 'grade_bc') return score !== null && score >= 55 && score < 85;
+    if (gradeFilter === 'grade_df') return score === null || score < 55;
+    return true;
+  });
 
   // Latest scan result for selected target
   const latestResult: SecurityHeaderResult | null =
@@ -305,13 +343,15 @@ export default function SecurityHeadersPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
-            title="Refrescar objetivos"
+            onClick={() => scanAllMutation.mutate()}
+            disabled={scanAllMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            title="Auditar cabeceras de seguridad de todos los sitios inmediatamente"
           >
-            <RefreshCw size={18} className={isRefetching ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
+            Auditar Headers Todos
           </button>
+
           <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
@@ -322,14 +362,104 @@ export default function SecurityHeadersPage() {
         </div>
       </div>
 
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Total Auditados</p>
+            <p className="text-xl font-bold font-mono text-text-main">{stats?.total || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+            <CheckCircle2 size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Excelente (Grado A/A+)</p>
+            <p className="text-xl font-bold font-mono text-accent-green">{stats?.grade_a || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Atención (Grado B/C)</p>
+            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.grade_bc || 0}</p>
+          </div>
+        </div>
+
+        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
+          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono uppercase text-text-muted">Riesgo (Grado D/F)</p>
+            <p className="text-xl font-bold font-mono text-accent-red">{stats?.grade_df || 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-border-base mb-6">
+        <button
+          onClick={() => setGradeFilter('all')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            gradeFilter === 'all'
+              ? 'border-accent-green text-accent-green font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          Todos ({stats?.total || 0})
+        </button>
+        <button
+          onClick={() => setGradeFilter('grade_a')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            gradeFilter === 'grade_a'
+              ? 'border-accent-green text-accent-green font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <CheckCircle2 size={15} />
+          Grado A / A+ ({stats?.grade_a || 0})
+        </button>
+        <button
+          onClick={() => setGradeFilter('grade_bc')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            gradeFilter === 'grade_bc'
+              ? 'border-accent-yellow text-accent-yellow font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <AlertTriangle size={15} />
+          Grado B / C ({stats?.grade_bc || 0})
+        </button>
+        <button
+          onClick={() => setGradeFilter('grade_df')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            gradeFilter === 'grade_df'
+              ? 'border-accent-red text-accent-red font-bold'
+              : 'border-transparent text-text-muted hover:text-text-main'
+          }`}
+        >
+          <ShieldAlert size={15} />
+          Grado D / F ({stats?.grade_df || 0})
+        </button>
+      </div>
+
       {/* Targets Cards Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
-      ) : targets && targets.length > 0 ? (
+      ) : filteredTargets && filteredTargets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {targets.map((target: SecurityHeaderTarget) => (
+          {filteredTargets.map((target: SecurityHeaderTarget) => (
             <div
               key={target.id}
               onClick={() => setSelectedTarget(target)}

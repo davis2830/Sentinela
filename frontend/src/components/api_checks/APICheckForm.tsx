@@ -43,6 +43,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
   const [method, setMethod] = useState<HTTPMethod>('GET');
   const [expectedStatus, setExpectedStatus] = useState<number>(200);
   const [expectedTimeMs, setExpectedTimeMs] = useState<number>(2000);
+  const [checkInterval, setCheckInterval] = useState<number>(60);
   const [enabled, setEnabled] = useState<boolean>(true);
 
   // Authentication states
@@ -75,6 +76,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
       setMethod(target.method);
       setExpectedStatus(target.expected_status);
       setExpectedTimeMs(target.expected_response_time_ms);
+      setCheckInterval(target.check_interval || 60);
       setEnabled(target.enabled);
 
       // Parse headers for Auth detection
@@ -238,6 +240,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
         method,
         expected_status: Number(expectedStatus),
         expected_response_time_ms: Number(expectedTimeMs),
+        check_interval: Number(checkInterval),
         enabled,
         request_headers: headers,
         request_body: body,
@@ -323,7 +326,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
                 Status Esperado
@@ -341,7 +344,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
             <div>
               <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
-                Max Latencia Permitida (ms)
+                Max Latencia (ms)
               </label>
               <input
                 type="number"
@@ -353,6 +356,25 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 onChange={(e) => setExpectedTimeMs(Number(e.target.value))}
                 className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+                Intervalo Monitoreo
+              </label>
+              <select
+                value={checkInterval}
+                onChange={(e) => setCheckInterval(Number(e.target.value))}
+                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono font-bold"
+              >
+                <option value={30}>Cada 30 Seg</option>
+                <option value={60}>Cada 1 Min (60s)</option>
+                <option value={300}>Cada 5 Min (300s)</option>
+                <option value={600}>Cada 10 Min (600s)</option>
+                <option value={900}>Cada 15 Min (900s)</option>
+                <option value={1800}>Cada 30 Min (1800s)</option>
+                <option value={3600}>Cada 1 Hora (3600s)</option>
+              </select>
             </div>
           </div>
 
