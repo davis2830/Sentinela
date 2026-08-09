@@ -1,6 +1,12 @@
 export type IncidentPriority = 'critical' | 'high' | 'medium' | 'low';
 
-export type IncidentStatus = 'open' | 'investigating' | 'resolved' | 'closed';
+export type IncidentStatus =
+  | 'open'
+  | 'investigating'
+  | 'identified'
+  | 'mitigated'
+  | 'resolved'
+  | 'closed';
 
 export type IncidentEventType =
   | 'created'
@@ -50,5 +56,9 @@ export interface IncidentAlert {
   id: string;
   incident: string;
   alert_id: string;
+  alert_title?: string;
+  alert_severity?: string;
+  alert_status?: string;
+  alert_triggered_at?: string;
   added_at: string;
 }

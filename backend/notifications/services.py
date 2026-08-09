@@ -242,7 +242,7 @@ class NotificationService:
         notification = NotificationService.create_notification(
             organization_id=organization_id,
             channel_id=channel.id,
-            title="🔔 Sentinela - Notificación de Prueba",
+            title="[PRUEBA] Sentinela - Notificación de Prueba",
             message=f"Esta es una notificación de prueba para validar la integración con el canal '{channel.name}' ({channel.channel_type}).",
         )
         from .tasks import send_notification_task

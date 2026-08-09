@@ -44,4 +44,7 @@ urlpatterns = [
 
     # Audit
     path("audit-logs/", include("audit.urls")),
+
+    # Status Page
+    path("status-page/", include("status_page.urls")),
 ]

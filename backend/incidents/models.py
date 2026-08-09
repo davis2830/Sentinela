@@ -13,6 +13,8 @@ class Incident(OrganizationOwnedModel):
     class Status(models.TextChoices):
         OPEN = "open", "Open"
         INVESTIGATING = "investigating", "Investigating"
+        IDENTIFIED = "identified", "Identified"
+        MITIGATED = "mitigated", "Mitigated"
         RESOLVED = "resolved", "Resolved"
         CLOSED = "closed", "Closed"
 

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "notifications",
     "incidents",
     "reports",
+    "status_page",
     "audit",
 ]
 

@@ -125,7 +125,7 @@ export default function NotificationsPage() {
       const response = await api.post(`notifications/channels/${channel.id}/test/`);
       const notifData = response.data?.data;
       if (notifData?.status === 'sent') {
-        setTestResult({ id: channel.id, success: true, msg: '¡Notificación de prueba enviada con éxito! 🚀' });
+        setTestResult({ id: channel.id, success: true, msg: '¡Notificación de prueba enviada con éxito!' });
       } else {
         setTestResult({ id: channel.id, success: false, msg: notifData?.error_message || 'Fallo al entregar la notificación.' });
       }
