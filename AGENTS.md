@@ -37,5 +37,7 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - Slide-Over Drawer lateral ([`TargetDetailDrawer.tsx`](file:///frontend/src/components/monitoring/TargetDetailDrawer.tsx)) para inspección de métricas sin salir de la lista.
   - Test de Conexión en Vivo en [`TargetForm.tsx`](file:///frontend/src/components/monitoring/TargetForm.tsx) con endpoint `POST /api/v1/monitoring/test-connection/`.
   - Acciones en Lote (Bulk Actions) para escanear, pausar, reanudar o eliminar targets en masa (`POST /api/v1/monitoring/bulk-action/`).
+  - Suavizado integral de geometría: Contenedores `rounded-2xl` y modales `rounded-3xl`, badges y filtros en cápsula `rounded-full`, y scrollbars sutiles.
+  - Adopción de tipografía **Outfit** (Google Fonts) en toda la UI, reservando monospace sólo para datos técnicos (IPs, puertos, latencia).
 - **Correcciones de entorno Docker:** Configuración de Celery en `backend/config/settings/base.py` optimizada para workers y broker Redis.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.

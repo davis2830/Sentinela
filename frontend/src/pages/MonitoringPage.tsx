@@ -297,10 +297,10 @@ export default function MonitoringPage() {
           {/* Auto-refresh indicator & toggle */}
           <button
             onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-mono text-xs transition-colors ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               autoRefreshEnabled
                 ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
-                : 'bg-bg-dark border-border-base text-text-dim'
+                : 'bg-bg-dark/80 border-border-base/80 text-text-dim'
             }`}
             title={autoRefreshEnabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'}
           >
@@ -311,7 +311,7 @@ export default function MonitoringPage() {
           <button
             onClick={() => scanAllMutation.mutate()}
             disabled={scanAllMutation.isPending}
-            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-semibold px-3.5 py-2 rounded-lg text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
           >
             <RefreshCw size={15} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
             Actualizar Todo
@@ -319,7 +319,7 @@ export default function MonitoringPage() {
 
           <button
             onClick={handleNewTarget}
-            className="flex items-center gap-2 bg-accent-green text-black font-bold px-4 py-2 rounded-lg text-sm hover:bg-accent-green/90 transition-all shadow-md hover:shadow-accent-green/20"
+            className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
           >
             <Plus size={16} />
             Nuevo Target
@@ -330,18 +330,18 @@ export default function MonitoringPage() {
       {/* NOC Command Center: KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Global SLA */}
-        <div className="bg-bg-card/90 border border-border-base rounded-xl p-4 shadow-sm relative overflow-hidden">
+        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase text-text-muted font-bold flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-accent-green" /> Disponibilidad SLA
+            <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+              <ShieldCheck size={15} className="text-accent-green" /> Disponibilidad SLA
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               {globalSla >= 99.0 ? 'ÓPTIMO' : 'ATENCIÓN'}
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold font-mono text-text-main">{globalSla}%</span>
-            <span className="text-xs text-text-dim font-mono">últimas 24h</span>
+            <span className="text-xs text-text-dim">últimas 24h</span>
           </div>
           <div className="w-full bg-bg-dark h-1.5 rounded-full mt-3 overflow-hidden">
             <div
@@ -354,53 +354,53 @@ export default function MonitoringPage() {
         </div>
 
         {/* KPI 2: Latencia Promedio */}
-        <div className="bg-bg-card/90 border border-border-base rounded-xl p-4 shadow-sm">
+        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase text-text-muted font-bold flex items-center gap-1.5">
-              <Activity size={14} className="text-sky-400" /> Latencia Promedio
+            <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+              <Activity size={15} className="text-sky-400" /> Latencia Promedio
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
               RED GLOBAL
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold font-mono text-sky-400">{avgLatency}ms</span>
-            <span className="text-xs text-text-dim font-mono">tiempo respuesta</span>
+            <span className="text-xs text-text-dim">tiempo respuesta</span>
           </div>
-          <p className="text-[11px] text-text-muted mt-2 font-mono truncate">
+          <p className="text-[11px] text-text-muted mt-2 truncate">
             Calculado sobre {activeWithLatency.length} targets activos
           </p>
         </div>
 
         {/* KPI 3: Estado de Targets */}
-        <div className="bg-bg-card/90 border border-border-base rounded-xl p-4 shadow-sm">
+        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-mono uppercase text-text-muted font-bold flex items-center gap-1.5">
-              <Zap size={14} className="text-amber-400" /> Salud de Infraestructura
+            <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+              <Zap size={15} className="text-amber-400" /> Salud de Infraestructura
             </span>
-            <span className="text-xs font-mono font-bold text-text-main">{totalCount} Targets</span>
+            <span className="text-xs font-bold text-text-main">{totalCount} Targets</span>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center pt-1 font-mono">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg py-1.5 px-1">
+          <div className="grid grid-cols-3 gap-2 text-center pt-1">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-1.5 px-1">
               <div className="text-lg font-bold text-emerald-400">{onlineCount}</div>
-              <div className="text-[10px] text-emerald-400/80">ONLINE</div>
+              <div className="text-[10px] font-medium text-emerald-400/80">ONLINE</div>
             </div>
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg py-1.5 px-1">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl py-1.5 px-1">
               <div className="text-lg font-bold text-amber-400">{slowCount}</div>
-              <div className="text-[10px] text-amber-400/80">LENTOS</div>
+              <div className="text-[10px] font-medium text-amber-400/80">LENTOS</div>
             </div>
-            <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg py-1.5 px-1">
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl py-1.5 px-1">
               <div className="text-lg font-bold text-rose-400">{downCount}</div>
-              <div className="text-[10px] text-rose-400/80">CAÍDOS</div>
+              <div className="text-[10px] font-medium text-rose-400/80">CAÍDOS</div>
             </div>
           </div>
         </div>
 
         {/* KPI 4: Próximo Chequeo / Carga */}
-        <div className="bg-bg-card/90 border border-border-base rounded-xl p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase text-text-muted font-bold">Frecuencia Monitoreo</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+            <span className="text-xs font-semibold text-text-muted">Frecuencia Monitoreo</span>
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
               CELERY BEAT
             </span>
           </div>
@@ -408,11 +408,11 @@ export default function MonitoringPage() {
             <div className="text-2xl font-extrabold font-mono text-accent-green">
               {totalCount > 0 ? `${totalCount * 2} checks` : '0 checks'}
             </div>
-            <p className="text-xs text-text-dim font-mono mt-0.5">por minuto en ejecución continua</p>
+            <p className="text-xs text-text-dim mt-0.5">por minuto en ejecución continua</p>
           </div>
-          <div className="text-[11px] font-mono text-text-muted flex items-center justify-between pt-1 border-t border-border-base/40">
+          <div className="text-[11px] text-text-muted flex items-center justify-between pt-1 border-t border-border-base/40">
             <span>Pausados: {pausedCount}</span>
-            <span className="text-accent-green flex items-center gap-1">
+            <span className="text-accent-green flex items-center gap-1 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-ping" /> Activo
             </span>
           </div>
@@ -420,7 +420,7 @@ export default function MonitoringPage() {
       </div>
 
       {/* Search, Filter Toolbar & View Switcher */}
-      <div className="bg-bg-card border border-border-base rounded-xl p-4 shadow-md space-y-3">
+      <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4 shadow-md space-y-3.5">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
@@ -430,23 +430,23 @@ export default function MonitoringPage() {
               placeholder="Buscar por nombre, URL o dirección IP..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg pl-10 pr-4 py-2 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
+              className="w-full bg-bg-dark/80 border border-border-base/80 rounded-full pl-10 pr-4 py-2 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all"
             />
           </div>
 
           {/* Tag filter selector */}
           {allTags.length > 0 && (
-            <div className="flex items-center gap-1.5 font-mono text-xs">
-              <span className="text-text-muted">TAG:</span>
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <span className="text-text-muted">Tag:</span>
               <select
                 value={selectedTag}
                 onChange={(e) => setSelectedTag(e.target.value)}
-                className="bg-bg-dark border border-border-base rounded-lg px-2.5 py-2 text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
+                className="bg-bg-dark/80 border border-border-base/80 rounded-full px-3 py-2 text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
               >
-                <option value="all">TODOS LOS TAGS</option>
+                <option value="all">Todos los Tags</option>
                 {allTags.map((tag) => (
                   <option key={tag} value={tag}>
-                    #{tag.toUpperCase()}
+                    #{tag}
                   </option>
                 ))}
               </select>
@@ -454,11 +454,11 @@ export default function MonitoringPage() {
           )}
 
           {/* View Mode Switcher */}
-          <div className="flex items-center gap-1 bg-bg-dark p-1 rounded-lg border border-border-base">
+          <div className="flex items-center gap-1 bg-bg-dark/80 p-1 rounded-full border border-border-base/80">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded transition-colors ${
-                viewMode === 'grid' ? 'bg-accent-green text-black font-bold' : 'text-text-muted hover:text-text-main'
+              className={`p-1.5 rounded-full transition-all ${
+                viewMode === 'grid' ? 'bg-accent-green text-black font-semibold shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
               title="Vista de Cuadrícula (Cards)"
             >
@@ -466,8 +466,8 @@ export default function MonitoringPage() {
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded transition-colors ${
-                viewMode === 'table' ? 'bg-accent-green text-black font-bold' : 'text-text-muted hover:text-text-main'
+              className={`p-1.5 rounded-full transition-all ${
+                viewMode === 'table' ? 'bg-accent-green text-black font-semibold shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
               title="Vista de Tabla Compacta (NOC)"
             >
@@ -477,63 +477,63 @@ export default function MonitoringPage() {
         </div>
 
         {/* Filters Row: Protocol Chips & Status Pills */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border-base/40">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border-base/40">
           {/* Protocol Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto font-mono text-xs">
-            <span className="text-[11px] text-text-dim uppercase mr-1">Tipo:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+            <span className="text-[11px] text-text-dim uppercase font-semibold mr-1">Tipo:</span>
             {['all', 'https', 'http', 'tcp', 'dns', 'api', 'ssl'].map((proto) => (
               <button
                 key={proto}
                 onClick={() => setProtocolFilter(proto)}
-                className={`px-2.5 py-1 rounded text-[11px] uppercase transition-colors border ${
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
                   protocolFilter === proto
-                    ? 'bg-accent-green/20 border-accent-green text-accent-green font-bold'
-                    : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main'
+                    ? 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm'
+                    : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-border-base'
                 }`}
               >
-                {proto === 'all' ? 'Todos' : proto}
+                {proto === 'all' ? 'Todos' : proto.toUpperCase()}
               </button>
             ))}
           </div>
 
           {/* Status Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto font-mono text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1 rounded-lg border transition-colors ${
+              className={`px-3.5 py-1 rounded-full border transition-all font-medium ${
                 statusFilter === 'all'
-                  ? 'bg-accent-green/20 border-accent-green text-accent-green font-bold'
-                  : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
+                  ? 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm'
+                  : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main'
               }`}
             >
               Todos ({totalCount})
             </button>
             <button
               onClick={() => setStatusFilter('up')}
-              className={`px-3 py-1 rounded-lg border transition-colors ${
+              className={`px-3.5 py-1 rounded-full border transition-all font-medium ${
                 statusFilter === 'up'
-                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold'
-                  : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
+                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-semibold shadow-sm'
+                  : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main'
               }`}
             >
               Online ({onlineCount})
             </button>
             <button
               onClick={() => setStatusFilter('down')}
-              className={`px-3 py-1 rounded-lg border transition-colors ${
+              className={`px-3.5 py-1 rounded-full border transition-all font-medium ${
                 statusFilter === 'down'
-                  ? 'bg-rose-500/20 border-rose-500 text-rose-400 font-bold'
-                  : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
+                  ? 'bg-rose-500/20 border-rose-500 text-rose-400 font-semibold shadow-sm'
+                  : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main'
               }`}
             >
               Caídos ({downCount})
             </button>
             <button
               onClick={() => setStatusFilter('slow')}
-              className={`px-3 py-1 rounded-lg border transition-colors ${
+              className={`px-3.5 py-1 rounded-full border transition-all font-medium ${
                 statusFilter === 'slow'
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold'
-                  : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-semibold shadow-sm'
+                  : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main'
               }`}
             >
               Lentos ({slowCount})
@@ -544,10 +544,10 @@ export default function MonitoringPage() {
 
       {/* Floating Bulk Actions Bar */}
       {selectedIds.length > 0 && (
-        <div className="sticky top-4 z-20 bg-bg-dark/95 border border-accent-green/50 backdrop-blur-md rounded-xl p-3 px-5 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top duration-200">
+        <div className="sticky top-4 z-20 bg-bg-dark/95 border border-accent-green/50 backdrop-blur-md rounded-2xl p-3 px-5 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-3">
             <CheckSquare size={18} className="text-accent-green" />
-            <span className="font-mono text-sm font-bold text-text-main">
+            <span className="text-sm font-semibold text-text-main">
               {selectedIds.length} target{selectedIds.length > 1 ? 's' : ''} seleccionado{selectedIds.length > 1 ? 's' : ''}
             </span>
           </div>
@@ -556,34 +556,34 @@ export default function MonitoringPage() {
             <button
               onClick={() => bulkMutation.mutate({ action: 'scan', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
-              className="px-3 py-1.5 bg-accent-green/10 border border-accent-green text-accent-green font-semibold rounded-lg text-xs hover:bg-accent-green/20 transition-colors"
+              className="px-3.5 py-1.5 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium rounded-full text-xs hover:bg-accent-green/20 transition-all"
             >
               Escanear Seleccionados
             </button>
             <button
               onClick={() => bulkMutation.mutate({ action: 'pause', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
-              className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 font-semibold rounded-lg text-xs hover:bg-amber-500/20 transition-colors"
+              className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 font-medium rounded-full text-xs hover:bg-amber-500/20 transition-all"
             >
-              Pausar Monitoreo
+              Pausar
             </button>
             <button
               onClick={() => bulkMutation.mutate({ action: 'resume', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
-              className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 font-semibold rounded-lg text-xs hover:bg-emerald-500/20 transition-colors"
+              className="px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 font-medium rounded-full text-xs hover:bg-emerald-500/20 transition-all"
             >
               Reanudar
             </button>
             <button
               onClick={() => bulkMutation.mutate({ action: 'delete', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
-              className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/40 text-rose-400 font-semibold rounded-lg text-xs hover:bg-rose-500/20 transition-colors"
+              className="px-3.5 py-1.5 bg-rose-500/10 border border-rose-500/40 text-rose-400 font-medium rounded-full text-xs hover:bg-rose-500/20 transition-all"
             >
               Eliminar
             </button>
             <button
               onClick={() => setSelectedIds([])}
-              className="px-2.5 py-1.5 text-text-muted hover:text-text-main text-xs"
+              className="px-3 py-1.5 text-text-muted hover:text-text-main text-xs font-medium transition-colors"
             >
               Deseleccionar
             </button>

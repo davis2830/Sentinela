@@ -127,10 +127,10 @@ export default function TargetCard({
 
   return (
     <div
-      className={`group relative bg-bg-card border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
+      className={`group relative bg-bg-card/90 border rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:shadow-xl ${
         isSelected
-          ? 'border-accent-green bg-accent-green/5 ring-1 ring-accent-green/50'
-          : 'border-border-base hover:border-accent-green/40 hover:bg-bg-card/90'
+          ? 'border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30'
+          : 'border-border-base/70 hover:border-accent-green/40 hover:bg-bg-card'
       }`}
       onClick={() => onClick(target)}
     >
@@ -150,13 +150,13 @@ export default function TargetCard({
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => {}}
-                className="w-4 h-4 rounded border-border-base text-accent-green focus:ring-accent-green/40 bg-bg-dark cursor-pointer"
+                className="w-4 h-4 rounded-md border-border-base text-accent-green focus:ring-accent-green/40 bg-bg-dark cursor-pointer"
               />
             </div>
           )}
 
           {/* Type Icon */}
-          <div className={`w-9 h-9 rounded-lg ${typeStyle.bg} border ${typeStyle.border} flex items-center justify-center shrink-0`}>
+          <div className={`w-10 h-10 rounded-xl ${typeStyle.bg} border ${typeStyle.border} flex items-center justify-center shrink-0 shadow-inner`}>
             <Icon className={typeStyle.text} size={18} />
           </div>
 
@@ -175,14 +175,14 @@ export default function TargetCard({
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-0.5 shrink-0 bg-bg-dark/60 p-1 rounded-lg border border-border-base/50">
+        <div className="flex items-center gap-0.5 shrink-0 bg-bg-dark/70 p-1 rounded-xl border border-border-base/60">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onScan(target);
             }}
             disabled={isScanning}
-            className="p-1.5 text-text-muted hover:text-accent-green hover:bg-accent-green/10 rounded transition-colors disabled:opacity-50"
+            className="p-1.5 text-text-muted hover:text-accent-green hover:bg-accent-green/10 rounded-lg transition-colors disabled:opacity-50"
             title="Escanear ahora"
           >
             <RefreshCw size={14} className={isScanning ? 'animate-spin text-accent-green' : ''} />
@@ -193,7 +193,7 @@ export default function TargetCard({
                 e.stopPropagation();
                 onAlert(target);
               }}
-              className="p-1.5 text-text-muted hover:text-accent-yellow hover:bg-accent-yellow/10 rounded transition-colors"
+              className="p-1.5 text-text-muted hover:text-accent-yellow hover:bg-accent-yellow/10 rounded-lg transition-colors"
               title="Vincular regla de alerta"
             >
               <Bell size={14} />
@@ -204,7 +204,7 @@ export default function TargetCard({
               e.stopPropagation();
               onEdit(target);
             }}
-            className="p-1.5 text-text-muted hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors"
+            className="p-1.5 text-text-muted hover:text-accent-blue hover:bg-accent-blue/10 rounded-lg transition-colors"
             title="Editar target"
           >
             <Pencil size={14} />
@@ -214,7 +214,7 @@ export default function TargetCard({
               e.stopPropagation();
               onDelete(target);
             }}
-            className="p-1.5 text-text-muted hover:text-accent-red hover:bg-accent-red/10 rounded transition-colors"
+            className="p-1.5 text-text-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
             title="Eliminar target"
           >
             <Trash2 size={14} />
@@ -224,11 +224,11 @@ export default function TargetCard({
 
       {/* Tags row */}
       {target.tags && target.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-3">
           {target.tags.map((tag) => (
             <span
               key={tag}
-              className="px-1.5 py-0.5 bg-bg-dark border border-border-base text-[10px] text-text-muted rounded uppercase font-mono"
+              className="px-2.5 py-0.5 bg-bg-dark/80 border border-border-base/80 text-[10px] text-text-muted rounded-full font-medium"
             >
               #{tag}
             </span>
@@ -238,11 +238,11 @@ export default function TargetCard({
 
       {/* Mini Uptime Sparkline / Blocks Bar */}
       <div className="mb-3 pt-2 border-t border-border-base/40">
-        <div className="flex items-center justify-between text-[10px] text-text-dim font-mono mb-1.5">
-          <span className="flex items-center gap-1">
+        <div className="flex items-center justify-between text-[10px] text-text-dim mb-1.5">
+          <span className="flex items-center gap-1 font-medium">
             <Activity size={10} className="text-accent-green" /> Disponibilidad Reciente
           </span>
-          <span className={getLatencyColor(target.last_latency)}>
+          <span className={`font-mono ${getLatencyColor(target.last_latency)}`}>
             {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : 'Sin datos'}
           </span>
         </div>
@@ -256,7 +256,7 @@ export default function TargetCard({
             return (
               <div
                 key={idx}
-                className={`flex-1 h-full rounded-xs transition-transform hover:scale-125 cursor-pointer ${bgClass}`}
+                className={`flex-1 h-full rounded-full transition-transform hover:scale-125 cursor-pointer ${bgClass}`}
                 title={`Check ${idx + 1}: ${c.status.toUpperCase()} ${c.latency ? `(${c.latency.toFixed(0)}ms)` : ''}`}
               />
             );
@@ -266,8 +266,8 @@ export default function TargetCard({
 
       {/* Bottom row: Protocol, Interval, Latency & Switch */}
       <div className="flex items-center justify-between pt-1 text-xs">
-        <div className="flex items-center gap-2 font-mono">
-          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
+        <div className="flex items-center gap-2">
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
             {target.target_type}
           </span>
           <span className="text-text-dim text-[11px]">cada {target.interval}s</span>
