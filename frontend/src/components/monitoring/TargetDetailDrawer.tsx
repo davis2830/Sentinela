@@ -40,41 +40,41 @@ export default function TargetDetailDrawer({
   const getStatusBadge = () => {
     if (!target.enabled) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
           <span className="w-2 h-2 rounded-full bg-zinc-500" />
-          PAUSADO
+          Pausado
         </span>
       );
     }
     if (status === 'up') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          OPERACIONAL
+          Operacional
         </span>
       );
     }
     if (status === 'slow') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
           </span>
-          DEGRADADO / LENTO
+          Degradado / Lento
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
         </span>
-        INTERRUPCIÓN (DOWN)
+        Interrupción (Caído)
       </span>
     );
   };
@@ -186,36 +186,36 @@ export default function TargetDetailDrawer({
         <div className="flex border-b border-border-base px-6 bg-bg-dark/40">
           <button
             onClick={() => setActiveTab('metrics')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-mono font-bold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'metrics'
                 ? 'border-accent-green text-accent-green bg-accent-green/5'
                 : 'border-transparent text-text-muted hover:text-text-main'
             }`}
           >
             <Activity size={14} />
-            MÉTRICAS & SLA
+            Métricas & SLA
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-mono font-bold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'history'
                 ? 'border-accent-green text-accent-green bg-accent-green/5'
                 : 'border-transparent text-text-muted hover:text-text-main'
             }`}
           >
             <List size={14} />
-            HISTORIAL DE CHECKS
+            Historial de Checks
           </button>
           <button
             onClick={() => setActiveTab('config')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-mono font-bold border-b-2 transition-colors ${
+            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'config'
                 ? 'border-accent-green text-accent-green bg-accent-green/5'
                 : 'border-transparent text-text-muted hover:text-text-main'
             }`}
           >
             <Settings size={14} />
-            CONFIGURACIÓN
+            Configuración
           </button>
         </div>
 
@@ -268,7 +268,7 @@ export default function TargetDetailDrawer({
                 <div className="flex justify-between py-1.5 border-b border-border-base/40">
                   <span className="text-text-muted">Estado de Monitoreo:</span>
                   <span className={target.enabled ? 'text-accent-green' : 'text-zinc-400'}>
-                    {target.enabled ? 'ACTIVO' : 'PAUSADO'}
+                    {target.enabled ? 'Activo' : 'Pausado'}
                   </span>
                 </div>
               </div>

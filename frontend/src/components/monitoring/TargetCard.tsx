@@ -1,4 +1,4 @@
-import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity } from 'lucide-react';
+import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity, Check } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -67,51 +67,51 @@ export default function TargetCard({
       return (
         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
-          PAUSADO
+          Pausado
         </span>
       );
     }
 
     if (status === 'up') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          ONLINE
+          Online
         </span>
       );
     }
 
     if (status === 'slow') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
           </span>
-          LENTO
+          Lento
         </span>
       );
     }
 
     if (status === 'down' || status === 'error') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
           </span>
-          CAÍDO
+          Caído
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
-        DESCONOCIDO
+        Desconocido
       </span>
     );
   };
@@ -127,7 +127,7 @@ export default function TargetCard({
 
   return (
     <div
-      className={`group relative bg-bg-card/90 border rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:shadow-xl ${
+      className={`group relative bg-bg-card/95 border rounded-2xl p-5 cursor-pointer transition-all duration-200 hover:shadow-xl ${
         isSelected
           ? 'border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30'
           : 'border-border-base/70 hover:border-accent-green/40 hover:bg-bg-card'
@@ -135,24 +135,29 @@ export default function TargetCard({
       onClick={() => onClick(target)}
     >
       {/* Top row: Checkbox, Icon, Title, Status & Actions */}
-      <div className="flex items-start justify-between gap-2 mb-3">
+      <div className="flex items-start justify-between gap-3 mb-3.5">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          {/* Checkbox for bulk actions */}
+          {/* Custom Selection Checkbox Button */}
           {onSelectToggle && (
-            <div
-              className="pt-1"
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectToggle(target);
               }}
+              className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 mt-0.5 ${
+                isSelected
+                  ? 'bg-accent-green text-black shadow-sm shadow-accent-green/30 ring-2 ring-accent-green/40'
+                  : 'border border-border-base/90 bg-bg-dark/80 hover:border-accent-green/50 text-transparent'
+              }`}
+              title={isSelected ? 'Deseleccionar target' : 'Seleccionar target'}
             >
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => {}}
-                className="w-4 h-4 rounded-md border-border-base text-accent-green focus:ring-accent-green/40 bg-bg-dark cursor-pointer"
+              <Check
+                size={12}
+                strokeWidth={3}
+                className={`transition-all duration-150 ${isSelected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`}
               />
-            </div>
+            </button>
           )}
 
           {/* Type Icon */}
@@ -160,22 +165,22 @@ export default function TargetCard({
             <Icon className={typeStyle.text} size={18} />
           </div>
 
-          {/* Name & Endpoint */}
-          <div className="min-w-0 flex-1">
+          {/* Name & Endpoint with padding */}
+          <div className="min-w-0 flex-1 pl-0.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-text-main text-sm truncate max-w-[180px]" title={target.name}>
+              <h3 className="font-semibold text-text-main text-sm truncate max-w-[170px]" title={target.name}>
                 {target.name}
               </h3>
               {renderStatusIndicator()}
             </div>
-            <p className="text-xs text-text-dim font-mono truncate mt-0.5" title={target.endpoint}>
+            <p className="text-xs text-text-dim font-mono truncate mt-1" title={target.endpoint}>
               {target.endpoint}
             </p>
           </div>
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-0.5 shrink-0 bg-bg-dark/70 p-1 rounded-xl border border-border-base/60">
+        <div className="flex items-center gap-1 shrink-0 bg-bg-dark/70 p-1.5 rounded-xl border border-border-base/60">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -224,7 +229,7 @@ export default function TargetCard({
 
       {/* Tags row */}
       {target.tags && target.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-3.5">
           {target.tags.map((tag) => (
             <span
               key={tag}
@@ -237,16 +242,16 @@ export default function TargetCard({
       )}
 
       {/* Mini Uptime Sparkline / Blocks Bar */}
-      <div className="mb-3 pt-2 border-t border-border-base/40">
-        <div className="flex items-center justify-between text-[10px] text-text-dim mb-1.5">
-          <span className="flex items-center gap-1 font-medium">
-            <Activity size={10} className="text-accent-green" /> Disponibilidad Reciente
+      <div className="mb-3.5 pt-3 border-t border-border-base/40">
+        <div className="flex items-center justify-between text-[11px] text-text-dim mb-2">
+          <span className="flex items-center gap-1.5 font-medium">
+            <Activity size={12} className="text-accent-green" /> Disponibilidad Reciente
           </span>
-          <span className={`font-mono ${getLatencyColor(target.last_latency)}`}>
+          <span className={`font-mono text-xs ${getLatencyColor(target.last_latency)}`}>
             {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : 'Sin datos'}
           </span>
         </div>
-        <div className="flex items-center gap-1 h-2 w-full">
+        <div className="flex items-center gap-1 h-2.5 w-full">
           {recentChecks.slice(-18).map((c, idx) => {
             let bgClass = 'bg-zinc-700';
             if (c.status === 'up') bgClass = 'bg-emerald-500 hover:bg-emerald-400';
@@ -265,7 +270,7 @@ export default function TargetCard({
       </div>
 
       {/* Bottom row: Protocol, Interval, Latency & Switch */}
-      <div className="flex items-center justify-between pt-1 text-xs">
+      <div className="flex items-center justify-between pt-2.5 border-t border-border-base/30 text-xs">
         <div className="flex items-center gap-2">
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
             {target.target_type}

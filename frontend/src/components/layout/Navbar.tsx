@@ -34,7 +34,7 @@ export default function Navbar() {
             <span className="text-accent-green text-xl">//</span>
             <span>sentinel</span>
           </Link>
-          <span className="bg-accent-green/10 border border-accent-green text-accent-green text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide">
+          <span className="bg-accent-green/10 border border-accent-green text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
             Fase 1: Observabilidad
           </span>
         </div>
@@ -42,11 +42,11 @@ export default function Navbar() {
         {/* Omnibar Search Trigger Button */}
         <button
           onClick={() => setIsSearchOpen(true)}
-          className="flex items-center gap-3 bg-bg-card border border-border-base hover:border-accent-green px-4 py-1.5 rounded-xl text-xs font-mono text-text-muted hover:text-text-main transition-colors shadow-sm"
+          className="flex items-center gap-3 bg-bg-card border border-border-base hover:border-accent-green px-4 py-1.5 rounded-full text-xs text-text-muted hover:text-text-main transition-all shadow-sm"
         >
           <Search size={14} className="text-accent-green" />
           <span>Buscar todo en Sentinela...</span>
-          <span className="bg-bg-dark border border-border-base text-text-dim px-1.5 py-0.5 rounded text-[10px]">
+          <span className="bg-bg-dark border border-border-base text-text-dim px-2 py-0.5 rounded-full text-[10px] font-mono">
             Ctrl K
           </span>
         </button>

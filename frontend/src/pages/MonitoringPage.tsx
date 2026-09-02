@@ -330,20 +330,20 @@ export default function MonitoringPage() {
       {/* NOC Command Center: KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Global SLA */}
-        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm relative overflow-hidden">
+        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[150px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <ShieldCheck size={15} className="text-accent-green" /> Disponibilidad SLA
+              <ShieldCheck size={16} className="text-accent-green" /> Disponibilidad SLA
             </span>
             <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {globalSla >= 99.0 ? 'ÓPTIMO' : 'ATENCIÓN'}
+              {globalSla >= 99.0 ? 'Óptimo' : 'Atención'}
             </span>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold font-mono text-text-main">{globalSla}%</span>
+          <div className="my-2 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold font-mono text-text-main tracking-tight">{globalSla}%</span>
             <span className="text-xs text-text-dim">últimas 24h</span>
           </div>
-          <div className="w-full bg-bg-dark h-1.5 rounded-full mt-3 overflow-hidden">
+          <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 globalSla >= 99 ? 'bg-emerald-400' : globalSla >= 95 ? 'bg-amber-400' : 'bg-rose-500'
@@ -354,63 +354,63 @@ export default function MonitoringPage() {
         </div>
 
         {/* KPI 2: Latencia Promedio */}
-        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm">
+        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <Activity size={15} className="text-sky-400" /> Latencia Promedio
+              <Activity size={16} className="text-sky-400" /> Latencia Promedio
             </span>
             <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              RED GLOBAL
+              Red Global
             </span>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold font-mono text-sky-400">{avgLatency}ms</span>
+          <div className="my-2 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold font-mono text-sky-400 tracking-tight">{avgLatency}ms</span>
             <span className="text-xs text-text-dim">tiempo respuesta</span>
           </div>
-          <p className="text-[11px] text-text-muted mt-2 truncate">
+          <p className="text-[11px] text-text-muted truncate">
             Calculado sobre {activeWithLatency.length} targets activos
           </p>
         </div>
 
         {/* KPI 3: Estado de Targets */}
-        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <Zap size={15} className="text-amber-400" /> Salud de Infraestructura
+              <Zap size={16} className="text-amber-400" /> Salud de Infraestructura
             </span>
             <span className="text-xs font-bold text-text-main">{totalCount} Targets</span>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center pt-1">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-1.5 px-1">
+          <div className="grid grid-cols-3 gap-2.5 text-center pt-1">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2 px-1">
               <div className="text-lg font-bold text-emerald-400">{onlineCount}</div>
-              <div className="text-[10px] font-medium text-emerald-400/80">ONLINE</div>
+              <div className="text-[10px] font-medium text-emerald-400/80">Online</div>
             </div>
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl py-1.5 px-1">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl py-2 px-1">
               <div className="text-lg font-bold text-amber-400">{slowCount}</div>
-              <div className="text-[10px] font-medium text-amber-400/80">LENTOS</div>
+              <div className="text-[10px] font-medium text-amber-400/80">Lentos</div>
             </div>
-            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl py-1.5 px-1">
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl py-2 px-1">
               <div className="text-lg font-bold text-rose-400">{downCount}</div>
-              <div className="text-[10px] font-medium text-rose-400/80">CAÍDOS</div>
+              <div className="text-[10px] font-medium text-rose-400/80">Caídos</div>
             </div>
           </div>
         </div>
 
         {/* KPI 4: Próximo Chequeo / Carga */}
-        <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4.5 shadow-sm flex flex-col justify-between">
+        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-muted">Frecuencia Monitoreo</span>
             <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
-              CELERY BEAT
+              Celery Beat
             </span>
           </div>
           <div className="my-2">
-            <div className="text-2xl font-extrabold font-mono text-accent-green">
+            <div className="text-2xl font-extrabold font-mono text-accent-green tracking-tight">
               {totalCount > 0 ? `${totalCount * 2} checks` : '0 checks'}
             </div>
             <p className="text-xs text-text-dim mt-0.5">por minuto en ejecución continua</p>
           </div>
-          <div className="text-[11px] text-text-muted flex items-center justify-between pt-1 border-t border-border-base/40">
+          <div className="text-[11px] text-text-muted flex items-center justify-between pt-2 border-t border-border-base/40">
             <span>Pausados: {pausedCount}</span>
             <span className="text-accent-green flex items-center gap-1 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-ping" /> Activo
@@ -480,7 +480,7 @@ export default function MonitoringPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border-base/40">
           {/* Protocol Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-            <span className="text-[11px] text-text-dim uppercase font-semibold mr-1">Tipo:</span>
+            <span className="text-[11px] text-text-dim font-semibold mr-1">Tipo:</span>
             {['all', 'https', 'http', 'tcp', 'dns', 'api', 'ssl'].map((proto) => (
               <button
                 key={proto}

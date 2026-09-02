@@ -1,4 +1,4 @@
-import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -65,90 +65,96 @@ export default function TargetTableView({
   const renderStatus = (target: MonitoringTarget) => {
     if (!target.enabled) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-          PAUSADO
+          Pausado
         </span>
       );
     }
     if (target.last_status === 'up') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          ONLINE
+          Online
         </span>
       );
     }
     if (target.last_status === 'slow') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
           </span>
-          LENTO
+          Lento
         </span>
       );
     }
     if (target.last_status === 'down' || target.last_status === 'error') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
           </span>
-          CAÍDO
+          Caído
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-        DESCONOCIDO
+        Desconocido
       </span>
     );
   };
 
   return (
-    <div className="bg-bg-card border border-border-base rounded-xl overflow-hidden shadow-xl">
+    <div className="bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-text-main border-collapse">
           <thead>
-            <tr className="border-b border-border-base bg-bg-dark/80 font-mono text-xs text-text-muted">
+            <tr className="border-b border-border-base bg-bg-dark/80 font-medium text-xs text-text-muted">
               <th className="py-3.5 px-4 w-10">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={onSelectAllToggle}
-                  className="w-4 h-4 rounded border-border-base text-accent-green focus:ring-accent-green/40 bg-bg-dark cursor-pointer"
-                />
+                <button
+                  type="button"
+                  onClick={onSelectAllToggle}
+                  className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-150 ${
+                    allSelected
+                      ? 'bg-accent-green text-black shadow-sm shadow-accent-green/30 ring-2 ring-accent-green/40'
+                      : 'border border-border-base/90 bg-bg-dark/80 hover:border-accent-green/50 text-transparent'
+                  }`}
+                  title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                >
+                  <Check size={12} strokeWidth={3} className={allSelected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'} />
+                </button>
               </th>
               <th className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('status')}>
                 <div className="flex items-center gap-1.5">
-                  ESTADO
+                  Estado
                   <ArrowUpDown size={12} className={sortField === 'status' ? 'text-accent-green' : 'text-text-dim'} />
                 </div>
               </th>
               <th className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('name')}>
                 <div className="flex items-center gap-1.5">
-                  TARGET & ENDPOINT
+                  Target & Endpoint
                   <ArrowUpDown size={12} className={sortField === 'name' ? 'text-accent-green' : 'text-text-dim'} />
                 </div>
               </th>
-              <th className="py-3.5 px-4">TIPO</th>
-              <th className="py-3.5 px-4">INTERVALO</th>
+              <th className="py-3.5 px-4">Tipo</th>
+              <th className="py-3.5 px-4">Intervalo</th>
               <th className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('latency')}>
                 <div className="flex items-center gap-1.5">
-                  LATENCIA
+                  Latencia
                   <ArrowUpDown size={12} className={sortField === 'latency' ? 'text-accent-green' : 'text-text-dim'} />
                 </div>
               </th>
-              <th className="py-3.5 px-4 min-w-[140px]">HISTORIAL RECIENTE</th>
-              <th className="py-3.5 px-4">ÚLTIMO CHECK</th>
-              <th className="py-3.5 px-4 text-right">ACCIONES</th>
+              <th className="py-3.5 px-4 min-w-[140px]">Historial Reciente</th>
+              <th className="py-3.5 px-4">Último Check</th>
+              <th className="py-3.5 px-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/50">
@@ -177,12 +183,18 @@ export default function TargetTableView({
                   }`}
                 >
                   <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onSelectToggle(target)}
-                      className="w-4 h-4 rounded border-border-base text-accent-green focus:ring-accent-green/40 bg-bg-dark cursor-pointer"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => onSelectToggle(target)}
+                      className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-150 ${
+                        isSelected
+                          ? 'bg-accent-green text-black shadow-sm shadow-accent-green/30 ring-2 ring-accent-green/40'
+                          : 'border border-border-base/90 bg-bg-dark/80 hover:border-accent-green/50 text-transparent'
+                      }`}
+                      title={isSelected ? 'Deseleccionar target' : 'Seleccionar target'}
+                    >
+                      <Check size={12} strokeWidth={3} className={isSelected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'} />
+                    </button>
                   </td>
                   <td className="py-3.5 px-4 whitespace-nowrap">{renderStatus(target)}</td>
                   <td className="py-3.5 px-4">
