@@ -22,12 +22,13 @@ interface TargetCardProps {
   onEdit: (target: MonitoringTarget) => void;
   onDelete: (target: MonitoringTarget) => void;
   onScan: (target: MonitoringTarget) => void;
+  onToggle: (target: MonitoringTarget) => void;
   onAlert?: (target: MonitoringTarget) => void;
   isScanning?: boolean;
   onClick: (target: MonitoringTarget) => void;
 }
 
-export default function TargetCard({ target, onEdit, onDelete, onScan, onAlert, isScanning, onClick }: TargetCardProps) {
+export default function TargetCard({ target, onEdit, onDelete, onScan, onToggle, onAlert, isScanning, onClick }: TargetCardProps) {
   const Icon = typeIcons[target.target_type] || Globe;
   const status = target.last_status || 'unknown';
   const statusClass = statusColors[status] || 'bg-gray-500/10 text-gray-400 border-gray-500';
@@ -45,6 +46,18 @@ export default function TargetCard({ target, onEdit, onDelete, onScan, onAlert, 
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-text-main truncate" title={target.name}>{target.name}</h3>
             <p className="text-xs text-text-dim font-mono truncate" title={target.endpoint}>{target.endpoint}</p>
+            {target.tags && target.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {target.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-1.5 py-0.5 bg-bg-dark border border-border-base text-[10px] text-text-muted rounded-md uppercase font-mono"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -94,15 +107,23 @@ export default function TargetCard({ target, onEdit, onDelete, onScan, onAlert, 
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {status !== 'unknown' && (
-            <span className={`px-2 py-0.5 rounded text-xs font-mono border ${statusClass}`}>
-              {status.toUpperCase()}
-            </span>
-          )}
-          <span className={`w-2 h-2 rounded-full ${target.enabled ? 'bg-accent-green' : 'bg-text-dim'}`}></span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(target);
+            }}
+            className={`w-9 h-5 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+              target.enabled ? 'bg-accent-green' : 'bg-bg-dark border border-border-base'
+            }`}
+            title={target.enabled ? 'Desactivar monitoreo' : 'Activar monitoreo'}
+          >
+            <div
+              className={`w-3 h-3 rounded-full shadow-md transform duration-300 ${
+                target.enabled ? 'translate-x-4 bg-black' : 'translate-x-0 bg-text-dim'
+              }`}
+            ></div>
+          </button>
         </div>
       </div>
-    </div>
   );
 }

@@ -253,6 +253,9 @@ class StatusPageService:
         elif len(active_incidents) > 0 or any(m.status == "in_progress" for m in maintenances):
             system_status = "degraded"
             system_status_label = "Degradación parcial de servicio"
+        else:
+            system_status = "operational"
+            system_status_label = "Todos los sistemas operacionales"
         return {
             "company_name": config.company_name,
             "description": config.description,

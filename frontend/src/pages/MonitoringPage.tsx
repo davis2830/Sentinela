@@ -8,7 +8,7 @@ import TargetForm from '../components/monitoring/TargetForm';
 import ChecksList from '../components/monitoring/ChecksList';
 import LatencyChart from '../components/monitoring/LatencyChart';
 import SLACard from '../components/monitoring/SLACard';
-import { Plus, Loader2, ArrowLeft, Trash2, TrendingUp, RefreshCw, Search, Filter } from 'lucide-react';
+import { Plus, Loader2, ArrowLeft, Trash2, TrendingUp, RefreshCw, Search, Filter, Calendar } from 'lucide-react';
 
 export default function MonitoringPage() {
   const navigate = useNavigate();
@@ -21,6 +21,7 @@ export default function MonitoringPage() {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'up' | 'down' | 'slow' | 'disabled'>('all');
+  const [selectedTag, setSelectedTag] = useState<string>('all');
 
   const { data: targets, isLoading } = useQuery({
     queryKey: ['monitoring-targets'],
@@ -76,6 +77,69 @@ export default function MonitoringPage() {
     },
     onError: () => {
       setScanningId(null);
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (target: MonitoringTarget) => {
+      await api.patch(`/monitoring/${target.id}/`, { enabled: !target.enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
+    },
+  });
+
+  const handleExport = async (targetId: string, targetName: string) => {
+    try {
+      const response = await api.get(`/monitoring/${targetId}/export/`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `monitoring_history_${targetName.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error('Error exporting history:', err);
+    }
+  };
+
+  const { data: maintenanceWindows, refetch: refetchMaintenance } = useQuery({
+    queryKey: ['maintenance-windows', selectedTarget?.id],
+    queryFn: async () => {
+      if (!selectedTarget) return [];
+      const res = await api.get(`/monitoring/${selectedTarget.id}/maintenance-windows/`);
+      return res.data?.data || [];
+    },
+    enabled: !!selectedTarget,
+  });
+
+  const createMaintenanceMutation = useMutation({
+    mutationFn: async (data: { name: string; start_time: string; end_time: string }) => {
+      await api.post(`/monitoring/${selectedTarget?.id}/maintenance-windows/`, data);
+    },
+    onSuccess: () => {
+      refetchMaintenance();
+    },
+  });
+
+  const deleteMaintenanceMutation = useMutation({
+    mutationFn: async (windowId: string) => {
+      await api.delete(`/monitoring/maintenance-windows/${windowId}/`);
+    },
+    onSuccess: () => {
+      refetchMaintenance();
+    },
+  });
+
+  const scanAllMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('/monitoring/scan-all/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
     },
   });
 
@@ -135,6 +199,12 @@ export default function MonitoringPage() {
                 <RefreshCw size={14} className={scanningId === selectedTarget.id ? 'animate-spin' : ''} />
                 Escanear Ahora
               </button>
+              <button
+                onClick={() => handleExport(selectedTarget.id, selectedTarget.name)}
+                className="bg-accent-blue/10 border border-accent-blue text-accent-blue font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-accent-blue/20 transition-colors"
+              >
+                Exportar CSV
+              </button>
               <span className="px-3 py-1 rounded-lg text-xs font-mono uppercase bg-accent-green/10 text-accent-green border border-accent-green">
                 {selectedTarget.target_type}
               </span>
@@ -180,12 +250,83 @@ export default function MonitoringPage() {
 
         <SLACard targetId={selectedTarget.id} />
 
+        {/* Maintenance Windows Section */}
+        <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 shadow-xl">
+          <div className="flex items-center justify-between border-b border-border-base pb-4 mb-4">
+            <h3 className="font-bold text-text-main text-base flex items-center gap-2">
+              <Calendar size={18} className="text-accent-green" />
+              Ventanas de Mantenimiento Planificado
+            </h3>
+            <button
+              onClick={() => {
+                const name = prompt('Nombre del mantenimiento:');
+                if (!name) return;
+                const startStr = prompt('Fecha y hora de inicio (YYYY-MM-DD HH:MM):');
+                if (!startStr) return;
+                const endStr = prompt('Fecha y hora de fin (YYYY-MM-DD HH:MM):');
+                if (!endStr) return;
+                try {
+                  const start_time = new Date(startStr).toISOString();
+                  const end_time = new Date(endStr).toISOString();
+                  createMaintenanceMutation.mutate({ name, start_time, end_time });
+                } catch {
+                  alert('Formato de fecha inválido.');
+                }
+              }}
+              className="bg-accent-green text-black px-3 py-1 rounded text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              Programar Mantenimiento
+            </button>
+          </div>
+
+          {maintenanceWindows && maintenanceWindows.length > 0 ? (
+            <div className="space-y-3">
+              {maintenanceWindows.map((mw: any) => {
+                const isCurrent = new Date(mw.start_time) <= new Date() && new Date(mw.end_time) >= new Date();
+                return (
+                  <div key={mw.id} className="flex justify-between items-center bg-bg-dark border border-border-base p-3 rounded-lg font-mono text-xs">
+                    <div>
+                      <div className="font-bold text-text-main flex items-center gap-2">
+                        {mw.name}
+                        {isCurrent && (
+                          <span className="px-1.5 py-0.5 bg-accent-yellow/10 text-accent-yellow border border-accent-yellow rounded text-[9px] uppercase">
+                            Activo Ahora
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-text-dim mt-1">
+                        Desde: {new Date(mw.start_time).toLocaleString('es-ES')}
+                      </div>
+                      <div className="text-text-dim">
+                        Hasta: {new Date(mw.end_time).toLocaleString('es-ES')}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteMaintenanceMutation.mutate(mw.id)}
+                      className="p-1.5 text-text-muted hover:text-accent-red transition-colors"
+                      title="Eliminar mantenimiento"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-6 text-center text-text-dim text-xs font-mono">
+              No hay ventanas de mantenimiento programadas para este target.
+            </div>
+          )}
+        </div>
+
         <LatencyChart targetId={selectedTarget.id} />
 
         <ChecksList targetId={selectedTarget.id} />
       </div>
     );
   }
+
+  const allTags = Array.from(new Set((targets || []).flatMap((t: MonitoringTarget) => t.tags || []))) as string[];
 
   const filteredTargets = (targets || []).filter((t: MonitoringTarget) => {
     const matchesSearch =
@@ -198,6 +339,9 @@ export default function MonitoringPage() {
     if (statusFilter === 'down') return t.last_status === 'down' || t.last_status === 'error';
     if (statusFilter === 'slow') return t.last_status === 'slow';
     if (statusFilter === 'disabled') return !t.enabled;
+
+    if (selectedTag !== 'all' && (!t.tags || !t.tags.includes(selectedTag))) return false;
+
     return true;
   });
 
@@ -211,13 +355,23 @@ export default function MonitoringPage() {
             Monitorea la disponibilidad y tiempo de respuesta de tus servicios
           </p>
         </div>
-        <button
-          onClick={handleNewTarget}
-          className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity self-start sm:self-auto"
-        >
-          <Plus size={18} />
-          Nuevo Target
-        </button>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <button
+            onClick={() => scanAllMutation.mutate()}
+            disabled={scanAllMutation.isPending}
+            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-4 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
+            Actualizar Todo
+          </button>
+          <button
+            onClick={handleNewTarget}
+            className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
+          >
+            <Plus size={18} />
+            Nuevo Target
+          </button>
+        </div>
       </div>
 
       {/* Search & Status Filter Toolbar */}
@@ -233,6 +387,25 @@ export default function MonitoringPage() {
             className="w-full bg-bg-dark border border-border-base rounded-lg pl-10 pr-4 py-2 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
           />
         </div>
+
+        {/* Tag filter selector */}
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-1.5 font-mono text-xs">
+            <span className="text-text-muted">TAG:</span>
+            <select
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+              className="bg-bg-dark border border-border-base rounded px-2.5 py-1.5 text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
+            >
+              <option value="all">TODOS</option>
+              {allTags.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag.toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto font-mono text-xs">
@@ -292,6 +465,7 @@ export default function MonitoringPage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onScan={(t) => scanMutation.mutate(t.id)}
+              onToggle={(t) => toggleMutation.mutate(t)}
               onAlert={() => navigate('/alerts')}
               isScanning={scanningId === target.id}
               onClick={setSelectedTarget}

@@ -23,6 +23,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [endpoint, setEndpoint] = useState(target?.endpoint || '');
   const [interval, setInterval] = useState(target?.interval || 60);
   const [enabled, setEnabled] = useState(target?.enabled ?? true);
+  const [tagsInput, setTagsInput] = useState(target?.tags ? target.tags.join(', ') : '');
 
   // Advanced fields
   const [httpMethod, setHttpMethod] = useState(target?.http_method || 'GET');
@@ -82,6 +83,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
         max_latency_ms: Number(maxLatencyMs),
         custom_headers: parsedHeaders,
         request_body: requestBody,
+        tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
       });
       onClose();
     } catch (err: any) {
@@ -179,6 +181,17 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 {enabled ? 'Activo' : 'Inactivo'}
               </button>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-mono uppercase text-text-muted mb-1 block">Etiquetas (separadas por coma)</label>
+            <input
+              type="text"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="produccion, api, base-de-datos"
+              className="input-base font-mono text-sm"
+            />
           </div>
 
           {/* Advanced HTTP Settings Toggle */}

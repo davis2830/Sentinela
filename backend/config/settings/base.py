@@ -198,3 +198,6 @@ CELERY_BEAT_SCHEDULE = {
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+# Blackbox Exporter
+BLACKBOX_EXPORTER_URL = os.environ.get("BLACKBOX_EXPORTER_URL", "http://blackbox_exporter:9115")

@@ -36,6 +36,7 @@ class MonitoringService:
         endpoint,
         interval=60,
         enabled=True,
+        tags=None,
     ):
         """Create a new monitoring target.
 
@@ -46,6 +47,7 @@ class MonitoringService:
             endpoint: URL, domain, or address to monitor.
             interval: Check interval in seconds (default 60).
             enabled: Whether checks are active (default True).
+            tags: List of custom string tags.
 
         Returns:
             The created MonitoringTarget instance.
@@ -57,39 +59,11 @@ class MonitoringService:
             endpoint=endpoint,
             interval=interval,
             enabled=enabled,
+            tags=tags or [],
         )
-        if target_type.lower() in ("https", "ssl"):
-            try:
-                from ssl_monitor.services import SSLMonitorService
-                SSLMonitorService.get_or_create_certificate(organization_id, endpoint)
-            except Exception:
-                pass
-
-        try:
-            from dns_monitor.services import DNSMonitorService
-            DNSMonitorService.get_or_create_dns_record(organization_id, endpoint, record_type="A")
-        except Exception:
-            pass
-
-        try:
-            from domain.services import DomainService
-            DomainService.get_or_create_domain(organization_id, endpoint)
-        except Exception:
-            pass
-
-        try:
-            from api_checks.services import APICheckService
-            method = "GET"
-            full_url = endpoint if endpoint.startswith("http") else f"https://{endpoint}"
-            APICheckService.get_or_create_api_target(organization_id, name, full_url, method=method)
-        except Exception:
-            pass
-
-        try:
-            from security_headers.services import SecurityHeadersService
-            SecurityHeadersService.get_or_create_target(organization_id, name, endpoint)
-        except Exception:
-            pass
+        # Asynchronously register in submonitors after transaction commits
+        from .tasks import register_target_in_submonitors
+        transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id)))
 
         return target
 

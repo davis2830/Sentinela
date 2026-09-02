@@ -9,7 +9,9 @@ from .serializers import (
     MonitoringTargetCreateSerializer,
     MonitoringTargetSerializer,
     MonitoringTargetUpdateSerializer,
+    MaintenanceWindowSerializer,
 )
+from .models import MaintenanceWindow
 from .services import MonitoringService
 
 
@@ -46,6 +48,7 @@ class MonitoringTargetListView(APIView):
                 endpoint=serializer.validated_data["endpoint"],
                 interval=serializer.validated_data.get("interval", 60),
                 enabled=serializer.validated_data.get("enabled", True),
+                tags=serializer.validated_data.get("tags", []),
             )
             from audit.services import AuditService
             AuditService.log_from_request(
@@ -302,3 +305,146 @@ class GlobalSearchView(APIView):
             })
 
         return success_response(results)
+
+
+class MonitoringTargetBulkScanView(APIView):
+    """Endpoint to trigger bulk check for all enabled targets.
+
+    POST /api/v1/monitoring/scan-all/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .tasks import schedule_all_checks
+            schedule_all_checks.delay()
+            return success_response({"message": "Re-escaneo masivo de objetivos iniciado."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+import csv
+from django.http import HttpResponse
+
+class MonitoringTargetExportView(APIView):
+    """Endpoint to export a target's monitoring history as CSV.
+
+    GET /api/v1/monitoring-targets/{id}/export/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = MonitoringService.get_target(target_id, org_id)
+            checks = target.checks.all().order_by("-checked_at")
+
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = f'attachment; filename="monitoring_history_{target.name.replace(" ", "_")}.csv"'
+
+            writer = csv.writer(response)
+            writer.writerow(["ID", "Fecha (UTC)", "Estado", "Latencia (ms)", "Detalles"])
+
+            for check in checks:
+                writer.writerow([
+                    str(check.id),
+                    check.checked_at.isoformat(),
+                    check.status.upper(),
+                    check.latency if check.latency is not None else "",
+                    str(check.details),
+                ])
+
+            return response
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class MaintenanceWindowListView(APIView):
+    """Endpoint for listing and creating maintenance windows for a target.
+
+    GET /api/v1/monitoring-targets/{target_id}/maintenance-windows/
+    POST /api/v1/monitoring-targets/{target_id}/maintenance-windows/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = MonitoringService.get_target(target_id, org_id)
+            windows = target.maintenance_windows.all()
+            serializer = MaintenanceWindowSerializer(windows, many=True)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = MonitoringService.get_target(target_id, org_id)
+            data = request.data.copy()
+            data["target"] = str(target.id)
+
+            serializer = MaintenanceWindowSerializer(data=data)
+            if not serializer.is_valid():
+                return error_response(
+                    "Invalid input.",
+                    errors=serializer.errors,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            serializer.save()
+            return success_response(
+                serializer.data,
+                status_code=status.HTTP_201_CREATED,
+            )
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class MaintenanceWindowDetailView(APIView):
+    """Endpoint for retrieving, updating, and deleting a maintenance window.
+
+    PATCH /api/v1/monitoring-targets/maintenance-windows/{window_id}/
+    DELETE /api/v1/monitoring-targets/maintenance-windows/{window_id}/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def patch(self, request, window_id):
+        try:
+            window = MaintenanceWindow.objects.get(id=window_id)
+            org_id = request.user.organization_id
+            if window.target.organization_id != org_id:
+                return error_response("Forbidden", status_code=status.HTTP_403_FORBIDDEN)
+
+            serializer = MaintenanceWindowSerializer(window, data=request.data, partial=True)
+            if not serializer.is_valid():
+                return error_response(
+                    "Invalid input.",
+                    errors=serializer.errors,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            serializer.save()
+            return success_response(serializer.data)
+        except MaintenanceWindow.DoesNotExist:
+            return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, window_id):
+        try:
+            window = MaintenanceWindow.objects.get(id=window_id)
+            org_id = request.user.organization_id
+            if window.target.organization_id != org_id:
+                return error_response("Forbidden", status_code=status.HTTP_403_FORBIDDEN)
+
+            window.delete()
+            return success_response({"detail": "Maintenance window deleted."})
+        except MaintenanceWindow.DoesNotExist:
+            return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
