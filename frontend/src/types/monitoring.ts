@@ -15,8 +15,15 @@ export interface MonitoringTarget {
   last_status: string | null;
   last_latency: number | null;
   tags?: string[];
+  recent_checks?: RecentCheckItem[];
   created_at: string;
   updated_at: string;
+}
+
+export interface RecentCheckItem {
+  status: 'up' | 'down' | 'slow' | 'error';
+  latency: number | null;
+  checked_at: string;
 }
 
 export interface MonitoringCheck {

@@ -30,6 +30,7 @@ export interface CreateAPICheckTargetData {
   enabled?: boolean;
   request_headers?: Record<string, string>;
   request_body?: Record<string, any>;
+  expected_schema?: Record<string, any>;
 }
 
 export interface APICheckResult {

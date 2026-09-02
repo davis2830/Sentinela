@@ -11,11 +11,15 @@ from .views import (
     MonitoringTargetExportView,
     MaintenanceWindowListView,
     MaintenanceWindowDetailView,
+    TestConnectionView,
+    BulkActionView,
 )
 
 urlpatterns = [
     path("", MonitoringTargetListView.as_view(), name="target_list"),
     path("scan-all/", MonitoringTargetBulkScanView.as_view(), name="target_bulk_scan"),
+    path("bulk-action/", BulkActionView.as_view(), name="target_bulk_action"),
+    path("test-connection/", TestConnectionView.as_view(), name="target_test_connection"),
     path("search/", GlobalSearchView.as_view(), name="global_search"),
     path("<uuid:target_id>/", MonitoringTargetDetailView.as_view(), name="target_detail"),
     path("<uuid:target_id>/checks/", MonitoringCheckListView.as_view(), name="target_checks"),

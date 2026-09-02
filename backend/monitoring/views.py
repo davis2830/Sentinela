@@ -448,3 +448,122 @@ class MaintenanceWindowDetailView(APIView):
             return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+import socket
+import time
+import requests
+
+
+class TestConnectionView(APIView):
+    """Diagnose and test target connection on the fly without persistence."""
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        endpoint = request.data.get("endpoint", "").strip()
+        target_type = request.data.get("target_type", "http").lower()
+        http_method = request.data.get("http_method", "GET").upper()
+        expected_status = int(request.data.get("expected_status", 200))
+        custom_headers = request.data.get("custom_headers", {})
+        request_body = request.data.get("request_body", "")
+        max_latency_ms = float(request.data.get("max_latency_ms", 2000))
+
+        if not endpoint:
+            return error_response("Endpoint es requerido.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        start = time.perf_counter()
+        try:
+            if target_type in ("http", "https", "api"):
+                url = endpoint if endpoint.startswith(("http://", "https://")) else f"http://{endpoint}"
+                headers = {"User-Agent": "Sentinel-Diagnostic/1.0"}
+                if isinstance(custom_headers, dict):
+                    headers.update(custom_headers)
+
+                resp = requests.request(
+                    method=http_method,
+                    url=url,
+                    headers=headers,
+                    data=request_body if request_body else None,
+                    timeout=5,
+                    verify=False,
+                )
+                latency = round((time.perf_counter() - start) * 1000, 2)
+                code_match = resp.status_code == expected_status
+                is_slow = latency > max_latency_ms
+                check_status = "up" if code_match and not is_slow else ("slow" if code_match and is_slow else "down")
+                return success_response({
+                    "status": check_status,
+                    "latency_ms": latency,
+                    "status_code": resp.status_code,
+                    "expected_status": expected_status,
+                    "message": f"Respondió HTTP {resp.status_code} en {latency}ms." if code_match else f"Código inesperado: HTTP {resp.status_code} (esperaba {expected_status}).",
+                    "headers": dict(resp.headers),
+                })
+            elif target_type == "tcp":
+                host, port = endpoint.split(":") if ":" in endpoint else (endpoint, 80)
+                sock = socket.create_connection((host, int(port)), timeout=5)
+                sock.close()
+                latency = round((time.perf_counter() - start) * 1000, 2)
+                return success_response({
+                    "status": "slow" if latency > max_latency_ms else "up",
+                    "latency_ms": latency,
+                    "status_code": 0,
+                    "message": f"Conexión TCP establecida con {host}:{port} en {latency}ms.",
+                })
+            elif target_type == "dns":
+                import dns.resolver
+                answers = dns.resolver.resolve(endpoint, "A")
+                latency = round((time.perf_counter() - start) * 1000, 2)
+                ips = [r.to_text() for r in answers]
+                return success_response({
+                    "status": "up",
+                    "latency_ms": latency,
+                    "status_code": 0,
+                    "message": f"DNS resuelto ({len(ips)} IPs encontradas) en {latency}ms.",
+                    "ips": ips,
+                })
+            else:
+                return error_response(f"Tipo {target_type} no soportado para test rápido.", status_code=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            latency = round((time.perf_counter() - start) * 1000, 2)
+            return success_response({
+                "status": "down",
+                "latency_ms": latency,
+                "status_code": 0,
+                "message": f"Fallo de conexión: {str(exc)}",
+            })
+
+
+class BulkActionView(APIView):
+    """Execute bulk operations on multiple targets."""
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        action = request.data.get("action")
+        target_ids = request.data.get("target_ids", [])
+        org_id = request.user.organization_id
+
+        if not target_ids or not action:
+            return error_response("Acción y target_ids son requeridos.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        targets = MonitoringTarget.objects.filter(id__in=target_ids, organization_id=org_id)
+        count = targets.count()
+
+        if action == "pause":
+            targets.update(enabled=False)
+            msg = f"{count} targets pausados."
+        elif action == "resume":
+            targets.update(enabled=True)
+            msg = f"{count} targets reanudados."
+        elif action == "delete":
+            targets.delete()
+            msg = f"{count} targets eliminados."
+        elif action == "scan":
+            from .tasks import run_monitoring_check
+            for t in targets:
+                run_monitoring_check.delay(str(t.id))
+            msg = f"Escaneo en segundo plano encolado para {count} targets."
+        else:
+            return error_response(f"Acción '{action}' inválida.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        return success_response({"message": msg, "affected_count": count})

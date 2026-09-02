@@ -25,6 +25,7 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_status",
             "last_latency",
             "tags",
+            "recent_checks",
             "created_at",
             "updated_at",
         )
@@ -34,9 +35,23 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_checked_at",
             "last_status",
             "last_latency",
+            "recent_checks",
             "created_at",
             "updated_at",
         )
+
+    recent_checks = serializers.SerializerMethodField()
+
+    def get_recent_checks(self, obj):
+        checks = obj.checks.order_by("-checked_at")[:20]
+        return [
+            {
+                "status": c.status,
+                "latency": c.latency,
+                "checked_at": c.checked_at.isoformat(),
+            }
+            for c in reversed(checks)
+        ]
 
 
 class MonitoringTargetCreateSerializer(serializers.Serializer):

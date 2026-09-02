@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { useAuthStore } from '../store/authStore';
 import { ShieldCheck, Lock, Building, CheckCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function AcceptInvitationPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
-  const { setTokens, setAuth } = useAuthStore();
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
