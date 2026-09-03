@@ -106,7 +106,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
       onClick={onClose}
     >
       <div
-        className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-lg shadow-2xl"
+        className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -114,14 +114,14 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
             <BellRing size={20} className="text-accent-green" />
             {rule ? 'Editar Regla de Alerta' : 'Nueva Regla de Alerta'}
           </h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-main">
-            <X size={20} />
+          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-main rounded-full hover:bg-bg-dark transition-colors">
+            <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Nombre de la Regla
             </label>
             <input
@@ -130,13 +130,13 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
               placeholder="ej. Alerta SSL Crítica < 15 días"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Módulo Objetivo
               </label>
               <select
@@ -145,7 +145,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                   setTargetType(e.target.value as AlertTargetType);
                   setTargetId('');
                 }}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
               >
                 {TARGET_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -156,17 +156,17 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Severidad
               </label>
               <select
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value as AlertSeverity)}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono uppercase"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green"
               >
                 {SEVERITIES.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {s === 'critical' ? 'Crítica' : s === 'warning' ? 'Advertencia' : 'Informativa'}
                   </option>
                 ))}
               </select>
@@ -174,13 +174,13 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
-              Aplicar a Target Especifico
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
+              Aplicar a Target Específico
             </label>
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
             >
               <option value="">Todos los targets (Regla Global)</option>
               {targetType === 'monitoring' &&
@@ -196,13 +196,13 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Condición de Disparo
             </label>
             <select
               value={condition}
               onChange={(e) => setCondition(e.target.value as AlertCondition)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
             >
               {CONDITIONS.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -213,7 +213,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Valor Umbral (Threshold)
             </label>
             <input
@@ -222,7 +222,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
               step="any"
               value={threshold}
               onChange={(e) => setThreshold(Number(e.target.value))}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
             />
             <p className="text-xs text-text-dim mt-1.5">
               Valor numérico de referencia (ej. 15 días, 95%, 2000 ms).
@@ -246,14 +246,14 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+              className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
               {submitting ? <Loader2 className="animate-spin" size={18} /> : rule ? 'Actualizar' : 'Crear Regla'}
             </button>

@@ -9,11 +9,13 @@ interface LatencyChartProps {
 }
 
 export default function LatencyChart({ targetId }: LatencyChartProps) {
+  const [limit, setLimit] = React.useState(20);
+
   const { data: checks, isLoading, refetch } = useQuery({
-    queryKey: ['target-checks-chart', targetId],
+    queryKey: ['target-checks-chart', targetId, limit],
     queryFn: async () => {
       const res = await api.get(`monitoring/${targetId}/checks/`, {
-        params: { limit: 20 },
+        params: { limit },
       });
       return (res.data?.data || []) as MonitoringCheck[];
     },
@@ -44,30 +46,65 @@ export default function LatencyChart({ targetId }: LatencyChartProps) {
   const maxLatency = validLatencies.length > 0 ? Math.round(Math.max(...validLatencies)) : 0;
   const minLatency = validLatencies.length > 0 ? Math.round(Math.min(...validLatencies)) : 0;
 
+  const getPercentile = (arr: number[], percentile: number) => {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
+    return Math.round(sorted[Math.max(0, index)]);
+  };
+
+  const p50Latency = getPercentile(validLatencies, 50);
+  const p90Latency = getPercentile(validLatencies, 90);
+  const p99Latency = getPercentile(validLatencies, 99);
+
   const maxChartHeight = Math.max(maxLatency, 300);
 
   return (
     <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 shadow-xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-border-base pb-4">
-        <div className="flex items-center gap-2 font-bold text-text-main text-base">
-          <TrendingUp size={20} className="text-accent-green" />
-          Historial de Latencia en Tiempo Real (últimos {history.length} escaneos)
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-border-base pb-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2 font-bold text-text-main text-base">
+            <TrendingUp size={20} className="text-accent-green" />
+            Historial de Latencia en Tiempo Real (últimos {history.length} escaneos)
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-xs">
+            <span className="text-text-muted">MOSTRAR:</span>
+            <select
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              className="bg-bg-dark border border-border-base rounded px-2 py-1 text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
+            >
+              <option value={20}>20 escaneos</option>
+              <option value={50}>50 escaneos</option>
+              <option value={100}>100 escaneos</option>
+              <option value={250}>250 escaneos</option>
+              <option value={500}>500 escaneos</option>
+            </select>
+          </div>
         </div>
 
         {/* Stats Pills */}
-        <div className="flex items-center gap-3 font-mono text-xs">
+        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
           <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            <span className="text-text-muted">PROMEDIO:</span>
-            <span className="font-bold text-accent-green">{avgLatency} ms</span>
+            <span className="text-text-muted">AVG:</span>
+            <span className="font-bold text-accent-green">{avgLatency}ms</span>
           </div>
           <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            <span className="text-text-muted">MÁXIMA:</span>
-            <span className="font-bold text-accent-yellow">{maxLatency} ms</span>
+            <span className="text-text-muted">P50:</span>
+            <span className="font-bold text-accent-blue">{p50Latency}ms</span>
           </div>
           <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            <span className="text-text-muted">MÍNIMA:</span>
-            <span className="font-bold text-accent-blue">{minLatency} ms</span>
+            <span className="text-text-muted">P90:</span>
+            <span className="font-bold text-accent-yellow">{p90Latency}ms</span>
+          </div>
+          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <span className="text-text-muted">P99:</span>
+            <span className="font-bold text-accent-red">{p99Latency}ms</span>
+          </div>
+          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <span className="text-text-muted">MAX:</span>
+            <span className="font-bold text-accent-yellow">{maxLatency}ms</span>
           </div>
         </div>
       </div>

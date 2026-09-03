@@ -172,7 +172,7 @@ export default function DashboardPage() {
         </div>
         <button
           onClick={handleRefetchAll}
-          className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity self-start sm:self-auto"
+          className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-full text-sm hover:opacity-90 transition-opacity self-start sm:self-auto shadow-sm"
         >
           <RefreshCw size={16} />
           Actualizar Telemetría
@@ -187,11 +187,11 @@ export default function DashboardPage() {
             <div
               key={metric.title}
               onClick={metric.onClick}
-              className="bg-bg-card border border-border-base rounded-xl p-5 relative overflow-hidden cursor-pointer hover:border-accent-green/50 transition-all group shadow-lg"
+              className="bg-bg-card border border-border-base rounded-2xl p-5 relative overflow-hidden cursor-pointer hover:border-accent-green/50 transition-all group shadow-lg"
             >
               <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-accent-green to-transparent"></div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-text-muted uppercase tracking-wide font-mono font-semibold">
+                <span className="text-xs text-text-muted font-medium">
                   {metric.title}
                 </span>
                 <Icon className={`${metric.color} group-hover:scale-110 transition-transform`} size={18} />
@@ -208,7 +208,7 @@ export default function DashboardPage() {
       {/* Panels Grid: Live Telemetry Endpoints & Security Headers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Real Live Endpoints Telemetry Table */}
-        <div className="lg:col-span-2 bg-bg-card border border-border-base rounded-xl p-6 shadow-xl">
+        <div className="lg:col-span-2 bg-bg-card border border-border-base rounded-2xl p-6 shadow-xl">
           <div className="flex items-center justify-between mb-4 border-b border-border-base pb-3">
             <div className="flex items-center gap-2 font-bold text-text-main">
               <Activity size={18} className="text-accent-green" />
@@ -216,7 +216,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => navigate('/monitoring')}
-              className="text-xs text-accent-green hover:underline flex items-center gap-1 font-mono font-semibold"
+              className="text-xs text-accent-green hover:underline flex items-center gap-1 font-semibold"
             >
               Ver todos <ArrowRight size={14} />
             </button>
@@ -230,7 +230,7 @@ export default function DashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
-                  <tr className="border-b border-border-base bg-bg-dark/50 text-text-muted font-mono text-xs uppercase">
+                  <tr className="border-b border-border-base bg-bg-dark/50 text-text-muted font-medium text-xs">
                     <th className="py-3 px-3 font-semibold">Servicio / Recurso</th>
                     <th className="py-3 px-3 font-semibold">Tipo</th>
                     <th className="py-3 px-3 font-semibold">Estado</th>

@@ -138,16 +138,16 @@ export default function PublicStatusPage() {
             )}
 
             <div>
-              <h2 className="text-lg font-bold uppercase font-mono tracking-wide">{statusData.system_status_label}</h2>
-              <p className="text-xs text-text-muted mt-0.5 font-mono">
+              <h2 className="text-lg font-bold text-text-main">{statusData.system_status_label}</h2>
+              <p className="text-xs text-text-muted mt-0.5">
                 Monitoreo activo &bull; Actualización automática cada 30 segundos
               </p>
             </div>
           </div>
 
-          <div className="hidden md:flex flex-col items-end text-xs font-mono text-text-dim">
+          <div className="hidden md:flex flex-col items-end text-xs text-text-dim">
             <span>Último chequeo:</span>
-            <span className="text-text-main font-bold mt-0.5">
+            <span className="text-text-main font-bold mt-0.5 font-mono">
               {new Date(statusData.updated_at).toLocaleTimeString('es-ES')}
             </span>
           </div>
@@ -155,35 +155,35 @@ export default function PublicStatusPage() {
 
         {/* High-Level KPI Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-lg">
-            <div className="w-10 h-10 rounded-lg bg-accent-green/10 border border-accent-green/30 flex items-center justify-center text-accent-green font-bold">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-accent-green/10 border border-accent-green/30 flex items-center justify-center text-accent-green font-bold">
               <ShieldCheck size={20} />
             </div>
             <div>
-              <span className="text-xs font-mono text-text-dim uppercase">Disponibilidad 90 días</span>
-              <div className="text-lg font-bold text-accent-green font-mono">{statusData.global_uptime_pct || 100}%</div>
+              <span className="text-xs font-medium text-text-muted">Disponibilidad 90 días</span>
+              <div className="text-lg font-bold text-accent-green font-mono mt-0.5">{statusData.global_uptime_pct || 100}%</div>
             </div>
           </div>
 
-          <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-lg">
-            <div className="w-10 h-10 rounded-lg bg-accent-blue/10 border border-accent-blue/30 flex items-center justify-center text-accent-blue font-bold">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-accent-blue/10 border border-accent-blue/30 flex items-center justify-center text-accent-blue font-bold">
               <Activity size={20} />
             </div>
             <div>
-              <span className="text-xs font-mono text-text-dim uppercase">Servicios Operacionales</span>
-              <div className="text-lg font-bold text-text-main font-mono">
+              <span className="text-xs font-medium text-text-muted">Servicios Operacionales</span>
+              <div className="text-lg font-bold text-text-main font-mono mt-0.5">
                 {statusData.operational_services_count} / {statusData.total_services_count} Activos
               </div>
             </div>
           </div>
 
-          <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-lg">
-            <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 border border-accent-yellow/30 flex items-center justify-center text-accent-yellow font-bold">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-accent-yellow/10 border border-accent-yellow/30 flex items-center justify-center text-accent-yellow font-bold">
               <Calendar size={20} />
             </div>
             <div>
-              <span className="text-xs font-mono text-text-dim uppercase">Mantenimientos</span>
-              <div className="text-lg font-bold text-text-main font-mono">
+              <span className="text-xs font-medium text-text-muted">Mantenimientos</span>
+              <div className="text-lg font-bold text-text-main font-mono mt-0.5">
                 {statusData.maintenances?.length || 0} Programados
               </div>
             </div>
@@ -193,7 +193,7 @@ export default function PublicStatusPage() {
         {/* Active Incidents Section */}
         {statusData.active_incidents && statusData.active_incidents.length > 0 && (
           <div className="bg-bg-card border border-accent-red/30 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-base font-bold text-accent-red mb-4 flex items-center gap-2 font-mono uppercase">
+            <h3 className="text-base font-bold text-accent-red mb-4 flex items-center gap-2">
               <AlertTriangle size={18} />
               Incidentes Activos en Curso ({statusData.active_incidents.length})
             </h3>
@@ -217,7 +217,7 @@ export default function PublicStatusPage() {
         {/* Scheduled Maintenances Section */}
         {statusData.maintenances && statusData.maintenances.length > 0 && (
           <div className="bg-bg-card border border-accent-yellow/30 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-base font-bold text-accent-yellow mb-4 flex items-center gap-2 font-mono uppercase">
+            <h3 className="text-base font-bold text-accent-yellow mb-4 flex items-center gap-2">
               <Calendar size={18} />
               Mantenimientos Programados
             </h3>
@@ -312,7 +312,7 @@ export default function PublicStatusPage() {
                             <div className="flex items-center justify-between gap-4">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-text-main text-sm">{service.name}</span>
-                                <span className="text-[10px] font-mono uppercase bg-bg-dark border border-border-base px-2 py-0.5 rounded text-text-dim">
+                                <span className="text-[10px] bg-bg-dark border border-border-base px-2 py-0.5 rounded-full text-text-dim font-medium">
                                   {service.type}
                                 </span>
                               </div>

@@ -56,7 +56,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
       onClick={onClose}
     >
       <div
-        className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-lg shadow-2xl"
+        className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -64,14 +64,14 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
             <AlertOctagon size={20} className="text-accent-red" />
             {incident ? 'Editar Incidente' : 'Registrar Nuevo Incidente'}
           </h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-main">
+          <button onClick={onClose} className="text-text-muted hover:text-text-main transition-colors">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Título del Incidente
             </label>
             <input
@@ -80,18 +80,18 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
               placeholder="ej. Caída parcial de base de datos principal"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Prioridad
             </label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as IncidentPriority)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
             >
               {PRIORITIES.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -102,7 +102,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Descripción & Diagnóstico Inicial
             </label>
             <textarea
@@ -110,7 +110,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
               placeholder="Detalles técnicos de la afectación..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
             />
           </div>
 
@@ -118,14 +118,14 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+              className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
               {submitting ? (
                 <Loader2 className="animate-spin" size={18} />

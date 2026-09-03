@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import MonitoringCheck, MonitoringTarget
+from .models import MaintenanceWindow, MonitoringCheck, MonitoringTarget
 
 
 class MonitoringTargetSerializer(serializers.ModelSerializer):
@@ -24,6 +24,8 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_checked_at",
             "last_status",
             "last_latency",
+            "tags",
+            "recent_checks",
             "created_at",
             "updated_at",
         )
@@ -33,9 +35,23 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_checked_at",
             "last_status",
             "last_latency",
+            "recent_checks",
             "created_at",
             "updated_at",
         )
+
+    recent_checks = serializers.SerializerMethodField()
+
+    def get_recent_checks(self, obj):
+        checks = obj.checks.order_by("-checked_at")[:20]
+        return [
+            {
+                "status": c.status,
+                "latency": c.latency,
+                "checked_at": c.checked_at.isoformat(),
+            }
+            for c in reversed(checks)
+        ]
 
 
 class MonitoringTargetCreateSerializer(serializers.Serializer):
@@ -53,6 +69,7 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     custom_headers = serializers.JSONField(required=False, default=dict)
     request_body = serializers.CharField(required=False, default="", allow_blank=True)
     max_latency_ms = serializers.IntegerField(required=False, default=2000)
+    tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
 
 
 class MonitoringTargetUpdateSerializer(serializers.Serializer):
@@ -70,6 +87,7 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
     custom_headers = serializers.JSONField(required=False)
     request_body = serializers.CharField(required=False, allow_blank=True)
     max_latency_ms = serializers.IntegerField(required=False)
+    tags = serializers.ListField(child=serializers.CharField(), required=False)
 
 
 class MonitoringCheckSerializer(serializers.ModelSerializer):
@@ -87,3 +105,21 @@ class MonitoringCheckSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("id", "target", "created_at")
+
+
+class MaintenanceWindowSerializer(serializers.ModelSerializer):
+    """Serializer for MaintenanceWindow model."""
+
+    class Meta:
+        model = MaintenanceWindow
+        fields = (
+            "id",
+            "target",
+            "name",
+            "start_time",
+            "end_time",
+            "active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")

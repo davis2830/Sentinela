@@ -10,6 +10,7 @@ import {
   Bell,
   CheckCircle2,
   Radio,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ChannelFormProps {
@@ -34,25 +35,25 @@ const CHANNEL_TYPES: { type: ChannelType; name: string; description: string; ico
   {
     type: 'teams',
     name: 'Microsoft Teams',
-    description: 'Tarjetas de alerta en canales de MS Teams.',
-    icon: Bell,
+    description: 'Conector de Office 365 / Workflows de Teams.',
+    icon: Radio,
   },
   {
     type: 'discord',
     name: 'Discord Webhook',
-    description: 'Alertas en servidores de Discord mediante Webhooks.',
-    icon: Radio,
+    description: 'Canales de anuncios en servidores Discord.',
+    icon: Bell,
   },
   {
     type: 'email',
-    name: 'Correo Electrónico',
-    description: 'Envía correos SMTP a una lista de destinatarios.',
+    name: 'Correo Electrónico (SMTP)',
+    description: 'Envío de emails con servidor propio o default.',
     icon: Mail,
   },
   {
     type: 'webhook',
-    name: 'Custom Webhook',
-    description: 'Petición HTTP POST personalizada a tu API o servidor.',
+    name: 'Custom Webhook HTTP',
+    description: 'Payload genérico POST con firmas opcionales.',
     icon: WebhookIcon,
   },
 ];
@@ -61,6 +62,8 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
   const [name, setName] = useState('');
   const [channelType, setChannelType] = useState<ChannelType>('telegram');
   const [enabled, setEnabled] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Telegram fields
   const [botToken, setBotToken] = useState('');
@@ -72,7 +75,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
   // Email & SMTP fields
   const [recipients, setRecipients] = useState('');
   const [smtpHost, setSmtpHost] = useState('');
-  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpPort, setSmtpPort] = useState<number | ''>(587);
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPassword, setSmtpPassword] = useState('');
   const [useTls, setUseTls] = useState(true);
@@ -81,9 +84,6 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
   // Custom Webhook headers
   const [customHeaderKey, setCustomHeaderKey] = useState('');
   const [customHeaderValue, setCustomHeaderValue] = useState('');
-
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (channel) {
@@ -96,9 +96,9 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
         setBotToken(conf.bot_token || '');
         setChatId(conf.chat_id || '');
       } else if (['slack', 'teams', 'discord', 'webhook'].includes(channel.channel_type)) {
-        setWebhookUrl(conf.webhook_url || '');
+        setWebhookUrl(conf.webhook_url || conf.url || '');
       } else if (channel.channel_type === 'email') {
-        setRecipients(Array.isArray(conf.recipients) ? conf.recipients.join(', ') : '');
+        setRecipients(Array.isArray(conf.recipients) ? conf.recipients.join(', ') : (conf.recipients || ''));
         setSmtpHost(conf.smtp_host || '');
         setSmtpPort(conf.smtp_port || 587);
         setSmtpUser(conf.smtp_user || '');
@@ -115,44 +115,41 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
 
     const config: Record<string, any> = {};
 
-    if (channelType === 'telegram') {
-      if (!botToken.trim() || !chatId.trim()) {
-        setErrorMsg('Por favor ingresa el Token del Bot y el Chat ID de Telegram.');
-        return;
-      }
-      config.bot_token = botToken.trim();
-      config.chat_id = chatId.trim();
-    } else if (['slack', 'teams', 'discord', 'webhook'].includes(channelType)) {
-      if (!webhookUrl.trim() || !webhookUrl.startsWith('http')) {
-        setErrorMsg('Por favor ingresa una URL de Webhook válida (ej. https://...).');
-        return;
-      }
-      config.webhook_url = webhookUrl.trim();
-      if (channelType === 'webhook' && customHeaderKey.trim() && customHeaderValue.trim()) {
-        config.headers = { [customHeaderKey.trim()]: customHeaderValue.trim() };
-      }
-    } else if (channelType === 'email') {
-      const emailList = recipients
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0 && s.includes('@'));
-      if (emailList.length === 0) {
-        setErrorMsg('Por favor ingresa al menos un correo electrónico válido en la lista de destinatarios.');
-        return;
-      }
-      config.recipients = emailList;
-      if (smtpHost.trim()) {
-        config.smtp_host = smtpHost.trim();
-        config.smtp_port = Number(smtpPort) || 587;
-        config.smtp_user = smtpUser.trim();
-        config.smtp_password = smtpPassword;
-        config.use_tls = useTls;
-        config.from_email = fromEmail.trim() || smtpUser.trim();
-      }
-    }
-
-    setSubmitting(true);
     try {
+      if (channelType === 'telegram') {
+        if (!botToken.trim() || !chatId.trim()) {
+          throw new Error('Por favor ingresa el Token del Bot y el Chat ID de Telegram.');
+        }
+        config.bot_token = botToken.trim();
+        config.chat_id = chatId.trim();
+      } else if (['slack', 'teams', 'discord', 'webhook'].includes(channelType)) {
+        if (!webhookUrl.trim() || !webhookUrl.startsWith('http')) {
+          throw new Error('Por favor ingresa una URL de Webhook válida (ej. https://...).');
+        }
+        config.webhook_url = webhookUrl.trim();
+        if (channelType === 'webhook' && customHeaderKey.trim()) {
+          config.headers = { [customHeaderKey.trim()]: customHeaderValue.trim() };
+        }
+      } else if (channelType === 'email') {
+        const emailList = recipients
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.includes('@'));
+        if (emailList.length === 0) {
+          throw new Error('Por favor ingresa al menos un correo electrónico válido en la lista de destinatarios.');
+        }
+        config.recipients = emailList;
+        if (smtpHost.trim()) {
+          config.smtp_host = smtpHost.trim();
+          config.smtp_port = Number(smtpPort) || 587;
+          config.smtp_user = smtpUser.trim();
+          config.smtp_password = smtpPassword;
+          config.use_tls = useTls;
+          config.from_email = fromEmail.trim() || smtpUser.trim();
+        }
+      }
+
+      setSubmitting(true);
       await onSubmit({
         name: name.trim(),
         channel_type: channelType,
@@ -161,7 +158,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
       });
       onClose();
     } catch (err: any) {
-      setErrorMsg(err?.response?.data?.message || 'Error al guardar el canal de notificación.');
+      setErrorMsg(err?.message || 'Error al guardar el canal de notificación.');
     } finally {
       setSubmitting(false);
     }
@@ -181,21 +178,22 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
             <Send size={22} className="text-accent-green" />
             {channel ? 'Editar Canal de Notificación' : 'Nuevo Canal de Notificación'}
           </h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-main transition-colors">
+          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-main rounded-full hover:bg-bg-dark transition-colors">
             <X size={20} />
           </button>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-3 bg-accent-red/10 border border-accent-red/30 rounded-lg text-accent-red text-xs font-mono">
-            ⚠️ {errorMsg}
+          <div className="mb-4 p-3 bg-accent-red/10 border border-accent-red/30 rounded-xl text-accent-red text-xs flex items-center gap-2">
+            <AlertTriangle size={15} className="shrink-0" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Channel Name */}
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Nombre del Canal
             </label>
             <input
@@ -204,13 +202,13 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
               placeholder="ej. Alertas Telegram DevOps / Canal Slack #incidencias"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
             />
           </div>
 
           {/* Channel Type Selector Grid */}
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-2 font-bold">
+            <label className="block text-xs font-semibold text-text-muted mb-2">
               Seleccionar Integración de Canal
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -246,14 +244,14 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
 
           {/* Config Fields depending on channel_type */}
           <div className="bg-bg-dark border border-border-base rounded-xl p-4 space-y-4">
-            <h3 className="text-xs font-mono uppercase font-bold text-text-muted border-b border-border-base/50 pb-2">
+            <h3 className="text-xs font-semibold text-text-muted border-b border-border-base/50 pb-2">
               Configuración de {CHANNEL_TYPES.find((c) => c.type === channelType)?.name}
             </h3>
 
             {channelType === 'telegram' && (
               <>
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1 font-semibold">
+                  <label className="block text-xs font-semibold text-text-muted mb-1">
                     Bot Token (Obtenido con @BotFather)
                   </label>
                   <input
@@ -340,68 +338,68 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                 </div>
 
                 <div className="pt-2 border-t border-border-base/50">
-                  <h4 className="text-[11px] font-mono uppercase font-bold text-accent-green mb-2">
+                  <h4 className="text-xs font-semibold text-accent-green mb-2">
                     Configuración de Servidor SMTP Personalizado (Opcional)
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Servidor SMTP Host</label>
+                      <label className="block text-[11px] text-text-dim mb-1 font-medium">Servidor SMTP Host</label>
                       <input
                         type="text"
                         placeholder="ej. smtp.gmail.com / smtp.sendgrid.net"
                         value={smtpHost}
                         onChange={(e) => setSmtpHost(e.target.value)}
-                        className="w-full bg-bg-card border border-border-base rounded-lg px-3 py-1.5 text-xs font-mono text-text-main"
+                        className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Puerto (Port)</label>
+                      <label className="block text-[11px] text-text-dim mb-1 font-medium">Puerto (Port)</label>
                       <input
                         type="number"
                         placeholder="587"
                         value={smtpPort}
                         onChange={(e) => setSmtpPort(Number(e.target.value))}
-                        className="w-full bg-bg-card border border-border-base rounded-lg px-3 py-1.5 text-xs font-mono text-text-main"
+                        className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2.5">
                     <div>
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Usuario / Email SMTP</label>
+                      <label className="block text-[11px] text-text-dim mb-1 font-medium">Usuario / Email SMTP</label>
                       <input
                         type="text"
                         placeholder="ej. alertas@miempresa.com"
                         value={smtpUser}
                         onChange={(e) => setSmtpUser(e.target.value)}
-                        className="w-full bg-bg-card border border-border-base rounded-lg px-3 py-1.5 text-xs font-mono text-text-main"
+                        className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Contraseña / App Password</label>
+                      <label className="block text-[11px] text-text-dim mb-1 font-medium">Contraseña / App Password</label>
                       <input
                         type="password"
                         placeholder="••••••••••••"
                         value={smtpPassword}
                         onChange={(e) => setSmtpPassword(e.target.value)}
-                        className="w-full bg-bg-card border border-border-base rounded-lg px-3 py-1.5 text-xs font-mono text-text-main"
+                        className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2.5 items-center">
                     <div>
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Email Remitente (From Email)</label>
+                      <label className="block text-[11px] text-text-dim mb-1 font-medium">Email Remitente (From Email)</label>
                       <input
                         type="email"
                         placeholder="ej. no-reply@miempresa.com"
                         value={fromEmail}
                         onChange={(e) => setFromEmail(e.target.value)}
-                        className="w-full bg-bg-card border border-border-base rounded-lg px-3 py-1.5 text-xs font-mono text-text-main"
+                        className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"
                       />
                     </div>
                     <div className="flex items-center gap-2 pt-4">
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-text-muted">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-text-muted font-medium">
                         <input
                           type="checkbox"
                           checked={useTls}
@@ -419,7 +417,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
 
           {/* Form Actions */}
           <div className="flex items-center justify-between pt-4 border-t border-border-base">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-text-muted">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-text-muted font-medium">
               <input
                 type="checkbox"
                 checked={enabled}
@@ -433,14 +431,14 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-bg-dark border border-border-base rounded-lg text-xs font-semibold text-text-muted hover:text-text-main transition-colors"
+                className="px-4 py-2 bg-bg-dark border border-border-base rounded-full text-xs font-semibold text-text-muted hover:text-text-main transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center gap-2 px-5 py-2 bg-accent-green text-black font-semibold rounded-lg text-xs hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-accent-green text-black font-semibold rounded-full text-xs hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
               >
                 {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
                 {channel ? 'Guardar Cambios' : 'Crear Canal'}

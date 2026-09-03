@@ -506,6 +506,17 @@ class AlertEvaluatorService:
         triggered = False
 
         for target in targets:
+            # Check for active maintenance window
+            from monitoring.models import MaintenanceWindow
+            now_time = timezone.now()
+            if MaintenanceWindow.objects.filter(target=target, start_time__lte=now_time, end_time__gte=now_time, active=True).exists():
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+                continue
+
             checks = target.checks.filter(checked_at__gte=since)
             total = checks.count()
             if total == 0:
@@ -541,6 +552,17 @@ class AlertEvaluatorService:
         triggered = False
 
         for target in all_targets:
+            # Check for active maintenance window
+            from monitoring.models import MaintenanceWindow
+            now_time = timezone.now()
+            if MaintenanceWindow.objects.filter(target=target, start_time__lte=now_time, end_time__gte=now_time, active=True).exists():
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+                continue
+
             if target.last_status == "down":
                 AlertService.create_alert(
                     organization_id=rule.organization_id,
@@ -576,6 +598,17 @@ class AlertEvaluatorService:
         triggered = False
 
         for target in targets:
+            # Check for active maintenance window
+            from monitoring.models import MaintenanceWindow
+            now_time = timezone.now()
+            if MaintenanceWindow.objects.filter(target=target, start_time__lte=now_time, end_time__gte=now_time, active=True).exists():
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+                continue
+
             if target.last_latency and target.last_latency > threshold:
                 AlertService.create_alert(
                     organization_id=rule.organization_id,

@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 def run_monitoring_check(self, target_id):
     """Execute a monitoring check for a specific target.
 
-    Delegates the actual probe to Blackbox Exporter via Prometheus
-    or performs a direct HTTP/TCP check depending on target type.
+    Delegates HTTP/HTTPS/TCP checks to Blackbox Exporter and DNS/SSL checks
+    to local libraries. Employs soft-retries via Celery for flapping prevention.
 
     Args:
         target_id: UUID string of the MonitoringTarget.
@@ -35,21 +35,36 @@ def run_monitoring_check(self, target_id):
 
     try:
         if target.target_type in ("http", "https", "api"):
-            _run_http_check(target)
+            status, latency, details = _run_http_check(target)
         elif target.target_type == "tcp":
-            _run_tcp_check(target)
+            status, latency, details = _run_tcp_check(target)
         elif target.target_type == "dns":
-            _run_dns_check(target)
+            status, latency, details = _run_dns_check(target)
         elif target.target_type == "ssl":
-            _run_ssl_check(target)
+            status, latency, details = _run_ssl_check(target)
+        else:
+            logger.error("Unsupported target type: %s", target.target_type)
+            return
 
-        try:
-            from alerts.services import AlertEvaluatorService
-            AlertEvaluatorService.evaluate_all_rules()
-        except Exception as eval_exc:
-            logger.warning("Could not evaluate alert rules after check: %s", eval_exc)
+        if status in ("down", "error"):
+            if self.request.retries < 2:
+                logger.info("Check failed for %s. Retrying in 5s (attempt %d/3)...", target.name, self.request.retries + 2)
+                raise self.retry(countdown=5)
+
+        MonitoringService.record_check(
+            target_id=target.id,
+            status=status,
+            latency=latency,
+            details=details,
+        )
+    except self.retry_class as retry_exc:
+        raise retry_exc
     except Exception as exc:
         logger.exception("Error checking target %s: %s", target.name, exc)
+        if self.request.retries < 2:
+            logger.info("Exception during check for %s. Retrying in 5s (attempt %d/3)...", target.name, self.request.retries + 2)
+            raise self.retry(countdown=5)
+
         MonitoringService.record_check(
             target_id=target.id,
             status="error",
@@ -58,119 +73,102 @@ def run_monitoring_check(self, target_id):
         )
 
 
-def _resolve_internal_url(url: str, headers: dict) -> tuple[str, dict]:
-    """Resolves localhost/127.0.0.1 URLs inside Docker containers to host.docker.internal
-
-    while preserving original Host header.
-    """
-    req_headers = dict(headers or {})
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-
-    if hostname in ("localhost", "127.0.0.1"):
-        netloc = parsed.netloc.replace(hostname, "host.docker.internal")
-        target_url = urlunparse(parsed._replace(netloc=netloc))
-        if "Host" not in req_headers and "host" not in req_headers:
-            req_headers["Host"] = parsed.netloc
-        return target_url, req_headers
-
-    return url, req_headers
-
-
 def _run_http_check(target):
-    """Perform an HTTP/HTTPS check with custom method, headers and status validation."""
+    """Perform an HTTP/HTTPS check using Blackbox Exporter."""
+    from django.conf import settings
     url = target.endpoint
     if not url.startswith("http"):
         url = f"https://{url}"
 
-    headers = target.custom_headers or {}
     method = (target.http_method or "GET").upper()
-    body = target.request_body.encode("utf-8") if target.request_body else None
-    expected_status = target.expected_status or 200
-    max_latency = target.max_latency_ms or 2000
+    module = "http_post_2xx" if method == "POST" else "http_2xx"
 
-    request_url, request_headers = _resolve_internal_url(url, headers)
+    blackbox_url = f"{settings.BLACKBOX_EXPORTER_URL.rstrip('/')}/probe"
 
     start = timezone.now()
     try:
-        response = requests.request(
-            method=method,
-            url=request_url,
-            headers=request_headers,
-            data=body,
+        response = requests.get(
+            url=blackbox_url,
+            params={
+                "target": url,
+                "module": module,
+            },
             timeout=10,
-            allow_redirects=True,
         )
         elapsed = (timezone.now() - start).total_seconds() * 1000
 
-        status_matches = response.status_code == expected_status or (
-            expected_status == 200 and response.status_code < 400
-        )
+        probe_success = 0.0
+        probe_duration = 0.0
+        for line in response.text.splitlines():
+            if line.startswith("probe_success "):
+                probe_success = float(line.split()[1])
+            elif line.startswith("probe_duration_seconds "):
+                probe_duration = float(line.split()[1])
 
-        if status_matches:
-            if elapsed > max_latency:
+        latency_ms = (probe_duration * 1000) if probe_duration > 0 else elapsed
+
+        if probe_success == 1.0:
+            if latency_ms > target.max_latency_ms:
                 status = "slow"
             else:
                 status = "up"
         else:
             status = "down"
 
-        MonitoringService.record_check(
-            target_id=target.id,
-            status=status,
-            latency=round(elapsed, 2),
-            details={
-                "status_code": response.status_code,
-                "expected_status": expected_status,
-                "method": method,
-                "url": url,
-            },
-        )
-    except requests.exceptions.Timeout:
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="down",
-            latency=None,
-            details={"error": "timeout", "url": url},
-        )
-    except requests.exceptions.ConnectionError:
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="down",
-            latency=None,
-            details={"error": "connection_error", "url": url},
-        )
+        return status, round(latency_ms, 2), {
+            "blackbox_status": "success" if probe_success == 1.0 else "failed",
+            "method": method,
+            "url": url,
+        }
+    except Exception as exc:
+        logger.exception("Blackbox HTTP probe exception: %s", exc)
+        return "down", None, {"error": str(exc), "url": url}
 
 
 def _run_tcp_check(target):
-    """Perform a TCP connection check."""
-    import socket
+    """Perform a TCP connection check using Blackbox Exporter."""
+    from django.conf import settings
+    host_port = target.endpoint
 
-    parts = target.endpoint.split(":")
-    host = parts[0]
-    port = int(parts[1]) if len(parts) > 1 else 80
+    if host_port.startswith("localhost") or host_port.startswith("127.0.0.1"):
+        host_port = host_port.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
 
-    if host in ("localhost", "127.0.0.1"):
-        host = "host.docker.internal"
+    blackbox_url = f"{settings.BLACKBOX_EXPORTER_URL.rstrip('/')}/probe"
 
     start = timezone.now()
     try:
-        sock = socket.create_connection((host, port), timeout=5)
-        sock.close()
+        response = requests.get(
+            url=blackbox_url,
+            params={
+                "target": host_port,
+                "module": "tcp_connect",
+            },
+            timeout=10,
+        )
         elapsed = (timezone.now() - start).total_seconds() * 1000
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="up",
-            latency=round(elapsed, 2),
-            details={"host": target.endpoint.split(":")[0], "port": port},
-        )
-    except (socket.timeout, ConnectionRefusedError, OSError) as exc:
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="down",
-            latency=None,
-            details={"error": str(exc), "host": host, "port": port},
-        )
+
+        probe_success = 0.0
+        probe_duration = 0.0
+        for line in response.text.splitlines():
+            if line.startswith("probe_success "):
+                probe_success = float(line.split()[1])
+            elif line.startswith("probe_duration_seconds "):
+                probe_duration = float(line.split()[1])
+
+        latency_ms = (probe_duration * 1000) if probe_duration > 0 else elapsed
+
+        if probe_success == 1.0:
+            status = "up"
+        else:
+            status = "down"
+
+        return status, round(latency_ms, 2), {
+            "blackbox_status": "success" if probe_success == 1.0 else "failed",
+            "endpoint": host_port,
+        }
+    except Exception as exc:
+        logger.exception("Blackbox TCP probe exception: %s", exc)
+        return "down", None, {"error": str(exc), "endpoint": host_port}
 
 
 def _run_dns_check(target):
@@ -187,19 +185,9 @@ def _run_dns_check(target):
         result = socket.getaddrinfo(host, None)
         elapsed = (timezone.now() - start).total_seconds() * 1000
         addresses = list(set(r[4][0] for r in result))
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="up",
-            latency=round(elapsed, 2),
-            details={"addresses": addresses, "host": host},
-        )
+        return "up", round(elapsed, 2), {"addresses": addresses, "host": host}
     except socket.gaierror as exc:
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="down",
-            latency=None,
-            details={"error": str(exc), "domain": host},
-        )
+        return "down", None, {"error": str(exc), "domain": host}
 
 
 def _run_ssl_check(target):
@@ -245,31 +233,16 @@ def _run_ssl_check(target):
         if elapsed > (target.max_latency_ms or 2000):
             status = "slow"
 
-        MonitoringService.record_check(
-            target_id=target.id,
-            status=status,
-            latency=round(elapsed, 2),
-            details={
-                "host": host,
-                "days_remaining": days_remaining,
-                "issuer": issuer_name,
-                "expiration_date": expiration_date.isoformat() if expiration_date else None,
-            },
-        )
+        return status, round(elapsed, 2), {
+            "host": host,
+            "days_remaining": days_remaining,
+            "issuer": issuer_name,
+            "expiration_date": expiration_date.isoformat() if expiration_date else None,
+        }
     except ssl_module.SSLError as exc:
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="down",
-            latency=None,
-            details={"error": f"SSL error: {exc}", "host": host},
-        )
+        return "down", None, {"error": f"SSL error: {exc}", "host": host}
     except (socket.timeout, socket.gaierror, ConnectionRefusedError, OSError) as exc:
-        MonitoringService.record_check(
-            target_id=target.id,
-            status="down",
-            latency=None,
-            details={"error": f"Connection error: {exc}", "host": host},
-        )
+        return "down", None, {"error": f"Connection error: {exc}", "host": host}
 
 
 @shared_task(name="monitoring.schedule_checks")
@@ -284,3 +257,57 @@ def schedule_all_checks():
         run_monitoring_check.delay(str(target.id))
 
     logger.info("Scheduled checks for %d targets.", targets.count())
+
+
+@shared_task(name="monitoring.check_all")
+def check_all():
+    """Alias for schedule_all_checks used by Celery Beat."""
+    schedule_all_checks()
+
+
+@shared_task(name="monitoring.register_target_in_submonitors")
+def register_target_in_submonitors(target_id):
+    """Asynchronously registers the target in all other relevant monitoring submodules."""
+    try:
+        target = MonitoringTarget.objects.get(id=target_id)
+    except MonitoringTarget.DoesNotExist:
+        logger.error("Target %s not found for submonitor registration.", target_id)
+        return
+
+    organization_id = target.organization_id
+    endpoint = target.endpoint
+    name = target.name
+    target_type = target.target_type
+
+    if target_type.lower() in ("https", "ssl"):
+        try:
+            from ssl_monitor.services import SSLMonitorService
+            SSLMonitorService.get_or_create_certificate(organization_id, endpoint)
+        except Exception as exc:
+            logger.warning("Failed to register target in ssl_monitor: %s", exc)
+
+    try:
+        from dns_monitor.services import DNSMonitorService
+        DNSMonitorService.get_or_create_dns_record(organization_id, endpoint, record_type="A")
+    except Exception as exc:
+        logger.warning("Failed to register target in dns_monitor: %s", exc)
+
+    try:
+        from domain.services import DomainService
+        DomainService.get_or_create_domain(organization_id, endpoint)
+    except Exception as exc:
+        logger.warning("Failed to register target in domain: %s", exc)
+
+    try:
+        from api_checks.services import APICheckService
+        method = target.http_method or "GET"
+        full_url = endpoint if endpoint.startswith("http") else f"https://{endpoint}"
+        APICheckService.get_or_create_api_target(organization_id, name, full_url, method=method)
+    except Exception as exc:
+        logger.warning("Failed to register target in api_checks: %s", exc)
+
+    try:
+        from security_headers.services import SecurityHeadersService
+        SecurityHeadersService.get_or_create_target(organization_id, name, endpoint)
+    except Exception as exc:
+        logger.warning("Failed to register target in security_headers: %s", exc)

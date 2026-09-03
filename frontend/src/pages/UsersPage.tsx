@@ -261,9 +261,9 @@ export default function UsersPage() {
           </div>
         ) : filteredMembers.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-border-base text-text-dim uppercase">
+                <tr className="border-b border-border-base text-text-dim font-medium">
                   <th className="py-3 px-4">Usuario / Nombre</th>
                   <th className="py-3 px-4">Correo Electrónico</th>
                   <th className="py-3 px-4">Rol Asignado</th>
@@ -278,22 +278,22 @@ export default function UsersPage() {
                     <td className="py-3.5 px-4 font-bold text-text-main">
                       {m.first_name || m.last_name ? `${m.first_name} ${m.last_name}` : 'Usuario'}
                     </td>
-                    <td className="py-3.5 px-4 text-text-muted">{m.email}</td>
+                    <td className="py-3.5 px-4 text-text-muted font-mono">{m.email}</td>
                     <td className="py-3.5 px-4">
-                      <span className="uppercase px-2.5 py-1 bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-md font-bold text-[11px]">
+                      <span className="px-2.5 py-0.5 bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-full font-semibold text-xs">
                         {m.role === 'admin' ? 'Administrador' : m.role === 'member' ? 'Ingeniero Operaciones' : 'Visualizador'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
                       {m.status_code === 'pending' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 rounded-md font-bold text-[11px] uppercase">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 rounded-full font-semibold text-xs">
                           <AlertTriangle size={12} />
                           Invitación Pendiente
                         </span>
                       ) : (
                         <button
                           onClick={() => handleToggleActive(m)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase transition-colors ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-semibold text-xs transition-colors ${
                             m.is_active
                               ? 'bg-accent-green/10 text-accent-green border border-accent-green/30 hover:bg-accent-red/10 hover:text-accent-red hover:border-accent-red/30'
                               : 'bg-accent-red/10 text-accent-red border border-accent-red/30 hover:bg-accent-green/10 hover:text-accent-green hover:border-accent-green/30'
@@ -349,26 +349,22 @@ export default function UsersPage() {
           onClick={closeModal}
         >
           <div
-            className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 font-sans"
+            className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-md shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-border-base pb-3">
-              <h3 className="text-base font-bold text-text-main flex items-center gap-2 font-mono">
-                <Users size={18} className="text-accent-green" />
-                {mode === 'edit'
-                  ? 'Editar Usuario'
-                  : mode === 'invite'
-                  ? 'Invitar Miembro (Enlace Mágico SMTP)'
-                  : 'Crear Usuario Directo'}
-              </h3>
-              <button onClick={closeModal} className="text-text-muted hover:text-text-main">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
+                <UserPlus size={18} className="text-accent-green" />
+                {mode === 'edit' ? 'Editar Miembro' : mode === 'invite' ? 'Enviar Invitación' : 'Crear Usuario Directo'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="p-1.5 text-text-muted hover:text-text-main rounded-full hover:bg-bg-dark transition-colors">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleFormSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-mono uppercase text-text-muted mb-1 font-bold">Correo Electrónico</label>
+                <label className="block text-xs font-semibold text-text-muted mb-1">Correo Electrónico</label>
                 <input
                   type="email"
                   required
@@ -376,53 +372,53 @@ export default function UsersPage() {
                   placeholder="usuario@empresa.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 font-mono text-text-main focus:outline-none focus:border-accent-green disabled:opacity-60"
+                  className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2 font-mono text-text-main focus:outline-none focus:border-accent-green disabled:opacity-60"
                 />
               </div>
 
               {mode === 'direct' && (
                 <div>
-                  <label className="block font-mono uppercase text-text-muted mb-1 font-bold">Contraseña Inicial</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1">Contraseña Inicial</label>
                   <input
                     type="password"
                     required
                     placeholder="Mínimo 8 caracteres"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 font-mono text-text-main focus:outline-none focus:border-accent-green"
+                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2 font-mono text-text-main focus:outline-none focus:border-accent-green"
                   />
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-mono uppercase text-text-muted mb-1 font-bold">Nombre</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1">Nombre</label>
                   <input
                     type="text"
                     placeholder="Nombre"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 text-text-main focus:outline-none focus:border-accent-green"
+                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2 text-text-main focus:outline-none focus:border-accent-green"
                   />
                 </div>
                 <div>
-                  <label className="block font-mono uppercase text-text-muted mb-1 font-bold">Apellido</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1">Apellido</label>
                   <input
                     type="text"
                     placeholder="Apellido"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 text-text-main focus:outline-none focus:border-accent-green"
+                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2 text-text-main focus:outline-none focus:border-accent-green"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-mono uppercase text-text-muted mb-1 font-bold">Rol de Acceso</label>
+                <label className="block text-xs font-semibold text-text-muted mb-1">Rol de Acceso</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 font-mono text-text-main focus:outline-none focus:border-accent-green"
+                  className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2 text-text-main focus:outline-none focus:border-accent-green"
                 >
                   <option value="admin">Administrador (Acceso total)</option>
                   <option value="member">Ingeniero Operaciones (Editar y Gestionar)</option>

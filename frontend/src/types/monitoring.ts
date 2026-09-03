@@ -14,8 +14,16 @@ export interface MonitoringTarget {
   last_checked_at: string | null;
   last_status: string | null;
   last_latency: number | null;
+  tags?: string[];
+  recent_checks?: RecentCheckItem[];
   created_at: string;
   updated_at: string;
+}
+
+export interface RecentCheckItem {
+  status: 'up' | 'down' | 'slow' | 'error';
+  latency: number | null;
+  checked_at: string;
 }
 
 export interface MonitoringCheck {
@@ -47,6 +55,7 @@ export interface CreateTargetData {
   custom_headers?: Record<string, string>;
   request_body?: string;
   max_latency_ms?: number;
+  tags?: string[];
 }
 
 export interface UpdateTargetData {
@@ -60,4 +69,5 @@ export interface UpdateTargetData {
   custom_headers?: Record<string, string>;
   request_body?: string;
   max_latency_ms?: number;
+  tags?: string[];
 }

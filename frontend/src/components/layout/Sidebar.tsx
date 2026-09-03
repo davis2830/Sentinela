@@ -30,7 +30,7 @@ const navSections = [
     ],
   },
   {
-    title: 'Gestion',
+    title: 'Gestión',
     items: [
       { to: '/notifications', icon: Send, label: 'Notificaciones' },
       { to: '/status-page', icon: Globe, label: 'Status Page' },
@@ -49,7 +49,7 @@ export default function Sidebar() {
     <aside className="w-60 bg-bg-dark border-r border-border-base p-4 flex flex-col gap-1">
       {navSections.map((section) => (
         <div key={section.title}>
-          <div className="text-xs text-text-dim uppercase tracking-wider mt-4 mb-2 ml-2 font-mono">
+          <div className="text-xs text-text-dim mt-4 mb-2 ml-2 font-semibold">
             {section.title}
           </div>
           {section.items.map((item) => {
@@ -59,9 +59,9 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                     isActive
-                      ? 'bg-bg-card text-accent-green border-l-[3px] border-accent-green'
+                      ? 'bg-bg-card text-accent-green border-l-[3px] border-accent-green font-medium'
                       : 'text-text-muted hover:bg-bg-card hover:text-text-main'
                   }`
                 }

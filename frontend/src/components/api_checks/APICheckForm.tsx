@@ -12,6 +12,7 @@ import {
   Plus,
   Trash2,
   KeyRound,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface APICheckFormProps {
@@ -272,8 +273,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
         </div>
 
         {jsonError && (
-          <div className="mb-4 p-3 bg-accent-red/10 border border-accent-red/30 rounded-lg text-accent-red text-xs font-mono">
-            ⚠️ {jsonError}
+          <div className="mb-4 p-3 bg-accent-red/10 border border-accent-red/30 rounded-xl text-accent-red text-xs flex items-center gap-2">
+            <AlertTriangle size={15} />
+            <span>{jsonError}</span>
           </div>
         )}
 
@@ -281,7 +283,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
           {/* Main Config */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Nombre del Servicio API
               </label>
               <input
@@ -290,18 +292,18 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 placeholder="ej. Service Health / Users Endpoint"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Método HTTP
               </label>
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value as HTTPMethod)}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono font-bold"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono font-bold"
               >
                 {HTTP_METHODS.map((m) => (
                   <option key={m} value={m}>
@@ -313,7 +315,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               URL del Endpoint
             </label>
             <input
@@ -322,13 +324,13 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
               placeholder="ej. https://api.miempresa.com/v1/health"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Status Esperado
               </label>
               <input
@@ -338,12 +340,12 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 max={599}
                 value={expectedStatus}
                 onChange={(e) => setExpectedStatus(Number(e.target.value))}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Max Latencia (ms)
               </label>
               <input
@@ -354,18 +356,18 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 step={1}
                 value={expectedTimeMs}
                 onChange={(e) => setExpectedTimeMs(Number(e.target.value))}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 font-bold">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Intervalo Monitoreo
               </label>
               <select
                 value={checkInterval}
                 onChange={(e) => setCheckInterval(Number(e.target.value))}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono font-bold"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono font-bold"
               >
                 <option value={30}>Cada 30 Seg</option>
                 <option value={60}>Cada 1 Min (60s)</option>
@@ -391,13 +393,14 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 }`}
               >
                 <Lock size={14} />
-                Autenticación {authType !== 'none' && '✓'}
+                <span>Autenticación</span>
+                {authType !== 'none' && <CheckCircle2 size={12} className="text-accent-green" />}
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('body')}
-                className={`px-4 py-2 text-xs font-mono font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
                   activeTab === 'body'
                     ? 'border-accent-green text-accent-green'
                     : 'border-transparent text-text-muted hover:text-text-main'
@@ -410,7 +413,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
               <button
                 type="button"
                 onClick={() => setActiveTab('schema')}
-                className={`px-4 py-2 text-xs font-mono font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+                className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
                   activeTab === 'schema'
                     ? 'border-accent-green text-accent-green'
                     : 'border-transparent text-text-muted hover:text-text-main'
@@ -425,7 +428,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             {activeTab === 'auth' && (
               <div className="bg-bg-dark/60 border border-border-base rounded-xl p-4 space-y-4">
                 <div>
-                  <label className="block text-xs font-mono uppercase text-text-muted mb-2 font-bold">
+                  <label className="block text-xs font-semibold text-text-muted mb-2">
                     Tipo de Autenticación
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -558,7 +561,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             {activeTab === 'body' && (
               <div className="bg-bg-dark/60 border border-border-base rounded-xl p-4 space-y-4">
                 <div className="flex items-center justify-between border-b border-border-base pb-3">
-                  <span className="text-xs font-mono text-text-muted font-bold uppercase">
+                  <span className="text-xs text-text-muted font-semibold">
                     Modo de Ingreso del Cuerpo
                   </span>
                   <div className="flex gap-2">
@@ -644,7 +647,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             {activeTab === 'schema' && (
               <div className="bg-bg-dark/60 border border-border-base rounded-xl p-4 space-y-4">
                 <div className="flex items-center justify-between border-b border-border-base pb-3">
-                  <span className="text-xs font-mono text-text-muted font-bold uppercase">
+                  <span className="text-xs text-text-muted font-semibold">
                     Campos Esperados en la Respuesta JSON
                   </span>
                   <div className="flex gap-2">
@@ -749,14 +752,14 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+              className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
               {submitting ? <Loader2 className="animate-spin" size={18} /> : target ? 'Actualizar' : 'Crear API Check'}
             </button>

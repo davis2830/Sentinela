@@ -56,7 +56,7 @@ export default function SecurityHeaderForm({
       onClick={onClose}
     >
       <div
-        className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-md shadow-2xl"
+        className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -64,14 +64,14 @@ export default function SecurityHeaderForm({
             <ShieldCheck size={20} className="text-accent-green" />
             {target ? 'Editar Security Header Target' : 'Nuevo Security Header Scan'}
           </h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text-main">
-            <X size={20} />
+          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-main rounded-full hover:bg-bg-dark transition-colors">
+            <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Nombre de la Aplicación / Sitio
             </label>
             <input
@@ -80,12 +80,12 @@ export default function SecurityHeaderForm({
               placeholder="ej. Portal Cliente Producción"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+            <label className="block text-xs font-semibold text-text-muted mb-1.5">
               URL del Sitio Web
             </label>
             <input
@@ -94,7 +94,7 @@ export default function SecurityHeaderForm({
               placeholder="ej. https://portal.miempresa.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
+              className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
             />
             <p className="text-xs text-text-dim mt-1.5">
               Se analizará la presencia de cabeceras de seguridad HTTP (HSTS, CSP, X-Frame-Options, etc.).
@@ -121,14 +121,14 @@ export default function SecurityHeaderForm({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+              className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
               {submitting ? (
                 <Loader2 className="animate-spin" size={18} />

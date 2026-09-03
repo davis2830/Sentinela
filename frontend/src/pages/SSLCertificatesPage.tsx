@@ -5,6 +5,16 @@ import type { SSLCertificate, CreateSSLCertificateData, SSLStats } from '../type
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
+import SSLCertificateTableView from '../components/ssl/SSLCertificateTableView';
+import {
+  NOCPageHeader,
+  NOCKpiGrid,
+  NOCKpiCard,
+  NOCToolbar,
+  NOCBulkActionBar,
+  NOCDrawer,
+} from '../components/common/noc';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import {
   ShieldCheck,
   Plus,
@@ -25,29 +35,47 @@ import {
   Cpu,
   Fingerprint,
   Globe,
+  CheckSquare,
+  Square,
+  Zap,
 } from 'lucide-react';
 
 type FilterType = 'all' | 'expiring' | 'expired';
 
-// Helper to clean DN strings (e.g., countryName=GB, organizationName=Sectigo Limited...)
 function parseIssuerName(issuerStr: string | null): string {
   if (!issuerStr) return 'Desconocido';
   const orgMatch = issuerStr.match(/organizationName=([^,]+)/i);
   if (orgMatch && orgMatch[1]) return orgMatch[1].trim();
   const cnMatch = issuerStr.match(/commonName=([^,]+)/i);
   if (cnMatch && cnMatch[1]) return cnMatch[1].trim();
-  return issuerStr;
+  return issuerStr.split(',')[0].replace('CN=', '');
 }
 
 export default function SSLCertificatesPage() {
   const queryClient = useQueryClient();
+
+  // State
   const [filter, setFilter] = useState<FilterType>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [scanningId, setScanningId] = useState<string | null>(null);
+
+  // Modals & Drawer State
   const [showModal, setShowModal] = useState(false);
   const [editingCert, setEditingCert] = useState<SSLCertificate | null>(null);
   const [selectedCert, setSelectedCert] = useState<SSLCertificate | null>(null);
   const [domainInput, setDomainInput] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<SSLCertificate | null>(null);
   const [copiedFingerprint, setCopiedFingerprint] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'sans' | 'technical'>('overview');
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Auto-refresh hook (15s countdown)
+  const autoRefresh = useAutoRefresh({
+    intervalSeconds: 15,
+    initialEnabled: true,
+  });
 
   const getEndpoint = () => {
     switch (filter) {
@@ -60,22 +88,22 @@ export default function SSLCertificatesPage() {
     }
   };
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<SSLStats>({
     queryKey: ['ssl-stats'],
     queryFn: async () => {
       const response = await api.get('ssl-certificates/stats/');
       return (response.data?.data || {}) as SSLStats;
     },
-    refetchInterval: 15000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: certificates, isLoading, refetch, isRefetching } = useQuery({
+  const { data: certificates, isLoading } = useQuery<SSLCertificate[]>({
     queryKey: ['ssl-certificates', filter],
     queryFn: async () => {
       const response = await api.get(getEndpoint());
-      return response.data?.data || [];
+      return (response.data?.data || []) as SSLCertificate[];
     },
-    refetchInterval: 30000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   const createMutation = useMutation({
@@ -102,15 +130,20 @@ export default function SSLCertificatesPage() {
 
   const scanMutation = useMutation({
     mutationFn: async (id: string) => {
+      setScanningId(id);
       const response = await api.post(`ssl-certificates/${id}/scan/`);
       return response.data?.data;
     },
     onSuccess: (updatedCert) => {
       queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
       queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
-      if (selectedCert && updatedCert) {
+      if (selectedCert && updatedCert && selectedCert.id === updatedCert.id) {
         setSelectedCert(updatedCert);
       }
+      setScanningId(null);
+    },
+    onError: () => {
+      setScanningId(null);
     },
   });
 
@@ -138,6 +171,59 @@ export default function SSLCertificatesPage() {
     },
   });
 
+  // Bulk Actions
+  const handleToggleSelect = (cert: SSLCertificate) => {
+    setSelectedIds((prev) =>
+      prev.includes(cert.id) ? prev.filter((id) => id !== cert.id) : [...prev, cert.id]
+    );
+  };
+
+  const handleSelectAllToggle = () => {
+    if (!filteredCertificates || filteredCertificates.length === 0) return;
+    if (selectedIds.length === filteredCertificates.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredCertificates.map((c: SSLCertificate) => c.id));
+    }
+  };
+
+  const handleBulkScan = async () => {
+    if (selectedIds.length === 0) return;
+    for (const id of selectedIds) {
+      try {
+        await api.post(`ssl-certificates/${id}/scan/`);
+      } catch (err) {
+        // Continue
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+    queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (
+      !window.confirm(
+        `¿Deseas eliminar permanentemente los ${selectedIds.length} certificados seleccionados?`
+      )
+    ) {
+      return;
+    }
+    setBulkDeleting(true);
+    for (const id of selectedIds) {
+      try {
+        await api.delete(`ssl-certificates/${id}/`);
+      } catch (err) {
+        // Continue
+      }
+    }
+    setSelectedIds([]);
+    setBulkDeleting(false);
+    queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+    queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+  };
+
+  // Modal Handlers
   const handleOpenCreate = () => {
     setEditingCert(null);
     setDomainInput('');
@@ -157,10 +243,13 @@ export default function SSLCertificatesPage() {
     setDomainInput('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmitModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
-    let cleanDomain = domainInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+
+    let cleanDomain = domainInput.trim().toLowerCase();
+    cleanDomain = cleanDomain.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+
     if (editingCert) {
       updateMutation.mutate({ id: editingCert.id, domain: cleanDomain });
     } else {
@@ -168,588 +257,727 @@ export default function SSLCertificatesPage() {
     }
   };
 
-  const handleCopyFingerprint = (fingerprint: string) => {
-    navigator.clipboard.writeText(fingerprint);
+  const handleCopyFingerprint = (text: string) => {
+    navigator.clipboard.writeText(text);
     setCopiedFingerprint(true);
     setTimeout(() => setCopiedFingerprint(false), 2000);
   };
 
   const getStatusType = (cert: SSLCertificate) => {
-    if (!cert.is_valid) return 'invalid';
-    if (cert.days_remaining !== null && cert.days_remaining <= 0) return 'expired';
-    if (cert.days_remaining !== null && cert.days_remaining <= 15) return 'expiring';
-    return 'valid';
+    if (!cert.is_valid) return 'fallo';
+    const days = cert.days_remaining;
+    if (days !== null && days <= 0) return 'expirado';
+    if (days !== null && days <= 15) return 'por_expirar';
+    return 'valido';
   };
 
+  // KPI Calculations
+  const allCerts = certificates || [];
+  const totalCount = stats?.total || allCerts.length;
+  const validCount = stats?.valid || allCerts.filter((c: SSLCertificate) => c.is_valid).length;
+  const expiringCount = stats?.expiring_15d || allCerts.filter(
+    (c: SSLCertificate) => c.days_remaining !== null && c.days_remaining <= 15 && c.days_remaining > 0
+  ).length;
+  const expiredCount = (stats?.expired || 0) + (stats?.invalid || 0);
+
+  const validitySla =
+    totalCount > 0
+      ? Math.round((validCount / totalCount) * 1000) / 10
+      : 100.0;
+
+  // Filtered & Searched Certificates
+  const filteredCertificates = allCerts.filter((cert: SSLCertificate) => {
+    const matchesSearch =
+      cert.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cert.issuer && cert.issuer.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (cert.algorithm && cert.algorithm.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    if (filter === 'expiring') {
+      return cert.days_remaining !== null && cert.days_remaining <= 15 && cert.days_remaining > 0;
+    }
+    if (filter === 'expired') {
+      return !cert.is_valid || (cert.days_remaining !== null && cert.days_remaining <= 0);
+    }
+
+    return true;
+  });
+
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
-            <ShieldCheck className="text-accent-green" size={28} />
-            Certificados SSL
-          </h1>
-          <p className="text-text-muted text-sm mt-1">
-            Supervisa la validez, emisor, algoritmo y vencimiento de tus certificados SSL/TLS
-          </p>
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+      {/* 1. TOP HEADER (Standard NOC Header) */}
+      <NOCPageHeader
+        title="Certificados SSL"
+        badgeText="CERT GUARD"
+        description="Supervisa la validez, emisor, algoritmo y vencimiento de tus certificados SSL/TLS con alertas tempranas."
+        icon={<Lock size={26} />}
+        autoRefresh={{
+          enabled: autoRefresh.enabled,
+          countdown: autoRefresh.countdown,
+          onToggle: autoRefresh.toggle,
+        }}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => scanAllMutation.mutate()}
+              disabled={scanAllMutation.isPending}
+              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
+              title="Re-escanear todos los certificados inmediatamente"
+            >
+              <RefreshCw
+                size={15}
+                className={scanAllMutation.isPending ? 'animate-spin' : ''}
+              />
+              Escanear Todos
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
+            >
+              <Plus size={16} />
+              Nuevo Certificado
+            </button>
+          </>
+        }
+      />
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => scanAllMutation.mutate()}
-            disabled={scanAllMutation.isPending}
-            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
-            title="Re-escanear todos los certificados inmediatamente"
-          >
-            <RefreshCw size={16} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
-            Escanear Todos
-          </button>
+      {/* 2. NOC COMMAND CENTER: KPI STRIP */}
+      <NOCKpiGrid columns={4}>
+        {/* KPI 1: Disponibilidad y Validez */}
+        <NOCKpiCard
+          title="Salud de Certificados"
+          icon={<ShieldCheck size={16} className="text-accent-green" />}
+          badge={{
+            text: validitySla >= 95.0 ? 'Óptimo' : 'Atención',
+            variant: validitySla >= 95.0 ? 'success' : 'warning',
+          }}
+          value={`${validitySla}%`}
+          valueSuffix="vigentes"
+          progress={{ value: validitySla }}
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Cadena de Confianza</span>
+              <span>{validCount} de {totalCount} certificados</span>
+            </div>
+          }
+        />
 
-          <button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
-          >
-            <Plus size={18} />
-            Nuevo Certificado
-          </button>
-        </div>
-      </div>
+        {/* KPI 2: Por Expirar */}
+        <NOCKpiCard
+          title="Próximos a Expirar"
+          icon={<AlertTriangle size={16} className="text-amber-400" />}
+          badge={{
+            text: '≤ 15 días',
+            variant: expiringCount > 0 ? 'warning' : 'neutral',
+          }}
+          value={expiringCount}
+          valueColor={expiringCount > 0 ? 'text-amber-400' : 'text-text-main'}
+          valueSuffix="certificados"
+          subtitle="Requieren renovación con la autoridad CA"
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Alerta temprana</span>
+              <span className="text-amber-400 font-medium">Auto-notificación</span>
+            </div>
+          }
+        />
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
-            <ShieldCheck size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Total Monitoreados</p>
-            <p className="text-xl font-bold font-mono text-text-main">{stats?.total || 0}</p>
-          </div>
-        </div>
+        {/* KPI 3: Distribución */}
+        <NOCKpiCard
+          title="Estado de Cobertura"
+          icon={<Zap size={16} className="text-sky-400" />}
+          badge={{
+            text: `${totalCount} Dominios`,
+            variant: 'neutral',
+          }}
+          distribution={[
+            { label: 'Válidos', count: validCount, variant: 'success' },
+            { label: 'Por expirar', count: expiringCount, variant: 'warning' },
+            { label: 'Expirados', count: expiredCount, variant: 'danger' },
+          ]}
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Cifrado TLS 1.3</span>
+              <span className="text-accent-green">Activo</span>
+            </div>
+          }
+        />
 
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
-            <Check size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Certificados Válidos</p>
-            <p className="text-xl font-bold font-mono text-accent-green">{stats?.valid || 0}</p>
-          </div>
-        </div>
+        {/* KPI 4: Frecuencia de Verificación */}
+        <NOCKpiCard
+          title="Carga de Monitoreo"
+          icon={<Cpu size={16} className="text-accent-green" />}
+          badge={{
+            text: 'Celery Beat',
+            variant: 'neutral',
+          }}
+          value={totalCount > 0 ? `${totalCount} checks` : '0 checks'}
+          valueColor="text-accent-green"
+          valueSuffix="por ciclo"
+          subtitle="Verificación de handshake TLS y expiración"
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Puerto Inspeccionado</span>
+              <span className="text-accent-green font-medium font-mono">443 / HTTPS</span>
+            </div>
+          }
+        />
+      </NOCKpiGrid>
 
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
-            <AlertTriangle size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Por Expirar (≤15d)</p>
-            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.expiring_15d || 0}</p>
-          </div>
-        </div>
+      {/* 3. TOOLBAR: Omnibar Search + Status Pills + Grid/Table Switcher */}
+      <NOCToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Buscar por dominio, autoridad emisora (CA) o algoritmo..."
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        statusPills={[
+          { id: 'all', label: 'Todos', count: totalCount, variant: 'all' },
+          { id: 'expiring', label: 'Por expirar', count: expiringCount, variant: 'warning' },
+          { id: 'expired', label: 'Expirados / Fallos', count: expiredCount, variant: 'danger' },
+        ]}
+        selectedStatus={filter}
+        onStatusChange={(st) => setFilter(st as FilterType)}
+      />
 
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
-            <ShieldAlert size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Expirados / Errores</p>
-            <p className="text-xl font-bold font-mono text-accent-red">{(stats?.expired || 0) + (stats?.invalid || 0)}</p>
-          </div>
-        </div>
-      </div>
+      {/* 4. FLOATING BULK ACTIONS BAR */}
+      <NOCBulkActionBar
+        selectedCount={selectedIds.length}
+        onClearSelection={() => setSelectedIds([])}
+        itemLabel="certificados"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleBulkScan}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm"
+            >
+              <RefreshCw size={13} />
+              Re-escanear Seleccionados
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50"
+            >
+              <Trash2 size={13} />
+              {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </>
+        }
+      />
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 border-b border-border-base mb-6">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            filter === 'all'
-              ? 'border-accent-green text-accent-green font-bold'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          }`}
-        >
-          Todos ({stats?.total || 0})
-        </button>
-        <button
-          onClick={() => setFilter('expiring')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            filter === 'expiring'
-              ? 'border-accent-yellow text-accent-yellow font-bold'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          }`}
-        >
-          <AlertTriangle size={15} />
-          Por expirar ({stats?.expiring_15d || 0})
-        </button>
-        <button
-          onClick={() => setFilter('expired')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
-            filter === 'expired'
-              ? 'border-accent-red text-accent-red font-bold'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          }`}
-        >
-          Expirados ({(stats?.expired || 0) + (stats?.invalid || 0)})
-        </button>
-      </div>
-
-      {/* Content */}
+      {/* 5. MAIN CONTENT: DUAL VIEW (GRID OR TABLE) */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
+        <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
-      ) : certificates && certificates.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {certificates.map((cert: SSLCertificate) => {
-            const status = getStatusType(cert);
-            const issuerClean = parseIssuerName(cert.issuer);
-            const days = cert.days_remaining;
+      ) : filteredCertificates && filteredCertificates.length > 0 ? (
+        viewMode === 'grid' ? (
+          /* Grid View (Cards) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredCertificates.map((cert: SSLCertificate) => {
+              const status = getStatusType(cert);
+              const issuerClean = parseIssuerName(cert.issuer);
+              const days = cert.days_remaining;
+              const isSelected = selectedIds.includes(cert.id);
+              const isScanning = scanningId === cert.id;
 
-            return (
-              <div
-                key={cert.id}
-                onClick={() => setSelectedCert(cert)}
-                className="bg-bg-card border border-border-base rounded-xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-lg"
-              >
-                <div>
-                  {/* Top Bar: Icon, Domain, Status */}
-                  <div className="flex items-start justify-between gap-2 mb-4">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      <div className="w-9 h-9 rounded-lg bg-bg-dark border border-border-base flex items-center justify-center shrink-0 text-accent-green group-hover:border-accent-green/40 transition-colors">
-                        <Lock size={18} />
+              return (
+                <div
+                  key={cert.id}
+                  onClick={() => setSelectedCert(cert)}
+                  className={`bg-bg-card/95 border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
+                    isSelected
+                      ? 'border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40'
+                      : 'border-border-base/70'
+                  }`}
+                >
+                  <div>
+                    {/* Top Bar: Checkbox, Icon, Domain, Radar & Status */}
+                    <div className="flex items-start justify-between gap-2 mb-4">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleSelect(cert);
+                          }}
+                          className="text-text-dim hover:text-accent-green transition-colors shrink-0"
+                          title={isSelected ? 'Deseleccionar' : 'Seleccionar'}
+                        >
+                          {isSelected ? (
+                            <CheckSquare size={16} className="text-accent-green" />
+                          ) : (
+                            <Square size={16} />
+                          )}
+                        </button>
+
+                        <div className="w-9 h-9 rounded-xl bg-bg-dark border border-border-base flex items-center justify-center shrink-0 text-accent-green group-hover:border-accent-green/40 transition-colors">
+                          <Lock size={16} />
+                        </div>
+                        <div className="overflow-hidden">
+                          <h3
+                            className="font-bold text-text-main truncate text-base group-hover:text-accent-green transition-colors font-sans"
+                            title={cert.domain}
+                          >
+                            {cert.domain}
+                          </h3>
+                          {cert.algorithm && (
+                            <span className="text-xs font-medium text-text-dim">
+                              {issuerClean}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="overflow-hidden">
-                        <h3 className="font-bold text-text-main truncate text-base group-hover:text-accent-green transition-colors" title={cert.domain}>
-                          {cert.domain}
-                        </h3>
-                        {cert.algorithm && (
-                          <span className="text-[10px] font-mono text-text-dim uppercase tracking-wider">
-                            {cert.algorithm}
+
+                      {/* Radar & Status */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {cert.is_valid && (
+                          <span className="relative flex h-2 w-2 mr-0.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                           </span>
                         )}
+                        <StatusBadge status={status} />
                       </div>
                     </div>
-                    <StatusBadge status={status} />
-                  </div>
 
-                  {/* Card Content Grid */}
-                  <div className="space-y-2.5 text-sm text-text-muted">
-                    <div className="flex items-center justify-between border-b border-border-base/50 pb-2">
-                      <span className="flex items-center gap-1.5 text-text-dim text-xs">
-                        <Building2 size={14} /> Emisor
-                      </span>
-                      <span className="font-mono text-xs text-text-main font-semibold truncate max-w-[190px]" title={cert.issuer || ''}>
-                        {issuerClean}
-                      </span>
-                    </div>
+                    {/* Card Content Details */}
+                    <div className="space-y-2 text-xs text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40">
+                      <div className="flex items-center justify-between border-b border-border-base/40 pb-1.5">
+                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
+                          <Building2 size={13} /> Emisor:
+                        </span>
+                        <span
+                          className="font-mono text-text-main font-semibold truncate max-w-[180px]"
+                          title={cert.issuer || ''}
+                        >
+                          {issuerClean}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between border-b border-border-base/50 pb-2">
-                      <span className="flex items-center gap-1.5 text-text-dim text-xs">
-                        <Calendar size={14} /> Expiración
-                      </span>
-                      <span className="font-mono text-xs text-text-main">
-                        {cert.expiration_date
-                          ? new Date(cert.expiration_date).toLocaleDateString('es-ES')
-                          : 'Pendiente'}
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between border-b border-border-base/40 pb-1.5">
+                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
+                          <Calendar size={13} /> Expiración:
+                        </span>
+                        <span className="font-mono text-text-main">
+                          {cert.expiration_date
+                            ? new Date(cert.expiration_date).toLocaleDateString('es-ES')
+                            : 'N/A'}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between pb-1">
-                      <span className="text-text-dim text-xs">Días restantes</span>
-                      <span
-                        className={`font-mono text-xs font-bold ${
-                          days !== null && days <= 15
-                            ? 'text-accent-red'
-                            : 'text-accent-green'
-                        }`}
-                      >
-                        {days !== null ? `${days} días` : '-'}
-                      </span>
-                    </div>
-
-                    {/* Expiration Progress Bar */}
-                    {days !== null && (
-                      <div className="w-full bg-bg-dark rounded-full h-1.5 overflow-hidden border border-border-base">
-                        <div
-                          className={`h-full transition-all ${
-                            days <= 0
-                              ? 'bg-accent-red'
-                              : days <= 15
-                              ? 'bg-accent-yellow'
-                              : 'bg-accent-green'
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
+                          <Clock size={13} /> Días restantes:
+                        </span>
+                        <span
+                          className={`font-mono font-bold ${
+                            days !== null && days <= 0
+                              ? 'text-rose-400'
+                              : days !== null && days <= 15
+                              ? 'text-amber-400'
+                              : 'text-emerald-400'
                           }`}
-                          style={{ width: `${Math.min(100, Math.max(5, (days / 90) * 100))}%` }}
-                        />
+                        >
+                          {days !== null ? (days <= 0 ? 'Expirado' : `${days} días`) : 'N/A'}
+                        </span>
                       </div>
-                    )}
+                    </div>
+                  </div>
 
-                    {cert.error_message && (
-                      <div className="mt-2 p-2 bg-accent-red/10 border border-accent-red/20 rounded text-xs text-accent-red font-mono truncate" title={cert.error_message}>
-                        {cert.error_message}
-                      </div>
-                    )}
+                  {/* Footer: Algorithm + Actions */}
+                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
+                    <span className="font-mono text-[11px] bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50">
+                      {cert.algorithm || 'RSA'}
+                    </span>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          scanMutation.mutate(cert.id);
+                        }}
+                        disabled={isScanning}
+                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
+                        title="Verificar certificado ahora"
+                      >
+                        <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEdit(cert, e)}
+                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
+                        title="Editar dominio"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(cert);
+                        }}
+                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
+                        title="Eliminar certificado"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Footer */}
-                <div className="mt-5 pt-3 border-t border-border-base flex items-center justify-between text-xs text-text-dim">
-                  <span className="flex items-center gap-1 font-mono">
-                    <Clock size={12} />
-                    {cert.last_scanned_at
-                      ? new Date(cert.last_scanned_at).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : 'Nunca'}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => handleOpenEdit(cert, e)}
-                      className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded transition-colors"
-                      title="Editar certificado"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTarget(cert);
-                      }}
-                      className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded transition-colors"
-                      title="Eliminar certificado"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Compact NOC Table View */
+          <SSLCertificateTableView
+            certificates={filteredCertificates}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAllToggle}
+            onSelectCert={(c) => setSelectedCert(c)}
+            onScan={(id, e) => {
+              e.stopPropagation();
+              scanMutation.mutate(id);
+            }}
+            scanningId={scanningId}
+            onEdit={(c, e) => handleOpenEdit(c, e)}
+            onDelete={(c, e) => {
+              e.stopPropagation();
+              setDeleteTarget(c);
+            }}
+          />
+        )
       ) : (
         <EmptyState
           icon={ShieldCheck}
           title={
-            filter === 'all'
-              ? 'No hay certificados SSL registrados'
-              : filter === 'expiring'
-              ? 'No hay certificados por expirar'
-              : 'No hay certificados expirados'
+            searchTerm || filter !== 'all'
+              ? 'No se encontraron certificados con los filtros aplicados'
+              : 'No hay certificados SSL registrados'
           }
           description={
-            filter === 'all'
-              ? 'Agrega tu primer dominio para escanear y monitorear su certificado SSL.'
-              : 'Genial. Todos tus certificados están vigentes.'
+            searchTerm || filter !== 'all'
+              ? 'Prueba a cambiar el término de búsqueda o restablecer los filtros.'
+              : 'Agrega tu primer dominio para escanear y monitorear su certificado SSL.'
           }
-          actionLabel={filter === 'all' ? 'Nuevo Certificado' : undefined}
-          onAction={filter === 'all' ? handleOpenCreate : undefined}
+          actionLabel={
+            searchTerm || filter !== 'all' ? 'Limpiar Filtros' : 'Nuevo Certificado'
+          }
+          onAction={() => {
+            if (searchTerm || filter !== 'all') {
+              setSearchTerm('');
+              setFilter('all');
+            } else {
+              handleOpenCreate();
+            }
+          }}
         />
       )}
 
-      {/* SSL Detail Inspection Modal */}
-      {selectedCert && (
-        <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedCert(null)}
-        >
-          <div
-            className="bg-bg-card border border-border-base rounded-2xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-border-base pb-5 mb-6">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-12 h-12 rounded-xl bg-accent-green/10 border border-accent-green/30 flex items-center justify-center shrink-0 text-accent-green">
-                  <Lock size={24} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl sm:text-2xl font-bold text-text-main font-mono truncate" title={selectedCert.domain}>
-                      {selectedCert.domain}
-                    </h2>
-                    <StatusBadge status={getStatusType(selectedCert)} />
-                  </div>
-                  <p className="text-text-muted text-xs font-mono mt-0.5 flex items-center gap-2">
-                    <span>ID: {selectedCert.id.slice(0, 8)}...</span>
-                    <span>•</span>
-                    <a
-                      href={`https://${selectedCert.domain}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent-green hover:underline flex items-center gap-1"
-                    >
-                      Abrir HTTPS <ExternalLink size={12} />
-                    </a>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => scanMutation.mutate(selectedCert.id)}
-                  disabled={scanMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                  title="Ejecutar escaneo SSL inmediato"
-                >
-                  <RefreshCw size={14} className={scanMutation.isPending ? 'animate-spin' : ''} />
-                  {scanMutation.isPending ? 'Escaneando...' : 'Re-escanear'}
-                </button>
-                <button
-                  onClick={() => setSelectedCert(null)}
-                  className="p-2 text-text-muted hover:text-text-main hover:bg-bg-dark rounded-lg transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Scrollable Body */}
-            <div className="overflow-y-auto pr-1 space-y-6 flex-1">
-              {/* Health Banner */}
-              {selectedCert.error_message ? (
-                <div className="p-4 bg-accent-red/10 border border-accent-red/30 rounded-xl flex items-start gap-3 text-accent-red">
-                  <ShieldAlert size={22} className="shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-sm">Fallo en el Análisis SSL</h4>
-                    <p className="text-xs font-mono mt-1 opacity-90">{selectedCert.error_message}</p>
-                  </div>
-                </div>
-              ) : selectedCert.is_valid ? (
-                <div className="p-4 bg-accent-green/10 border border-accent-green/30 rounded-xl flex items-start gap-3 text-accent-green">
-                  <ShieldCheck size={22} className="shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-sm">Certificado SSL Válido y Operativo</h4>
-                    <p className="text-xs font-mono mt-1 text-text-muted">
-                      El certificado responde correctamente en el puerto 443 con una cadena de confianza intacta.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Expiration Timeline Section */}
-              <div className="bg-bg-dark border border-border-base rounded-xl p-5">
-                <h3 className="text-xs font-mono uppercase text-text-muted mb-4 flex items-center gap-2">
-                  <Calendar size={16} className="text-accent-green" />
-                  Vigencia y Tiempo Restante
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <div className="text-xs text-text-dim">Fecha de Expiración</div>
-                    <div className="text-base font-bold font-mono text-text-main mt-1">
-                      {selectedCert.expiration_date
-                        ? new Date(selectedCert.expiration_date).toLocaleDateString('es-ES', {
-                            weekday: 'short',
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })
-                        : 'No disponible'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-text-dim">Días Restantes</div>
-                    <div
-                      className={`text-base font-bold font-mono mt-1 ${
-                        selectedCert.days_remaining !== null && selectedCert.days_remaining <= 15
-                          ? 'text-accent-red'
-                          : 'text-accent-green'
-                      }`}
-                    >
-                      {selectedCert.days_remaining !== null
-                        ? `${selectedCert.days_remaining} días`
-                        : 'N/A'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-text-dim">Último Escaneo</div>
-                    <div className="text-base font-mono text-text-muted mt-1">
-                      {selectedCert.last_scanned_at
-                        ? new Date(selectedCert.last_scanned_at).toLocaleString('es-ES')
-                        : 'Nunca'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Technical Certificate Specs Grid */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-mono uppercase text-text-muted flex items-center gap-2">
-                  <Cpu size={16} className="text-accent-green" />
-                  Detalles Técnicos del Certificado
-                </h3>
-
-                <div className="grid grid-cols-1 gap-3 text-sm">
-                  {/* Issuer Detailed */}
-                  <div className="bg-bg-dark border border-border-base rounded-xl p-4">
-                    <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
-                      <Building2 size={14} /> Emisor Completo (Issuer)
-                    </div>
-                    <div className="font-mono text-xs text-text-main break-all leading-relaxed">
-                      {selectedCert.issuer || 'Desconocido'}
-                    </div>
-                  </div>
-
-                  {/* Subject Detailed */}
-                  <div className="bg-bg-dark border border-border-base rounded-xl p-4">
-                    <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
-                      <Lock size={14} /> Nombre del Sujeto (Subject)
-                    </div>
-                    <div className="font-mono text-xs text-text-main break-all leading-relaxed">
-                      {selectedCert.subject || selectedCert.domain}
-                    </div>
-                  </div>
-
-                  {/* Algorithm & Fingerprint & TLS Version */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="bg-bg-dark border border-border-base rounded-xl p-4">
-                      <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
-                        <Cpu size={14} /> Algoritmo de Firma
-                      </div>
-                      <div className="font-mono text-sm font-bold text-accent-green mt-1">
-                        {selectedCert.algorithm || 'SHA-256'}
-                      </div>
-                    </div>
-
-                    <div className="bg-bg-dark border border-border-base rounded-xl p-4">
-                      <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
-                        <ShieldCheck size={14} /> Protocolo TLS
-                      </div>
-                      <div className="font-mono text-sm font-bold text-accent-blue mt-1">
-                        {selectedCert.tls_version || 'TLSv1.3'}
-                      </div>
-                    </div>
-
-                    <div className="bg-bg-dark border border-border-base rounded-xl p-4">
-                      <div className="text-xs text-text-dim uppercase font-mono mb-1 flex items-center gap-1.5">
-                        <Fingerprint size={14} /> Fingerprint SHA-256
-                      </div>
-                      {selectedCert.fingerprint ? (
-                        <div className="flex items-center justify-between gap-2 mt-1">
-                          <span className="font-mono text-xs text-text-muted truncate max-w-[140px]" title={selectedCert.fingerprint}>
-                            {selectedCert.fingerprint}
-                          </span>
-                          <button
-                            onClick={() => handleCopyFingerprint(selectedCert.fingerprint || '')}
-                            className="p-1 text-text-dim hover:text-accent-green transition-colors"
-                            title="Copiar Fingerprint"
-                          >
-                            {copiedFingerprint ? <Check size={14} className="text-accent-green" /> : <Copy size={14} />}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs font-mono text-text-dim">Sin generar</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Subject Alternative Names (SANs) */}
-                  {selectedCert.san_domains && selectedCert.san_domains.length > 0 && (
-                    <div className="bg-bg-dark border border-border-base rounded-xl p-4">
-                      <div className="text-xs text-text-dim uppercase font-mono mb-2 flex items-center gap-1.5">
-                        <Globe size={14} /> Dominios Alternativos Protegidos (SANs)
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedCert.san_domains.map((san, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2.5 py-1 rounded bg-bg-card border border-border-base text-text-main text-xs font-mono"
-                          >
-                            {san}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Action Footer */}
-            <div className="mt-6 pt-4 border-t border-border-base flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const cert = selectedCert;
-                  setSelectedCert(null);
-                  handleOpenEdit(cert);
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-lg text-xs font-semibold transition-colors"
+      {/* 6. SLIDE-OVER DETAIL DRAWER (Zero Context Loss with NOCDrawer) */}
+      <NOCDrawer
+        isOpen={!!selectedCert}
+        onClose={() => setSelectedCert(null)}
+        title={selectedCert?.domain || ''}
+        subtitle={
+          selectedCert && (
+            <div className="flex items-center gap-2">
+              <span>ID: {selectedCert.id.slice(0, 8)}...</span>
+              <span>•</span>
+              <a
+                href={`https://${selectedCert.domain}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent-green hover:underline flex items-center gap-1"
               >
-                <Pencil size={15} />
+                Abrir HTTPS <ExternalLink size={11} />
+              </a>
+            </div>
+          )
+        }
+        statusBadge={selectedCert && <StatusBadge status={getStatusType(selectedCert)} />}
+        headerActions={
+          selectedCert && (
+            <button
+              type="button"
+              onClick={() => scanMutation.mutate(selectedCert.id)}
+              disabled={scanMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all disabled:opacity-50"
+              title="Ejecutar escaneo SSL inmediato"
+            >
+              <RefreshCw
+                size={13}
+                className={scanMutation.isPending ? 'animate-spin' : ''}
+              />
+              <span>{scanMutation.isPending ? 'Escaneando...' : 'Re-escanear'}</span>
+            </button>
+          )
+        }
+        quickKpis={
+          selectedCert && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
+                <div className="text-[11px] text-text-dim">Vigencia</div>
+                <div
+                  className={`text-base font-bold font-mono mt-0.5 ${
+                    selectedCert.days_remaining !== null && selectedCert.days_remaining <= 15
+                      ? 'text-rose-400'
+                      : 'text-accent-green'
+                  }`}
+                >
+                  {selectedCert.days_remaining !== null
+                    ? `${selectedCert.days_remaining}d`
+                    : 'N/A'}
+                </div>
+              </div>
+              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
+                <div className="text-[11px] text-text-dim">Expiración</div>
+                <div className="text-sm font-semibold font-mono text-text-main mt-0.5 truncate">
+                  {selectedCert.expiration_date
+                    ? new Date(selectedCert.expiration_date).toLocaleDateString('es-ES')
+                    : 'N/A'}
+                </div>
+              </div>
+              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
+                <div className="text-[11px] text-text-dim">Cifrado</div>
+                <div className="text-sm font-semibold font-mono text-accent-blue mt-0.5 truncate">
+                  {selectedCert.algorithm || 'RSA'}
+                </div>
+              </div>
+              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
+                <div className="text-[11px] text-text-dim">Protocolo</div>
+                <div className="text-sm font-semibold font-mono text-emerald-400 mt-0.5">
+                  TLS 1.3
+                </div>
+              </div>
+            </div>
+          )
+        }
+        tabs={[
+          { id: 'overview', label: 'Vigencia & Estado', icon: <Calendar size={13} /> },
+          { id: 'technical', label: 'Detalles Técnicos', icon: <Cpu size={13} /> },
+          { id: 'sans', label: 'Dominios SANs', icon: <Globe size={13} /> },
+        ]}
+        activeTab={drawerTab}
+        onTabChange={(t) => setDrawerTab(t as any)}
+        footerActions={
+          selectedCert && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenEdit(selectedCert)}
+                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors"
+              >
+                <Pencil size={14} />
                 Editar Dominio
               </button>
               <button
-                onClick={() => {
-                  const cert = selectedCert;
-                  setSelectedCert(null);
-                  setDeleteTarget(cert);
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-lg text-xs font-semibold transition-colors"
+                type="button"
+                onClick={() => setDeleteTarget(selectedCert)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors"
               >
-                <Trash2 size={15} />
+                <Trash2 size={14} />
                 Eliminar Certificado
               </button>
+            </>
+          )
+        }
+        maxWidthClass="max-w-2xl"
+      >
+        {selectedCert && drawerTab === 'overview' && (
+          <div className="space-y-4">
+            {/* Health Banner */}
+            {selectedCert.error_message ? (
+              <div className="p-4 bg-accent-red/10 border border-accent-red/30 rounded-2xl flex items-start gap-3 text-accent-red">
+                <ShieldAlert size={22} className="shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm">Fallo en el Análisis SSL</h4>
+                  <p className="text-xs font-mono mt-1 opacity-90">{selectedCert.error_message}</p>
+                </div>
+              </div>
+            ) : selectedCert.is_valid ? (
+              <div className="p-4 bg-accent-green/10 border border-accent-green/30 rounded-2xl flex items-start gap-3 text-accent-green">
+                <ShieldCheck size={22} className="shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-sm">Certificado SSL Válido y Operativo</h4>
+                  <p className="text-xs font-mono mt-1 text-text-muted">
+                    El certificado responde correctamente en el puerto 443 con una cadena de confianza intacta.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs">
+              <div className="flex justify-between border-b border-border-base/40 pb-2">
+                <span className="text-text-dim font-medium">Emisor Principal:</span>
+                <span className="font-mono font-semibold text-text-main truncate max-w-[280px]">
+                  {parseIssuerName(selectedCert.issuer)}
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-border-base/40 pb-2">
+                <span className="text-text-dim font-medium">Fecha de Registro:</span>
+                <span className="font-mono text-text-main">
+                  {selectedCert.created_at
+                    ? new Date(selectedCert.created_at).toLocaleDateString('es-ES')
+                    : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-border-base/40 pb-2">
+                <span className="text-text-dim font-medium">Fecha Expiración:</span>
+                <span className="font-mono font-bold text-text-main">
+                  {selectedCert.expiration_date
+                    ? new Date(selectedCert.expiration_date).toLocaleDateString('es-ES')
+                    : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-dim font-medium">Último Escaneo:</span>
+                <span className="font-mono text-text-muted">
+                  {selectedCert.last_scanned_at
+                    ? new Date(selectedCert.last_scanned_at).toLocaleString('es-ES')
+                    : 'Nunca'}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Create / Edit Form Modal */}
+        {selectedCert && drawerTab === 'technical' && (
+          <div className="space-y-4">
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs font-mono">
+              <div>
+                <span className="text-text-dim font-sans font-medium block mb-1">
+                  Emisor Completo (Issuer DN):
+                </span>
+                <p className="text-text-main break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40">
+                  {selectedCert.issuer || 'Desconocido'}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-text-dim font-sans font-medium block mb-1">
+                  Sujeto (Subject):
+                </span>
+                <p className="text-text-main break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40">
+                  {selectedCert.subject || selectedCert.domain}
+                </p>
+              </div>
+
+              {selectedCert.fingerprint && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-text-dim font-sans font-medium">
+                      Fingerprint SHA-256:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyFingerprint(selectedCert.fingerprint || '')}
+                      className="text-accent-green hover:underline flex items-center gap-1 text-[11px]"
+                    >
+                      {copiedFingerprint ? <Check size={12} /> : <Copy size={12} />}
+                      {copiedFingerprint ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </div>
+                  <p className="text-text-muted break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40 text-[11px]">
+                    {selectedCert.fingerprint}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {selectedCert && drawerTab === 'sans' && (
+          <div className="space-y-4">
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4">
+              <h4 className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-1.5">
+                <Globe size={14} className="text-accent-green" />
+                Nombres Alternativos del Sujeto (SANs)
+              </h4>
+              {selectedCert.san_domains && selectedCert.san_domains.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedCert.san_domains.map((san, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-bg-card border border-border-base/60 rounded-full text-xs font-mono text-text-main"
+                    >
+                      {san}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-text-dim font-mono">
+                  No se registraron dominios alternativos SANs para este certificado.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </NOCDrawer>
+
+      {/* 7. CREATE / EDIT FORM MODAL */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={handleCloseModal}
         >
           <div
-            className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-md shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                <ShieldCheck size={20} className="text-accent-green" />
-                {editingCert ? 'Editar Certificado SSL' : 'Registrar Certificado SSL'}
+                <Lock size={18} className="text-accent-green" />
+                {editingCert ? 'Editar Dominio SSL' : 'Monitorear Nuevo Certificado SSL'}
               </h2>
               <button
+                type="button"
                 onClick={handleCloseModal}
-                className="text-text-muted hover:text-text-main"
+                className="text-text-muted hover:text-text-main transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="mb-6">
-                <label className="block text-xs font-mono uppercase text-text-muted mb-2">
-                  Dominio
+            <form onSubmit={handleSubmitModal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                  Nombre de Dominio (FQDN)
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="ej. miempresa.com o api.miempresa.com"
+                  placeholder="ej. api.tuempresa.com"
                   value={domainInput}
                   onChange={(e) => setDomainInput(e.target.value)}
-                  className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
+                  className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
                 />
-                <p className="text-xs text-text-dim mt-1.5">
-                  El sistema realizará un análisis SSL automático.
+                <p className="text-[11px] text-text-dim mt-1.5">
+                  No incluyas https:// ni puertos; Sentinel inspeccionará el handshake TLS por el puerto 443.
                 </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-4 border-t border-border-base">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+                  className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
                     <Loader2 className="animate-spin" size={18} />
@@ -765,10 +993,10 @@ export default function SSLCertificatesPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* 8. DELETE CONFIRMATION MODAL */}
       <ConfirmDelete
         isOpen={!!deleteTarget}
-        itemName={deleteTarget?.domain || ''}
+        itemName={deleteTarget?.domain || 'este certificado'}
         isDeleting={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}

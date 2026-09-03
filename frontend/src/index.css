@@ -66,22 +66,38 @@
     background-color: #10b981;
     color: #000000;
   }
+
+  /* Sleek modern rounded scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1E293B;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
 }
 
 @layer components {
   .input-base {
-    @apply w-full px-4 py-3 bg-white/5 border border-border-base rounded-lg text-text-main text-sm focus:outline-none focus:border-accent-green transition-colors;
+    @apply w-full px-4 py-3 bg-white/5 border border-border-base rounded-xl text-text-main text-sm focus:outline-none focus:border-accent-green transition-colors;
   }
 
   .btn-primary {
-    @apply w-full py-3 bg-white text-black font-semibold rounded-lg text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2;
+    @apply w-full py-3 bg-white text-black font-semibold rounded-xl text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2;
   }
 
   .btn-secondary {
-    @apply w-full py-3 bg-accent-green text-black font-semibold rounded-lg text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2;
+    @apply w-full py-3 bg-accent-green text-black font-semibold rounded-xl text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2;
   }
 
   .card {
-    @apply bg-bg-card border border-border-base rounded-xl p-6;
+    @apply bg-bg-card border border-border-base rounded-2xl p-6 shadow-lg;
   }
 }

@@ -38,6 +38,7 @@ class MonitoringTarget(OrganizationOwnedModel):
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, null=True, blank=True)
     last_latency = models.FloatField(null=True, blank=True)
+    tags = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -83,3 +84,24 @@ class MonitoringCheck(BaseModel):
 
     def __str__(self):
         return f"{self.target.name} - {self.status} @ {self.checked_at}"
+
+
+class MaintenanceWindow(BaseModel):
+    """Represents a scheduled period where alerts are suppressed for a target."""
+
+    target = models.ForeignKey(
+        MonitoringTarget,
+        on_delete=models.CASCADE,
+        related_name="maintenance_windows",
+    )
+    name = models.CharField(max_length=255)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-start_time"]
+        db_table = "monitoring_maintenance_window"
+
+    def __str__(self):
+        return f"Mantenimiento {self.name} para {self.target.name} ({self.start_time} - {self.end_time})"

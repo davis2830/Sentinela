@@ -189,43 +189,43 @@ export default function NotificationsPage() {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
+        <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
             <ChannelIcon size={20} />
           </div>
           <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Total Canales</p>
-            <p className="text-xl font-bold font-mono text-text-main">{stats?.total_channels || 0}</p>
+            <p className="text-xs font-medium text-text-muted">Total Canales</p>
+            <p className="text-xl font-bold font-mono text-text-main mt-0.5">{stats?.total_channels || 0}</p>
           </div>
         </div>
 
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
+        <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
             <CheckCircle2 size={20} />
           </div>
           <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Envíos Exitosos</p>
-            <p className="text-xl font-bold font-mono text-accent-green">{stats?.total_sent || 0}</p>
+            <p className="text-xs font-medium text-text-muted">Envíos Exitosos</p>
+            <p className="text-xl font-bold font-mono text-accent-green mt-0.5">{stats?.total_sent || 0}</p>
           </div>
         </div>
 
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
+        <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
             <XCircle size={20} />
           </div>
           <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Envíos Fallidos</p>
-            <p className="text-xl font-bold font-mono text-accent-red">{stats?.total_failed || 0}</p>
+            <p className="text-xs font-medium text-text-muted">Envíos Fallidos</p>
+            <p className="text-xl font-bold font-mono text-accent-red mt-0.5">{stats?.total_failed || 0}</p>
           </div>
         </div>
 
-        <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-          <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
+        <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
             <Sparkles size={20} />
           </div>
           <div>
-            <p className="text-xs font-mono uppercase text-text-muted">Tipos Activos</p>
-            <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.active_types_count || 0}</p>
+            <p className="text-xs font-medium text-text-muted">Tipos Activos</p>
+            <p className="text-xl font-bold font-mono text-accent-yellow mt-0.5">{stats?.active_types_count || 0}</p>
           </div>
         </div>
       </div>
@@ -356,7 +356,7 @@ export default function NotificationsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left font-mono text-xs">
               <thead>
-                <tr className="border-b border-border-base/50 text-text-dim uppercase text-[10px]">
+                <tr className="border-b border-border-base/50 text-text-dim text-xs">
                   <th className="pb-3 font-semibold">Fecha</th>
                   <th className="pb-3 font-semibold">Canal</th>
                   <th className="pb-3 font-semibold">Título</th>
