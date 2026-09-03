@@ -181,6 +181,31 @@ class MonitoringUptimeView(APIView):
             )
 
 
+class MonitoringTimeseriesView(APIView):
+    """Endpoint for high-resolution downsampled timeseries, availability heatmap and downtime incidents.
+
+    GET /api/v1/monitoring-targets/{id}/timeseries/?period=24h|7d|30d
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, target_id):
+        org_id = request.user.organization_id
+        period = request.query_params.get("period", "24h").strip().lower()
+        if period not in ("24h", "7d", "30d"):
+            period = "24h"
+        try:
+            data = MonitoringService.get_timeseries_metrics(
+                target_id, org_id, period=period
+            )
+            return success_response(data)
+        except Exception as exc:
+            return error_response(
+                f"Error retrieving timeseries: {str(exc)}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+
 class MonitoringTargetScanView(APIView):
     """Endpoint for manual execution of a monitoring target check.
 
