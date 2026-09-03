@@ -1,6 +1,4 @@
 import logging
-from datetime import datetime, timezone as dt_timezone
-
 from celery import shared_task
 
 from .models import DomainInfo
@@ -13,8 +11,8 @@ logger = logging.getLogger(__name__)
 def scan_whois(self, domain_id):
     """Scan WHOIS information for a given domain.
 
-    Uses the python-whois library to query the domain registrar,
-    creation date, expiration date, status, and name servers.
+    Queries the registrar, creation/expiration dates, status, name servers,
+    and checks for EPP domain transfer lock protection.
 
     Args:
         domain_id: UUID string of the DomainInfo record.
@@ -28,46 +26,31 @@ def scan_whois(self, domain_id):
     domain = domain_info.domain
     logger.info("Scanning WHOIS for domain: %s", domain)
 
-    try:
-        import whois
+    res = DomainService.perform_whois_query(domain)
 
-        w = whois.whois(domain)
-
-        registrar = w.registrar or ""
-        status = ", ".join(w.status) if isinstance(w.status, list) else (w.status or "")
-        name_servers = "\n".join(w.name_servers) if isinstance(w.name_servers, list) else (w.name_servers or "")
-        registrant_country = w.country or ""
-
-        creation_date = _parse_date(w.creation_date)
-        expiration_date = _parse_date(w.expiration_date)
-        last_updated = _parse_date(w.updated_date)
-
-        days_until_expiration = None
-        if expiration_date:
-            now = datetime.now(dt_timezone.utc)
-            days_until_expiration = (expiration_date - now).days
-
+    if res.get("success"):
         DomainService.update_domain_scan(
             domain_id=domain_info.id,
-            registrar=str(registrar),
-            creation_date=creation_date,
-            expiration_date=expiration_date,
-            last_updated=last_updated,
-            status=str(status),
-            name_servers=str(name_servers),
-            registrant_country=str(registrant_country),
-            days_until_expiration=days_until_expiration,
+            registrar=res.get("registrar", ""),
+            creation_date=res.get("creation_date"),
+            expiration_date=res.get("expiration_date"),
+            last_updated=res.get("last_updated"),
+            status=", ".join(res.get("status", [])),
+            name_servers="\n".join(res.get("name_servers", [])),
+            registrant_country=res.get("registrant_country", ""),
+            days_until_expiration=res.get("days_until_expiration"),
+            is_locked=res.get("is_locked", True),
+            whois_server=res.get("whois_server", ""),
+            dnssec=res.get("dnssec", ""),
             error_message="",
         )
-
         logger.info(
-            "WHOIS scan complete for %s: expires in %d days",
+            "WHOIS scan complete for %s: expires in %s days (locked: %s)",
             domain,
-            days_until_expiration or 0,
+            res.get("days_until_expiration"),
+            res.get("is_locked"),
         )
-
-    except Exception as exc:
-        logger.error("WHOIS error for %s: %s", domain, exc)
+    else:
         DomainService.update_domain_scan(
             domain_id=domain_info.id,
             registrar="",
@@ -78,33 +61,17 @@ def scan_whois(self, domain_id):
             name_servers="",
             registrant_country="",
             days_until_expiration=None,
-            error_message=f"WHOIS error: {exc}",
+            is_locked=False,
+            whois_server="",
+            dnssec="",
+            error_message=f"WHOIS error: {res.get('error_message')}",
         )
-
-
-def _parse_date(date_value):
-    """Parse a WHOIS date value into a timezone-aware datetime.
-
-    WHOIS dates can be a single datetime or a list of datetimes.
-    Returns the most recent date if a list is provided.
-    """
-    if not date_value:
-        return None
-
-    if isinstance(date_value, list):
-        date_value = date_value[0]
-
-    if isinstance(date_value, datetime):
-        if date_value.tzinfo is None:
-            date_value = date_value.replace(tzinfo=dt_timezone.utc)
-        return date_value
-
-    return None
+        logger.error("WHOIS error for %s: %s", domain, res.get("error_message"))
 
 
 @shared_task(name="domain.scan_all")
 def scan_all_domains():
-    """Scan WHOIS for all domains across all organizations.
+    """Scan WHOIS for all domains for all organizations.
 
     Runs periodically via Celery Beat.
     """

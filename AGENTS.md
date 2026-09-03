@@ -54,7 +54,12 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - **Detección de Políticas SPF / DMARC:** Análisis automático de registros `TXT` con identificación de políticas anti-spoofing (`v=spf1`, `v=DMARC1`).
   - **Test de Resolución DNS en Vivo:** Endpoint `POST /api/v1/dns-records/test-resolution/` y botón interactivo en el modal para validar respuestas, TTL y latencia antes de guardar.
   - **Historial de Mutaciones con Diff Visual:** Pestaña de historial con desglose de valores agregados (`+` verde) y removidos (`-` rojo), más badge pulsante *"Mutación 24h"* en la tabla.
-  - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/dns-records/bulk-action/` para re-resolución o eliminación masiva, y botón de exportación CSV con UTF-8 BOM.
+- **Robustecimiento del Módulo de Dominios & WHOIS (`DomainsPage.tsx` & `backend/domain/`):**
+  - **Detección de Candado Anti-Robo EPP (Domain Lock):** Verificación automática de `clientTransferProhibited` / `serverTransferProhibited` para alertar si un dominio corporativo está desprotegido frente a Domain Hijacking.
+  - **Timeline Visual de Vida Útil:** Micro-barra de progreso con porcentaje de vigencia transcurrido y semáforo de días restantes (`>60d` verde, `30-60d` azul, `15-30d` amarillo, `<15d` rojo).
+  - **Test WHOIS en Vivo:** Endpoint `POST /api/v1/domains/test-whois/` y botón interactivo en el modal para previsualizar registrador oficial, fechas y nameservers antes de registrar.
+  - **Vigilancia de Nameservers Autorizados:** Desglose y auditoría de servidores de nombres delegados en el TLD.
+  - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/domains/bulk-action/` para sincronización o eliminación masiva, y botón de exportación CSV con UTF-8 BOM.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
 
 ## 🎨 Paleta Oficial de Colores (Design System Tokens)

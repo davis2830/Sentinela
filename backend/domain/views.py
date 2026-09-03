@@ -187,3 +187,46 @@ class DomainBulkScanView(APIView):
             return success_response({"message": "Consulta WHOIS masiva de dominios iniciada."})
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class DomainTestWhoisView(APIView):
+    """Endpoint to test WHOIS resolution in real-time before saving.
+
+    POST /api/v1/domains/test-whois/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        domain = request.data.get("domain", "").strip()
+        if not domain:
+            return error_response(
+                "El dominio es requerido para la consulta WHOIS.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        result = DomainService.test_whois(domain)
+        return success_response(result)
+
+
+class DomainBulkActionView(APIView):
+    """Endpoint to execute bulk actions on monitored domains.
+
+    POST /api/v1/domains/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        domain_ids = request.data.get("domain_ids", [])
+        if not action or not domain_ids:
+            return error_response(
+                "Parámetros 'action' y 'domain_ids' son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            res = DomainService.bulk_action(org_id, action, domain_ids)
+            return success_response(res)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
