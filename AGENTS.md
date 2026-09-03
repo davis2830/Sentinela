@@ -41,3 +41,76 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - Adopción de tipografía **Outfit** (Google Fonts) en toda la UI, reservando monospace sólo para datos técnicos (IPs, puertos, latencia).
 - **Correcciones de entorno Docker:** Configuración de Celery en `backend/config/settings/base.py` optimizada para workers y broker Redis.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
+
+## 🎨 Paleta Oficial de Colores (Design System Tokens)
+- **Fondos y Superficies:**
+  - `bg-dark` / `bg-main`: `#090D11` (Fondo base global ultra oscuro).
+  - `bg-card`: `#111720` (Contenedores elevados, tarjetas KPI, drawers y modales).
+  - `bg-card-hover`: `#17202C` (Hover sobre filas interactivas y botones secundarios).
+- **Bordes y Delimitadores:**
+  - `border-base`: `#1E293B` (Borde sutil estándar).
+  - `border-accent`: `#263345` (Borde de contraste / elementos en foco).
+- **Tipografía y Textos:**
+  - `text-main`: `#F8FAFC` (Blanco primario para títulos y métricas).
+  - `text-muted`: `#94A3B8` (Gris intermedio para descripciones y labels).
+  - `text-dim`: `#64748B` (Gris terciario para timestamps, metadatos y placeholders).
+- **Acentos Semánticos & Estados:**
+  - `accent-green`: `#10b981` (Online, Up, Pass, Valid, SLA óptimo) &bull; Fondo: `bg-accent-green/10`, Borde: `border-accent-green/30`.
+  - `accent-green-glow`: `#34d399` (Halo de radar pulsante en vivo).
+  - `accent-red`: `#EF4444` (Down, Fail, Invalid, Incidentes críticos) &bull; Fondo: `bg-accent-red/10`, Borde: `border-accent-red/30`.
+  - `accent-yellow`: `#F59E0B` (Advertencias, Lento, Por expirar <= 30d) &bull; Fondo: `bg-accent-yellow/10`, Borde: `border-accent-yellow/30`.
+  - `accent-blue`: `#3B82F6` (Informativo, telemetría de red, DNS) &bull; Fondo: `bg-accent-blue/10`, Borde: `border-accent-blue/30`.
+  - `accent-purple`: `#8B5CF6` (Roles, autenticación, API tokens) &bull; Fondo: `bg-accent-purple/10`, Borde: `border-accent-purple/30`.
+- **Reglas Estéticas Estrictas:**
+  - Cero emojis (usar exclusivamente iconos vectoriales de `lucide-react`).
+  - Cero mayúsculas sostenidas (`uppercase`).
+  - Contenedores `rounded-2xl`, modales `rounded-2xl`/`rounded-3xl` y badges en cápsula `rounded-full`.
+  - Tipografía `Outfit` para textos y `JetBrains Mono` solo para datos numéricos/técnicos.
+
+## 🧩 Arquitectura Frontend: Sentinel NOC Layout Toolkit (`frontend/src/components/common/noc/`)
+Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experiencia unificada en toda la plataforma, todas las vistas operativas deben implementar los siguientes componentes centrales:
+- **`NOCPageHeader`:** Encabezado unificado con badge temático del módulo, radar pulsante de auto-refresco en vivo y ranura de botones de acción rápida.
+- **`useAutoRefresh` (`frontend/src/hooks/useAutoRefresh.ts`):** Hook estándar de cuenta regresiva (15s/30s) en vivo, pausa/reanudación interactiva y compatibilidad nativa con `refetchInterval` de TanStack Query.
+- **`NOCKpiGrid` y `NOCKpiCard`:** Rejilla y tarjetas KPI de nivel superior con barras de progreso visuales (gauges), micro-bloques de salud por estado y pie de métrica descriptivo.
+- **`NOCToolbar`:** Barra de control con buscador Omnibar en tiempo real, selector de vista (Grid interactivo vs Tabla compacta) y chips/pills de filtrado con conteo de registros en vivo.
+- **`NOCBulkActionBar`:** Barra flotante adhesiva inferior con desenfoque (`backdrop-blur-md`) para acciones masivas (escaneo por lote, eliminación o cierre masivo).
+- **`NOCDrawer`:** Slide-Over lateral desplegable por la derecha con soporte para atajo de teclado `ESC`, navegación por pestañas e inspección técnica profunda sin pérdida de contexto ni reseteo de filtros.
+
+## ⚡ Motor de Reglas y Alertas (`backend/alerts/`)
+- **Aprovisionamiento Automático:** Si una organización no tiene reglas configuradas, el sistema auto-aprovisiona automáticamente 6 reglas estándar del NOC mediante `AlertRuleService.ensure_default_rules(organization_id)`:
+  1. *Objetivo de Monitoreo Caído* (`status_down` &rarr; Severidad Crítica)
+  2. *Latencia Alta de Respuesta* (`response_time_above > 1000ms` &rarr; Advertencia)
+  3. *Certificado SSL por Expirar* (`ssl_expiring <= 30d` &rarr; Advertencia)
+  4. *Fallo en API Check Sintético* (`api_check_failed` &rarr; Severidad Crítica)
+  5. *Dominio WHOIS por Expirar* (`domain_expiring <= 30d` &rarr; Advertencia)
+  6. *Puntuación de Seguridad Baja* (`security_score_below < 70` &rarr; Advertencia)
+- **Evaluación Bajo Demanda:** Endpoint `POST /api/v1/alert-rules/evaluate/` evalúa las reglas filtradas por organización y devuelve estadísticas en tiempo real (`rules_evaluated`, `alerts_created` y mensaje descriptivo).
+- **Auto-Resolución:** Las condiciones de estado (`status_down`) y latencia (`response_time_above`) auto-resuelven las alertas cuando el objetivo se recupera y vuelve a estado óptimo.
+
+## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
+1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
+2. **Uptime & Latencia** ([`MonitoringPage.tsx`](file:///frontend/src/pages/MonitoringPage.tsx)): Monitoreo HTTP/S, TCP, Ping, gráfica de latencia histórica y prueba de conexión en vivo.
+3. **API Checks** ([`APIChecksPage.tsx`](file:///frontend/src/pages/APIChecksPage.tsx)): Pruebas sintéticas con verificación de headers y códigos de respuesta.
+4. **Certificados SSL** ([`SSLCertificatesPage.tsx`](file:///frontend/src/pages/SSLCertificatesPage.tsx)): Vigencia de certificados, emisores CA y dominios SANs.
+5. **Dominios WHOIS** ([`DomainsPage.tsx`](file:///frontend/src/pages/DomainsPage.tsx)): Vencimiento de registros ICANN y nameservers.
+6. **Registros DNS** ([`DNSRecordsPage.tsx`](file:///frontend/src/pages/DNSRecordsPage.tsx)): Resolución de zonas y detección de mutaciones en registros.
+7. **Cabeceras de Seguridad** ([`SecurityHeadersPage.tsx`](file:///frontend/src/pages/SecurityHeadersPage.tsx)): Auditoría HSTS, CSP, Anti-Clickjacking y calificaciones Mozilla Observatory.
+8. **Gestión de Incidentes** ([`IncidentsPage.tsx`](file:///frontend/src/pages/IncidentsPage.tsx)): Controlador del ciclo de vida interactivo y bitácora de seguimiento.
+9. **Centro de Alertas** ([`AlertsPage.tsx`](file:///frontend/src/pages/AlertsPage.tsx)): Gestión de reglas de umbral, elevación a incidentes y resolución masiva.
+10. **Reportes Ejecutivos & SLA** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Informes de disponibilidad con exportación directa a CSV y PDF.
+
+## 💻 Convenciones de Entorno y Sincronización Docker
+- **Directorio de Trabajo / Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`
+- **Workspace Clonado en Perfil:** `C:\Users\feshernandez\GC_OPS_OBS\`
+- **Regla de Sincronización Obligatoria:** Tras realizar cambios en el frontend o backend, sincronizar siempre hacia el repositorio clonado con:
+  ```powershell
+  Copy-Item -Path "c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\frontend\src\*" -Destination "C:\Users\feshernandez\GC_OPS_OBS\frontend\src\" -Recurse -Force
+  Copy-Item -Path "c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\AGENTS.md" -Destination "C:\Users\feshernandez\GC_OPS_OBS\AGENTS.md" -Force
+  ```
+- **Reinicio de Contenedores:**
+  ```powershell
+  docker restart sentinel_frontend
+  docker restart sentinel_backend
+  ```
+
+
