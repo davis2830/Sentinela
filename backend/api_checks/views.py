@@ -185,3 +185,58 @@ class APICheckBulkScanView(APIView):
             return success_response({"message": "Validación masiva de API Endpoints iniciada."})
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class APICheckTestRequestView(APIView):
+    """Endpoint to test an API endpoint in real time before creating or updating.
+
+    POST /api/v1/api-checks/test-request/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        url = request.data.get("url", "").strip()
+        if not url:
+            return error_response(
+                "La URL del endpoint es obligatoria.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        method = request.data.get("method", "GET").strip().upper()
+        headers = request.data.get("headers", {})
+        body = request.data.get("body", {})
+
+        result = APICheckService.test_request(
+            url=url,
+            method=method,
+            headers=headers,
+            body=body,
+        )
+        return success_response(result)
+
+
+class APICheckBulkActionView(APIView):
+    """Endpoint to perform bulk operations (scan, pause, resume, delete) on targets.
+
+    POST /api/v1/api-checks/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        target_ids = request.data.get("target_ids", [])
+
+        if not action or not target_ids:
+            return error_response(
+                "Parámetros 'action' y 'target_ids' son obligatorios.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            res = APICheckService.bulk_action(org_id, action, target_ids)
+            return success_response(res)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

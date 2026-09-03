@@ -6,12 +6,13 @@ import type {
   CreateAPICheckTargetData,
   APICheckStats,
 } from '../types/api_checks';
+import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
-import APICheckForm from '../components/api_checks/APICheckForm';
 import APICheckCard from '../components/api_checks/APICheckCard';
 import APICheckTableView from '../components/api_checks/APICheckTableView';
 import APICheckDetailDrawer from '../components/api_checks/APICheckDetailDrawer';
+import APICheckForm from '../components/api_checks/APICheckForm';
 import {
   NOCPageHeader,
   NOCKpiGrid,
@@ -22,14 +23,17 @@ import {
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
+  Plug,
   Plus,
   Loader2,
   Trash2,
   RefreshCw,
-  Plug,
-  ShieldCheck,
   Activity,
+  ShieldCheck,
   Zap,
+  Download,
+  Pause,
+  Play,
 } from 'lucide-react';
 
 type StatusFilterType = 'all' | 'pass' | 'slow' | 'fail';
@@ -38,15 +42,8 @@ export default function APIChecksPage() {
   const queryClient = useQueryClient();
 
   // State
-  const [selectedTarget, setSelectedTarget] = useState<APICheckTarget | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [editingTarget, setEditingTarget] = useState<APICheckTarget | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<APICheckTarget | null>(null);
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-
-  // Filters & Views
+  const [methodFilter, setMethodFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [methodFilter, setMethodFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>('all');
   const [viewMode, setViewMode] = usePersistentViewMode('api_checks', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -72,8 +69,6 @@ export default function APIChecksPage() {
   const {
     data: targets,
     isLoading,
-    refetch,
-    isRefetching,
   } = useQuery<APICheckTarget[]>({
     queryKey: ['api-check-targets'],
     queryFn: async () => {
@@ -163,50 +158,98 @@ export default function APIChecksPage() {
     }
   };
 
-  const handleBulkScan = async () => {
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const handleBulkAction = async (action: 'scan' | 'pause' | 'resume' | 'delete') => {
     if (selectedIds.length === 0) return;
-    for (const id of selectedIds) {
-      try {
-        await api.post(`api-checks/${id}/scan/`);
-      } catch (err) {
-        // Continue scanning others
+
+    if (action === 'delete') {
+      if (
+        !window.confirm(
+          `¿Deseas eliminar permanentemente los ${selectedIds.length} endpoints seleccionados?`
+        )
+      ) {
+        return;
       }
     }
-    queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-    queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
-  };
 
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    if (
-      !window.confirm(
-        `¿Deseas eliminar permanentemente los ${selectedIds.length} endpoints seleccionados?`
-      )
-    ) {
-      return;
-    }
-    setBulkDeleting(true);
-    for (const id of selectedIds) {
-      try {
-        await api.delete(`api-checks/${id}/`);
-      } catch (err) {
-        // Continue
+    setBulkProcessing(true);
+    try {
+      await api.post('api-checks/bulk-action/', {
+        action,
+        target_ids: selectedIds,
+      });
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
+    } catch {
+      // Fallback
+      if (action === 'scan') {
+        for (const id of selectedIds) {
+          api.post(`api-checks/${id}/scan/`).catch(() => {});
+        }
+      } else if (action === 'delete') {
+        for (const id of selectedIds) {
+          api.delete(`api-checks/${id}/`).catch(() => {});
+        }
       }
+      setSelectedIds([]);
+    } finally {
+      setBulkProcessing(false);
     }
-    setSelectedIds([]);
-    setBulkDeleting(false);
-    queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-    queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
   };
 
-  // Modal Handlers
-  const handleFormSubmit = async (data: CreateAPICheckTargetData) => {
-    if (editingTarget) {
-      await updateMutation.mutateAsync({ id: editingTarget.id, data });
-    } else {
-      await createMutation.mutateAsync(data);
-    }
+  // Export CSV Report
+  const handleExportCSV = () => {
+    if (!targets || targets.length === 0) return;
+    const headers = [
+      'Nombre Servicio',
+      'Metodo HTTP',
+      'URL Endpoint',
+      'Status Esperado',
+      'Ultimo Status HTTP',
+      'Latencia Real (ms)',
+      'Max Latencia Permitida (ms)',
+      'Ultimo Estado',
+      'Monitoreo Activo',
+      'Frecuencia (seg)',
+      'Ultima Comprobacion',
+    ];
+    const rows = targets.map((t) => [
+      `"${t.name}"`,
+      t.method,
+      `"${t.url}"`,
+      t.expected_status,
+      t.last_http_status ?? 'N/A',
+      t.last_response_time_ms !== null && t.last_response_time_ms !== undefined
+        ? Math.round(t.last_response_time_ms)
+        : 'N/A',
+      t.expected_response_time_ms,
+      t.last_status || 'desconocido',
+      t.enabled ? 'Activo' : 'Pausado',
+      t.check_interval,
+      t.last_checked_at ? new Date(t.last_checked_at).toISOString() : 'N/A',
+    ]);
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `sentinel_api_endpoints_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+  // Modals & Drawer State
+  const [showForm, setShowForm] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<APICheckTarget | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<APICheckTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<APICheckTarget | null>(null);
 
   const handleOpenCreate = () => {
     setEditingTarget(null);
@@ -224,19 +267,29 @@ export default function APIChecksPage() {
     setDeleteTarget(target);
   };
 
+  const handleFormSubmit = async (data: CreateAPICheckTargetData) => {
+    if (editingTarget) {
+      await updateMutation.mutateAsync({ id: editingTarget.id, data });
+    } else {
+      await createMutation.mutateAsync(data);
+    }
+    setShowForm(false);
+    setEditingTarget(null);
+  };
+
   // KPI Calculations
   const allTargets = targets || [];
-  const totalCount = allTargets.length;
-  const passCount = allTargets.filter((t) => t.enabled && t.last_status === 'pass').length;
-  const slowCount = allTargets.filter((t) => t.enabled && t.last_status === 'slow').length;
-  const failCount = allTargets.filter(
-    (t) => t.enabled && (t.last_status === 'fail' || t.last_status === 'error')
-  ).length;
-  const pausedCount = allTargets.filter((t) => !t.enabled).length;
+  const totalCount = stats?.total || allTargets.length;
+  const passCount = stats?.pass_count || allTargets.filter((t: APICheckTarget) => t.last_status === 'pass').length;
+  const slowCount = stats?.slow_count || allTargets.filter((t: APICheckTarget) => t.last_status === 'slow').length;
+  const failCount =
+    stats?.fail_count ||
+    allTargets.filter((t: APICheckTarget) => t.last_status === 'fail' || t.last_status === 'error').length;
+  const pausedCount = stats?.paused_count || allTargets.filter((t: APICheckTarget) => !t.enabled).length;
 
   const globalSla =
     totalCount > 0
-      ? Math.round(((passCount + slowCount) / Math.max(totalCount - pausedCount, 1)) * 1000) / 10
+      ? Math.round((passCount / Math.max(totalCount - pausedCount, 1)) * 1000) / 10
       : 100.0;
 
   // Filtered & Searched Targets
@@ -264,7 +317,7 @@ export default function APIChecksPage() {
       <NOCPageHeader
         title="API Endpoints Check"
         badgeText="API WATCHDOG"
-        description="Monitoreo continuo de salud, códigos de respuesta HTTP y validación de esquemas JSON para APIs REST."
+        description="Monitoreo sintético continuo, benchmarking de latencia REST, códigos de respuesta HTTP y validación de esquemas JSON."
         icon={<Plug size={26} />}
         autoRefresh={{
           enabled: autoRefresh.enabled,
@@ -275,24 +328,34 @@ export default function APIChecksPage() {
           <>
             <button
               type="button"
+              onClick={handleExportCSV}
+              disabled={!targets || targets.length === 0}
+              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-medium px-4 py-2 rounded-full text-sm hover:bg-bg-card-hover transition-all disabled:opacity-50 cursor-pointer"
+              title="Exportar inventario de endpoints a CSV"
+            >
+              <Download size={15} />
+              <span>Exportar</span>
+            </button>
+            <button
+              type="button"
               onClick={() => scanAllMutation.mutate()}
               disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50 cursor-pointer"
               title="Ejecutar validación de todas las APIs inmediatamente"
             >
               <RefreshCw
                 size={15}
                 className={scanAllMutation.isPending ? 'animate-spin' : ''}
               />
-              Ejecutar Todos
+              <span>Ejecutar Todos</span>
             </button>
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
+              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
-              Nuevo API Check
+              <span>Nuevo API Check</span>
             </button>
           </>
         }
@@ -314,7 +377,9 @@ export default function APIChecksPage() {
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Pass Rate Global</span>
-              <span>{passCount} / {Math.max(totalCount - pausedCount, 1)} activas</span>
+              <span>
+                {passCount} / {Math.max(totalCount - pausedCount, 1)} activas
+              </span>
             </div>
           }
         />
@@ -327,7 +392,7 @@ export default function APIChecksPage() {
             text: 'REST Benchmark',
             variant: 'info',
           }}
-          value={stats?.total ? `${Math.round(250)}ms` : '0ms'}
+          value={stats?.avg_latency ? `${Math.round(stats.avg_latency)}ms` : '0ms'}
           valueColor="text-sky-400"
           valueSuffix="promedio"
           subtitle={`Calculado sobre ${totalCount} endpoints monitoreados`}
@@ -355,7 +420,7 @@ export default function APIChecksPage() {
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Pausadas: {pausedCount}</span>
-              <span className="text-accent-green">En monitoreo</span>
+              <span className="text-accent-green">En monitoreo activo</span>
             </div>
           }
         />
@@ -394,8 +459,9 @@ export default function APIChecksPage() {
           { id: 'get', label: 'GET' },
           { id: 'post', label: 'POST' },
           { id: 'put', label: 'PUT' },
-          { id: 'delete', label: 'DELETE' },
           { id: 'patch', label: 'PATCH' },
+          { id: 'delete', label: 'DELETE' },
+          { id: 'head', label: 'HEAD' },
         ]}
         selectedCategory={methodFilter}
         onCategoryChange={setMethodFilter}
@@ -418,20 +484,39 @@ export default function APIChecksPage() {
           <>
             <button
               type="button"
-              onClick={handleBulkScan}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm"
+              onClick={() => handleBulkAction('scan')}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm cursor-pointer disabled:opacity-50"
             >
               <RefreshCw size={13} />
               Escanear Seleccionados
             </button>
             <button
               type="button"
-              onClick={handleBulkDelete}
-              disabled={bulkDeleting}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50"
+              onClick={() => handleBulkAction('pause')}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-dark border border-border-base text-text-muted hover:text-text-main font-semibold rounded-full text-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Pause size={13} />
+              Pausar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkAction('resume')}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-dark border border-border-base text-accent-green hover:bg-accent-green/10 font-semibold rounded-full text-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Play size={13} />
+              Reanudar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkAction('delete')}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Trash2 size={13} />
-              {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
+              {bulkProcessing ? 'Procesando...' : 'Eliminar'}
             </button>
           </>
         }
@@ -510,7 +595,7 @@ export default function APIChecksPage() {
         />
       )}
 
-      {/* 6. SLIDE-OVER DETAIL DRAWER (Zero context loss) */}
+      {/* 6. SLIDE-OVER DETAIL DRAWER */}
       <APICheckDetailDrawer
         target={selectedTarget}
         isOpen={!!selectedTarget}
@@ -521,7 +606,7 @@ export default function APIChecksPage() {
         onDelete={(t) => handleOpenDelete(t)}
       />
 
-      {/* 7. CREATE / EDIT FORM MODAL */}
+      {/* 7. CREATE / EDIT FORM MODAL WITH LIVE TEST */}
       {showForm && (
         <APICheckForm
           target={editingTarget}

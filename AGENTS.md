@@ -59,7 +59,12 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - **Timeline Visual de Vida Útil:** Micro-barra de progreso con porcentaje de vigencia transcurrido y semáforo de días restantes (`>60d` verde, `30-60d` azul, `15-30d` amarillo, `<15d` rojo).
   - **Test WHOIS en Vivo:** Endpoint `POST /api/v1/domains/test-whois/` y botón interactivo en el modal para previsualizar registrador oficial, fechas y nameservers antes de registrar.
   - **Vigilancia de Nameservers Autorizados:** Desglose y auditoría de servidores de nombres delegados en el TLD.
-  - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/domains/bulk-action/` para sincronización o eliminación masiva, y botón de exportación CSV con UTF-8 BOM.
+- **Robustecimiento del Módulo de API Endpoints Check (`APIChecksPage.tsx` & `backend/api_checks/`):**
+  - **Test en Vivo Interactivo (Estilo Postman Integrado):** Endpoint `POST /api/v1/api-checks/test-request/` y botón interactivo *"Probar en Vivo"* en el formulario modal para ejecutar la petición HTTP con métodos `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, autenticación (Bearer, Basic, API-Key) y body, previsualizando el status HTTP, latencia en ms y payload de respuesta.
+  - **Auto-Generador Inteligente de Schema JSON (1-Clic):** Detección automática de campos y tipos de datos del JSON de respuesta (`string`, `integer`, `float`, `boolean`, `list`, `dict`) con ajuste automático de umbrales.
+  - **Métricas de Latencia en Tiempo Real:** Campos `last_response_time_ms` y `last_http_status` en BD y serializador para mostrar en tarjetas y tabla la latencia real vs el umbral máximo (`155ms / < 2000ms`).
+  - **Drawer Técnico con "Copiar cURL":** Botón con 1-clic para copiar la petición en formato cURL reproducible y pestaña de *"Test en Vivo"* para lanzar peticiones inmediatas.
+  - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/api-checks/bulk-action/` para escanear, pausar, reanudar o eliminar endpoints en masa, y botón de exportación CSV con UTF-8 BOM.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
 
 ## 🎨 Paleta Oficial de Colores (Design System Tokens)

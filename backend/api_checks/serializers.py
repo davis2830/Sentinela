@@ -24,6 +24,8 @@ class APICheckTargetSerializer(serializers.ModelSerializer):
             "enabled",
             "last_checked_at",
             "last_status",
+            "last_response_time_ms",
+            "last_http_status",
             "created_at",
             "updated_at",
         )
@@ -32,6 +34,8 @@ class APICheckTargetSerializer(serializers.ModelSerializer):
             "organization",
             "last_checked_at",
             "last_status",
+            "last_response_time_ms",
+            "last_http_status",
             "created_at",
             "updated_at",
         )
@@ -43,7 +47,7 @@ class APICheckTargetCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     url = serializers.CharField(max_length=500)
     method = serializers.ChoiceField(
-        choices=["GET", "POST", "PUT", "PATCH"], default="GET"
+        choices=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"], default="GET"
     )
     expected_status = serializers.IntegerField(default=200)
     expected_response_time_ms = serializers.IntegerField(default=2000)
@@ -61,7 +65,7 @@ class APICheckTargetUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255, required=False)
     url = serializers.CharField(max_length=500, required=False)
     method = serializers.ChoiceField(
-        choices=["GET", "POST", "PUT", "PATCH"], required=False
+        choices=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"], required=False
     )
     expected_status = serializers.IntegerField(required=False)
     expected_response_time_ms = serializers.IntegerField(required=False)
