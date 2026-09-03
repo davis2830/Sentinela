@@ -12,7 +12,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 min-w-0 p-6 sm:p-8 overflow-y-auto">
           {children}
         </main>
       </div>
