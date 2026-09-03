@@ -34,7 +34,7 @@ export default function Navbar() {
             <span className="text-accent-green text-xl">//</span>
             <span>sentinel</span>
           </Link>
-          <span className="bg-accent-green/10 border border-accent-green text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wide">
+          <span className="bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold">
             Fase 1: Observabilidad
           </span>
         </div>

@@ -33,9 +33,9 @@ export default function GradeBadge({ grade, score, className = '' }: GradeBadgeP
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold border tracking-wider uppercase ${styles} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border ${styles} ${className}`}
     >
-      <span>GRADE {normGrade}</span>
+      <span>Grado {normGrade}</span>
       {score !== undefined && score !== null && (
         <span className="opacity-75 font-normal">({score} pts)</span>
       )}

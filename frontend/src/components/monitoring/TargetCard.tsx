@@ -272,7 +272,7 @@ export default function TargetCard({
       {/* Bottom row: Protocol, Interval, Latency & Switch */}
       <div className="flex items-center justify-between pt-2.5 border-t border-border-base/30 text-xs">
         <div className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
             {target.target_type}
           </span>
           <span className="text-text-dim text-[11px]">cada {target.interval}s</span>

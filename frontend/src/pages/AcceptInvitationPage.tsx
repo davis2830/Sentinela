@@ -123,18 +123,18 @@ export default function AcceptInvitationPage() {
                   <Building size={14} />
                   {invData?.organization_name}
                 </div>
-                <div className="text-[11px] text-text-muted">
+                <div className="text-xs text-text-muted">
                   Correo: <span className="text-text-main">{invData?.email}</span>
                 </div>
-                <div className="text-[11px] text-text-muted uppercase">
-                  Rol: <span className="text-accent-blue font-bold">{invData?.role}</span>
+                <div className="text-xs text-text-muted">
+                  Rol: <span className="text-accent-blue font-semibold capitalize">{invData?.role}</span>
                 </div>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted uppercase mb-1 font-bold">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Definir Contraseña Personal
                 </label>
                 <div className="relative">
@@ -151,7 +151,7 @@ export default function AcceptInvitationPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted uppercase mb-1 font-bold">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Confirmar Contraseña
                 </label>
                 <div className="relative">
@@ -176,7 +176,7 @@ export default function AcceptInvitationPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 bg-accent-green text-black font-bold text-xs font-mono rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg"
+                className="w-full py-3 bg-accent-green text-black font-semibold text-sm rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg"
               >
                 {submitting ? (
                   <Loader2 size={16} className="animate-spin" />

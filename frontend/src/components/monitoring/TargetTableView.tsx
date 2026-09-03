@@ -213,8 +213,8 @@ export default function TargetTableView({
                     </div>
                   </td>
                   <td className="py-3.5 px-4 whitespace-nowrap">
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-mono uppercase font-bold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
-                      {target.target_type}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
+                      {target.target_type.toUpperCase()}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-text-muted">

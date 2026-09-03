@@ -154,22 +154,22 @@ export default function TargetDetailDrawer({
 
         {/* Quick KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-6 border-b border-border-base bg-bg-dark/20">
-          <div className="bg-bg-card border border-border-base rounded-lg p-3">
-            <div className="text-[11px] font-mono text-text-muted uppercase">Protocolo</div>
-            <div className="text-base font-bold font-mono text-text-main mt-1 uppercase">{target.target_type}</div>
+          <div className="bg-bg-card border border-border-base rounded-xl p-3">
+            <div className="text-[11px] font-medium text-text-muted">Protocolo</div>
+            <div className="text-base font-bold text-text-main mt-1">{target.target_type.toUpperCase()}</div>
           </div>
-          <div className="bg-bg-card border border-border-base rounded-lg p-3">
-            <div className="text-[11px] font-mono text-text-muted uppercase">Frecuencia</div>
+          <div className="bg-bg-card border border-border-base rounded-xl p-3">
+            <div className="text-[11px] font-medium text-text-muted">Frecuencia</div>
             <div className="text-base font-bold font-mono text-text-main mt-1">cada {target.interval}s</div>
           </div>
-          <div className="bg-bg-card border border-border-base rounded-lg p-3">
-            <div className="text-[11px] font-mono text-text-muted uppercase">Latencia Actual</div>
+          <div className="bg-bg-card border border-border-base rounded-xl p-3">
+            <div className="text-[11px] font-medium text-text-muted">Latencia Actual</div>
             <div className="text-base font-bold font-mono text-accent-green mt-1">
               {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : '-'}
             </div>
           </div>
-          <div className="bg-bg-card border border-border-base rounded-lg p-3">
-            <div className="text-[11px] font-mono text-text-muted uppercase">Último Check</div>
+          <div className="bg-bg-card border border-border-base rounded-xl p-3">
+            <div className="text-[11px] font-medium text-text-muted">Último Check</div>
             <div className="text-xs font-mono text-text-muted mt-1.5 truncate">
               {target.last_checked_at
                 ? new Date(target.last_checked_at).toLocaleTimeString('es-ES', {
@@ -225,7 +225,7 @@ export default function TargetDetailDrawer({
             <>
               {/* SLA Availability Card */}
               <div>
-                <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-3 flex items-center gap-2">
+                <h4 className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-2">
                   <ShieldCheck size={14} className="text-accent-green" /> Nivel de Servicio SLA & Disponibilidad
                 </h4>
                 <SLACard targetId={target.id} />
@@ -233,7 +233,7 @@ export default function TargetDetailDrawer({
 
               {/* Latency History Chart */}
               <div>
-                <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-3 flex items-center gap-2">
+                <h4 className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-2">
                   <Activity size={14} className="text-accent-green" /> Tendencia de Latencia (Últimos Escaneos)
                 </h4>
                 <LatencyChart targetId={target.id} />
@@ -243,7 +243,7 @@ export default function TargetDetailDrawer({
 
           {activeTab === 'history' && (
             <div>
-              <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-3">
+              <h4 className="text-xs font-semibold text-text-muted mb-3">
                 Registro de Verificaciones Recientes
               </h4>
               <ChecksList targetId={target.id} />

@@ -328,7 +328,7 @@ export default function ProfilePage() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Nombre (First Name)
                 </label>
                 <input
@@ -337,12 +337,12 @@ export default function ProfilePage() {
                   placeholder="ej. Steed"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+                  className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Apellido (Last Name)
                 </label>
                 <input
@@ -351,13 +351,13 @@ export default function ProfilePage() {
                   placeholder="ej. Gálvez"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
+                  className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Correo Electrónico
               </label>
               <input
@@ -365,15 +365,15 @@ export default function ProfilePage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
               />
             </div>
 
             <div className="pt-2">
-              <span className="block text-xs font-mono uppercase text-text-dim mb-1">
+              <span className="block text-xs font-semibold text-text-dim mb-1">
                 Rol en la Plataforma
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-green/10 border border-accent-green/30 text-accent-green font-mono text-xs font-bold rounded-lg uppercase">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs font-semibold rounded-full">
                 <ShieldCheck size={14} />
                 {meData?.is_staff ? 'Administrador Plataforma' : 'Usuario Plataforma'}
               </span>
@@ -424,7 +424,7 @@ export default function ProfilePage() {
 
           <form onSubmit={handlePasswordSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Contraseña Actual
               </label>
               <input
@@ -437,7 +437,7 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Nueva Contraseña
               </label>
               <input
@@ -452,7 +452,7 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Confirmar Nueva Contraseña
               </label>
               <input
@@ -516,7 +516,7 @@ export default function ProfilePage() {
             className="space-y-5"
           >
             <div>
-              <label className="block text-xs font-mono uppercase text-text-muted mb-1.5">
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Nombre de la Organización
               </label>
               <input
@@ -530,7 +530,7 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 flex items-center gap-1">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center gap-1">
                   <Clock size={14} /> Zona Horaria
                 </label>
                 <select
@@ -547,7 +547,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono uppercase text-text-muted mb-1.5 flex items-center gap-1">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center gap-1">
                   <Globe2 size={14} /> Idioma / Regionalización
                 </label>
                 <select
@@ -681,7 +681,7 @@ export default function ProfilePage() {
                   }}
                 >
                   <div className="mb-6">
-                    <label className="block text-xs font-mono uppercase text-text-muted mb-2">
+                    <label className="block text-xs font-semibold text-text-muted mb-2">
                       Nombre Descriptivo del Token
                     </label>
                     <input
@@ -690,7 +690,7 @@ export default function ProfilePage() {
                       placeholder="ej. Script Integración Grafana / Deployment Bot"
                       value={tokenNameInput}
                       onChange={(e) => setTokenNameInput(e.target.value)}
-                      className="w-full bg-bg-dark border border-border-base rounded-lg px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
+                      className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans"
                     />
                   </div>
 
@@ -698,14 +698,14 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowTokenModal(false)}
-                      className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+                      className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={createTokenMutation.isPending}
-                      className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
                     >
                       {createTokenMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : 'Generar Key'}
                     </button>

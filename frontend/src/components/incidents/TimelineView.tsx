@@ -49,9 +49,9 @@ export default function TimelineView({ events }: TimelineViewProps) {
           <div className="absolute -left-6 top-1 w-5 h-5 rounded-full bg-bg-card border border-border-base flex items-center justify-center shrink-0">
             {getEventIcon(event.event_type)}
           </div>
-          <div className="bg-bg-dark border border-border-base rounded-lg p-4">
+          <div className="bg-bg-dark border border-border-base rounded-xl p-4">
             <div className="flex items-center justify-between gap-2 text-xs text-text-dim mb-1.5 font-mono">
-              <span className="uppercase font-bold text-text-main">{event.event_type.replace('_', ' ')}</span>
+              <span className="capitalize font-semibold text-text-main">{event.event_type.replace('_', ' ')}</span>
               <span className="flex items-center gap-1">
                 <Clock size={12} />
                 {new Date(event.occurred_at).toLocaleString('es-ES')}

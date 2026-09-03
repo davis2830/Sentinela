@@ -413,7 +413,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
                 {showTemplates && (
                   <div className="absolute right-0 top-full mt-2 w-72 bg-bg-card/95 backdrop-blur-md border border-border-base/80 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-3 py-1.5 text-[11px] font-medium text-text-dim uppercase tracking-wider">
+                    <div className="px-3 py-1.5 text-xs font-semibold text-text-dim">
                       Plantillas Preconfiguradas
                     </div>
                     <button
@@ -922,7 +922,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Protocolo:</span>
-                    <span className="text-accent-green uppercase font-semibold text-[11px] px-2 py-0.5 rounded-full bg-accent-green/10 border border-accent-green/20">
+                    <span className="text-accent-green font-semibold text-xs px-2.5 py-0.5 rounded-full bg-accent-green/10 border border-accent-green/20">
                       {targetType}
                     </span>
                   </div>
@@ -960,7 +960,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
                     {testResult.headers && (
                       <div className="pt-2 border-t border-current/20">
-                        <span className="block text-[10px] uppercase font-bold mb-1 opacity-70">Headers Recibidos:</span>
+                        <span className="block text-[11px] font-semibold mb-1 opacity-80">Encabezados Recibidos:</span>
                         <pre className="text-[10px] font-mono bg-black/40 p-2.5 rounded-xl max-h-32 overflow-y-auto">
                           {JSON.stringify(testResult.headers, null, 2)}
                         </pre>

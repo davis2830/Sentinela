@@ -1,15 +1,28 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { AlertRule, Alert, CreateAlertRuleData, AlertSeverity, AlertStatus, AlertStats } from '../types/alerts';
+import type {
+  AlertRule,
+  Alert,
+  CreateAlertRuleData,
+  AlertSeverity,
+  AlertStatus,
+  AlertStats,
+} from '../types/alerts';
 import SeverityBadge from '../components/common/SeverityBadge';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
 import AlertRuleForm from '../components/alerts/AlertRuleForm';
 import {
+  NOCPageHeader,
+  NOCKpiGrid,
+  NOCKpiCard,
+  NOCToolbar,
+} from '../components/common/noc';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import {
   Bell,
-  BellRing,
   Plus,
   Loader2,
   Trash2,
@@ -27,7 +40,7 @@ import {
   Flame,
 } from 'lucide-react';
 
-type MainTab = 'rules' | 'alerts';
+type MainTab = 'alerts' | 'rules';
 type FilterStatus = 'all' | AlertStatus;
 type FilterSeverity = 'all' | AlertSeverity;
 
@@ -38,28 +51,35 @@ export default function AlertsPage() {
   const [editingRule, setEditingRule] = useState<AlertRule | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AlertRule | null>(null);
 
-  // Filters for active alerts
+  // Filters
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('active');
   const [severityFilter, setSeverityFilter] = useState<FilterSeverity>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Auto-refresh hook (15s countdown)
+  const autoRefresh = useAutoRefresh({
+    intervalSeconds: 15,
+    initialEnabled: true,
+  });
 
   // Rules query
-  const { data: rules, isLoading: isLoadingRules, refetch: refetchRules, isRefetching: isRefetchingRules } = useQuery({
+  const { data: rules, isLoading: isLoadingRules } = useQuery<AlertRule[]>({
     queryKey: ['alert-rules'],
     queryFn: async () => {
       const response = await api.get('alert-rules/');
-      return response.data?.data || [];
+      return (response.data?.data || []) as AlertRule[];
     },
-    refetchInterval: 30000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Alerts stats query
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<AlertStats>({
     queryKey: ['alerts-stats'],
     queryFn: async () => {
       const response = await api.get('alerts/stats/');
       return (response.data?.data || {}) as AlertStats;
     },
-    refetchInterval: 15000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Alerts query
@@ -71,13 +91,13 @@ export default function AlertsPage() {
     return queryString ? `alerts/?${queryString}` : 'alerts/';
   };
 
-  const { data: alerts, isLoading: isLoadingAlerts, refetch: refetchAlerts, isRefetching: isRefetchingAlerts } = useQuery({
+  const { data: alerts, isLoading: isLoadingAlerts } = useQuery<Alert[]>({
     queryKey: ['alerts-list', statusFilter, severityFilter],
     queryFn: async () => {
       const response = await api.get(getAlertsEndpoint());
-      return response.data?.data || [];
+      return (response.data?.data || []) as Alert[];
     },
-    refetchInterval: 15000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Rule mutations
@@ -151,14 +171,18 @@ export default function AlertsPage() {
     },
   });
 
-  const handleRuleFormSubmit = async (data: CreateAlertRuleData) => {
-    if (editingRule) {
-      await updateRuleMutation.mutateAsync({ id: editingRule.id, data });
-    } else {
-      await createRuleMutation.mutateAsync(data);
-    }
-  };
+  const evaluateMutation = useMutation({
+    mutationFn: async () => {
+      await api.post('alert-rules/evaluate/');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+    },
+  });
 
+  // Handlers
   const handleOpenCreateRule = () => {
     setEditingRule(null);
     setShowRuleModal(true);
@@ -169,403 +193,489 @@ export default function AlertsPage() {
     setShowRuleModal(true);
   };
 
-  const toggleRuleEnabled = (rule: AlertRule) => {
-    updateRuleMutation.mutate({
-      id: rule.id,
-      data: { enabled: !rule.enabled },
-    });
+  const handleCloseRuleModal = () => {
+    setShowRuleModal(false);
+    setEditingRule(null);
   };
 
-  // Evaluate rules mutation
-  const evaluateMutation = useMutation({
-    mutationFn: async () => {
-      const response = await api.post('alert-rules/evaluate/');
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
-    },
+  const handleRuleSubmit = async (data: CreateAlertRuleData) => {
+    if (editingRule) {
+      await updateRuleMutation.mutateAsync({ id: editingRule.id, data });
+    } else {
+      await createRuleMutation.mutateAsync(data);
+    }
+  };
+
+  // Filtered alerts by search term
+  const filteredAlerts = (alerts || []).filter((alert: Alert) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      alert.title.toLowerCase().includes(term) ||
+      (alert.message && alert.message.toLowerCase().includes(term)) ||
+      (alert.target_type && alert.target_type.toLowerCase().includes(term))
+    );
   });
 
+  // Filtered rules by search term
+  const filteredRules = (rules || []).filter((rule: AlertRule) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      rule.name.toLowerCase().includes(term) ||
+      (rule.target_type && rule.target_type.toLowerCase().includes(term)) ||
+      (rule.condition && rule.condition.toLowerCase().includes(term))
+    );
+  });
+
+  const totalAlertsCount =
+    (stats?.total_active || 0) + (stats?.acknowledged || 0) + (stats?.resolved || 0);
+
   return (
-    <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
-            <Bell className="text-accent-green" size={28} />
-            Alertas & Reglas de Disparo
-          </h1>
-          <p className="text-text-muted text-sm mt-1">
-            Configuración de umbrales automáticos y centro de atención de alertas del sistema
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => evaluateMutation.mutate()}
-            disabled={evaluateMutation.isPending}
-            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3.5 py-2 rounded-md text-sm hover:bg-accent-green/20 transition-colors disabled:opacity-50"
-            title="Ejecutar evaluación de reglas inmediatamente"
-          >
-            <RefreshCw size={16} className={evaluateMutation.isPending ? 'animate-spin' : ''} />
-            Evaluar Reglas Ahora
-          </button>
-
-          <button
-            onClick={() => (activeTab === 'rules' ? refetchRules() : refetchAlerts())}
-            disabled={isRefetchingRules || isRefetchingAlerts}
-            className="p-2 border border-border-base rounded-md text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors disabled:opacity-50"
-            title="Refrescar datos"
-          >
-            <RefreshCw
-              size={18}
-              className={isRefetchingRules || isRefetchingAlerts ? 'animate-spin' : ''}
-            />
-          </button>
-          {activeTab === 'rules' && (
+    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+      {/* 1. TOP HEADER (Standard NOC Header) */}
+      <NOCPageHeader
+        title="Centro de Alertas & Umbrales"
+        badgeText="INCIDENT RADAR"
+        description="Configuración de umbrales automáticos, centro de atención de alertas y derivación directa a incidentes."
+        icon={<Bell size={26} />}
+        autoRefresh={{
+          enabled: autoRefresh.enabled,
+          countdown: autoRefresh.countdown,
+          onToggle: autoRefresh.toggle,
+        }}
+        actions={
+          <>
             <button
-              onClick={handleOpenCreateRule}
-              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
+              type="button"
+              onClick={() => evaluateMutation.mutate()}
+              disabled={evaluateMutation.isPending}
+              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
+              title="Ejecutar evaluación de reglas inmediatamente"
             >
-              <Plus size={18} />
-              Nueva Regla
+              <RefreshCw
+                size={15}
+                className={evaluateMutation.isPending ? 'animate-spin' : ''}
+              />
+              Evaluar Reglas Ahora
             </button>
-          )}
-        </div>
-      </div>
+            {activeTab === 'rules' && (
+              <button
+                type="button"
+                onClick={handleOpenCreateRule}
+                className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
+              >
+                <Plus size={16} />
+                Nueva Regla
+              </button>
+            )}
+          </>
+        }
+      />
 
-      {/* Main Tabs */}
-      <div className="flex items-center gap-4 border-b border-border-base mb-6">
-        <button
-          onClick={() => setActiveTab('alerts')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'alerts'
-              ? 'border-accent-green text-accent-green font-bold'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          }`}
-        >
-          <Bell size={18} />
-          Alertas Activas & Historial
-        </button>
-        <button
-          onClick={() => setActiveTab('rules')}
-          className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'rules'
-              ? 'border-accent-green text-accent-green font-bold'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          }`}
-        >
-          <Sliders size={18} />
-          Reglas de Alerta ({rules?.length || 0})
-        </button>
-      </div>
+      {/* 2. NOC COMMAND CENTER: KPI STRIP */}
+      <NOCKpiGrid columns={4}>
+        {/* KPI 1: Críticas Activas */}
+        <NOCKpiCard
+          title="Críticas Activas"
+          icon={<ShieldAlert size={16} className="text-accent-red" />}
+          badge={{
+            text: (stats?.active_critical || 0) > 0 ? `${stats?.active_critical} Activas` : 'Sin Alarma',
+            variant: (stats?.active_critical || 0) > 0 ? 'danger' : 'success',
+          }}
+          value={stats?.active_critical || 0}
+          valueColor={(stats?.active_critical || 0) > 0 ? 'text-accent-red' : 'text-text-main'}
+          valueSuffix="alertas"
+          subtitle="Requieren acción inmediata o escalación"
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Nivel de Gravedad</span>
+              <span className={(stats?.active_critical || 0) > 0 ? 'text-accent-red font-semibold' : 'text-accent-green'}>
+                {(stats?.active_critical || 0) > 0 ? 'Atención Inmediata' : 'Óptimo'}
+              </span>
+            </div>
+          }
+        />
 
-      {/* TAB 1: ALERTS LIST */}
+        {/* KPI 2: Advertencias */}
+        <NOCKpiCard
+          title="Advertencias"
+          icon={<AlertTriangle size={16} className="text-amber-400" />}
+          badge={{
+            text: `${stats?.active_warning || 0} Activas`,
+            variant: (stats?.active_warning || 0) > 0 ? 'warning' : 'neutral',
+          }}
+          value={stats?.active_warning || 0}
+          valueColor={(stats?.active_warning || 0) > 0 ? 'text-amber-400' : 'text-text-main'}
+          valueSuffix="alertas"
+          subtitle="Umbrales preventivos superados"
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Monitoreo Preventivo</span>
+              <span className="text-amber-400 font-medium">Activo</span>
+            </div>
+          }
+        />
+
+        {/* KPI 3: Resueltas */}
+        <NOCKpiCard
+          title="Alertas Resueltas"
+          icon={<CheckCircle2 size={16} className="text-accent-green" />}
+          badge={{
+            text: 'Histórico',
+            variant: 'success',
+          }}
+          value={stats?.resolved || 0}
+          valueSuffix="mitigadas"
+          subtitle="Contención exitosa de incidentes"
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Reconocidas en Gestión</span>
+              <span>{stats?.acknowledged || 0}</span>
+            </div>
+          }
+        />
+
+        {/* KPI 4: MTTR Promedio */}
+        <NOCKpiCard
+          title="MTTR Promedio"
+          icon={<Clock size={16} className="text-sky-400" />}
+          badge={{
+            text: 'SLA Resolución',
+            variant: 'info',
+          }}
+          value={stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '0m'}
+          valueColor="text-sky-400"
+          valueSuffix="tiempo medio"
+          subtitle="Tiempo promedio desde disparo a resolución"
+          footer={
+            <div className="flex justify-between text-[11px] text-text-dim">
+              <span>Eficiencia de Respuesta</span>
+              <span className="text-accent-green font-medium">&lt; 30m</span>
+            </div>
+          }
+        />
+      </NOCKpiGrid>
+
+      {/* 3. TOOLBAR: Omnibar Search + Main Tab Switcher + Status Pills */}
+      <NOCToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder={
+          activeTab === 'alerts'
+            ? 'Buscar por título, mensaje o módulo de alerta...'
+            : 'Buscar por nombre de regla o métrica...'
+        }
+        categoryLabel="Vista:"
+        categories={[
+          { id: 'alerts', label: 'Alertas Activas & Historial' },
+          { id: 'rules', label: `Reglas de Umbral (${rules?.length || 0})` },
+        ]}
+        selectedCategory={activeTab}
+        onCategoryChange={(c) => setActiveTab(c as MainTab)}
+        statusPills={
+          activeTab === 'alerts'
+            ? [
+                { id: 'all', label: 'Todos', count: totalAlertsCount, variant: 'all' },
+                {
+                  id: 'active',
+                  label: 'Activas',
+                  count: stats?.total_active || 0,
+                  variant: 'danger',
+                },
+                {
+                  id: 'acknowledged',
+                  label: 'Reconocidas',
+                  count: stats?.acknowledged || 0,
+                  variant: 'warning',
+                },
+                {
+                  id: 'resolved',
+                  label: 'Resueltas',
+                  count: stats?.resolved || 0,
+                  variant: 'success',
+                },
+              ]
+            : undefined
+        }
+        selectedStatus={statusFilter}
+        onStatusChange={(st) => setStatusFilter(st as FilterStatus)}
+      />
+
+      {/* 4. SUB-ACTIONS BAR FOR ALERTS (Acknowledge All / Resolve All) */}
       {activeTab === 'alerts' && (
-        <div>
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-              <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center text-accent-red shrink-0">
-                <ShieldAlert size={20} />
-              </div>
-              <div>
-                <p className="text-xs font-mono uppercase text-text-muted">Críticas Activas</p>
-                <p className="text-xl font-bold font-mono text-accent-red">{stats?.active_critical || 0}</p>
-              </div>
-            </div>
-
-            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-              <div className="w-10 h-10 rounded-lg bg-accent-yellow/10 flex items-center justify-center text-accent-yellow shrink-0">
-                <AlertTriangle size={20} />
-              </div>
-              <div>
-                <p className="text-xs font-mono uppercase text-text-muted">Advertencias</p>
-                <p className="text-xl font-bold font-mono text-accent-yellow">{stats?.active_warning || 0}</p>
-              </div>
-            </div>
-
-            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-              <div className="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center text-accent-blue shrink-0">
-                <CheckCircle2 size={20} />
-              </div>
-              <div>
-                <p className="text-xs font-mono uppercase text-text-muted">Resueltas</p>
-                <p className="text-xl font-bold font-mono text-text-main">{stats?.resolved || 0}</p>
-              </div>
-            </div>
-
-            <div className="bg-bg-card border border-border-base rounded-xl p-4 flex items-center gap-3 shadow-md">
-              <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green shrink-0">
-                <Clock size={20} />
-              </div>
-              <div>
-                <p className="text-xs font-mono uppercase text-text-muted">MTTR Promedio</p>
-                <p className="text-xl font-bold font-mono text-accent-green">
-                  {stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '0m'}
-                </p>
-              </div>
-            </div>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-bg-card/95 border border-border-base/70 p-3.5 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="text-text-dim text-xs font-semibold mr-1">Severidad:</span>
+            {(['all', 'critical', 'warning', 'info'] as FilterSeverity[]).map((sv) => (
+              <button
+                key={sv}
+                type="button"
+                onClick={() => setSeverityFilter(sv)}
+                className={`px-3 py-1 rounded-full border text-xs capitalize transition-all ${
+                  severityFilter === sv
+                    ? 'bg-accent-green/10 border-accent-green/40 text-accent-green font-semibold'
+                    : 'bg-bg-dark border-border-base/60 text-text-muted hover:text-text-main'
+                }`}
+              >
+                {sv === 'all' ? 'Todas' : sv === 'critical' ? 'Crítica' : sv === 'warning' ? 'Advertencia' : 'Informativa'}
+              </button>
+            ))}
           </div>
 
-          {/* Sub Filters & Bulk Actions */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-bg-card border border-border-base p-4 rounded-xl shadow-md">
-            <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-text-dim font-mono uppercase font-bold mr-1">Estado:</span>
-              {(['all', 'active', 'acknowledged', 'resolved'] as FilterStatus[]).map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 rounded-lg border font-mono capitalize transition-all ${
-                    statusFilter === st
-                      ? 'bg-accent-green/10 border-accent-green/40 text-accent-green font-bold'
-                      : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
-                  }`}
-                >
-                  {st === 'all' ? 'Todos' : st}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap text-xs">
-                <span className="text-text-dim font-mono uppercase font-bold mr-1">Severidad:</span>
-                {(['all', 'critical', 'warning', 'info'] as FilterSeverity[]).map((sv) => (
-                  <button
-                    key={sv}
-                    onClick={() => setSeverityFilter(sv)}
-                    className={`px-3 py-1.5 rounded-lg border font-mono capitalize transition-all ${
-                      severityFilter === sv
-                        ? 'bg-accent-blue/10 border-accent-blue/40 text-accent-blue font-bold'
-                        : 'bg-bg-dark border-border-base text-text-muted hover:text-text-main'
-                    }`}
-                  >
-                    {sv === 'all' ? 'Todas' : sv}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 border-l border-border-base pl-3">
-                <button
-                  onClick={() => acknowledgeAllMutation.mutate()}
-                  disabled={acknowledgeAllMutation.isPending || !stats?.total_active}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-base bg-bg-dark text-text-muted hover:text-text-main text-xs font-medium transition-colors disabled:opacity-40"
-                  title="Marcar todas las alertas activas como reconocidas"
-                >
-                  <CheckCheck size={14} className="text-accent-yellow" />
-                  Reconocer Todas
-                </button>
-                <button
-                  onClick={() => resolveAllMutation.mutate()}
-                  disabled={resolveAllMutation.isPending || (!stats?.total_active && !stats?.acknowledged)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-base bg-bg-dark text-text-muted hover:text-accent-green text-xs font-medium transition-colors disabled:opacity-40"
-                  title="Marcar todas las alertas como resueltas"
-                >
-                  <CheckSquare size={14} className="text-accent-green" />
-                  Resolver Todas
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => acknowledgeAllMutation.mutate()}
+              disabled={acknowledgeAllMutation.isPending || !stats?.total_active}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border-base bg-bg-dark text-text-muted hover:text-text-main text-xs font-medium transition-colors disabled:opacity-40"
+              title="Marcar todas las alertas activas como reconocidas"
+            >
+              <CheckCheck size={14} className="text-accent-yellow" />
+              Reconocer Todas
+            </button>
+            <button
+              type="button"
+              onClick={() => resolveAllMutation.mutate()}
+              disabled={
+                resolveAllMutation.isPending || (!stats?.total_active && !stats?.acknowledged)
+              }
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border-base bg-bg-dark text-text-muted hover:text-accent-green text-xs font-medium transition-colors disabled:opacity-40"
+              title="Marcar todas las alertas como resueltas"
+            >
+              <CheckSquare size={14} className="text-accent-green" />
+              Resolver Todas
+            </button>
           </div>
-
-          {/* Alerts Grid */}
-          {isLoadingAlerts ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="animate-spin text-accent-green" size={32} />
-            </div>
-          ) : alerts && alerts.length > 0 ? (
-            <div className="space-y-4">
-              {alerts.map((alert: Alert) => (
-                <div
-                  key={alert.id}
-                  className="bg-bg-card border border-border-base rounded-xl p-5 hover:border-accent-green/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <SeverityBadge severity={alert.severity} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-text-main text-base">{alert.title}</h3>
-                        <StatusBadge status={alert.status} />
-                      </div>
-                      <p className="text-sm text-text-muted mt-1">{alert.message}</p>
-                      <div className="flex items-center gap-4 text-xs font-mono text-text-dim mt-2">
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} /> Disparada:{' '}
-                          {new Date(alert.triggered_at).toLocaleString('es-ES')}
-                        </span>
-                        <span>•</span>
-                        <span className="uppercase text-accent-blue">Módulo: {alert.target_type}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                    {alert.incident_id ? (
-                      <span
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 border border-accent-red/30 text-accent-red rounded-lg text-xs font-mono font-bold"
-                        title={alert.incident_title || 'Incidente vinculado'}
-                      >
-                        <Flame size={14} /> Incidente Vinc.
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => createIncidentMutation.mutate(alert.id)}
-                        disabled={createIncidentMutation.isPending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                        title="Elevar esta alerta a Incidente"
-                      >
-                        <Flame size={14} />
-                        Crear Incidente
-                      </button>
-                    )}
-
-                    {alert.status === 'active' && (
-                      <button
-                        onClick={() =>
-                          updateAlertStatusMutation.mutate({ id: alert.id, status: 'acknowledged' })
-                        }
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow hover:bg-accent-yellow hover:text-black rounded-lg text-xs font-semibold transition-all"
-                        title="Reconocer alerta"
-                      >
-                        <Eye size={14} />
-                        Reconocer
-                      </button>
-                    )}
-                    {alert.status !== 'resolved' && (
-                      <button
-                        onClick={() =>
-                          updateAlertStatusMutation.mutate({ id: alert.id, status: 'resolved' })
-                        }
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-lg text-xs font-semibold transition-all"
-                        title="Marcar como resuelta"
-                      >
-                        <CheckCircle size={14} />
-                        Resolver
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={BellRing}
-              title="No hay alertas registradas"
-              description="No hay eventos de alerta disparados para los filtros seleccionados."
-            />
-          )}
         </div>
       )}
 
-      {/* TAB 2: ALERT RULES */}
-      {activeTab === 'rules' && (
-        <div>
-          {isLoadingRules ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="animate-spin text-accent-green" size={32} />
-            </div>
-          ) : rules && rules.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rules.map((rule: AlertRule) => (
-                <div
-                  key={rule.id}
-                  className="bg-bg-card border border-border-base rounded-xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between shadow-lg"
-                >
+      {/* 5. CONTENT: ALERTS TAB OR RULES TAB */}
+      {activeTab === 'alerts' ? (
+        isLoadingAlerts ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="animate-spin text-accent-green" size={32} />
+          </div>
+        ) : filteredAlerts && filteredAlerts.length > 0 ? (
+          <div className="space-y-3">
+            {filteredAlerts.map((alert: Alert) => (
+              <div
+                key={alert.id}
+                className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-4 sm:p-5 hover:border-accent-green/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm"
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="mt-1 shrink-0">
+                    <SeverityBadge severity={alert.severity} />
+                  </div>
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="overflow-hidden">
-                        <h3 className="font-bold text-text-main truncate text-base" title={rule.name}>
-                          {rule.name}
-                        </h3>
-                        <span className="text-xs font-mono text-accent-blue uppercase tracking-wider">
-                          {rule.target_type}
-                        </span>
-                      </div>
-                      <SeverityBadge severity={rule.severity} />
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="font-bold text-text-main text-base">{alert.title}</h3>
+                      <StatusBadge status={alert.status} />
                     </div>
-
-                    <div className="space-y-2 text-xs font-mono text-text-muted border-t border-border-base/50 pt-3 mb-3">
-                      <div className="flex justify-between">
-                        <span className="text-text-dim">Condición:</span>
-                        <span className="text-text-main font-semibold truncate max-w-[170px]">
-                          {rule.condition}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-dim">Umbral (Threshold):</span>
-                        <span className="text-accent-green font-bold">{rule.threshold}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-border-base flex items-center justify-between text-xs">
-                    {/* Toggle switch */}
-                    <button
-                      onClick={() => toggleRuleEnabled(rule)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-bold transition-all ${
-                        rule.enabled
-                          ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
-                          : 'bg-bg-dark border-border-base text-text-dim'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${rule.enabled ? 'bg-accent-green' : 'bg-text-dim'}`} />
-                      {rule.enabled ? 'ACTIVA' : 'INACTIVA'}
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenEditRule(rule)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded transition-colors"
-                        title="Editar regla"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(rule)}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded transition-colors"
-                        title="Eliminar regla"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                    <p className="text-xs sm:text-sm text-text-muted mt-1 leading-relaxed">
+                      {alert.message}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs font-mono text-text-dim mt-2 flex-wrap">
+                      <span className="flex items-center gap-1 text-[11px]">
+                        <Clock size={12} />
+                        {new Date(alert.triggered_at).toLocaleString('es-ES')}
+                      </span>
+                      <span>•</span>
+                      <span className="text-sky-400 font-medium">Módulo: {alert.target_type}</span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={Sliders}
-              title="No hay reglas de alerta configuradas"
-              description="Crea tu primera regla de alerta para recibir notificaciones automáticas."
-              actionLabel="Nueva Regla"
-              onAction={handleOpenCreateRule}
-            />
-          )}
-        </div>
+
+                {/* Quick Action Buttons */}
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                  {alert.incident_id ? (
+                    <span
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 border border-accent-red/30 text-accent-red rounded-full text-xs font-mono font-bold"
+                      title={alert.incident_title || 'Incidente vinculado'}
+                    >
+                      <Flame size={13} /> Incidente Vinc.
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => createIncidentMutation.mutate(alert.id)}
+                      disabled={createIncidentMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-all disabled:opacity-50"
+                      title="Elevar esta alerta a Incidente"
+                    >
+                      <Flame size={13} />
+                      Crear Incidente
+                    </button>
+                  )}
+
+                  {alert.status === 'active' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateAlertStatusMutation.mutate({ id: alert.id, status: 'acknowledged' })
+                      }
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow hover:bg-accent-yellow hover:text-black rounded-full text-xs font-semibold transition-all"
+                      title="Reconocer alerta"
+                    >
+                      <Eye size={13} />
+                      Reconocer
+                    </button>
+                  )}
+                  {alert.status !== 'resolved' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateAlertStatusMutation.mutate({ id: alert.id, status: 'resolved' })
+                      }
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all"
+                      title="Marcar como resuelta"
+                    >
+                      <CheckCircle size={13} />
+                      Resolver
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Bell}
+            title={
+              searchTerm || statusFilter !== 'all' || severityFilter !== 'all'
+                ? 'No se encontraron alertas con los filtros aplicados'
+                : 'No hay alertas activas en el sistema'
+            }
+            description={
+              searchTerm || statusFilter !== 'all' || severityFilter !== 'all'
+                ? 'Prueba a cambiar el término de búsqueda o restablecer los filtros de estado y severidad.'
+                : 'Todos los servicios operan dentro de los umbrales normales sin infracciones reportadas.'
+            }
+            actionLabel={
+              searchTerm || statusFilter !== 'all' || severityFilter !== 'all'
+                ? 'Limpiar Filtros'
+                : 'Evaluar Reglas Ahora'
+            }
+            onAction={() => {
+              if (searchTerm || statusFilter !== 'all' || severityFilter !== 'all') {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setSeverityFilter('all');
+              } else {
+                evaluateMutation.mutate();
+              }
+            }}
+          />
+        )
+      ) : (
+        /* RULES TAB */
+        isLoadingRules ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="animate-spin text-accent-green" size={32} />
+          </div>
+        ) : filteredRules && filteredRules.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredRules.map((rule: AlertRule) => (
+              <div
+                key={rule.id}
+                className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between group shadow-sm"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <h3 className="font-bold text-text-main text-base group-hover:text-accent-green transition-colors line-clamp-1">
+                      {rule.name}
+                    </h3>
+                    <SeverityBadge severity={rule.severity} />
+                  </div>
+
+                  <div className="space-y-2 text-xs font-mono text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40 font-sans">
+                    <div className="flex justify-between border-b border-border-base/40 pb-1.5">
+                      <span className="text-text-dim font-medium">Condición:</span>
+                      <span className="text-accent-green font-mono font-bold">
+                        {rule.condition} ({rule.threshold})
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-border-base/40 pb-1.5">
+                      <span className="text-text-dim font-medium">Tipo Objetivo:</span>
+                      <span className="text-text-main font-semibold capitalize">{rule.target_type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-dim font-medium">Estado:</span>
+                      <span className="font-semibold">
+                        {rule.enabled ? (
+                          <span className="text-accent-green">Activa</span>
+                        ) : (
+                          <span className="text-text-dim">Deshabilitada</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
+                  <span className="font-mono text-[11px]">
+                    Creada: {new Date(rule.created_at).toLocaleDateString('es-ES')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditRule(rule)}
+                      className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
+                      title="Editar regla"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(rule)}
+                      className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
+                      title="Eliminar regla"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Sliders}
+            title={
+              searchTerm
+                ? 'No se encontraron reglas con los términos de búsqueda'
+                : 'No hay reglas de alerta configuradas'
+            }
+            description={
+              searchTerm
+                ? 'Prueba a cambiar el término de búsqueda para ver las reglas configuradas.'
+                : 'Define condiciones y umbrales automáticos para ser notificado de incidentes por Email, Telegram o Webhook.'
+            }
+            actionLabel={searchTerm ? 'Limpiar Filtro' : 'Crear Primera Regla'}
+            onAction={() => {
+              if (searchTerm) {
+                setSearchTerm('');
+              } else {
+                handleOpenCreateRule();
+              }
+            }}
+          />
+        )
       )}
 
-      {/* Form Modal */}
+      {/* 6. CREATE / EDIT RULE MODAL */}
       {showRuleModal && (
         <AlertRuleForm
           rule={editingRule}
-          onSubmit={handleRuleFormSubmit}
-          onClose={() => {
-            setShowRuleModal(false);
-            setEditingRule(null);
-          }}
+          onSubmit={handleRuleSubmit}
+          onClose={handleCloseRuleModal}
         />
       )}
 
-      {/* Delete Modal */}
+      {/* 7. DELETE CONFIRMATION MODAL */}
       <ConfirmDelete
         isOpen={!!deleteTarget}
-        itemName={deleteTarget?.name || ''}
+        itemName={deleteTarget?.name || 'esta regla'}
         isDeleting={deleteRuleMutation.isPending}
         onConfirm={() => deleteTarget && deleteRuleMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}

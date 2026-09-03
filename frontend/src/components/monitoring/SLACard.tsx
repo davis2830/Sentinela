@@ -78,8 +78,8 @@ export default function SLACard({ targetId }: SLACardProps) {
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {/* % Uptime */}
-        <div className="p-4 bg-bg-dark border border-border-base rounded-xl">
-          <span className="text-[11px] text-text-muted font-mono uppercase tracking-wide">
+        <div className="p-4 bg-bg-dark border border-border-base rounded-2xl">
+          <span className="text-xs text-text-muted font-medium">
             % Disponibilidad SLA
           </span>
           <div
@@ -95,8 +95,8 @@ export default function SLACard({ targetId }: SLACardProps) {
         </div>
 
         {/* Total Checks */}
-        <div className="p-4 bg-bg-dark border border-border-base rounded-xl">
-          <span className="text-[11px] text-text-muted font-mono uppercase tracking-wide flex items-center gap-1">
+        <div className="p-4 bg-bg-dark border border-border-base rounded-2xl">
+          <span className="text-xs text-text-muted font-medium flex items-center gap-1">
             <Clock size={12} /> Total Chequeos
           </span>
           <div className="text-2xl font-bold font-mono mt-1 text-text-main">{totalChecks}</div>
@@ -104,8 +104,8 @@ export default function SLACard({ targetId }: SLACardProps) {
         </div>
 
         {/* Up Checks */}
-        <div className="p-4 bg-bg-dark border border-border-base rounded-xl">
-          <span className="text-[11px] text-text-muted font-mono uppercase tracking-wide flex items-center gap-1">
+        <div className="p-4 bg-bg-dark border border-border-base rounded-2xl">
+          <span className="text-xs text-text-muted font-medium flex items-center gap-1">
             <CheckCircle2 size={12} className="text-accent-green" /> Chequeos Exitosos
           </span>
           <div className="text-2xl font-bold font-mono mt-1 text-accent-green">{upChecks}</div>
@@ -113,8 +113,8 @@ export default function SLACard({ targetId }: SLACardProps) {
         </div>
 
         {/* Down Checks */}
-        <div className="p-4 bg-bg-dark border border-border-base rounded-xl">
-          <span className="text-[11px] text-text-muted font-mono uppercase tracking-wide flex items-center gap-1">
+        <div className="p-4 bg-bg-dark border border-border-base rounded-2xl">
+          <span className="text-xs text-text-muted font-medium flex items-center gap-1">
             <XCircle size={12} className="text-accent-red" /> Caídas / Interrupciones
           </span>
           <div className={`text-2xl font-bold font-mono mt-1 ${downChecks > 0 ? 'text-accent-red' : 'text-accent-green'}`}>

@@ -71,21 +71,21 @@ export default function ChecksList({ targetId }: ChecksListProps) {
         <table className="w-full text-left text-sm">
           <thead>
             <tr>
-              <th className="text-text-dim font-medium py-2 px-2 border-b border-border-base font-mono text-xs uppercase">Estado</th>
-              <th className="text-text-dim font-medium py-2 px-2 border-b border-border-base font-mono text-xs uppercase">Latencia</th>
-              <th className="text-text-dim font-medium py-2 px-2 border-b border-border-base font-mono text-xs uppercase">Fecha</th>
-              <th className="text-text-dim font-medium py-2 px-2 border-b border-border-base font-mono text-xs uppercase">Detalles</th>
+              <th className="text-text-dim font-medium py-2.5 px-3 border-b border-border-base text-xs">Estado</th>
+              <th className="text-text-dim font-medium py-2.5 px-3 border-b border-border-base text-xs">Latencia</th>
+              <th className="text-text-dim font-medium py-2.5 px-3 border-b border-border-base text-xs">Fecha</th>
+              <th className="text-text-dim font-medium py-2.5 px-3 border-b border-border-base text-xs">Detalles</th>
             </tr>
           </thead>
           <tbody>
             {checks.map((check: MonitoringCheck) => (
               <tr key={check.id} className="hover:bg-bg-card-hover transition-colors">
-                <td className="py-2 px-2 border-b border-border-base">
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono border ${statusColors[check.status] || ''}`}>
-                    {check.status.toUpperCase()}
+                <td className="py-2.5 px-3 border-b border-border-base">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColors[check.status] || ''}`}>
+                    {check.status === 'up' ? 'Online' : check.status === 'slow' ? 'Lento' : check.status === 'down' ? 'Caído' : 'Error'}
                   </span>
                 </td>
-                <td className="py-2 px-2 border-b border-border-base text-text-muted font-mono">
+                <td className="py-2.5 px-3 border-b border-border-base text-text-muted font-mono">
                   {check.latency !== null ? `${check.latency.toFixed(0)}ms` : '-'}
                 </td>
                 <td className="py-2 px-2 border-b border-border-base text-text-muted">
