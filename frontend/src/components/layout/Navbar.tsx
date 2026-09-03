@@ -30,12 +30,18 @@ export default function Navbar() {
       <nav className="flex items-center justify-between px-8 py-3 bg-bg-dark/85 backdrop-blur-md border-b border-border-base sticky top-0 z-50">
         {/* Brand */}
         <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="flex items-center gap-3 font-mono font-bold text-lg text-text-main no-underline">
-            <span className="text-accent-green text-xl">//</span>
-            <span>sentinel</span>
+          <Link to="/dashboard" className="flex items-center gap-3 font-bold text-lg text-text-main no-underline group">
+            <img
+              src="/logo.png"
+              alt="Sentinela"
+              className="h-8 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
+            />
+            <span className="font-sans font-extrabold text-xl tracking-tight text-text-main">
+              Sentinela
+            </span>
           </Link>
           <span className="bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold">
-            Fase 1: Observabilidad
+            NOC Observabilidad
           </span>
         </div>
 

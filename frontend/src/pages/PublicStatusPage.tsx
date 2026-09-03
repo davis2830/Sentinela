@@ -91,13 +91,11 @@ export default function PublicStatusPage() {
       <header className="border-b border-border-base bg-bg-card/70 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            {statusData.logo_url ? (
-              <img src={statusData.logo_url} alt={statusData.company_name} className="h-10 w-auto rounded object-contain" />
-            ) : (
-              <div className="w-10 h-10 rounded-xl bg-accent-green/10 border border-accent-green/30 flex items-center justify-center text-accent-green font-bold font-mono">
-                <Activity size={22} />
-              </div>
-            )}
+            <img
+              src={statusData.logo_url || '/logo.png'}
+              alt={statusData.company_name}
+              className="h-10 w-auto rounded-xl object-contain shadow-sm border border-border-base/50 bg-bg-dark/80 p-1"
+            />
             <div>
               <h1 className="text-lg font-bold text-text-main">{statusData.company_name}</h1>
               <p className="text-xs text-text-muted">{statusData.description}</p>

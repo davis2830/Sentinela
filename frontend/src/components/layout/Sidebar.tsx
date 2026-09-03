@@ -49,7 +49,7 @@ export default function Sidebar() {
     <aside className="w-60 bg-bg-dark border-r border-border-base p-4 flex flex-col gap-1">
       {navSections.map((section) => (
         <div key={section.title}>
-          <div className="text-xs text-text-dim mt-4 mb-2 ml-2 font-semibold">
+          <div className="text-xs text-text-dim mt-3 mb-2 ml-2 font-semibold">
             {section.title}
           </div>
           {section.items.map((item) => {
