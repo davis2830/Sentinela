@@ -15,6 +15,7 @@ class DNSRecordSerializer(serializers.ModelSerializer):
             "record_type",
             "value",
             "ttl",
+            "response_time_ms",
             "last_scanned_at",
             "last_change_at",
             "created_at",
@@ -25,6 +26,7 @@ class DNSRecordSerializer(serializers.ModelSerializer):
             "organization",
             "value",
             "ttl",
+            "response_time_ms",
             "last_scanned_at",
             "last_change_at",
             "created_at",
@@ -37,7 +39,7 @@ class DNSRecordCreateSerializer(serializers.Serializer):
 
     domain = serializers.CharField(max_length=500)
     record_type = serializers.ChoiceField(
-        choices=["A", "AAAA", "MX", "TXT", "NS", "CNAME"]
+        choices=["A", "AAAA", "MX", "TXT", "NS", "CNAME", "SOA", "PTR", "CAA"]
     )
 
 

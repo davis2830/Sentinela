@@ -48,7 +48,13 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - **Test de Conexión en Vivo:** Endpoint `POST /api/v1/ssl-certificates/test-connection/` y botón interactivo en el modal para probar la conexión TLS antes de registrar el certificado.
   - **Acciones en Lote:** Endpoint `POST /api/v1/ssl-certificates/bulk-action/` para re-escanear o eliminar certificados en masa.
   - **Exportación de Inventario SSL:** Descarga de reporte completo en formato CSV con vigencia, emisor, grado y SANs para auditorías ISO 27001.
-  - **Auditoría de SANs:** Búsqueda rápida de nombres alternativos y etiquetado automático de certificados Wildcard (`*.dominio.com`).
+- **Robustecimiento del Módulo de Registros DNS (`DNSRecordsPage.tsx` & `backend/dns_monitor/`):**
+  - **Soporte de Tipos Extendidos:** Soporte para `A`, `AAAA`, `CNAME`, `MX`, `TXT`, `NS`, `SOA` (Start of Authority), `PTR` (Reverse DNS) y `CAA` (Certification Authority Authorization).
+  - **Medición de Latencia de Consulta (`response_time_ms`):** Medición de tiempo de respuesta de resolución en milisegundos con badge por colores (`<50ms` verde, `<150ms` azul, `>150ms` ámbar).
+  - **Detección de Políticas SPF / DMARC:** Análisis automático de registros `TXT` con identificación de políticas anti-spoofing (`v=spf1`, `v=DMARC1`).
+  - **Test de Resolución DNS en Vivo:** Endpoint `POST /api/v1/dns-records/test-resolution/` y botón interactivo en el modal para validar respuestas, TTL y latencia antes de guardar.
+  - **Historial de Mutaciones con Diff Visual:** Pestaña de historial con desglose de valores agregados (`+` verde) y removidos (`-` rojo), más badge pulsante *"Mutación 24h"* en la tabla.
+  - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/dns-records/bulk-action/` para re-resolución o eliminación masiva, y botón de exportación CSV con UTF-8 BOM.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
 
 ## 🎨 Paleta Oficial de Colores (Design System Tokens)

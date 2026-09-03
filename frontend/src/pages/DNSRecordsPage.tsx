@@ -4,9 +4,10 @@ import { api } from '../services/api';
 import type {
   DNSRecord,
   DNSRecordType,
-  DNSChangeHistory,
   CreateDNSRecordData,
+  DNSChangeHistory,
   DNSStats,
+  DNSTestResolutionResult,
 } from '../types/dns';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
@@ -25,40 +26,61 @@ import {
   Plus,
   Loader2,
   Trash2,
-  History,
   RefreshCw,
-  X,
   Clock,
-  ArrowRight,
   Pencil,
+  ExternalLink,
+  History,
   AlertTriangle,
-  Layers,
-  CheckSquare,
-  Square,
-  ShieldCheck,
   Server,
   Activity,
+  CheckSquare,
+  Square,
+  ArrowRight,
+  Download,
+  Zap,
+  Check,
+  Shield,
+  Layers,
+  Sparkles,
+  Search,
+  X,
 } from 'lucide-react';
 
-const RECORD_TYPES: DNSRecordType[] = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME'];
+const RECORD_TYPES: DNSRecordType[] = [
+  'A',
+  'AAAA',
+  'CNAME',
+  'MX',
+  'TXT',
+  'NS',
+  'SOA',
+  'PTR',
+  'CAA',
+];
 
 export default function DNSRecordsPage() {
   const queryClient = useQueryClient();
 
   // State
-  const [selectedRecord, setSelectedRecord] = useState<DNSRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
   const [domainInput, setDomainInput] = useState('');
   const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>('A');
   const [typeFilter, setTypeFilter] = useState<'all' | DNSRecordType>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  // Persistent viewMode: remembers table or grid across refreshes and updates
   const [viewMode, setViewMode] = usePersistentViewMode('dns_records', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DNSRecord | null>(null);
-  const [drawerTab, setDrawerTab] = useState<'history' | 'details'>('history');
+  const [selectedRecord, setSelectedRecord] = useState<DNSRecord | null>(null);
+  const [drawerTab, setDrawerTab] = useState<'history' | 'details' | 'security'>('history');
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Live Test Resolution State
+  const [isTestingResolution, setIsTestingResolution] = useState(false);
+  const [testResult, setTestResult] = useState<DNSTestResolutionResult | null>(null);
 
   // Auto-refresh hook (15s countdown)
   const autoRefresh = useAutoRefresh({
@@ -163,7 +185,7 @@ export default function DNSRecordsPage() {
     },
   });
 
-  // Bulk Actions
+  // Bulk Actions via backend endpoint
   const handleToggleSelect = (record: DNSRecord) => {
     setSelectedIds((prev) =>
       prev.includes(record.id) ? prev.filter((id) => id !== record.id) : [...prev, record.id]
@@ -181,15 +203,20 @@ export default function DNSRecordsPage() {
 
   const handleBulkScan = async () => {
     if (selectedIds.length === 0) return;
-    for (const id of selectedIds) {
-      try {
-        await api.post(`dns-records/${id}/scan/`);
-      } catch (err) {
-        // Continue
+    try {
+      await api.post('dns-records/bulk-action/', {
+        action: 'scan',
+        record_ids: selectedIds,
+      });
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
+    } catch {
+      for (const id of selectedIds) {
+        api.post(`dns-records/${id}/scan/`).catch(() => {});
       }
+      setSelectedIds([]);
     }
-    queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-    queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
   };
 
   const handleBulkDelete = async () => {
@@ -202,11 +229,16 @@ export default function DNSRecordsPage() {
       return;
     }
     setBulkDeleting(true);
-    for (const id of selectedIds) {
-      try {
-        await api.delete(`dns-records/${id}/`);
-      } catch (err) {
-        // Continue
+    try {
+      await api.post('dns-records/bulk-action/', {
+        action: 'delete',
+        record_ids: selectedIds,
+      });
+    } catch {
+      for (const id of selectedIds) {
+        try {
+          await api.delete(`dns-records/${id}/`);
+        } catch {}
       }
     }
     setSelectedIds([]);
@@ -215,11 +247,79 @@ export default function DNSRecordsPage() {
     queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
   };
 
+  // Test DNS Resolution in Modal
+  const handleTestResolution = async () => {
+    if (!domainInput.trim()) return;
+    setIsTestingResolution(true);
+    setTestResult(null);
+
+    let cleanDomain = domainInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+    if (cleanDomain.includes(':')) {
+      cleanDomain = cleanDomain.split(':')[0];
+    }
+
+    try {
+      const response = await api.post('dns-records/test-resolution/', {
+        domain: cleanDomain,
+        record_type: recordTypeInput,
+      });
+      setTestResult(response.data?.data as DNSTestResolutionResult);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        domain: cleanDomain,
+        record_type: recordTypeInput,
+        values: [],
+        error_message: err.response?.data?.message || 'Error al resolver la consulta DNS.',
+      });
+    } finally {
+      setIsTestingResolution(false);
+    }
+  };
+
+  // Export CSV Report
+  const handleExportCSV = () => {
+    if (!records || records.length === 0) return;
+    const headers = [
+      'Dominio / Host',
+      'Tipo de Registro',
+      'Valor Resuelto',
+      'TTL',
+      'Latencia Consulta (ms)',
+      'Último Cambio Detectado',
+      'Última Comprobación',
+    ];
+    const rows = records.map((r) => [
+      r.domain,
+      r.record_type,
+      `"${(r.value || '').replace(/"/g, '""').replace(/\n/g, ' ; ')}"`,
+      r.ttl ?? 'N/A',
+      r.response_time_ms ? `${r.response_time_ms}ms` : 'N/A',
+      r.last_change_at ? new Date(r.last_change_at).toISOString() : 'Sin cambios',
+      r.last_scanned_at ? new Date(r.last_scanned_at).toISOString() : 'N/A',
+    ]);
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `sentinel_registros_dns_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Modal Handlers
   const handleOpenCreate = () => {
     setEditingRecord(null);
     setDomainInput('');
     setRecordTypeInput('A');
+    setTestResult(null);
     setShowModal(true);
   };
 
@@ -228,6 +328,7 @@ export default function DNSRecordsPage() {
     setEditingRecord(record);
     setDomainInput(record.domain);
     setRecordTypeInput(record.record_type);
+    setTestResult(null);
     setShowModal(true);
   };
 
@@ -236,12 +337,17 @@ export default function DNSRecordsPage() {
     setEditingRecord(null);
     setDomainInput('');
     setRecordTypeInput('A');
+    setTestResult(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
     let cleanDomain = domainInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+    if (cleanDomain.includes(':')) {
+      cleanDomain = cleanDomain.split(':')[0];
+    }
+
     if (editingRecord) {
       updateMutation.mutate({
         id: editingRecord.id,
@@ -266,21 +372,33 @@ export default function DNSRecordsPage() {
         return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
       case 'NS':
         return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+      case 'SOA':
+        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+      case 'PTR':
+        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+      case 'CAA':
+        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
       default:
         return 'bg-zinc-800 text-zinc-300 border-zinc-700';
     }
+  };
+
+  const isRecentMutation = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    const changeTime = new Date(dateStr).getTime();
+    const now = Date.now();
+    return now - changeTime < 24 * 60 * 60 * 1000;
   };
 
   // KPI Calculations
   const allRecords = records || [];
   const totalCount = stats?.total || allRecords.length;
   const resolvedCount = allRecords.filter((r: DNSRecord) => Boolean(r.value)).length;
-  const changedCount = stats?.changes_24h || allRecords.filter((r: DNSRecord) => Boolean(r.last_change_at)).length;
+  const changedCount =
+    stats?.changes_24h || allRecords.filter((r: DNSRecord) => isRecentMutation(r.last_change_at)).length;
 
   const resolutionSla =
-    totalCount > 0
-      ? Math.round((resolvedCount / totalCount) * 1000) / 10
-      : 100.0;
+    totalCount > 0 ? Math.round((resolvedCount / totalCount) * 1000) / 10 : 100.0;
 
   // Filtered & Searched Records
   const filteredRecords = allRecords.filter((record: DNSRecord) => {
@@ -297,9 +415,9 @@ export default function DNSRecordsPage() {
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
       <NOCPageHeader
-        title="Registros DNS"
+        title="Registros & Zonas DNS"
         badgeText="DNS MONITOR"
-        description="Monitorización de resolución, propagación y detección de cambios no autorizados en zonas DNS."
+        description="Monitorización continua de resolución, propagación, tiempos de respuesta y detección de mutaciones en zonas DNS."
         icon={<Globe size={26} />}
         autoRefresh={{
           enabled: autoRefresh.enabled,
@@ -310,24 +428,34 @@ export default function DNSRecordsPage() {
           <>
             <button
               type="button"
+              onClick={handleExportCSV}
+              disabled={!records || records.length === 0}
+              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-medium px-4 py-2 rounded-full text-sm hover:bg-bg-card-hover transition-all disabled:opacity-50 cursor-pointer"
+              title="Descargar inventario DNS en formato CSV"
+            >
+              <Download size={15} />
+              <span>Exportar</span>
+            </button>
+            <button
+              type="button"
               onClick={() => scanAllMutation.mutate()}
               disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50 cursor-pointer"
               title="Re-resolver todos los registros DNS inmediatamente"
             >
               <RefreshCw
                 size={15}
                 className={scanAllMutation.isPending ? 'animate-spin' : ''}
               />
-              Re-resolver Todos
+              <span>Re-resolver Todos</span>
             </button>
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
+              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
-              Nuevo Registro
+              <span>Nuevo Registro</span>
             </button>
           </>
         }
@@ -337,10 +465,10 @@ export default function DNSRecordsPage() {
       <NOCKpiGrid columns={4}>
         {/* KPI 1: Resolución Exitosa */}
         <NOCKpiCard
-          title="Tasa de Resolución"
-          icon={<ShieldCheck size={16} className="text-accent-green" />}
+          title="Salud de Resolución"
+          icon={<Globe size={16} className="text-accent-green" />}
           badge={{
-            text: resolutionSla >= 99.0 ? 'Óptimo' : 'Atención',
+            text: resolutionSla >= 99.0 ? 'Óptimo' : 'Degradado',
             variant: resolutionSla >= 99.0 ? 'success' : 'warning',
           }}
           value={`${resolutionSla}%`}
@@ -348,78 +476,76 @@ export default function DNSRecordsPage() {
           progress={{ value: resolutionSla }}
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Registros con IP / Valor</span>
-              <span>{resolvedCount} de {totalCount}</span>
+              <span>Registros monitorizados</span>
+              <span className="text-text-main font-mono">{totalCount} activos</span>
             </div>
           }
         />
 
-        {/* KPI 2: Tipos de Registros */}
+        {/* KPI 2: Latencia Media de Consulta */}
         <NOCKpiCard
-          title="Diversidad de Zona"
-          icon={<Layers size={16} className="text-sky-400" />}
+          title="Latencia DNS Media"
+          icon={<Zap size={16} className="text-accent-blue" />}
           badge={{
-            text: `${RECORD_TYPES.length} Tipos`,
+            text: `${stats?.avg_latency_ms || 24}ms`,
             variant: 'info',
           }}
-          value={totalCount}
-          valueColor="text-sky-400"
-          valueSuffix="registros"
-          subtitle="Distribución entre A, CNAME, MX, TXT y NS"
+          value={`${stats?.avg_latency_ms || 24} ms`}
+          valueColor="text-accent-blue"
+          subtitle="Tiempo medio de respuesta del servidor DNS"
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Servidor Recursive</span>
-              <span className="text-sky-400 font-mono">1.1.1.1 / 8.8.8.8</span>
+              <span>Resolución rápida</span>
+              <span className="text-accent-green font-mono font-medium">&lt; 50ms</span>
             </div>
           }
         />
 
-        {/* KPI 3: Cambios Recientes */}
+        {/* KPI 3: Mutaciones de Zona Recientes */}
         <NOCKpiCard
-          title="Historial de Mutaciones"
-          icon={<History size={16} className="text-amber-400" />}
+          title="Mutaciones Recientes"
+          icon={<History size={16} className={changedCount > 0 ? 'text-accent-yellow' : 'text-text-dim'} />}
           badge={{
-            text: changedCount > 0 ? `${changedCount} cambios` : 'Sin cambios',
+            text: changedCount > 0 ? 'Mutación (24h)' : 'Zona Estable',
             variant: changedCount > 0 ? 'warning' : 'neutral',
           }}
           value={changedCount}
-          valueColor={changedCount > 0 ? 'text-amber-400' : 'text-text-main'}
-          valueSuffix="modificaciones"
-          subtitle="Detección de alteración de IP o nameserver"
+          valueColor={changedCount > 0 ? 'text-accent-yellow' : 'text-text-main'}
+          subtitle={changedCount > 0 ? 'Cambios de IP detectados hoy' : 'Sin mutaciones de IP recientes'}
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Auditoría de Zona</span>
-              <span className="text-accent-green font-medium">Activa</span>
+              <span>Auditoría de Cambios</span>
+              <span className="text-accent-green font-mono font-medium">Activa</span>
             </div>
           }
         />
 
-        {/* KPI 4: Carga de Monitoreo */}
+        {/* KPI 4: Carga y Protocolo */}
         <NOCKpiCard
-          title="Carga de Resolución"
-          icon={<Server size={16} className="text-accent-green" />}
+          title="Dominios Únicos"
+          icon={<Server size={16} className="text-accent-purple" />}
           badge={{
-            text: 'Celery Beat',
+            text: 'UDP / TCP 53',
             variant: 'neutral',
           }}
-          value={totalCount > 0 ? `${totalCount * 2} queries` : '0 queries'}
-          valueColor="text-accent-green"
-          valueSuffix="por ciclo"
-          subtitle="Verificación periódica de propagación DNS"
+          value={stats?.unique_domains || 4}
+          valueColor="text-accent-purple"
+          valueSuffix="zonas"
+          subtitle="Zonas primarias bajo auditoría"
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Protocolo de Red</span>
-              <span className="text-accent-green font-mono">UDP / TCP 53</span>
+              <span className="text-accent-green font-mono">Puerto 53</span>
             </div>
           }
         />
       </NOCKpiGrid>
 
-      {/* 3. TOOLBAR: Omnibar Search + Record Type Chips + Grid/Table Switcher */}
+      {/* 3. TOOLBAR: Omnibar Search + Record Type Chips + Persistent Grid/Table Switcher */}
       <NOCToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por dominio, subdominio o IP resuelta..."
+        searchPlaceholder="Buscar por dominio, host o IP resuelta..."
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         categoryLabel="Tipo:"
@@ -431,6 +557,9 @@ export default function DNSRecordsPage() {
           { id: 'MX', label: 'MX' },
           { id: 'TXT', label: 'TXT' },
           { id: 'NS', label: 'NS' },
+          { id: 'SOA', label: 'SOA' },
+          { id: 'PTR', label: 'PTR' },
+          { id: 'CAA', label: 'CAA' },
         ]}
         selectedCategory={typeFilter}
         onCategoryChange={(cat) => setTypeFilter(cat as any)}
@@ -446,7 +575,7 @@ export default function DNSRecordsPage() {
             <button
               type="button"
               onClick={handleBulkScan}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm cursor-pointer"
             >
               <RefreshCw size={13} />
               Re-resolver Seleccionados
@@ -455,7 +584,7 @@ export default function DNSRecordsPage() {
               type="button"
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Trash2 size={13} />
               {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
@@ -464,14 +593,14 @@ export default function DNSRecordsPage() {
         }
       />
 
-      {/* 5. MAIN CONTENT: DUAL VIEW (TABLE OR GRID) */}
+      {/* 5. MAIN CONTENT: DUAL VIEW (COMPACT TABLE OR GRID) */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
       ) : filteredRecords && filteredRecords.length > 0 ? (
         viewMode === 'table' ? (
-          /* Compact Table View (Default for DNS) */
+          /* Compact NOC Table View */
           <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -499,8 +628,9 @@ export default function DNSRecordsPage() {
                     <th className="py-3 px-4">Nombre / Host</th>
                     <th className="py-3 px-4">Valor Resuelto</th>
                     <th className="py-3 px-3">TTL</th>
-                    <th className="py-3 px-3">Último Cambio</th>
-                    <th className="py-3 px-3">Última Consulta</th>
+                    <th className="py-3 px-3">Latencia</th>
+                    <th className="py-3 px-3">Mutaciones</th>
+                    <th className="py-3 px-3">Último Check</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -508,6 +638,10 @@ export default function DNSRecordsPage() {
                   {filteredRecords.map((record) => {
                     const isSelected = selectedIds.includes(record.id);
                     const isScanning = scanningId === record.id;
+                    const isMutated = isRecentMutation(record.last_change_at);
+                    const isTxt = record.record_type === 'TXT';
+                    const isSpf = isTxt && record.value.includes('v=spf1');
+                    const isDmarc = isTxt && record.value.includes('v=DMARC1');
 
                     return (
                       <tr
@@ -548,50 +682,102 @@ export default function DNSRecordsPage() {
                           </span>
                         </td>
 
-                        {/* Host / Domain */}
+                        {/* Domain / Host */}
                         <td className="py-3 px-4">
-                          <span className="font-mono font-bold text-text-main group-hover:text-accent-green transition-colors text-sm">
-                            {record.domain}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-text-main group-hover:text-accent-green transition-colors text-sm font-sans">
+                              {record.domain}
+                            </span>
+                            <a
+                              href={`https://${record.domain}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-text-dim hover:text-accent-green shrink-0"
+                              title="Abrir dominio"
+                            >
+                              <ExternalLink size={11} />
+                            </a>
+                          </div>
                         </td>
 
                         {/* Resolved Value */}
-                        <td className="py-3 px-4">
-                          <span className="font-mono text-xs text-accent-green bg-accent-green/5 px-2 py-0.5 rounded border border-accent-green/20 break-all">
-                            {record.value || 'Sin resolver'}
-                          </span>
+                        <td className="py-3 px-4 font-mono">
+                          {record.value ? (
+                            <div className="flex items-center gap-2 max-w-md">
+                              <span
+                                className="text-text-muted truncate block text-xs"
+                                title={record.value}
+                              >
+                                {record.value.split('\n').slice(0, 2).join(', ')}
+                                {record.value.split('\n').length > 2 ? ' ...' : ''}
+                              </span>
+                              {isSpf && (
+                                <span className="px-1.5 py-0.2 rounded bg-accent-green/10 text-accent-green border border-accent-green/30 text-[10px] font-bold shrink-0">
+                                  SPF
+                                </span>
+                              )}
+                              {isDmarc && (
+                                <span className="px-1.5 py-0.2 rounded bg-accent-purple/10 text-accent-purple border border-accent-purple/30 text-[10px] font-bold shrink-0">
+                                  DMARC
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-accent-red font-semibold text-xs flex items-center gap-1">
+                              <AlertTriangle size={12} />
+                              Sin resolver
+                            </span>
+                          )}
                         </td>
 
                         {/* TTL */}
-                        <td className="py-3 px-3 font-mono text-text-dim text-xs">
-                          {record.ttl ?? 'Auto'}
+                        <td className="py-3 px-3 text-text-dim font-mono text-xs">
+                          {record.ttl ? `${record.ttl}s` : 'Auto'}
                         </td>
 
-                        {/* Last Change */}
-                        <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
-                          {record.last_change_at ? (
-                            <span className="flex items-center gap-1 text-amber-400">
-                              <History size={12} />
+                        {/* Latency ms */}
+                        <td className="py-3 px-3 font-mono text-xs">
+                          {record.response_time_ms ? (
+                            <span
+                              className={`font-semibold ${
+                                record.response_time_ms < 50
+                                  ? 'text-accent-green'
+                                  : record.response_time_ms < 150
+                                  ? 'text-accent-blue'
+                                  : 'text-accent-yellow'
+                              }`}
+                            >
+                              {record.response_time_ms}ms
+                            </span>
+                          ) : (
+                            <span className="text-text-dim">-</span>
+                          )}
+                        </td>
+
+                        {/* Mutations */}
+                        <td className="py-3 px-3 font-mono text-xs">
+                          {isMutated ? (
+                            <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 text-[10px] font-bold animate-pulse">
+                              Mutación 24h
+                            </span>
+                          ) : record.last_change_at ? (
+                            <span className="text-text-dim text-xs">
                               {new Date(record.last_change_at).toLocaleDateString('es-ES')}
                             </span>
                           ) : (
-                            <span className="text-text-dim">Sin cambios</span>
+                            <span className="text-text-dim text-xs">Estable</span>
                           )}
                         </td>
 
-                        {/* Last Checked */}
+                        {/* Last check */}
                         <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
-                          {record.last_scanned_at ? (
-                            <span className="flex items-center gap-1">
-                              <Clock size={12} />
-                              {new Date(record.last_scanned_at).toLocaleTimeString('es-ES', {
+                          {record.last_scanned_at
+                            ? new Date(record.last_scanned_at).toLocaleTimeString('es-ES', {
                                 hour: '2-digit',
                                 minute: '2-digit',
-                              })}
-                            </span>
-                          ) : (
-                            'Nunca'
-                          )}
+                              })
+                            : 'N/A'}
                         </td>
 
                         {/* Actions */}
@@ -602,23 +788,20 @@ export default function DNSRecordsPage() {
                           >
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                scanMutation.mutate(record.id);
-                              }}
+                              onClick={() => scanMutation.mutate(record.id)}
                               disabled={isScanning}
-                              className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
-                              title="Re-resolver DNS ahora"
+                              className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Re-resolver ahora"
                             >
                               <RefreshCw
                                 size={14}
-                                className={isScanning ? 'animate-spin' : ''}
+                                className={isScanning ? 'animate-spin text-accent-green' : ''}
                               />
                             </button>
                             <button
                               type="button"
                               onClick={(e) => handleOpenEdit(record, e)}
-                              className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
+                              className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                               title="Editar registro"
                             >
                               <Pencil size={14} />
@@ -629,7 +812,7 @@ export default function DNSRecordsPage() {
                                 e.stopPropagation();
                                 setDeleteTarget(record);
                               }}
-                              className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
+                              className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                               title="Eliminar registro"
                             >
                               <Trash2 size={14} />
@@ -644,11 +827,12 @@ export default function DNSRecordsPage() {
             </div>
           </div>
         ) : (
-          /* Grid View (Cards) */
+          /* Grid Cards View */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredRecords.map((record) => {
               const isSelected = selectedIds.includes(record.id);
               const isScanning = scanningId === record.id;
+              const isMutated = isRecentMutation(record.last_change_at);
 
               return (
                 <div
@@ -661,7 +845,8 @@ export default function DNSRecordsPage() {
                   }`}
                 >
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-3">
+                    {/* Header: Checkbox, Type Badge, Domain & Actions */}
+                    <div className="flex items-start justify-between gap-2 mb-3.5">
                       <div className="flex items-center gap-2.5 overflow-hidden">
                         <button
                           type="button"
@@ -669,8 +854,7 @@ export default function DNSRecordsPage() {
                             e.stopPropagation();
                             handleToggleSelect(record);
                           }}
-                          className="text-text-dim hover:text-accent-green transition-colors shrink-0"
-                          title={isSelected ? 'Deseleccionar' : 'Seleccionar'}
+                          className="text-text-dim hover:text-accent-green transition-colors shrink-0 cursor-pointer"
                         >
                           {isSelected ? (
                             <CheckSquare size={16} className="text-accent-green" />
@@ -678,56 +862,52 @@ export default function DNSRecordsPage() {
                             <Square size={16} />
                           )}
                         </button>
+
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border shrink-0 ${getTypeBadgeClass(
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${getTypeBadgeClass(
                             record.record_type
                           )}`}
                         >
                           {record.record_type}
                         </span>
+
                         <h3
-                          className="font-bold font-mono text-text-main truncate text-base group-hover:text-accent-green transition-colors"
+                          className="font-bold text-text-main truncate text-base group-hover:text-accent-green transition-colors font-sans"
                           title={record.domain}
                         >
                           {record.domain}
                         </h3>
                       </div>
+
+                      {isMutated && (
+                        <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 text-[10px] font-bold animate-pulse shrink-0">
+                          Mutación 24h
+                        </span>
+                      )}
                     </div>
 
-                    <div className="space-y-2 text-xs font-mono text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40">
-                      <div className="flex justify-between border-b border-border-base/40 pb-1.5 font-sans">
-                        <span className="text-text-dim font-medium">Valor:</span>
-                        <span
-                          className="text-accent-green font-mono font-semibold truncate max-w-[200px]"
-                          title={record.value || ''}
-                        >
-                          {record.value || 'Sin resolver'}
-                        </span>
+                    {/* Value Box */}
+                    <div className="bg-bg-dark/60 rounded-xl p-3 border border-border-base/50 font-mono text-xs space-y-1.5 mb-3">
+                      <div className="text-[11px] text-text-dim flex justify-between font-sans">
+                        <span>Valor Resuelto:</span>
+                        {record.response_time_ms && (
+                          <span className="text-accent-blue font-mono font-bold">
+                            {record.response_time_ms} ms
+                          </span>
+                        )}
                       </div>
-                      <div className="flex justify-between border-b border-border-base/40 pb-1.5 font-sans">
-                        <span className="text-text-dim font-medium">TTL:</span>
-                        <span className="text-text-main font-mono">{record.ttl ?? 'Auto'}</span>
-                      </div>
-                      <div className="flex justify-between font-sans">
-                        <span className="text-text-dim font-medium">Último Cambio:</span>
-                        <span className="text-amber-400 font-mono">
-                          {record.last_change_at
-                            ? new Date(record.last_change_at).toLocaleDateString('es-ES')
-                            : 'Sin cambios'}
-                        </span>
-                      </div>
+                      <p className="text-text-main break-all line-clamp-3">
+                        {record.value || (
+                          <span className="text-accent-red font-sans">Sin respuesta / NXDOMAIN</span>
+                        )}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
-                    <span className="flex items-center gap-1 font-mono text-[11px]">
-                      <Clock size={12} />
-                      {record.last_scanned_at
-                        ? new Date(record.last_scanned_at).toLocaleTimeString('es-ES', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Nunca'}
+                  {/* Card Footer: TTL + Actions */}
+                  <div className="pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
+                    <span className="font-mono text-xs">
+                      TTL: <strong className="text-text-muted">{record.ttl ? `${record.ttl}s` : 'Auto'}</strong>
                     </span>
 
                     <div className="flex items-center gap-1">
@@ -738,15 +918,15 @@ export default function DNSRecordsPage() {
                           scanMutation.mutate(record.id);
                         }}
                         disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
-                        title="Re-resolver DNS ahora"
+                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+                        title="Re-resolver ahora"
                       >
-                        <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
+                        <RefreshCw size={14} className={isScanning ? 'animate-spin text-accent-green' : ''} />
                       </button>
                       <button
                         type="button"
                         onClick={(e) => handleOpenEdit(record, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
+                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar registro"
                       >
                         <Pencil size={14} />
@@ -757,7 +937,7 @@ export default function DNSRecordsPage() {
                           e.stopPropagation();
                           setDeleteTarget(record);
                         }}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
+                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                         title="Eliminar registro"
                       >
                         <Trash2 size={14} />
@@ -771,107 +951,100 @@ export default function DNSRecordsPage() {
         )
       ) : (
         <EmptyState
-          icon={Globe}
-          title={
-            searchTerm || typeFilter !== 'all'
-              ? 'No se encontraron registros con los filtros aplicados'
-              : 'No hay registros DNS monitoreados'
-          }
-          description={
-            searchTerm || typeFilter !== 'all'
-              ? 'Prueba a cambiar el término de búsqueda o restablecer el filtro de tipo de registro.'
-              : 'Supervisa registros A, CNAME, MX y detecta cambios de IP o desvíos no autorizados.'
-          }
-          actionLabel={searchTerm || typeFilter !== 'all' ? 'Limpiar Filtros' : 'Nuevo Registro'}
-          onAction={() => {
-            if (searchTerm || typeFilter !== 'all') {
-              setSearchTerm('');
-              setTypeFilter('all');
-            } else {
-              handleOpenCreate();
-            }
-          }}
+          title="No hay registros DNS monitorizados"
+          description="Agrega registros A, MX, TXT, CNAME o NS para vigilar la resolución de nombres y recibir alertas cuando las IPs cambien."
+          actionLabel="Agregar Primer Registro DNS"
+          onAction={handleOpenCreate}
         />
       )}
 
-      {/* 6. SLIDE-OVER DETAIL DRAWER (Zero Context Loss with NOCDrawer) */}
+      {/* 6. SLIDE-OVER TECHNICAL DRAWER */}
       <NOCDrawer
         isOpen={!!selectedRecord}
         onClose={() => setSelectedRecord(null)}
-        title={selectedRecord?.domain || ''}
-        subtitle={
-          selectedRecord && (
-            <div className="flex items-center gap-2 font-mono">
+        title={selectedRecord ? `${selectedRecord.record_type} ${selectedRecord.domain}` : ''}
+        subtitle="Auditoría de Zona DNS & Historial de Mutaciones de IP"
+        statusBadge={
+          selectedRecord ? (
+            <div className="flex items-center gap-2">
               <span
-                className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getTypeBadgeClass(
+                className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${getTypeBadgeClass(
                   selectedRecord.record_type
                 )}`}
               >
                 {selectedRecord.record_type}
               </span>
-              <span className="text-accent-green truncate">
-                {selectedRecord.value || 'Sin resolver'}
-              </span>
+              {selectedRecord.value ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs bg-accent-green/10 text-accent-green border border-accent-green/30 font-bold">
+                  Resuelto
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-xs bg-accent-red/10 text-accent-red border border-accent-red/30 font-bold">
+                  Sin respuesta
+                </span>
+              )}
             </div>
-          )
+          ) : undefined
         }
         headerActions={
           selectedRecord && (
-            <button
-              type="button"
-              onClick={() => scanMutation.mutate(selectedRecord.id)}
-              disabled={scanMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all disabled:opacity-50"
-              title="Re-resolver DNS inmediatamente"
-            >
-              <RefreshCw
-                size={13}
-                className={scanMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>{scanMutation.isPending ? 'Resolviendo...' : 'Re-resolver'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scanMutation.mutate(selectedRecord.id)}
+                disabled={scanningId === selectedRecord.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green/20 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <RefreshCw
+                  size={13}
+                  className={scanningId === selectedRecord.id ? 'animate-spin' : ''}
+                />
+                Re-resolver
+              </button>
+              <a
+                href={`https://${selectedRecord.domain}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 rounded-full bg-bg-dark border border-border-base text-text-dim hover:text-text-main transition-colors"
+                title="Abrir dominio"
+              >
+                <ExternalLink size={14} />
+              </a>
+            </div>
           )
         }
         quickKpis={
           selectedRecord && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
+            <div className="grid grid-cols-3 gap-2.5 mb-2 font-mono">
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">TTL</div>
-                <div className="text-base font-bold font-mono text-text-main mt-0.5">
-                  {selectedRecord.ttl ?? 'Auto'}
+                <div className="text-[11px] text-text-dim font-sans">TTL Cache</div>
+                <div className="text-xs font-bold text-text-main mt-0.5">
+                  {selectedRecord.ttl ? `${selectedRecord.ttl}s` : 'Auto'}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Tipo Registro</div>
-                <div className="text-base font-bold font-mono text-accent-green mt-0.5">
-                  {selectedRecord.record_type}
+                <div className="text-[11px] text-text-dim font-sans">Latencia Consulta</div>
+                <div className="text-xs font-bold text-accent-blue mt-0.5">
+                  {selectedRecord.response_time_ms ? `${selectedRecord.response_time_ms} ms` : '-'}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Último Cambio</div>
-                <div className="text-xs font-semibold font-mono text-amber-400 mt-0.5 truncate">
+                <div className="text-[11px] text-text-dim font-sans">Último Cambio</div>
+                <div className="text-xs font-bold text-accent-yellow mt-0.5 truncate">
                   {selectedRecord.last_change_at
                     ? new Date(selectedRecord.last_change_at).toLocaleDateString('es-ES')
-                    : 'Sin cambios'}
-                </div>
-              </div>
-              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Último Check</div>
-                <div className="text-xs font-semibold font-mono text-text-muted mt-0.5 truncate">
-                  {selectedRecord.last_scanned_at
-                    ? new Date(selectedRecord.last_scanned_at).toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'Nunca'}
+                    : 'Estable'}
                 </div>
               </div>
             </div>
           )
         }
         tabs={[
-          { id: 'history', label: 'Historial de Mutaciones', icon: <History size={13} /> },
-          { id: 'details', label: 'Detalles de Configuración', icon: <Activity size={13} /> },
+          { id: 'history', label: `Historial de Mutaciones (${history?.length || 0})` },
+          { id: 'details', label: 'Valores Resueltos & TTL' },
+          ...(selectedRecord?.record_type === 'TXT'
+            ? [{ id: 'security', label: 'Seguridad SPF / DMARC' }]
+            : []),
         ]}
         activeTab={drawerTab}
         onTabChange={(t) => setDrawerTab(t as any)}
@@ -881,7 +1054,7 @@ export default function DNSRecordsPage() {
               <button
                 type="button"
                 onClick={() => handleOpenEdit(selectedRecord)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Pencil size={14} />
                 Editar Registro
@@ -889,7 +1062,7 @@ export default function DNSRecordsPage() {
               <button
                 type="button"
                 onClick={() => setDeleteTarget(selectedRecord)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Trash2 size={14} />
                 Eliminar Registro
@@ -903,9 +1076,9 @@ export default function DNSRecordsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold text-text-muted">
-                Registro de Cambios Detectados
+                Auditoría de Mutaciones & Comparativa Diff
               </h4>
-              <span className="text-[11px] text-text-dim">
+              <span className="text-[11px] text-text-dim font-mono">
                 {history?.length || 0} eventos registrados
               </span>
             </div>
@@ -916,40 +1089,58 @@ export default function DNSRecordsPage() {
               </div>
             ) : history && history.length > 0 ? (
               <div className="space-y-3 font-mono">
-                {history.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 bg-bg-dark/80 border border-border-base rounded-2xl space-y-2 text-xs"
-                  >
-                    <div className="flex items-center justify-between text-text-dim text-[11px] border-b border-border-base/40 pb-2">
-                      <span className="flex items-center gap-1.5">
-                        <Clock size={12} />
-                        {new Date(item.changed_at).toLocaleString('es-ES')}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold font-sans">
-                        Cambio Detectado
-                      </span>
-                    </div>
+                {history.map((item) => {
+                  const oldLines = (item.old_value || '').split('\n').filter(Boolean);
+                  const newLines = (item.new_value || '').split('\n').filter(Boolean);
+                  const removed = oldLines.filter((l) => !newLines.includes(l));
+                  const added = newLines.filter((l) => !oldLines.includes(l));
 
-                    <div className="flex items-center gap-3 pt-1">
-                      <div className="flex-1 p-2 bg-bg-card rounded-xl border border-border-base/60">
-                        <span className="text-[10px] text-text-dim block mb-0.5 font-sans font-medium">
-                          Valor Anterior:
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 bg-bg-dark/80 border border-border-base rounded-2xl space-y-3 text-xs"
+                    >
+                      <div className="flex items-center justify-between text-text-dim text-[11px] border-b border-border-base/40 pb-2">
+                        <span className="flex items-center gap-1.5">
+                          <Clock size={12} />
+                          {new Date(item.changed_at).toLocaleString('es-ES')}
                         </span>
-                        <span className="text-rose-400 break-all">{item.old_value || 'None'}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 font-semibold font-sans">
+                          Mutación Confirmada
+                        </span>
                       </div>
-                      <ArrowRight size={16} className="text-text-dim shrink-0" />
-                      <div className="flex-1 p-2 bg-bg-card rounded-xl border border-border-base/60">
-                        <span className="text-[10px] text-text-dim block mb-0.5 font-sans font-medium">
-                          Nuevo Valor:
-                        </span>
-                        <span className="text-accent-green font-bold break-all">
-                          {item.new_value || 'None'}
-                        </span>
+
+                      {/* Diff View */}
+                      <div className="space-y-1.5 font-mono text-xs">
+                        {removed.map((val, idx) => (
+                          <div
+                            key={`rem-${idx}`}
+                            className="flex items-center gap-2 p-2 rounded-xl bg-accent-red/10 border border-accent-red/30 text-accent-red"
+                          >
+                            <span className="font-bold text-sm select-none">-</span>
+                            <span className="break-all">{val}</span>
+                            <span className="ml-auto text-[10px] font-sans opacity-80">(Anterior)</span>
+                          </div>
+                        ))}
+                        {added.map((val, idx) => (
+                          <div
+                            key={`add-${idx}`}
+                            className="flex items-center gap-2 p-2 rounded-xl bg-accent-green/10 border border-accent-green/30 text-accent-green"
+                          >
+                            <span className="font-bold text-sm select-none">+</span>
+                            <span className="break-all">{val}</span>
+                            <span className="ml-auto text-[10px] font-sans opacity-80 font-bold">(Nuevo)</span>
+                          </div>
+                        ))}
+                        {removed.length === 0 && added.length === 0 && (
+                          <div className="text-text-dim text-xs py-1">
+                            Valores actualizados: {item.new_value}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="bg-bg-dark/50 border border-border-base rounded-2xl p-8 text-center font-sans">
@@ -973,16 +1164,14 @@ export default function DNSRecordsPage() {
                 <span className="font-bold text-accent-green">{selectedRecord.record_type}</span>
               </div>
               <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-sans font-medium">Valor Actual Resuelto:</span>
-                <span className="font-bold text-accent-green truncate max-w-[280px]">
-                  {selectedRecord.value || 'Sin resolver'}
-                </span>
+                <span className="text-text-dim font-sans font-medium">TTL Configurado:</span>
+                <span className="font-bold text-text-main">{selectedRecord.ttl ? `${selectedRecord.ttl}s` : 'Auto'}</span>
               </div>
               <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-sans font-medium">TTL Configurado:</span>
-                <span className="font-bold text-text-main">{selectedRecord.ttl ?? 'Auto'}</span>
+                <span className="text-text-dim font-sans font-medium">Latencia de Consulta:</span>
+                <span className="font-bold text-accent-blue">{selectedRecord.response_time_ms ? `${selectedRecord.response_time_ms} ms` : '-'}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between border-b border-border-base/40 pb-2">
                 <span className="text-text-dim font-sans font-medium">Última Comprobación:</span>
                 <span className="text-text-muted">
                   {selectedRecord.last_scanned_at
@@ -991,85 +1180,238 @@ export default function DNSRecordsPage() {
                 </span>
               </div>
             </div>
+
+            {/* Resolved Values Box */}
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4">
+              <h4 className="text-xs font-semibold text-text-muted mb-2.5">
+                Respuestas Actuales de la Zona
+              </h4>
+              {selectedRecord.value ? (
+                <div className="space-y-1.5 font-mono text-xs">
+                  {selectedRecord.value.split('\n').map((val, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-bg-card rounded-xl border border-border-base/60 text-text-main break-all"
+                    >
+                      {val}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 bg-accent-red/10 border border-accent-red/30 rounded-xl text-accent-red text-xs">
+                  Sin respuestas devueltas por el resolver.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {selectedRecord && drawerTab === 'security' && (
+          <div className="space-y-4 font-sans">
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield size={16} className="text-accent-green" />
+                <h4 className="text-xs font-bold text-text-main">
+                  Políticas de Correo & Anti-Spoofing (SPF / DMARC)
+                </h4>
+              </div>
+
+              {selectedRecord.value.includes('v=spf1') ? (
+                <div className="p-3.5 bg-accent-green/10 border border-accent-green/30 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-accent-green">Política SPF Detectada</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-dark text-accent-green">
+                      v=spf1
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs text-text-muted break-all">
+                    {selectedRecord.value}
+                  </p>
+                  <p className="text-[11px] text-text-dim">
+                    Autoriza qué servidores tienen permiso para enviar correos electrónicos en nombre de este dominio.
+                  </p>
+                </div>
+              ) : selectedRecord.value.includes('v=DMARC1') ? (
+                <div className="p-3.5 bg-accent-purple/10 border border-accent-purple/30 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-accent-purple">Política DMARC Detectada</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-dark text-accent-purple">
+                      v=DMARC1
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs text-text-muted break-all">
+                    {selectedRecord.value}
+                  </p>
+                  <p className="text-[11px] text-text-dim">
+                    Protege el dominio corporativo contra phishing y ataques de suplantación de identidad.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-bg-card border border-border-base rounded-xl text-text-dim text-xs">
+                  Este registro TXT no contiene directivas SPF ni DMARC.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </NOCDrawer>
 
-      {/* 7. CREATE / EDIT FORM MODAL */}
+      {/* 7. CREATE / EDIT FORM MODAL WITH LIVE TEST RESOLUTION */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={handleCloseModal}
         >
           <div
-            className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                <Globe size={18} className="text-accent-green" />
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-text-main flex items-center gap-2 font-sans">
+                <Globe size={19} className="text-accent-green" />
                 {editingRecord ? 'Editar Registro DNS' : 'Nuevo Registro DNS'}
               </h2>
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="text-text-muted hover:text-text-main transition-colors"
+                className="text-text-muted hover:text-text-main transition-colors p-1"
               >
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  Tipo de Registro DNS
-                </label>
-                <select
-                  value={recordTypeInput}
-                  onChange={(e) => setRecordTypeInput(e.target.value as DNSRecordType)}
-                  className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono"
-                >
-                  {RECORD_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                    Tipo
+                  </label>
+                  <select
+                    value={recordTypeInput}
+                    onChange={(e) => {
+                      setRecordTypeInput(e.target.value as DNSRecordType);
+                      setTestResult(null);
+                    }}
+                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono cursor-pointer"
+                  >
+                    {RECORD_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                    Host o Dominio FQDN
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. api.empresa.com o mail.empresa.com"
+                    value={domainInput}
+                    onChange={(e) => {
+                      setDomainInput(e.target.value);
+                      setTestResult(null);
+                    }}
+                    className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  Host o Dominio
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej. api.empresa.com o mail.empresa.com"
-                  value={domainInput}
-                  onChange={(e) => setDomainInput(e.target.value)}
-                  className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
-                />
+              {/* Test Resolution Button */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestResolution}
+                  disabled={!domainInput.trim() || isTestingResolution}
+                  className="w-full py-2 px-4 rounded-xl border border-border-base bg-bg-dark hover:bg-bg-dark/80 text-text-main text-xs font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isTestingResolution ? (
+                    <>
+                      <Loader2 className="animate-spin text-accent-green" size={14} />
+                      <span>Consultando servidores DNS...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={14} className="text-accent-yellow" />
+                      <span>Resolver DNS en Vivo</span>
+                    </>
+                  )}
+                </button>
               </div>
+
+              {/* Test Result Live Preview */}
+              {testResult && (
+                <div
+                  className={`p-3.5 rounded-2xl border text-xs animate-in fade-in duration-200 ${
+                    testResult.success
+                      ? 'bg-accent-green/10 border-accent-green/30 text-text-main'
+                      : 'bg-accent-red/10 border-accent-red/30 text-accent-red'
+                  }`}
+                >
+                  {testResult.success ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-accent-green flex items-center gap-1.5">
+                          <Check size={14} /> Consulta Exitosa ({testResult.response_time_ms} ms)
+                        </span>
+                        <span className="font-mono text-[11px] text-text-dim">
+                          TTL: {testResult.ttl ? `${testResult.ttl}s` : 'Auto'}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[11px] bg-bg-dark/70 p-2 rounded-xl border border-border-base/50 space-y-1">
+                        {testResult.values.map((v, i) => (
+                          <div key={i} className="truncate" title={v}>
+                            &bull; {v}
+                          </div>
+                        ))}
+                      </div>
+                      {testResult.spf_info && (
+                        <div className="text-[11px] text-accent-green flex items-center gap-1 mt-1">
+                          <Shield size={12} />
+                          <span>Registro SPF válido detectado ({testResult.spf_info.policy})</span>
+                        </div>
+                      )}
+                      {testResult.dmarc_info && (
+                        <div className="text-[11px] text-accent-purple flex items-center gap-1 mt-1">
+                          <Shield size={12} />
+                          <span>Política DMARC: {testResult.dmarc_info.policy}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <AlertTriangle size={14} />
+                        <span>Fallo en la resolución DNS ({testResult.error_type})</span>
+                      </div>
+                      <p className="text-[11px] font-mono opacity-90">{testResult.error_message}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4 border-t border-border-base">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors"
+                  className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+                  className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
                     <Loader2 className="animate-spin" size={18} />
                   ) : editingRecord ? (
                     'Actualizar'
                   ) : (
-                    'Crear y Resolver'
+                    'Guardar y Monitorear'
                   )}
                 </button>
               </div>

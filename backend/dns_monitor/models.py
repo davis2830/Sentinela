@@ -17,6 +17,9 @@ class DNSRecord(OrganizationOwnedModel):
         TXT = "TXT", "TXT"
         NS = "NS", "NS"
         CNAME = "CNAME", "CNAME"
+        SOA = "SOA", "SOA"
+        PTR = "PTR", "PTR"
+        CAA = "CAA", "CAA"
 
     domain = models.CharField(max_length=500)
     record_type = models.CharField(
@@ -25,6 +28,7 @@ class DNSRecord(OrganizationOwnedModel):
     )
     value = models.TextField(blank=True)
     ttl = models.IntegerField(null=True, blank=True)
+    response_time_ms = models.FloatField(null=True, blank=True)
     last_scanned_at = models.DateTimeField(null=True, blank=True)
     last_change_at = models.DateTimeField(null=True, blank=True)
 
