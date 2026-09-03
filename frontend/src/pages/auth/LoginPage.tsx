@@ -24,54 +24,56 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="bg-bg-card border border-border-base rounded-3xl p-7 sm:p-9 shadow-2xl relative overflow-hidden">
+      <div className="bg-bg-card border border-border-base rounded-3xl p-7 sm:p-9 xl:p-10 shadow-2xl relative overflow-hidden w-full font-sans">
         {/* Subtle top edge glow */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-80" />
+        <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-90" />
 
-        {/* Card Header with Official Sentinela Logo */}
-        <div className="text-center mb-7">
-          <div className="inline-flex p-3 rounded-2xl bg-bg-dark border border-border-base shadow-inner mb-3">
+        {/* Card Header */}
+        <div className="text-center mb-7 sm:mb-8">
+          {/* Logo badge: shown on desktop inside card; on mobile it is in the top header */}
+          <div className="hidden lg:inline-flex p-3.5 rounded-2xl bg-bg-dark border border-border-base shadow-inner mb-3.5">
             <img
               src="/logo.png"
               alt="Sentinela Logo"
-              className="h-10 w-auto object-contain drop-shadow-[0_0_12px_rgba(16,185,129,0.35)]"
+              className="h-11 w-auto object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.35)]"
             />
           </div>
-          <h2 className="text-2xl font-extrabold text-text-main tracking-tight font-sans">
+
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-text-main tracking-tight font-sans">
             Iniciar Sesión
           </h2>
-          <p className="text-xs text-text-muted mt-1 font-mono">
+          <p className="text-sm text-text-muted mt-1.5 font-sans">
             Acceso corporativo a la consola de operaciones
           </p>
         </div>
 
         {/* Success Alert */}
         {successMessage && (
-          <div className="mb-5 flex items-center gap-2.5 bg-accent-green/10 border border-accent-green/40 text-accent-green px-4 py-3 rounded-xl text-xs font-mono animate-in fade-in">
-            <CheckCircle2 size={16} className="shrink-0" />
+          <div className="mb-5 flex items-center gap-3 bg-accent-green/10 border border-accent-green/40 text-accent-green px-4 py-3 rounded-xl text-sm font-sans animate-in fade-in">
+            <CheckCircle2 size={18} className="shrink-0" />
             <span>{successMessage}</span>
           </div>
         )}
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-5 flex items-center gap-2.5 bg-accent-red/10 border border-accent-red/40 text-accent-red px-4 py-3 rounded-xl text-xs font-mono animate-in fade-in">
-            <AlertCircle size={16} className="shrink-0" />
+          <div className="mb-5 flex items-center gap-3 bg-accent-red/10 border border-accent-red/40 text-accent-red px-4 py-3 rounded-xl text-sm font-sans animate-in fade-in">
+            <AlertCircle size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email Field */}
           <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
+            <label className="block text-sm font-semibold text-text-muted mb-1.5 font-sans">
               Correo Electrónico
             </label>
             <div className="relative group">
               <Mail
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
-                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
+                size={19}
               />
               <input
                 type="email"
@@ -82,7 +84,7 @@ export default function LoginPage() {
                   clearError();
                 }}
                 required
-                className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-4 py-3 pl-11 text-sm text-text-main placeholder:text-text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent-green/20 transition-all font-sans"
+                className="w-full bg-bg-dark border border-border-base focus:border-accent-green rounded-xl px-4 py-3.5 pl-11 text-base text-text-main placeholder:text-text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent-green/20 transition-all font-sans"
               />
             </div>
           </div>
@@ -90,7 +92,7 @@ export default function LoginPage() {
           {/* Password Field */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-text-muted font-sans">
+              <label className="text-sm font-semibold text-text-muted font-sans">
                 Contraseña
               </label>
               <a
@@ -99,15 +101,15 @@ export default function LoginPage() {
                   e.preventDefault();
                   alert('Por favor contacta al administrador del sistema para restablecer tu contraseña.');
                 }}
-                className="text-[11px] text-accent-green hover:underline font-medium transition-colors"
+                className="text-xs text-accent-green hover:underline font-medium transition-colors font-sans"
               >
                 ¿Olvidaste tu contraseña?
               </a>
             </div>
             <div className="relative group">
               <Lock
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
-                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
+                size={19}
               />
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -118,21 +120,21 @@ export default function LoginPage() {
                   clearError();
                 }}
                 required
-                className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-4 py-3 pl-11 pr-11 text-sm text-text-main placeholder:text-text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent-green/20 transition-all font-sans"
+                className="w-full bg-bg-dark border border-border-base focus:border-accent-green rounded-xl px-4 py-3.5 pl-11 pr-11 text-base text-text-main placeholder:text-text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent-green/20 transition-all font-sans"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors p-1 cursor-pointer"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors p-1.5 cursor-pointer"
               >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
 
           {/* Remember Me Checkbox */}
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex items-center gap-2.5 pt-0.5">
             <input
               type="checkbox"
               id="rememberMe"
@@ -142,7 +144,7 @@ export default function LoginPage() {
             />
             <label
               htmlFor="rememberMe"
-              className="text-xs text-text-muted select-none cursor-pointer font-sans"
+              className="text-sm text-text-muted select-none cursor-pointer font-sans"
             >
               Recordar mi sesión en este equipo
             </label>
@@ -152,16 +154,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-2 py-3.5 px-4 rounded-xl font-bold text-sm bg-accent-green hover:bg-accent-green-glow text-black shadow-lg shadow-accent-green/20 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full mt-2 py-4 px-6 rounded-xl font-bold text-base bg-accent-green hover:bg-accent-green-glow text-black shadow-xl shadow-accent-green/20 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2.5 font-sans cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
-                <Loader2 className="animate-spin" size={18} />
+                <Loader2 className="animate-spin" size={20} />
                 <span>Autenticando credenciales...</span>
               </>
             ) : (
               <>
-                <LogIn size={18} />
+                <LogIn size={20} />
                 <span>Ingresar a la Plataforma</span>
               </>
             )}
@@ -170,16 +172,16 @@ export default function LoginPage() {
 
         {/* Footer Register Link */}
         <div className="mt-7 pt-5 border-t border-border-base/50 text-center">
-          <p className="text-xs text-text-muted">
+          <p className="text-sm text-text-muted font-sans">
             ¿Aún no tienes acceso?{' '}
             <Link to="/register" className="text-accent-green hover:underline font-semibold">
               Crear una cuenta aquí
             </Link>
           </p>
 
-          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-text-dim mt-4">
-            <Shield size={12} className="text-accent-green" />
-            <span>Sentinela NOC &bull; v1.0.0</span>
+          <div className="flex items-center justify-center gap-1.5 text-xs text-text-dim mt-4 font-sans">
+            <Shield size={14} className="text-accent-green" />
+            <span>Sentinela NOC &bull; <span className="font-mono">v1.0.0</span></span>
           </div>
         </div>
       </div>
