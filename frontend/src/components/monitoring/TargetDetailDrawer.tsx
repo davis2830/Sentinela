@@ -1,9 +1,42 @@
 import React, { useState } from 'react';
-import { X, RefreshCw, Download, Bell, Pencil, Globe, Server, Plug, Lock, Activity, ShieldCheck, Settings, List } from 'lucide-react';
-import type { MonitoringTarget } from '../../types/monitoring';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../services/api';
+import {
+  X,
+  RefreshCw,
+  Download,
+  Bell,
+  Pencil,
+  Globe,
+  Server,
+  Plug,
+  Lock,
+  Activity,
+  ShieldCheck,
+  Settings,
+  List,
+} from 'lucide-react';
+import type { MonitoringTarget, TimeseriesData, TimeseriesSummary } from '../../types/monitoring';
 import LatencyChart from './LatencyChart';
 import SLACard from './SLACard';
+import UptimeAvailabilityBar from './UptimeAvailabilityBar';
+import DowntimeIncidentsLog from './DowntimeIncidentsLog';
 import ChecksList from './ChecksList';
+
+const defaultSummary: TimeseriesSummary = {
+  uptime_percentage: 100,
+  total_checks: 0,
+  up_checks: 0,
+  down_checks: 0,
+  avg_latency: 0,
+  p50_latency: 0,
+  p90_latency: 0,
+  p99_latency: 0,
+  max_latency: 0,
+  min_latency: 0,
+  total_downtime_seconds: 0,
+  incidents_count: 0,
+};
 
 const typeIcons: Record<string, typeof Globe> = {
   http: Globe,
@@ -34,6 +67,21 @@ export default function TargetDetailDrawer({
   isScanning,
 }: TargetDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'metrics' | 'history' | 'config'>('metrics');
+  const [selectedPeriod, setSelectedPeriod] = useState<'24h' | '7d' | '30d'>('24h');
+
+  // Unified Timeseries & Incidents Query
+  const { data: tsData, isLoading: isLoadingTimeseries } = useQuery({
+    queryKey: ['target-timeseries', target.id, selectedPeriod],
+    queryFn: async () => {
+      const res = await api.get(`monitoring/${target.id}/timeseries/`, {
+        params: { period: selectedPeriod },
+      });
+      return res.data?.data as TimeseriesData;
+    },
+    refetchInterval: 30000,
+  });
+
+  const summary = tsData?.summary || defaultSummary;
   const Icon = typeIcons[target.target_type] || Globe;
   const status = target.last_status || 'unknown';
 
@@ -223,21 +271,33 @@ export default function TargetDetailDrawer({
         <div className="p-6 flex-1 space-y-6">
           {activeTab === 'metrics' && (
             <>
-              {/* SLA Availability Card */}
-              <div>
-                <h4 className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-2">
-                  <ShieldCheck size={14} className="text-accent-green" /> Nivel de Servicio SLA & Disponibilidad
-                </h4>
-                <SLACard targetId={target.id} />
-              </div>
+              {/* 1. SLA Availability Card with Period Selector */}
+              <SLACard
+                period={selectedPeriod}
+                onPeriodChange={setSelectedPeriod}
+                summary={summary}
+                targetInterval={target.interval}
+              />
 
-              {/* Latency History Chart */}
-              <div>
-                <h4 className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-2">
-                  <Activity size={14} className="text-accent-green" /> Tendencia de Latencia (Últimos Escaneos)
-                </h4>
-                <LatencyChart targetId={target.id} />
-              </div>
+              {/* 2. 30-Day Daily Availability Heatmap Bar */}
+              <UptimeAvailabilityBar
+                days={tsData?.daily_availability || []}
+                uptimePercentage={summary.uptime_percentage}
+              />
+
+              {/* 3. Recharts Continuous Latency Curve */}
+              <LatencyChart
+                timeseries={tsData?.timeseries || []}
+                summary={summary}
+                period={selectedPeriod}
+                isLoading={isLoadingTimeseries}
+              />
+
+              {/* 4. Exact Downtime Incidents Log */}
+              <DowntimeIncidentsLog
+                incidents={tsData?.incidents || []}
+                period={selectedPeriod}
+              />
             </>
           )}
 

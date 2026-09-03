@@ -1,198 +1,284 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../services/api';
-import type { MonitoringCheck } from '../../types/monitoring';
-import { TrendingUp, RefreshCw, Activity, Clock, Zap } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+  CartesianGrid,
+} from 'recharts';
+import type { TimeseriesPoint, TimeseriesSummary } from '../../types/monitoring';
+import { TrendingUp, RefreshCw, Zap, AlertTriangle } from 'lucide-react';
 
 interface LatencyChartProps {
-  targetId: string;
+  timeseries: TimeseriesPoint[];
+  summary: TimeseriesSummary;
+  period: '24h' | '7d' | '30d';
+  isLoading?: boolean;
 }
 
-export default function LatencyChart({ targetId }: LatencyChartProps) {
-  const [limit, setLimit] = React.useState(20);
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+}
 
-  const { data: checks, isLoading, refetch } = useQuery({
-    queryKey: ['target-checks-chart', targetId, limit],
-    queryFn: async () => {
-      const res = await api.get(`monitoring/${targetId}/checks/`, {
-        params: { limit },
-      });
-      return (res.data?.data || []) as MonitoringCheck[];
-    },
-    refetchInterval: 15000,
-  });
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (!active || !payload || !payload.length) return null;
 
+  const data: TimeseriesPoint = payload[0].payload;
+  const isDown = data.is_down || data.status === 'down';
+  const isSlow = data.status === 'slow';
+
+  return (
+    <div className="bg-bg-card border border-border-base rounded-xl p-3 shadow-2xl font-mono text-xs max-w-xs z-50">
+      <div className="text-text-dim text-[10px] mb-1.5 border-b border-border-base/50 pb-1 flex items-center justify-between gap-2">
+        <span>{data.label}</span>
+        {isDown ? (
+          <span className="text-accent-red font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-red" />
+            Caída Detectada
+          </span>
+        ) : isSlow ? (
+          <span className="text-accent-yellow font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow" />
+            Lentitud
+          </span>
+        ) : (
+          <span className="text-accent-green font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+            Normal
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-text-muted">Latencia Promedio:</span>
+          <span
+            className={`font-bold ${
+              isDown ? 'text-accent-red' : isSlow ? 'text-accent-yellow' : 'text-accent-green'
+            }`}
+          >
+            {data.latency !== null ? `${data.latency} ms` : 'Sin respuesta'}
+          </span>
+        </div>
+
+        {data.max_latency !== null && (
+          <div className="flex items-center justify-between gap-4 text-[11px]">
+            <span className="text-text-dim">Pico Máximo:</span>
+            <span className="text-text-main font-semibold">{data.max_latency} ms</span>
+          </div>
+        )}
+
+        {data.down_count > 0 && (
+          <div className="flex items-center justify-between gap-4 text-[11px] text-accent-red">
+            <span>Chequeos Fallidos:</span>
+            <span className="font-bold">{data.down_count}</span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4 text-[10px] text-text-dim pt-1 border-t border-border-base/30">
+          <span>Muestras en intervalo:</span>
+          <span>{data.total_count}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function LatencyChart({
+  timeseries,
+  summary,
+  period,
+  isLoading = false,
+}: LatencyChartProps) {
   if (isLoading) {
     return (
-      <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 flex items-center justify-center py-12">
+      <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 flex items-center justify-center py-16">
         <RefreshCw className="animate-spin text-accent-green" size={24} />
       </div>
     );
   }
 
-  // Reverse to show chronological left-to-right history
-  const history = [...(checks || [])].reverse();
+  const periodLabel =
+    period === '24h' ? 'Últimas 24 Horas' : period === '7d' ? 'Últimos 7 Días' : 'Últimos 30 Días';
 
-  // Calculate statistics
-  const validLatencies = history
-    .map((c) => c.latency)
-    .filter((l): l is number => l !== null && l !== undefined);
+  // Format chart data: replace null latency with 0 for continuous drawing
+  const chartData = timeseries.map((item) => ({
+    ...item,
+    displayLatency: item.latency !== null ? item.latency : 0,
+  }));
 
-  const avgLatency =
-    validLatencies.length > 0
-      ? Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length)
-      : 0;
-
-  const maxLatency = validLatencies.length > 0 ? Math.round(Math.max(...validLatencies)) : 0;
-  const minLatency = validLatencies.length > 0 ? Math.round(Math.min(...validLatencies)) : 0;
-
-  const getPercentile = (arr: number[], percentile: number) => {
-    if (arr.length === 0) return 0;
-    const sorted = [...arr].sort((a, b) => a - b);
-    const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return Math.round(sorted[Math.max(0, index)]);
-  };
-
-  const p50Latency = getPercentile(validLatencies, 50);
-  const p90Latency = getPercentile(validLatencies, 90);
-  const p99Latency = getPercentile(validLatencies, 99);
-
-  const maxChartHeight = Math.max(maxLatency, 300);
+  const maxVal = Math.max(...chartData.map((d) => d.displayLatency || 0), 100);
+  const yDomainMax = Math.ceil((maxVal * 1.15) / 50) * 50;
 
   return (
     <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 shadow-xl">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-border-base pb-4">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-border-base/50 pb-4">
+        <div>
           <div className="flex items-center gap-2 font-bold text-text-main text-base">
             <TrendingUp size={20} className="text-accent-green" />
-            Historial de Latencia en Tiempo Real (últimos {history.length} escaneos)
+            <span>Curva Continua de Latencia & Rendimiento ({periodLabel})</span>
           </div>
-          <div className="flex items-center gap-1.5 font-mono text-xs">
-            <span className="text-text-muted">MOSTRAR:</span>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-              className="bg-bg-dark border border-border-base rounded px-2 py-1 text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
-            >
-              <option value={20}>20 escaneos</option>
-              <option value={50}>50 escaneos</option>
-              <option value={100}>100 escaneos</option>
-              <option value={250}>250 escaneos</option>
-              <option value={500}>500 escaneos</option>
-            </select>
-          </div>
+          <p className="text-[11px] text-text-dim mt-0.5 font-sans">
+            Métricas de tiempo de respuesta en tiempo real con detección de picos y caídas
+          </p>
         </div>
 
         {/* Stats Pills */}
-        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
-          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Latencia promedio">
             <span className="text-text-muted">AVG:</span>
-            <span className="font-bold text-accent-green">{avgLatency}ms</span>
+            <span className="font-bold text-accent-green">{summary.avg_latency}ms</span>
           </div>
-          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Percentil 50 (Mediana)">
             <span className="text-text-muted">P50:</span>
-            <span className="font-bold text-accent-blue">{p50Latency}ms</span>
+            <span className="font-bold text-accent-blue">{summary.p50_latency}ms</span>
           </div>
-          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Percentil 90">
             <span className="text-text-muted">P90:</span>
-            <span className="font-bold text-accent-yellow">{p90Latency}ms</span>
+            <span className="font-bold text-accent-yellow">{summary.p90_latency}ms</span>
           </div>
-          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Percentil 99">
             <span className="text-text-muted">P99:</span>
-            <span className="font-bold text-accent-red">{p99Latency}ms</span>
+            <span className="font-bold text-accent-red">{summary.p99_latency}ms</span>
           </div>
-          <div className="bg-bg-dark border border-border-base px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Pico máximo registrado">
             <span className="text-text-muted">MAX:</span>
-            <span className="font-bold text-accent-yellow">{maxLatency}ms</span>
+            <span className="font-bold text-text-main">{summary.max_latency}ms</span>
           </div>
         </div>
       </div>
 
-      {/* Chart Bars Container */}
-      {history.length > 0 ? (
-        <div className="pt-6">
-          <div className="h-48 flex items-end gap-1.5 sm:gap-2">
-            {history.map((check, index) => {
-              const latency = check.latency || 0;
-              const heightPercent = Math.min(Math.max((latency / maxChartHeight) * 100, 8), 100);
+      {/* Recharts Area Chart */}
+      {chartData.length > 0 ? (
+        <div className="w-full">
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
 
-              let barBg = 'bg-accent-green/20 border-t-2 border-accent-green';
-              let textHex = 'text-accent-green';
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
 
-              if (check.status === 'down' || check.status === 'error') {
-                barBg = 'bg-accent-red/30 border-t-2 border-accent-red';
-                textHex = 'text-accent-red';
-              } else if (latency > 500 || check.status === 'slow') {
-                barBg = 'bg-accent-yellow/30 border-t-2 border-accent-yellow';
-                textHex = 'text-accent-yellow';
-              }
+                <XAxis
+                  dataKey="label"
+                  stroke="#64748B"
+                  tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'monospace' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#1E293B' }}
+                  interval="preserveStartEnd"
+                  minTickGap={40}
+                />
 
-              const timeStr = check.checked_at
-                ? new Date(check.checked_at).toLocaleTimeString('es-ES', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  })
-                : '-';
+                <YAxis
+                  stroke="#64748B"
+                  tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'monospace' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#1E293B' }}
+                  domain={[0, yDomainMax]}
+                  unit="ms"
+                />
 
-              return (
-                <div
-                  key={check.id || index}
-                  className="flex-1 h-full flex flex-col justify-end items-center gap-2 group relative cursor-pointer"
-                >
-                  {/* Hover Tooltip */}
-                  <div className="absolute -top-12 z-20 hidden group-hover:flex flex-col items-center bg-bg-dark border border-border-base text-text-main text-[11px] font-mono px-2.5 py-1 rounded shadow-2xl pointer-events-none whitespace-nowrap">
-                    <span className={`font-bold ${textHex}`}>{latency} ms</span>
-                    <span className="text-text-dim text-[10px]">{timeStr}</span>
-                  </div>
+                <Tooltip content={<CustomTooltip />} />
 
-                  {/* Latency Bar */}
-                  <div
-                    className={`w-full rounded-t-md transition-all duration-300 group-hover:opacity-100 ${barBg}`}
-                    style={{ height: `${heightPercent}%` }}
-                  ></div>
+                {/* Warning Latency Threshold Line at 500ms */}
+                <ReferenceLine
+                  y={500}
+                  stroke="#F59E0B"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: 'Alerta (500ms)',
+                    fill: '#F59E0B',
+                    fontSize: 10,
+                    position: 'insideTopRight',
+                    fontFamily: 'monospace',
+                  }}
+                />
 
-                  {/* Time Axis Label */}
-                  <span className="text-[10px] text-text-dim font-mono truncate max-w-[40px]">
-                    {index === history.length - 1
-                      ? 'Ahora'
-                      : new Date(check.checked_at).toLocaleTimeString('es-ES', {
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                  </span>
-                </div>
-              );
-            })}
+                <Area
+                  type="monotone"
+                  dataKey="displayLatency"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#latencyGradient)"
+                  dot={(props: any) => {
+                    const { cx, cy, payload } = props;
+                    if (payload && payload.is_down) {
+                      return (
+                        <circle
+                          key={`dot-down-${props.index}`}
+                          cx={cx}
+                          cy={cy}
+                          r={5}
+                          fill="#EF4444"
+                          stroke="#FFFFFF"
+                          strokeWidth={2}
+                          className="animate-pulse"
+                        />
+                      );
+                    }
+                    if (payload && payload.status === 'slow') {
+                      return (
+                        <circle
+                          key={`dot-slow-${props.index}`}
+                          cx={cx}
+                          cy={cy}
+                          r={3.5}
+                          fill="#F59E0B"
+                          stroke="#111720"
+                          strokeWidth={1.5}
+                        />
+                      );
+                    }
+                    return <></>;
+                  }}
+                  activeDot={{
+                    r: 5,
+                    fill: '#10b981',
+                    stroke: '#FFFFFF',
+                    strokeWidth: 2,
+                  }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
 
-          {/* Legend */}
-          <div className="mt-6 pt-4 border-t border-border-base/50 flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-text-muted">
+          {/* Legend and Realtime Indicator */}
+          <div className="mt-4 pt-3 border-t border-border-base/50 flex flex-wrap items-center justify-between gap-4 text-[11px] font-mono text-text-muted">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-xs bg-accent-green/30 border border-accent-green"></span>
-                <span>Normal (&lt;200ms)</span>
+                <span className="w-3 h-0.5 bg-accent-green" />
+                <span>Latencia Regular</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-xs bg-accent-yellow/30 border border-accent-yellow"></span>
-                <span>Moderada (&gt;200ms)</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-accent-yellow" />
+                <span>Lentitud (&gt;300ms)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-xs bg-accent-red/30 border border-accent-red"></span>
-                <span>Fallo / Caída (DOWN)</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-accent-red animate-pulse" />
+                <span>Caída / Fallo (DOWN)</span>
               </div>
             </div>
 
             <div className="flex items-center gap-1 text-text-dim">
-              <Zap size={14} className="text-accent-green" />
-              <span>Actualización en tiempo real (cada 15s)</span>
+              <Zap size={13} className="text-accent-green" />
+              <span>Actualización en vivo cada 30s</span>
             </div>
           </div>
         </div>
       ) : (
-        <div className="py-10 text-center text-text-dim font-mono text-xs">
-          No hay lecturas de latencia registradas para este target.
+        <div className="py-12 text-center text-text-dim font-mono text-xs">
+          No hay datos de telemetría registrados en este período.
         </div>
       )}
     </div>
