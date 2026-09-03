@@ -22,6 +22,7 @@ import {
   NOCDrawer,
 } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Activity,
   Lock,
@@ -67,7 +68,7 @@ export default function DashboardPage() {
   // State
   const [searchTerm, setSearchTerm] = useState('');
   const [perspective, setPerspective] = useState<PerspectiveMode>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('dashboard', 'grid');
   const [serviceTab, setServiceTab] = useState<ServiceTab>('all');
   const [selectedItem, setSelectedItem] = useState<InspectableItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);

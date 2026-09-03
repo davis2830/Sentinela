@@ -40,6 +40,7 @@ class SSLCertificateListView(APIView):
             cert = SSLMonitorService.create_certificate(
                 organization_id=org_id,
                 domain=serializer.validated_data["domain"],
+                port=serializer.validated_data.get("port", 443),
             )
             from .tasks import scan_ssl_certificate
             scan_ssl_certificate.delay(str(cert.id))
@@ -56,9 +57,10 @@ class SSLCertificateListView(APIView):
 
 
 class SSLCertificateDetailView(APIView):
-    """Endpoint for retrieving and deleting an SSL certificate.
+    """Endpoint for retrieving, updating, and deleting an SSL certificate.
 
     GET /api/v1/ssl-certificates/{id}/
+    PATCH /api/v1/ssl-certificates/{id}/
     DELETE /api/v1/ssl-certificates/{id}/
     """
 
@@ -78,13 +80,14 @@ class SSLCertificateDetailView(APIView):
     def patch(self, request, certificate_id):
         org_id = request.user.organization_id
         domain = request.data.get("domain")
+        port = request.data.get("port", 443)
         if not domain:
             return error_response(
                 "Domain is required.", status_code=status.HTTP_400_BAD_REQUEST
             )
         try:
             cert = SSLMonitorService.update_certificate_domain(
-                certificate_id, org_id, domain
+                certificate_id, org_id, domain, port=port
             )
             from .tasks import scan_ssl_certificate
             scan_ssl_certificate.delay(str(cert.id))
@@ -185,5 +188,49 @@ class SSLBulkScanView(APIView):
             from .tasks import scan_all_certificates
             scan_all_certificates.delay()
             return success_response({"message": "Re-escaneo masivo de certificados iniciado."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class SSLTestConnectionView(APIView):
+    """Endpoint to test SSL connection in real-time before saving.
+
+    POST /api/v1/ssl-certificates/test-connection/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        domain = request.data.get("domain", "").strip()
+        port = request.data.get("port", 443)
+        if not domain:
+            return error_response(
+                "El dominio es requerido para la prueba.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        result = SSLMonitorService.test_connection(domain, port=port)
+        return success_response(result)
+
+
+class SSLBulkActionView(APIView):
+    """Endpoint to execute bulk actions on certificates.
+
+    POST /api/v1/ssl-certificates/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        certificate_ids = request.data.get("certificate_ids", [])
+        if not action or not certificate_ids:
+            return error_response(
+                "Parámetros 'action' y 'certificate_ids' son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            res = SSLMonitorService.bulk_action(org_id, action, certificate_ids)
+            return success_response(res)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

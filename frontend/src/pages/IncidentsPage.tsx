@@ -24,6 +24,7 @@ import {
   NOCDrawer,
 } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   AlertOctagon,
   Plus,
@@ -69,7 +70,7 @@ export default function IncidentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('incidents', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drawerTab, setDrawerTab] = useState<'timeline' | 'alerts' | 'details'>('timeline');
   const [bulkProcessing, setBulkProcessing] = useState(false);

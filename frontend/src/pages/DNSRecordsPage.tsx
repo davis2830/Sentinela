@@ -19,6 +19,7 @@ import {
   NOCDrawer,
 } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Globe,
   Plus,
@@ -52,7 +53,7 @@ export default function DNSRecordsPage() {
   const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>('A');
   const [typeFilter, setTypeFilter] = useState<'all' | DNSRecordType>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table'); // Table by default for DNS records
+  const [viewMode, setViewMode] = usePersistentViewMode('dns_records', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DNSRecord | null>(null);

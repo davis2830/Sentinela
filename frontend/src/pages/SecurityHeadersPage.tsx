@@ -21,6 +21,7 @@ import {
   NOCDrawer,
 } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   ShieldCheck,
   Plus,
@@ -54,7 +55,7 @@ export default function SecurityHeadersPage() {
   const [deleteTarget, setDeleteTarget] = useState<SecurityHeaderTarget | null>(null);
   const [gradeFilter, setGradeFilter] = useState<GradeFilterType>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('security_headers', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [drawerTab, setDrawerTab] = useState<'found' | 'missing' | 'history'>('found');

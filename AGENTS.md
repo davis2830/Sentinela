@@ -38,8 +38,17 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - Test de Conexión en Vivo en [`TargetForm.tsx`](file:///frontend/src/components/monitoring/TargetForm.tsx) con endpoint `POST /api/v1/monitoring/test-connection/`.
   - Acciones en Lote (Bulk Actions) para escanear, pausar, reanudar o eliminar targets en masa (`POST /api/v1/monitoring/bulk-action/`).
   - Suavizado integral de geometría: Contenedores `rounded-2xl` y modales `rounded-3xl`, badges y filtros en cápsula `rounded-full`, y scrollbars sutiles.
-  - Adopción de tipografía **Outfit** (Google Fonts) en toda la UI, reservando monospace sólo para datos técnicos (IPs, puertos, latencia).
-- **Correcciones de entorno Docker:** Configuración de Celery en `backend/config/settings/base.py` optimizada para workers y broker Redis.
+- **Persistencia Global de Vistas (Listado vs Cuadros):**
+  - Creado [`usePersistentViewMode.ts`](file:///frontend/src/hooks/usePersistentViewMode.ts) con almacenamiento en `localStorage` por módulo.
+  - Implementado en los 9 módulos principales (`MonitoringPage`, `SSLCertificatesPage`, `DNSRecordsPage`, `DomainsPage`, `APIChecksPage`, `SecurityHeadersPage`, `IncidentsPage`, `DashboardPage`, `ReportsPage`). La vista seleccionada (tabla/lista vs grid) se preserva permanentemente tras actualizar con F5, auto-refresco o navegación entre rutas.
+- **Robustecimiento del Módulo de Monitoreo SSL (`SSLCertificatesPage.tsx` & `backend/ssl_monitor/`):**
+  - **Soporte Multi-Puerto y Servicios Especiales:** Soporte para puertos personalizados (`:443`, `:8443`, `:636` LDAPS, `:993` IMAP).
+  - **Grado de Seguridad Criptográfica:** Evaluación automática de seguridad TLS (`A+`, `A`, `B`, `F`) basada en versión TLS (1.3 / 1.2), vigencia y certificados válidos.
+  - **Timeline Visual de Vida Útil:** Micro-barra de progreso con porcentaje de vida del certificado transcurrido desde fecha de emisión hasta vencimiento.
+  - **Test de Conexión en Vivo:** Endpoint `POST /api/v1/ssl-certificates/test-connection/` y botón interactivo en el modal para probar la conexión TLS antes de registrar el certificado.
+  - **Acciones en Lote:** Endpoint `POST /api/v1/ssl-certificates/bulk-action/` para re-escanear o eliminar certificados en masa.
+  - **Exportación de Inventario SSL:** Descarga de reporte completo en formato CSV con vigencia, emisor, grado y SANs para auditorías ISO 27001.
+  - **Auditoría de SANs:** Búsqueda rápida de nombres alternativos y etiquetado automático de certificados Wildcard (`*.dominio.com`).
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
 
 ## 🎨 Paleta Oficial de Colores (Design System Tokens)

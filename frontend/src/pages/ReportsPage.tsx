@@ -14,6 +14,7 @@ import {
   NOCDrawer,
 } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   FileText,
   Plus,
@@ -47,7 +48,7 @@ export default function ReportsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ReportItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [viewMode, setViewMode] = usePersistentViewMode('reports', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drawerTab, setDrawerTab] = useState<'summary' | 'targets' | 'raw'>('summary');
   const [bulkDeleting, setBulkDeleting] = useState(false);
