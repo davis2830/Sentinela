@@ -45,6 +45,8 @@ import {
   ChevronRight,
   Filter,
   Loader2,
+  Info,
+  X,
 } from 'lucide-react';
 
 type PerspectiveMode = 'all' | 'issues' | 'services' | 'security';
@@ -68,6 +70,11 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [serviceTab, setServiceTab] = useState<ServiceTab>('all');
   const [selectedItem, setSelectedItem] = useState<InspectableItem | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [actionNotification, setActionNotification] = useState<{
+    message: string;
+    type: 'success' | 'info' | 'error';
+  } | null>(null);
 
   // Auto-refresh hook (15s countdown)
   const autoRefresh = useAutoRefresh({
@@ -157,22 +164,66 @@ export default function DashboardPage() {
   // Evaluate mutation for rules
   const evaluateMutation = useMutation({
     mutationFn: async () => {
-      await api.post('alert-rules/evaluate/');
+      const res = await api.post('alert-rules/evaluate/');
+      return res.data?.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dash-active-alerts'] });
       queryClient.invalidateQueries({ queryKey: ['dash-open-incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-ssl'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-domains'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-api-checks'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-sec-headers'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+
+      const msg = data?.message || 'Evaluación de reglas completada correctamente.';
+      setActionNotification({
+        message: msg,
+        type: 'success',
+      });
+      setTimeout(() => setActionNotification(null), 6000);
+    },
+    onError: (err: any) => {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        'Error al ejecutar la evaluación de reglas.';
+      setActionNotification({
+        message: errorMsg,
+        type: 'error',
+      });
+      setTimeout(() => setActionNotification(null), 6000);
     },
   });
 
-  const handleRefetchAll = () => {
-    refetchMon();
-    refetchSSL();
-    refetchDomains();
-    refetchAPI();
-    refetchSec();
-    refetchAlerts();
-    refetchIncidents();
+  const handleRefetchAll = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchMon(),
+        refetchSSL(),
+        refetchDomains(),
+        refetchAPI(),
+        refetchSec(),
+        refetchAlerts(),
+        refetchIncidents(),
+      ]);
+      setActionNotification({
+        message: 'Telemetría actualizada correctamente en vivo para todos los servicios.',
+        type: 'success',
+      });
+      setTimeout(() => setActionNotification(null), 5000);
+    } catch {
+      setActionNotification({
+        message: 'No fue posible completar la actualización de telemetría.',
+        type: 'error',
+      });
+      setTimeout(() => setActionNotification(null), 5000);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Metrics calculations
@@ -303,21 +354,25 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={handleRefetchAll}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all shadow-sm"
+              disabled={isRefreshing}
+              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all shadow-sm disabled:opacity-60"
               title="Revalidar toda la telemetría en vivo"
             >
-              <RefreshCw size={15} />
-              Actualizar Telemetría
+              <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+              <span>{isRefreshing ? 'Actualizando...' : 'Actualizar Telemetría'}</span>
             </button>
             <button
               type="button"
               onClick={() => evaluateMutation.mutate()}
               disabled={evaluateMutation.isPending}
-              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-medium px-4 py-2 rounded-full text-sm hover:bg-bg-dark transition-all disabled:opacity-50"
+              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-medium px-4 py-2 rounded-full text-sm hover:bg-bg-dark transition-all disabled:opacity-60"
               title="Evaluar todas las reglas de umbral ahora"
             >
-              <Sliders size={15} />
-              Evaluar Reglas
+              <Sliders
+                size={15}
+                className={evaluateMutation.isPending ? 'animate-spin text-accent-green' : ''}
+              />
+              <span>{evaluateMutation.isPending ? 'Evaluando Reglas...' : 'Evaluar Reglas'}</span>
             </button>
             <button
               type="button"
@@ -330,6 +385,37 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {/* Action Notification Banner */}
+      {actionNotification && (
+        <div
+          className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs font-sans animate-in fade-in slide-in-from-top-2 duration-200 ${
+            actionNotification.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : actionNotification.type === 'error'
+              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              : 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {actionNotification.type === 'success' && (
+              <CheckCircle2 size={16} className="shrink-0" />
+            )}
+            {actionNotification.type === 'error' && (
+              <AlertTriangle size={16} className="shrink-0" />
+            )}
+            {actionNotification.type === 'info' && <Info size={16} className="shrink-0" />}
+            <span className="font-medium">{actionNotification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionNotification(null)}
+            className="p-1 hover:bg-white/10 rounded-full transition-colors text-text-dim hover:text-text-main"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* 2. NOC COMMAND CENTER: 4 CONSOLIDATED KPI CARDS */}
       <NOCKpiGrid columns={4}>

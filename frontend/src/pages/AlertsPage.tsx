@@ -38,6 +38,8 @@ import {
   CheckCheck,
   CheckSquare,
   Flame,
+  Info,
+  X,
 } from 'lucide-react';
 
 type MainTab = 'alerts' | 'rules';
@@ -55,6 +57,10 @@ export default function AlertsPage() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('active');
   const [severityFilter, setSeverityFilter] = useState<FilterSeverity>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [actionNotification, setActionNotification] = useState<{
+    message: string;
+    type: 'success' | 'info' | 'error';
+  } | null>(null);
 
   // Auto-refresh hook (15s countdown)
   const autoRefresh = useAutoRefresh({
@@ -173,12 +179,30 @@ export default function AlertsPage() {
 
   const evaluateMutation = useMutation({
     mutationFn: async () => {
-      await api.post('alert-rules/evaluate/');
+      const res = await api.post('alert-rules/evaluate/');
+      return res.data?.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
       queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
       queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      const msg = data?.message || 'Evaluación de reglas completada correctamente.';
+      setActionNotification({
+        message: msg,
+        type: 'success',
+      });
+      setTimeout(() => setActionNotification(null), 6000);
+    },
+    onError: (err: any) => {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        'Error al evaluar las reglas de alerta.';
+      setActionNotification({
+        message: errorMsg,
+        type: 'error',
+      });
+      setTimeout(() => setActionNotification(null), 6000);
     },
   });
 
@@ -257,7 +281,9 @@ export default function AlertsPage() {
                 size={15}
                 className={evaluateMutation.isPending ? 'animate-spin' : ''}
               />
-              Evaluar Reglas Ahora
+              <span>
+                {evaluateMutation.isPending ? 'Evaluando Reglas...' : 'Evaluar Reglas Ahora'}
+              </span>
             </button>
             {activeTab === 'rules' && (
               <button
@@ -272,6 +298,37 @@ export default function AlertsPage() {
           </>
         }
       />
+
+      {/* Action Notification Banner */}
+      {actionNotification && (
+        <div
+          className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs font-sans animate-in fade-in slide-in-from-top-2 duration-200 ${
+            actionNotification.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : actionNotification.type === 'error'
+              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              : 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {actionNotification.type === 'success' && (
+              <CheckCircle2 size={16} className="shrink-0" />
+            )}
+            {actionNotification.type === 'error' && (
+              <AlertTriangle size={16} className="shrink-0" />
+            )}
+            {actionNotification.type === 'info' && <Info size={16} className="shrink-0" />}
+            <span className="font-medium">{actionNotification.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionNotification(null)}
+            className="p-1 hover:bg-white/10 rounded-full transition-colors text-text-dim hover:text-text-main"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
       <NOCKpiGrid columns={4}>
