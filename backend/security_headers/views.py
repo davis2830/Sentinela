@@ -59,9 +59,10 @@ class SecurityHeaderTargetListView(APIView):
 
 
 class SecurityHeaderTargetDetailView(APIView):
-    """Endpoint for retrieving and deleting a security header target.
+    """Endpoint for retrieving, updating, and deleting a security header target.
 
     GET /api/v1/security-headers/{id}/
+    PATCH /api/v1/security-headers/{id}/
     DELETE /api/v1/security-headers/{id}/
     """
 
@@ -77,6 +78,24 @@ class SecurityHeaderTargetDetailView(APIView):
             return error_response(
                 "Security header target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+    def patch(self, request, target_id):
+        org_id = request.user.organization_id
+        try:
+            target = SecurityHeadersService.update_target(
+                target_id,
+                org_id,
+                name=request.data.get("name"),
+                url=request.data.get("url"),
+                enabled=request.data.get("enabled"),
+            )
+            serializer = SecurityHeaderTargetSerializer(target)
+            return success_response(serializer.data)
+        except Exception as exc:
+            return error_response(
+                str(exc),
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
     def delete(self, request, target_id):
@@ -163,5 +182,48 @@ class SecurityHeaderBulkScanView(APIView):
             from .tasks import scan_all_security_headers
             scan_all_security_headers.delay()
             return success_response({"message": "Escaneo masivo de Security Headers iniciado."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class SecurityHeaderTestView(APIView):
+    """Endpoint to test security headers in real time before saving.
+
+    POST /api/v1/security-headers/test-headers/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        url = request.data.get("url", "").strip()
+        if not url:
+            return error_response(
+                "La URL es requerida para auditar las cabeceras.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        result = SecurityHeadersService.test_headers(url)
+        return success_response(result)
+
+
+class SecurityHeaderBulkActionView(APIView):
+    """Endpoint to execute bulk actions on security header targets.
+
+    POST /api/v1/security-headers/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        target_ids = request.data.get("target_ids", [])
+        if not action or not target_ids:
+            return error_response(
+                "Parámetros 'action' y 'target_ids' son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            res = SecurityHeadersService.bulk_action(org_id, action, target_ids)
+            return success_response(res)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

@@ -39,6 +39,7 @@ def scan_security_headers(self, target_id):
 
     try:
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        response_time_ms = int(response.elapsed.total_seconds() * 1000)
         raw_headers = dict(response.headers)
 
         analysis = SecurityHeadersService.analyze_headers(raw_headers)
@@ -47,17 +48,21 @@ def scan_security_headers(self, target_id):
             target_id=target.id,
             score=analysis["score"],
             grade=analysis["grade"],
+            response_time_ms=response_time_ms,
             headers_found=analysis["headers_found"],
             headers_missing=analysis["headers_missing"],
+            directives_analysis=analysis["directives_analysis"],
+            info_leaks=analysis["info_leaks"],
             raw_headers=raw_headers,
             error_message="",
         )
 
         logger.info(
-            "Security headers scan complete for %s: score=%s grade=%s",
+            "Security headers scan complete for %s: score=%s grade=%s latency=%sms",
             url,
             analysis["score"],
             analysis["grade"],
+            response_time_ms,
         )
 
     except requests.exceptions.Timeout:

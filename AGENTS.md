@@ -64,7 +64,14 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - **Auto-Generador Inteligente de Schema JSON (1-Clic):** Detección automática de campos y tipos de datos del JSON de respuesta (`string`, `integer`, `float`, `boolean`, `list`, `dict`) con ajuste automático de umbrales.
   - **Métricas de Latencia en Tiempo Real:** Campos `last_response_time_ms` y `last_http_status` en BD y serializador para mostrar en tarjetas y tabla la latencia real vs el umbral máximo (`155ms / < 2000ms`).
   - **Drawer Técnico con "Copiar cURL":** Botón con 1-clic para copiar la petición en formato cURL reproducible y pestaña de *"Test en Vivo"* para lanzar peticiones inmediatas.
-  - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/api-checks/bulk-action/` para escanear, pausar, reanudar o eliminar endpoints en masa, y botón de exportación CSV con UTF-8 BOM.
+- **Robustecimiento del Módulo de Cabeceras de Seguridad (`SecurityHeadersPage.tsx` & `backend/security_headers/`):**
+  - **Análisis Profundo de Directivas Criptográficas y de Calidad:** Evaluación rigurosa de directivas HSTS (`max-age >= 31536000`, `includeSubDomains`, `preload`), CSP (detección de riesgos `'unsafe-inline'`, `'unsafe-eval'`, `*`), XFO (`DENY`, `SAMEORIGIN`), MIME Sniffing (`nosniff`), Referrer Policy y Permissions Policy.
+  - **Detección Automática de Fugas de Información de Servidor (Server Leaks):** Detección de cabeceras que divulgan software y versiones (`Server: Apache/2.4`, `X-Powered-By: PHP`, `X-AspNet-Version`) con alertas visuales de vulnerabilidad CWE-200 / ISO 27001.
+  - **Test de Auditoría en Vivo en Modal:** Endpoint `POST /api/v1/security-headers/test-headers/` y botón interactivo *"Probar en Vivo"* en el formulario modal para previsualizar status HTTP, nota proyectada (A+ a F), puntaje numérico, latencia en ms, cabeceras detectadas y alertas de fugas antes de registrar.
+  - **Generador de Snippets de Remediación (1-Clic):** Pestaña interactiva en el Drawer con selector de servidor web (**Nginx**, **Apache .htaccess**, **Caddy**, **Cloudflare**, **IIS web.config**) y botón para copiar en 1-clic el bloque de configuración exacto listo para producción.
+  - **Slide-Over Drawer con 4 Pestañas Especializadas:** Auditoría de Cabeceras, Remediación & Snippets, Fugas de Stack & Cabeceras Raw (con buscador de headers), e Historial de Escaneos.
+  - **Micro-Badges y Telemetría en Vistas:** Indicadores rápidos de protección (`HSTS`, `CSP`, `XFO`), badge pulsante de *"Fuga de Stack"* y latencia de respuesta en ms en tarjetas y tabla.
+  - **Acciones en Lote Atómicas & Exportación CSV:** Endpoint `POST /api/v1/security-headers/bulk-action/` para escanear, pausar, reanudar o eliminar en masa, más exportación a CSV con codificación UTF-8 BOM.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
 
 ## 🎨 Paleta Oficial de Colores (Design System Tokens)
