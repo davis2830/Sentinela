@@ -81,3 +81,43 @@ class UserRole(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.role.name}"
+
+
+class Team(models.Model):
+    """Team / Workgroup within an organization.
+
+    Examples: SRE Team, NOC Tier 1, SecOps, DBA Team, Cloud Infrastructure
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="teams",
+    )
+    lead = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="led_teams",
+    )
+    contact_email = models.EmailField(blank=True, default="")
+    members = models.ManyToManyField(
+        "accounts.User",
+        related_name="teams",
+        blank=True,
+    )
+    color = models.CharField(max_length=30, default="#10B981")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        db_table = "users_team"
+        unique_together = ("name", "organization")
+
+    def __str__(self):
+        return self.name

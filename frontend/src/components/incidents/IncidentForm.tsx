@@ -2,18 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { Incident, CreateIncidentData, IncidentPriority } from '../../types/incidents';
+import type { Team } from '../../types/users';
 import {
   X,
   Loader2,
   AlertOctagon,
   Flame,
   UserCheck,
+  User,
   Server,
   Globe,
   Lock,
   Activity,
   Plug,
   Shield,
+  Layers,
 } from 'lucide-react';
 
 interface IncidentFormProps {
@@ -62,6 +65,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
   const [impactedService, setImpactedService] = useState('');
   const [targetType, setTargetType] = useState('monitoring');
   const [assignedTo, setAssignedTo] = useState<string>('');
+  const [assignedTeam, setAssignedTeam] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   // Fetch team members for assignee dropdown
@@ -78,6 +82,20 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
     staleTime: 60000,
   });
 
+  // Fetch squads/teams for team assignment dropdown
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ['teams-list-select'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('users/teams/');
+        return (response.data?.data || []) as Team[];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60000,
+  });
+
   useEffect(() => {
     if (incident) {
       setTitle(incident.title);
@@ -86,6 +104,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
       setImpactedService(incident.impacted_service || '');
       setTargetType(incident.target_type || 'monitoring');
       setAssignedTo(incident.assigned_to || '');
+      setAssignedTeam(incident.assigned_team || '');
     } else {
       setTitle('');
       setDescription('');
@@ -93,6 +112,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
       setImpactedService('');
       setTargetType('monitoring');
       setAssignedTo('');
+      setAssignedTeam('');
     }
   }, [incident]);
 
@@ -109,6 +129,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
         impacted_service: impactedService.trim() || undefined,
         target_type: targetType || undefined,
         assigned_to: assignedTo || null,
+        assigned_team: assignedTeam || null,
       });
       onClose();
     } finally {
@@ -221,26 +242,47 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
             </div>
           </div>
 
-          {/* Assignee Selection */}
-          <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center gap-1.5">
-              <UserCheck size={14} className="text-accent-green" />
-              Ingeniero o Responsable Asignado
-            </label>
-            <select
-              value={assignedTo}
-              onChange={(e) => setAssignedTo(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
-            >
-              <option value="">-- Sin asignar (Albergar en cola NOC) --</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.first_name || m.last_name
-                    ? `${m.first_name} ${m.last_name} (${m.email})`
-                    : m.email}
-                </option>
-              ))}
-            </select>
+          {/* Assignee & Team Selection */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center gap-1.5">
+                <UserCheck size={14} className="text-accent-green" />
+                Ingeniero Responsable
+              </label>
+              <select
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
+              >
+                <option value="">-- Sin asignar (Albergar en cola) --</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.first_name || m.last_name
+                      ? `${m.first_name} ${m.last_name} (${m.email})`
+                      : m.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center gap-1.5">
+                <Layers size={14} className="text-accent-purple" />
+                Cuadrilla / Equipo Asignado
+              </label>
+              <select
+                value={assignedTeam}
+                onChange={(e) => setAssignedTeam(e.target.value)}
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
+              >
+                <option value="">-- Sin equipo asignado --</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Description */}

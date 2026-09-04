@@ -15,6 +15,9 @@ export interface MonitoringTarget {
   last_status: string | null;
   last_latency: number | null;
   tags?: string[];
+  owner_team?: string | null;
+  owner_team_name?: string | null;
+  owner_team_color?: string | null;
   recent_checks?: RecentCheckItem[];
   created_at: string;
   updated_at: string;
@@ -56,6 +59,7 @@ export interface CreateTargetData {
   request_body?: string;
   max_latency_ms?: number;
   tags?: string[];
+  owner_team?: string | null;
 }
 
 export interface UpdateTargetData {
@@ -70,6 +74,7 @@ export interface UpdateTargetData {
   request_body?: string;
   max_latency_ms?: number;
   tags?: string[];
+  owner_team?: string | null;
 }
 
 export interface TimeseriesPoint {

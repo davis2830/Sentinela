@@ -37,6 +37,7 @@ class MonitoringService:
         interval=60,
         enabled=True,
         tags=None,
+        owner_team=None,
     ):
         """Create a new monitoring target.
 
@@ -48,10 +49,16 @@ class MonitoringService:
             interval: Check interval in seconds (default 60).
             enabled: Whether checks are active (default True).
             tags: List of custom string tags.
+            owner_team: UUID of the assigned owner team.
 
         Returns:
             The created MonitoringTarget instance.
         """
+        owner_team_obj = None
+        if owner_team:
+            from users.models import Team
+            owner_team_obj = Team.objects.filter(id=owner_team, organization_id=organization_id).first()
+
         target = MonitoringTarget.objects.create(
             organization_id=organization_id,
             name=name,
@@ -60,6 +67,7 @@ class MonitoringService:
             interval=interval,
             enabled=enabled,
             tags=tags or [],
+            owner_team=owner_team_obj,
         )
         # Asynchronously register in submonitors after transaction commits
         from .tasks import register_target_in_submonitors
@@ -74,6 +82,14 @@ class MonitoringService:
         target = MonitoringTarget.objects.get(
             id=target_id, organization_id=organization_id
         )
+        if "owner_team" in fields:
+            team_val = fields.pop("owner_team")
+            if team_val:
+                from users.models import Team
+                target.owner_team = Team.objects.filter(id=team_val, organization_id=organization_id).first()
+            else:
+                target.owner_team = None
+
         for field, value in fields.items():
             if value is not None:
                 setattr(target, field, value)

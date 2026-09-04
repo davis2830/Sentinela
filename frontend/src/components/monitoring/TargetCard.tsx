@@ -1,4 +1,4 @@
-import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity, Check } from 'lucide-react';
+import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -271,11 +271,24 @@ export default function TargetCard({
 
       {/* Bottom row: Protocol, Interval, Latency & Switch */}
       <div className="flex items-center justify-between pt-2.5 border-t border-border-base/30 text-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
             {target.target_type}
           </span>
           <span className="text-text-dim text-[11px]">cada {target.interval}s</span>
+          {target.owner_team_name && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+              style={{
+                backgroundColor: `${target.owner_team_color || '#8B5CF6'}15`,
+                borderColor: `${target.owner_team_color || '#8B5CF6'}40`,
+                color: target.owner_team_color || '#A78BFA',
+              }}
+            >
+              <Layers size={10} className="shrink-0" />
+              <span className="truncate max-w-[100px]">{target.owner_team_name}</span>
+            </span>
+          )}
         </div>
 
         <button

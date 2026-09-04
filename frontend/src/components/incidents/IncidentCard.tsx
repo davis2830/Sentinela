@@ -18,6 +18,7 @@ import {
   Shield,
   Server,
   Flame,
+  Layers,
 } from 'lucide-react';
 
 export interface IncidentCardProps {
@@ -135,10 +136,24 @@ export default function IncidentCard({
               <UserCheck size={12} />
               <span className="truncate max-w-[140px]">{incident.assigned_to_name}</span>
             </span>
-          ) : (
+          ) : !incident.assigned_team_name ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-bg-dark border border-border-base text-text-dim text-xs">
               <User size={12} />
               <span>Sin asignar</span>
+            </span>
+          ) : null}
+
+          {incident.assigned_team_name && (
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border"
+              style={{
+                backgroundColor: `${incident.assigned_team_color || '#8B5CF6'}15`,
+                borderColor: `${incident.assigned_team_color || '#8B5CF6'}40`,
+                color: incident.assigned_team_color || '#A78BFA',
+              }}
+            >
+              <Layers size={11} className="shrink-0" />
+              <span className="truncate max-w-[130px]">{incident.assigned_team_name}</span>
             </span>
           )}
         </div>

@@ -25,6 +25,9 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_status",
             "last_latency",
             "tags",
+            "owner_team",
+            "owner_team_name",
+            "owner_team_color",
             "recent_checks",
             "created_at",
             "updated_at",
@@ -35,12 +38,16 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_checked_at",
             "last_status",
             "last_latency",
+            "owner_team_name",
+            "owner_team_color",
             "recent_checks",
             "created_at",
             "updated_at",
         )
 
     recent_checks = serializers.SerializerMethodField()
+    owner_team_name = serializers.CharField(source="owner_team.name", read_only=True, allow_null=True)
+    owner_team_color = serializers.CharField(source="owner_team.color", read_only=True, allow_null=True)
 
     def get_recent_checks(self, obj):
         checks = obj.checks.order_by("-checked_at")[:20]
@@ -70,6 +77,7 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     request_body = serializers.CharField(required=False, default="", allow_blank=True)
     max_latency_ms = serializers.IntegerField(required=False, default=2000)
     tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    owner_team = serializers.UUIDField(required=False, allow_null=True)
 
 
 class MonitoringTargetUpdateSerializer(serializers.Serializer):
@@ -88,6 +96,7 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
     request_body = serializers.CharField(required=False, allow_blank=True)
     max_latency_ms = serializers.IntegerField(required=False)
     tags = serializers.ListField(child=serializers.CharField(), required=False)
+    owner_team = serializers.UUIDField(required=False, allow_null=True)
 
 
 class MonitoringCheckSerializer(serializers.ModelSerializer):

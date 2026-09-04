@@ -176,9 +176,13 @@ class IncidentService:
 
     @staticmethod
     @transaction.atomic
-    def assign_incident(incident_id, organization_id, user_id=None, actor_name="Sistema"):
-        """Assign or unassign an incident to a team member."""
+    def assign_incident(
+        incident_id, organization_id, user_id=None, team_id=None, actor_name="Sistema"
+    ):
+        """Assign or unassign an incident to a team member and/or squad."""
         incident = Incident.objects.get(id=incident_id, organization_id=organization_id)
+        fields_to_update = []
+        descriptions = []
 
         if user_id:
             try:
@@ -186,29 +190,40 @@ class IncidentService:
                 user_name = user.get_full_name() or user.email
                 incident.assigned_to = user
                 incident.assigned_to_name = user_name
-                incident.save(update_fields=["assigned_to", "assigned_to_name"])
-
-                IncidentTimelineEvent.objects.create(
-                    incident=incident,
-                    event_type=IncidentTimelineEvent.EventType.ASSIGNED,
-                    description=f"Asignado formalmente a {user_name}",
-                    new_value=user_name,
-                    actor_name=actor_name,
-                )
+                fields_to_update.extend(["assigned_to", "assigned_to_name"])
+                descriptions.append(f"Asignado formalmente a {user_name}")
             except User.DoesNotExist:
                 raise ValueError("Usuario no encontrado.")
-        else:
+        elif user_id is False:
             old_assignee = incident.assigned_to_name
             incident.assigned_to = None
             incident.assigned_to_name = ""
-            incident.save(update_fields=["assigned_to", "assigned_to_name"])
+            fields_to_update.extend(["assigned_to", "assigned_to_name"])
+            descriptions.append(f"Asignación de operador removida (anterior: {old_assignee or 'ninguno'})")
 
+        if team_id:
+            from users.models import Team
+            try:
+                team = Team.objects.get(id=team_id, organization_id=organization_id)
+                incident.assigned_team = team
+                incident.assigned_team_name = team.name
+                fields_to_update.extend(["assigned_team", "assigned_team_name"])
+                descriptions.append(f"Asignado al equipo {team.name}")
+            except Team.DoesNotExist:
+                raise ValueError("Equipo no encontrado.")
+        elif team_id is False:
+            old_team = incident.assigned_team_name
+            incident.assigned_team = None
+            incident.assigned_team_name = ""
+            fields_to_update.extend(["assigned_team", "assigned_team_name"])
+            descriptions.append(f"Asignación de equipo removida (anterior: {old_team or 'ninguno'})")
+
+        if fields_to_update:
+            incident.save(update_fields=fields_to_update)
             IncidentTimelineEvent.objects.create(
                 incident=incident,
                 event_type=IncidentTimelineEvent.EventType.ASSIGNED,
-                description=f"Asignación removida (anterior: {old_assignee or 'ninguno'})",
-                old_value=old_assignee,
-                new_value="",
+                description=" y ".join(descriptions) or "Asignación actualizada",
                 actor_name=actor_name,
             )
 

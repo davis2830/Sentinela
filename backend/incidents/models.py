@@ -48,6 +48,14 @@ class Incident(OrganizationOwnedModel):
         related_name="assigned_incidents",
     )
     assigned_to_name = models.CharField(max_length=255, blank=True, default="")
+    assigned_team = models.ForeignKey(
+        "users.Team",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_incidents",
+    )
+    assigned_team_name = models.CharField(max_length=255, blank=True, default="")
 
     # Impacted Service & Correlation
     impacted_service = models.CharField(max_length=255, blank=True, default="")

@@ -29,6 +29,9 @@ export interface Incident {
   priority: IncidentPriority;
   assigned_to?: string | null;
   assigned_to_name?: string;
+  assigned_team?: string | null;
+  assigned_team_name?: string;
+  assigned_team_color?: string | null;
   impacted_service?: string;
   target_type?: string;
   target_id?: string | null;
@@ -54,6 +57,7 @@ export interface CreateIncidentData {
   target_type?: string;
   target_id?: string | null;
   assigned_to?: string | null;
+  assigned_team?: string | null;
 }
 
 export interface UpdateIncidentData {
@@ -62,6 +66,7 @@ export interface UpdateIncidentData {
   description?: string;
   impacted_service?: string;
   assigned_to?: string | null;
+  assigned_team?: string | null;
   root_cause?: string;
   resolution_summary?: string;
   preventive_actions?: string;

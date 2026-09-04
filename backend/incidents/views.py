@@ -281,6 +281,7 @@ class IncidentAssignView(APIView):
                 incident_id=incident_id,
                 organization_id=org_id,
                 user_id=serializer.validated_data.get("user_id"),
+                team_id=serializer.validated_data.get("team_id"),
                 actor_name=actor_name,
             )
             response_serializer = IncidentSerializer(incident)

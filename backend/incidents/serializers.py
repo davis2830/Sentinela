@@ -20,6 +20,9 @@ class IncidentSerializer(serializers.ModelSerializer):
             "priority",
             "assigned_to",
             "assigned_to_name",
+            "assigned_team",
+            "assigned_team_name",
+            "assigned_team_color",
             "impacted_service",
             "target_type",
             "target_id",
@@ -50,6 +53,9 @@ class IncidentSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
+    def get_assigned_team_color(self, obj):
+        return obj.assigned_team.color if obj.assigned_team else None
+
     def get_alerts_count(self, obj):
         return obj.incident_alerts.count()
 
@@ -74,6 +80,7 @@ class IncidentCreateSerializer(serializers.Serializer):
     target_type = serializers.CharField(required=False, allow_blank=True, default="")
     target_id = serializers.UUIDField(required=False, allow_null=True)
     assigned_to = serializers.UUIDField(required=False, allow_null=True)
+    assigned_team = serializers.UUIDField(required=False, allow_null=True)
 
 
 class IncidentUpdateSerializer(serializers.Serializer):
@@ -89,6 +96,7 @@ class IncidentUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True)
     impacted_service = serializers.CharField(required=False, allow_blank=True)
     assigned_to = serializers.UUIDField(required=False, allow_null=True)
+    assigned_team = serializers.UUIDField(required=False, allow_null=True)
     root_cause = serializers.CharField(required=False, allow_blank=True)
     resolution_summary = serializers.CharField(required=False, allow_blank=True)
     preventive_actions = serializers.CharField(required=False, allow_blank=True)
@@ -103,9 +111,10 @@ class IncidentRCASerializer(serializers.Serializer):
 
 
 class IncidentAssignSerializer(serializers.Serializer):
-    """Serializer for assigning an incident to a user."""
+    """Serializer for assigning an incident to a user and/or team."""
 
     user_id = serializers.UUIDField(required=False, allow_null=True)
+    team_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class IncidentBulkActionSerializer(serializers.Serializer):

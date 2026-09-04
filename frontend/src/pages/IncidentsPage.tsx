@@ -29,6 +29,7 @@ import {
 } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
+import type { Team } from '../types/users';
 import {
   AlertOctagon,
   Plus,
@@ -58,6 +59,7 @@ import {
   Download,
   AlertTriangle,
   ArrowRight,
+  Layers,
 } from 'lucide-react';
 
 const LIFECYCLE_STEPS: { status: IncidentStatus; label: string; icon: any }[] = [
@@ -99,6 +101,7 @@ export default function IncidentsPage() {
   const [rcaResolutionSummary, setRcaResolutionSummary] = useState('');
   const [rcaPreventiveActions, setRcaPreventiveActions] = useState('');
   const [assigneeState, setAssigneeState] = useState('');
+  const [teamAssigneeState, setTeamAssigneeState] = useState('');
 
   // Auto-refresh hook (15s countdown)
   const autoRefresh = useAutoRefresh({
@@ -113,6 +116,7 @@ export default function IncidentsPage() {
       setRcaResolutionSummary(selectedIncident.resolution_summary || '');
       setRcaPreventiveActions(selectedIncident.preventive_actions || '');
       setAssigneeState(selectedIncident.assigned_to || '');
+      setTeamAssigneeState(selectedIncident.assigned_team || '');
     }
   }, [selectedIncident]);
 
@@ -143,6 +147,20 @@ export default function IncidentsPage() {
       try {
         const response = await api.get('organizations/members/');
         return (response.data?.data || response.data || []) as Member[];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60000,
+  });
+
+  // Teams Query for quick assignment
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ['teams-list-select'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('users/teams/');
+        return (response.data?.data || []) as Team[];
       } catch {
         return [];
       }
@@ -261,8 +279,16 @@ export default function IncidentsPage() {
 
   // Quick Assign Mutation
   const assignMutation = useMutation({
-    mutationFn: async ({ id, assigned_to }: { id: string; assigned_to: string | null }) => {
-      const response = await api.post(`incidents/${id}/assign/`, { assigned_to });
+    mutationFn: async ({
+      id,
+      assigned_to,
+      assigned_team,
+    }: {
+      id: string;
+      assigned_to?: string | null;
+      assigned_team?: string | null;
+    }) => {
+      const response = await api.post(`incidents/${id}/assign/`, { assigned_to, assigned_team });
       return response.data?.data as Incident;
     },
     onSuccess: (updated) => {
@@ -351,6 +377,7 @@ export default function IncidentsPage() {
     assignMutation.mutate({
       id: selectedIncident.id,
       assigned_to: assigneeState || null,
+      assigned_team: teamAssigneeState || null,
     });
   };
 
@@ -1108,42 +1135,71 @@ export default function IncidentsPage() {
         {/* Tab 4: Details, Assignee & SLA */}
         {selectedIncident && drawerTab === 'details' && (
           <div className="space-y-5 text-xs font-sans">
-            {/* Operator Assignment Card */}
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
-              <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
-                <UserCheck size={15} className="text-sky-400" />
-                Asignación de Operador / Ingeniero Responsable
-              </h4>
-              <p className="text-[11px] text-text-dim">
-                Asigna el incidente a un miembro del equipo NOC para seguimiento y resolución.
-              </p>
-              <div className="flex gap-2">
-                <select
-                  value={assigneeState}
-                  onChange={(e) => setAssigneeState(e.target.value)}
-                  className="flex-1 bg-bg-card border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
-                >
-                  <option value="">-- Sin asignar --</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.first_name || m.last_name
-                        ? `${m.first_name} ${m.last_name} (${m.email})`
-                        : m.email}
-                    </option>
-                  ))}
-                </select>
+            {/* Operator & Squad Assignment Card */}
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
+                  <UserCheck size={15} className="text-sky-400" />
+                  Asignación de Responsables (Operador & Cuadrilla)
+                </h4>
+                <p className="text-[11px] text-text-dim">
+                  Asigna el incidente a un miembro del equipo NOC y/o a una cuadrilla especializada para resolución y seguimiento.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-text-muted mb-1 flex items-center gap-1">
+                    <User size={12} className="text-sky-400" /> Operador Asignado:
+                  </label>
+                  <select
+                    value={assigneeState}
+                    onChange={(e) => setAssigneeState(e.target.value)}
+                    className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
+                  >
+                    <option value="">-- Sin operador asignado --</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.first_name || m.last_name
+                          ? `${m.first_name} ${m.last_name} (${m.email})`
+                          : m.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-text-muted mb-1 flex items-center gap-1">
+                    <Layers size={12} className="text-accent-purple" /> Cuadrilla / Equipo:
+                  </label>
+                  <select
+                    value={teamAssigneeState}
+                    onChange={(e) => setTeamAssigneeState(e.target.value)}
+                    className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
+                  >
+                    <option value="">-- Sin equipo asignado --</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
                 <button
                   type="button"
                   onClick={handleSaveAssignee}
                   disabled={assignMutation.isPending}
-                  className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-black font-semibold rounded-full text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-black font-semibold rounded-full text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {assignMutation.isPending ? (
                     <Loader2 className="animate-spin" size={13} />
                   ) : (
                     <Check size={13} />
                   )}
-                  Asignar
+                  Guardar Asignaciones
                 </button>
               </div>
             </div>

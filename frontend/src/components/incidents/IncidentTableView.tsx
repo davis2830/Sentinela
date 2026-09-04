@@ -20,6 +20,7 @@ import {
   Server,
   Flame,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 
 export interface IncidentTableViewProps {
@@ -200,17 +201,33 @@ export default function IncidentTableView({
 
                   {/* Assignee */}
                   <td className="py-3 px-4">
-                    {incident.assigned_to_name ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs font-medium">
-                        <UserCheck size={12} className="shrink-0" />
-                        <span className="truncate max-w-[120px]">{incident.assigned_to_name}</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bg-dark/80 border border-border-base text-text-dim text-xs">
-                        <User size={12} className="shrink-0" />
-                        <span>Sin asignar</span>
-                      </span>
-                    )}
+                    <div className="flex flex-col gap-1 items-start">
+                      {incident.assigned_to_name ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-[11px] font-medium">
+                          <UserCheck size={11} className="shrink-0" />
+                          <span className="truncate max-w-[120px]">{incident.assigned_to_name}</span>
+                        </span>
+                      ) : !incident.assigned_team_name ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-bg-dark/80 border border-border-base text-text-dim text-[11px]">
+                          <User size={11} className="shrink-0" />
+                          <span>Sin asignar</span>
+                        </span>
+                      ) : null}
+
+                      {incident.assigned_team_name && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+                          style={{
+                            backgroundColor: `${incident.assigned_team_color || '#8B5CF6'}15`,
+                            borderColor: `${incident.assigned_team_color || '#8B5CF6'}40`,
+                            color: incident.assigned_team_color || '#A78BFA',
+                          }}
+                        >
+                          <Layers size={10} className="shrink-0" />
+                          <span className="truncate max-w-[110px]">{incident.assigned_team_name}</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Linked Alerts Count */}

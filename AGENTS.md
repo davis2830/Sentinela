@@ -180,6 +180,19 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
   - **Arquitectura Modular Frontend:** Descomposición completa del archivo monolítico de 1018 líneas en componentes especializados bajo `frontend/src/components/reports/`: [`LiveSLADashboard.tsx`](file:///frontend/src/components/reports/LiveSLADashboard.tsx), [`ReportTableView.tsx`](file:///frontend/src/components/reports/ReportTableView.tsx), [`ReportCard.tsx`](file:///frontend/src/components/reports/ReportCard.tsx), [`ReportDetailDrawer.tsx`](file:///frontend/src/components/reports/ReportDetailDrawer.tsx), [`CreateReportModal.tsx`](file:///frontend/src/components/reports/CreateReportModal.tsx).
   - **Acciones en Lote Atómicas:** Endpoint `POST /api/v1/reports/bulk-action/` para eliminación masiva en una única transacción de base de datos a través de `NOCBulkActionBar`.
 
+- **Robustecimiento de Usuarios y Equipos (`UsersPage.tsx`, `backend/users/` & `backend/organizations/`):**
+  - **Eliminación Total del Término "Módulo":** Estandarización oficial de la sección bajo el nombre exclusivo de **"Usuarios y Equipos"** en rutas, encabezados, toolbars, modales y navegación lateral (`Sidebar.tsx`).
+  - **Gestión Completa de Equipos y Squads (`Team` Model):** Nuevo modelo `Team` con clave foránea a `Organization`, nombre, descripción, color identificador HSL/HEX y relación Many-to-Many con `User`. Endpoints dedicados para crear, listar, editar, eliminar equipos y asociar integrantes (`/api/v1/users/teams/`).
+  - **Reenvío en 1-Clic de Invitaciones:** Endpoint `POST /api/v1/organizations/members/{id}/resend/` para re-despachar de inmediato por correo SMTP el enlace magic link con token temporal a usuarios en estado pendiente.
+  - **Acciones en Lote Atómicas:** Endpoint `POST /api/v1/organizations/members/bulk-action/` para activar cuentas, suspender accesos o eliminar/revocar invitaciones y usuarios en masa mediante `NOCBulkActionBar`.
+  - **Exportación Oficial a CSV:** Endpoint `GET /api/v1/organizations/members/export-csv/` con UTF-8 BOM (`\ufeff`) para descarga instantánea de inventario compatible con Microsoft Excel en Windows.
+  - **Slide-Over NOCDrawer de 4 Pestañas:** Inspección lateral [`UserDetailDrawer.tsx`](file:///frontend/src/components/users/UserDetailDrawer.tsx) con:
+    1. *Perfil & Cuenta:* Avatar con gradiente según rol, metadatos, antigüedad y estado.
+    2. *Equipos & Rol:* Selector de privilegios RBAC y asignación interactiva a equipos de trabajo.
+    3. *Actividad & Auditoría:* Feed en tiempo real de registros de auditoría filtrados para el operador.
+    4. *Seguridad & Acciones:* Alternancia de cuenta activa/suspendida, reenvío de invitación y zona de peligro.
+  - **Vistas Duales Persistentes (Grid vs Tabla):** Selector de vista interactivo entre [`UserCard.tsx`](file:///frontend/src/components/users/UserCard.tsx) y [`UserTableView.tsx`](file:///frontend/src/components/users/UserTableView.tsx) con persistencia en `localStorage` (`usePersistentViewMode`).
+
 ## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
 1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
 2. **Uptime & Latencia** ([`MonitoringPage.tsx`](file:///frontend/src/pages/MonitoringPage.tsx)): Monitoreo HTTP/S, TCP, Ping, gráfica de latencia histórica y prueba de conexión en vivo.
@@ -193,6 +206,7 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
 10. **Reportes Ejecutivos & SLA** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Informes de disponibilidad con telemetría de Error Budget en vivo, desglose por servicio, exportación UTF-8 BOM CSV y PDF ejecutivo.
 11. **Status Page & Transparencia** ([`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) & [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx)): Portal público con 90 días de uptime, suscriptores, comunicados broadcast y control granular de componentes.
 12. **Canales de Notificación** ([`NotificationsPage.tsx`](file:///frontend/src/pages/NotificationsPage.tsx)): Enrutamiento inteligente multicanal (Telegram, Slack, Teams, Discord, Email, Webhook), quiet hours, simulador en vivo, 1-click retry y telemetría de latencia ms.
+13. **Usuarios y Equipos** ([`UsersPage.tsx`](file:///frontend/src/pages/UsersPage.tsx)): Directorio unificado de operadores, cuadrillas operativas y squads de ingeniería (`Team`), designación de Líder de Equipo (Team Lead), asignación directa de incidentes a cuadrillas (`assigned_team`), propiedad delegada de servicios de monitoreo (`owner_team`), panel lateral `TeamDetailDrawer` de 4 pestañas (*Resumen & Salud*, *Integrantes del Squad con nombramiento de Lead*, *Servicios a Cargo*, *Incidentes Asignados*), auto-aprovisionamiento de 4 cuadrillas sugeridas (*SRE & Infraestructura*, *NOC Nivel 1*, *SecOps*, *Backend Core*), control RBAC, invitaciones SMTP con reenvío 1-clic y exportación CSV.
 
 ## 💻 Convenciones de Entorno y Sincronización Docker
 - **Directorio de Trabajo / Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`

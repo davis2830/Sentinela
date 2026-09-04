@@ -19,9 +19,12 @@ import {
   Code2,
   ChevronDown,
   Database,
+  Layers,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { MonitoringTarget, CreateTargetData } from '../../types/monitoring';
+import type { Team } from '../../types/users';
 
 interface TargetFormProps {
   target: MonitoringTarget | null;
@@ -132,6 +135,22 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [endpoint, setEndpoint] = useState(target?.endpoint || '');
   const [interval, setInterval] = useState(target?.interval || 60);
   const [enabled, setEnabled] = useState(target?.enabled ?? true);
+
+  const [ownerTeam, setOwnerTeam] = useState<string>(target?.owner_team || '');
+
+  // Fetch squads/teams for ownership assignment
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ['teams-list-select'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('users/teams/');
+        return (response.data?.data || []) as Team[];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60000,
+  });
 
   // TCP dedicated helper state
   const [tcpHost, setTcpHost] = useState('');
@@ -355,6 +374,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
         request_body: requestBody,
         max_latency_ms: Number(maxLatencyMs),
         tags,
+        owner_team: ownerTeam || null,
       });
       onClose();
     } catch (err: any) {
@@ -581,9 +601,9 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </div>
               </div>
 
-              {/* Target Name & State */}
+              {/* Target Name, State & Owner Squad */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Nombre Descriptivo *
                   </label>
@@ -595,6 +615,25 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center gap-1">
+                    <Layers size={13} className="text-accent-purple" />
+                    Equipo Propietario (Squad)
+                  </label>
+                  <select
+                    value={ownerTeam}
+                    onChange={(e) => setOwnerTeam(e.target.value)}
+                    className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all cursor-pointer"
+                  >
+                    <option value="">-- Sin equipo asignado --</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

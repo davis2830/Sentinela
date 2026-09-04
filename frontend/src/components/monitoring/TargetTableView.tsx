@@ -1,4 +1,4 @@
-import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check } from 'lucide-react';
+import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -203,8 +203,23 @@ export default function TargetTableView({
                         <Icon className={typeStyle.text} size={16} />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-text-main text-sm truncate max-w-[200px]" title={target.name}>
-                          {target.name}
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold text-text-main text-sm truncate max-w-[180px]" title={target.name}>
+                            {target.name}
+                          </div>
+                          {target.owner_team_name && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0"
+                              style={{
+                                backgroundColor: `${target.owner_team_color || '#8B5CF6'}15`,
+                                borderColor: `${target.owner_team_color || '#8B5CF6'}40`,
+                                color: target.owner_team_color || '#A78BFA',
+                              }}
+                            >
+                              <Layers size={9} className="shrink-0" />
+                              <span className="truncate max-w-[90px]">{target.owner_team_name}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-text-dim font-mono truncate max-w-[260px]" title={target.endpoint}>
                           {target.endpoint}

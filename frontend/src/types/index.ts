@@ -30,4 +30,6 @@ export * from './domain';
 export * from './api_checks';
 export * from './security_headers';
 export * from './alerts';
-export * from './incidents';
+export * from './incidents';
+export * from './reports';
+export * from './users';
