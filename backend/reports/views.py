@@ -6,10 +6,11 @@ from rest_framework.views import APIView
 from common.responses import error_response, success_response
 
 from .serializers import (
+    ReportBulkActionSerializer,
     ReportCreateSerializer,
     ReportSerializer,
 )
-from .services import ReportService, ReportExporter
+from .services import ReportExporter, ReportService
 
 
 class ReportListView(APIView):
@@ -39,11 +40,17 @@ class ReportListView(APIView):
             )
 
         try:
+            params = dict(serializer.validated_data.get("parameters") or {})
+            if "target_ids" in serializer.validated_data and serializer.validated_data["target_ids"]:
+                params["target_ids"] = [str(tid) for tid in serializer.validated_data["target_ids"]]
+            if "sla_target" in serializer.validated_data:
+                params["sla_target"] = serializer.validated_data["sla_target"]
+
             report = ReportService.create_report(
                 organization_id=org_id,
                 report_type=serializer.validated_data["report_type"],
                 title=serializer.validated_data["title"],
-                parameters=serializer.validated_data.get("parameters"),
+                parameters=params,
                 period_start=serializer.validated_data.get("period_start"),
                 period_end=serializer.validated_data.get("period_end"),
             )
@@ -57,6 +64,63 @@ class ReportListView(APIView):
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
+
+
+class ReportLiveSLAMetricsView(APIView):
+    """Endpoint for live SLA and Error Budget telemetry.
+
+    GET /api/v1/reports/sla-live/?days=30&target_sla=99.9
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        days = request.query_params.get("days", 30)
+        target_sla = request.query_params.get("target_sla", 99.9)
+
+        try:
+            days = int(days)
+            target_sla = float(target_sla)
+        except (ValueError, TypeError):
+            days = 30
+            target_sla = 99.9
+
+        try:
+            metrics = ReportService.get_live_sla_metrics(
+                organization_id=org_id, target_sla=target_sla, days=days
+            )
+            return success_response(metrics)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class ReportBulkActionView(APIView):
+    """Endpoint for bulk operations on reports.
+
+    POST /api/v1/reports/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        serializer = ReportBulkActionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                "Invalid input.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        action = serializer.validated_data["action"]
+        report_ids = serializer.validated_data["report_ids"]
+
+        try:
+            result = ReportService.bulk_action(org_id, action, report_ids)
+            return success_response(result)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class ReportDetailView(APIView):

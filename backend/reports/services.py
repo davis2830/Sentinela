@@ -86,6 +86,110 @@ class ReportService:
         return report
 
     @staticmethod
+    def get_live_sla_metrics(organization_id, target_sla=99.9, days=30):
+        """Compute real-time live SLA, error budget, and target breakdown."""
+        from monitoring.models import MonitoringTarget
+
+        days = int(days)
+        target_sla = float(target_sla)
+        period_end = timezone.now()
+        period_start = period_end - timedelta(days=days)
+        total_period_minutes = days * 24 * 60
+        allowed_downtime_minutes = total_period_minutes * (1.0 - (target_sla / 100.0))
+
+        targets = MonitoringTarget.objects.filter(
+            organization_id=organization_id, enabled=True
+        )
+
+        target_metrics = []
+        for target in targets:
+            checks = target.checks.filter(
+                checked_at__gte=period_start,
+                checked_at__lte=period_end,
+            )
+            total = checks.count()
+            up = checks.filter(status="up").count()
+            down = checks.filter(status="down").count()
+            uptime_pct = (up / total * 100.0) if total > 0 else 100.0
+            downtime_ratio = 1.0 - (uptime_pct / 100.0)
+            consumed_budget = round(total_period_minutes * downtime_ratio, 1)
+
+            latencies = [c.latency for c in checks if c.latency is not None]
+            avg_latency = round(sum(latencies) / len(latencies), 1) if latencies else 0.0
+
+            if consumed_budget > allowed_downtime_minutes:
+                burn_rate = "exhausted"
+            elif consumed_budget > (allowed_downtime_minutes * 0.75):
+                burn_rate = "fast"
+            elif consumed_budget > 0:
+                burn_rate = "normal"
+            else:
+                burn_rate = "none"
+
+            target_metrics.append({
+                "target_id": str(target.id),
+                "target_name": target.name,
+                "target_type": target.target_type,
+                "endpoint": target.endpoint,
+                "uptime_percentage": round(uptime_pct, 2),
+                "avg_latency_ms": avg_latency,
+                "total_checks": total,
+                "up_checks": up,
+                "down_checks": down,
+                "consumed_budget_minutes": consumed_budget,
+                "burn_rate": burn_rate,
+                "meets_sla": uptime_pct >= target_sla,
+            })
+
+        overall_sla = (
+            round(sum(t["uptime_percentage"] for t in target_metrics) / len(target_metrics), 2)
+            if target_metrics
+            else 100.0
+        )
+        avg_consumed_downtime = (
+            round(sum(t["consumed_budget_minutes"] for t in target_metrics) / len(target_metrics), 1)
+            if target_metrics
+            else 0.0
+        )
+        remaining_budget = max(0.0, round(allowed_downtime_minutes - avg_consumed_downtime, 1))
+        consumed_pct = (
+            round((avg_consumed_downtime / allowed_downtime_minutes * 100.0), 1)
+            if allowed_downtime_minutes > 0
+            else 0.0
+        )
+
+        mttr_mttd = ReportService.calculate_mttr_mttd(organization_id, period_start, period_end)
+        meeting_sla = sum(1 for t in target_metrics if t["meets_sla"])
+        failing_sla = len(target_metrics) - meeting_sla
+
+        return {
+            "period_days": days,
+            "target_sla": target_sla,
+            "current_sla": overall_sla,
+            "total_error_budget_minutes": round(allowed_downtime_minutes, 1),
+            "consumed_error_budget_minutes": avg_consumed_downtime,
+            "remaining_error_budget_minutes": remaining_budget,
+            "consumed_percentage": min(consumed_pct, 100.0),
+            "mttr_minutes": mttr_mttd["mttr_minutes"],
+            "mttd_minutes": mttr_mttd["mttd_minutes"],
+            "total_targets": len(target_metrics),
+            "meeting_sla": meeting_sla,
+            "failing_sla": failing_sla,
+            "targets": target_metrics,
+        }
+
+    @staticmethod
+    @transaction.atomic
+    def bulk_action(organization_id, action, report_ids):
+        """Execute bulk operations on reports atomically."""
+        if action == "delete":
+            deleted_count, _ = Report.objects.filter(
+                organization_id=organization_id, id__in=report_ids
+            ).delete()
+            return {"action": "delete", "affected": deleted_count}
+        raise ValueError(f"Acción no soportada: {action}")
+
+    @staticmethod
     @transaction.atomic
     def delete_report(report_id, organization_id):
         """Delete a report."""
@@ -149,6 +253,13 @@ class SLAReportGenerator:
         targets = MonitoringTarget.objects.filter(
             organization_id=report.organization_id
         )
+        if report.parameters and report.parameters.get("target_ids"):
+            targets = targets.filter(id__in=report.parameters["target_ids"])
+
+        target_sla = float(report.parameters.get("sla_target", 99.9)) if report.parameters else 99.9
+        total_seconds = max((period_end - period_start).total_seconds(), 60.0)
+        total_period_minutes = total_seconds / 60.0
+        allowed_downtime_minutes = total_period_minutes * (1.0 - (target_sla / 100.0))
 
         results = []
         for target in targets:
@@ -159,7 +270,9 @@ class SLAReportGenerator:
             total = checks.count()
             up = checks.filter(status="up").count()
             down = checks.filter(status="down").count()
-            sla_percentage = (up / total * 100) if total > 0 else 100.0
+            sla_percentage = (up / total * 100.0) if total > 0 else 100.0
+            downtime_ratio = 1.0 - (sla_percentage / 100.0)
+            consumed_downtime = round(total_period_minutes * downtime_ratio, 1)
 
             results.append({
                 "target_id": str(target.id),
@@ -170,11 +283,22 @@ class SLAReportGenerator:
                 "up_checks": up,
                 "down_checks": down,
                 "sla_percentage": round(sla_percentage, 2),
+                "consumed_downtime_minutes": consumed_downtime,
+                "meets_sla": sla_percentage >= target_sla,
             })
 
         overall_sla = (
             sum(r["sla_percentage"] for r in results) / len(results)
             if results else 100.0
+        )
+        avg_consumed = (
+            round(sum(r["consumed_downtime_minutes"] for r in results) / len(results), 1)
+            if results else 0.0
+        )
+        remaining_budget = max(0.0, round(allowed_downtime_minutes - avg_consumed, 1))
+        budget_pct = (
+            round((avg_consumed / allowed_downtime_minutes * 100.0), 1)
+            if allowed_downtime_minutes > 0 else 0.0
         )
 
         mttr_mttd = ReportService.calculate_mttr_mttd(
@@ -184,7 +308,12 @@ class SLAReportGenerator:
         return {
             "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(),
+            "target_sla": target_sla,
             "overall_sla": round(overall_sla, 2),
+            "allowed_downtime_minutes": round(allowed_downtime_minutes, 1),
+            "consumed_downtime_minutes": avg_consumed,
+            "remaining_budget_minutes": remaining_budget,
+            "budget_consumed_percentage": min(budget_pct, 100.0),
             "mttr_minutes": mttr_mttd["mttr_minutes"],
             "mttd_minutes": mttr_mttd["mttd_minutes"],
             "total_incidents": mttr_mttd["total_incidents"],
@@ -205,6 +334,8 @@ class AvailabilityReportGenerator:
         targets = MonitoringTarget.objects.filter(
             organization_id=report.organization_id
         )
+        if report.parameters and report.parameters.get("target_ids"):
+            targets = targets.filter(id__in=report.parameters["target_ids"])
 
         results = []
         for target in targets:
@@ -355,6 +486,8 @@ class TrendsReportGenerator:
         targets = MonitoringTarget.objects.filter(
             organization_id=report.organization_id
         )
+        if report.parameters and report.parameters.get("target_ids"):
+            targets = targets.filter(id__in=report.parameters["target_ids"])
 
         results = []
         for target in targets:
@@ -443,28 +576,103 @@ class ReportExporter:
 
     @staticmethod
     def export_csv(report):
-        """Generate CSV file content for a report."""
+        """Generate CSV file content for a report with UTF-8 BOM."""
         output = io.StringIO()
+        # UTF-8 BOM to prevent character mangling in Excel
+        output.write('\ufeff')
         writer = csv.writer(output)
 
-        writer.writerow(["REPORT TITLE", report.title])
-        writer.writerow(["REPORT TYPE", report.report_type.upper()])
-        writer.writerow(["GENERATED AT", report.generated_at.strftime("%Y-%m-%d %H:%M:%S") if report.generated_at else "N/A"])
+        writer.writerow(["REPORTE", report.title])
+        writer.writerow(["TIPO", report.report_type.upper()])
+        writer.writerow(["ESTADO", report.status.upper()])
+        writer.writerow(["GENERADO", report.generated_at.strftime("%Y-%m-%d %H:%M:%S") if report.generated_at else "N/A"])
+        writer.writerow(["PERIODO INICIO", report.period_start.strftime("%Y-%m-%d %H:%M:%S") if report.period_start else "N/A"])
+        writer.writerow(["PERIODO FIN", report.period_end.strftime("%Y-%m-%d %H:%M:%S") if report.period_end else "N/A"])
         writer.writerow([])
 
         data = report.data or {}
 
-        if report.report_type in ["sla", "availability", "trends"]:
+        if report.report_type == "sla":
+            writer.writerow(["METRICA RESUMEN", "VALOR"])
+            writer.writerow(["SLA Global", f"{data.get('overall_sla', 100.0)}%"])
+            writer.writerow(["SLA Contractual Objetivo", f"{data.get('target_sla', 99.9)}%"])
+            writer.writerow(["Error Budget Total (min)", data.get('allowed_downtime_minutes', 0)])
+            writer.writerow(["Error Budget Consumido (min)", data.get('consumed_downtime_minutes', 0)])
+            writer.writerow(["Error Budget Restante (min)", data.get('remaining_budget_minutes', 0)])
+            writer.writerow(["Presupuesto Consumido (%)", f"{data.get('budget_consumed_percentage', 0)}%"])
+            writer.writerow(["MTTR (min)", data.get('mttr_minutes', 0)])
+            writer.writerow(["MTTD (min)", data.get('mttd_minutes', 0)])
+            writer.writerow(["Total Incidentes", data.get('total_incidents', 0)])
+            writer.writerow([])
+
             targets = data.get("targets", [])
             if targets:
-                headers = list(targets[0].keys())
-                writer.writerow([h.upper().replace("_", " ") for h in headers])
+                writer.writerow(["TARGET ID", "NOMBRE", "TIPO", "ENDPOINT", "TOTAL CHECKS", "UP", "DOWN", "SLA (%)", "DOWNTIME (MIN)", "CUMPLE SLA"])
                 for t in targets:
-                    writer.writerow([t.get(h, "") for h in headers])
+                    writer.writerow([
+                        t.get("target_id"),
+                        t.get("target_name"),
+                        t.get("target_type"),
+                        t.get("endpoint"),
+                        t.get("total_checks", 0),
+                        t.get("up_checks", 0),
+                        t.get("down_checks", 0),
+                        f"{t.get('sla_percentage', 100.0)}%",
+                        t.get("consumed_downtime_minutes", 0),
+                        "SI" if t.get("meets_sla", True) else "NO",
+                    ])
+        elif report.report_type == "availability":
+            targets = data.get("targets", [])
+            if targets:
+                writer.writerow(["TARGET ID", "NOMBRE", "ENDPOINT", "TOTAL CHECKS", "UP", "DOWN", "SLOW", "ERROR", "DISPONIBILIDAD (%)", "DOWNTIME (%)"])
+                for t in targets:
+                    writer.writerow([
+                        t.get("target_id"),
+                        t.get("target_name"),
+                        t.get("endpoint"),
+                        t.get("total_checks", 0),
+                        t.get("up", 0),
+                        t.get("down", 0),
+                        t.get("slow", 0),
+                        t.get("error", 0),
+                        f"{t.get('availability_percentage', 100.0)}%",
+                        f"{t.get('downtime_percentage', 0.0)}%",
+                    ])
+        elif report.report_type == "trends":
+            targets = data.get("targets", [])
+            if targets:
+                writer.writerow(["TARGET ID", "NOMBRE", "TOTAL CHECKS", "LATENCIA PROMEDIO (MS)", "LATENCIA MAXIMA (MS)", "LATENCIA MINIMA (MS)"])
+                for t in targets:
+                    writer.writerow([
+                        t.get("target_id"),
+                        t.get("target_name"),
+                        t.get("total_checks", 0),
+                        t.get("avg_latency_ms", 0),
+                        t.get("max_latency_ms", 0),
+                        t.get("min_latency_ms", 0),
+                    ])
+        elif report.report_type == "ssl":
+            certs = data.get("certificates", [])
+            if certs:
+                writer.writerow(["DOMINIO", "EMISOR", "FECHA EXPIRACION", "DIAS RESTANTES", "ESTADO VALIDO", "ULTIMO ESCANEO"])
+                for c in certs:
+                    writer.writerow([
+                        c.get("domain"),
+                        c.get("issuer"),
+                        c.get("expiration_date", "N/A"),
+                        c.get("days_remaining", "N/A"),
+                        "SI" if c.get("is_valid") else "NO",
+                        c.get("last_scanned_at", "N/A"),
+                    ])
         elif report.report_type == "incidents":
+            writer.writerow(["METRICA RESUMEN", "VALOR"])
+            writer.writerow(["Total Incidentes", data.get("total_incidents", 0)])
+            writer.writerow(["MTTR (min)", data.get("mttr_minutes", 0)])
+            writer.writerow(["MTTD (min)", data.get("mttd_minutes", 0)])
+            writer.writerow([])
             incidents = data.get("incidents", [])
             if incidents:
-                writer.writerow(["ID", "TITLE", "STATUS", "PRIORITY", "OPENED AT", "CLOSED AT"])
+                writer.writerow(["ID", "TITULO", "ESTADO", "PRIORIDAD", "FECHA APERTURA", "FECHA CIERRE"])
                 for i in incidents:
                     writer.writerow([
                         i.get("id"),
@@ -474,8 +682,18 @@ class ReportExporter:
                         i.get("opened_at"),
                         i.get("closed_at", "N/A"),
                     ])
+        elif report.report_type == "summary":
+            summary = data.get("summary", {})
+            writer.writerow(["METRICA RESUMEN EJECUTIVO", "VALOR"])
+            writer.writerow(["SLA Global (%)", f"{summary.get('overall_sla_percentage', 100.0)}%"])
+            writer.writerow(["MTTR (min)", summary.get("mttr_minutes", 0)])
+            writer.writerow(["MTTD (min)", summary.get("mttd_minutes", 0)])
+            writer.writerow(["Objetivos de Monitoreo Activos", summary.get("monitoring_targets", 0)])
+            writer.writerow(["Certificados SSL", summary.get("ssl_certificates", 0)])
+            writer.writerow(["Alertas Activas", summary.get("active_alerts", 0)])
+            writer.writerow(["Incidentes Abiertos", summary.get("open_incidents", 0)])
 
-        filename = f"report_{report.report_type}_{report.id.hex[:8]}.csv"
+        filename = f"reporte_{report.report_type}_{report.id.hex[:8]}.csv"
         return output.getvalue(), filename
 
     @staticmethod
@@ -483,88 +701,214 @@ class ReportExporter:
         """Generate executive HTML printable document for PDF export."""
         data = report.data or {}
         gen_at = report.generated_at.strftime("%Y-%m-%d %H:%M:%S") if report.generated_at else "N/A"
-        p_start = report.period_start.strftime("%Y-%m-%d") if report.period_start else "N/A"
-        p_end = report.period_end.strftime("%Y-%m-%d") if report.period_end else "N/A"
+        p_start = report.period_start.strftime("%Y-%m-%d %H:%M") if report.period_start else "N/A"
+        p_end = report.period_end.strftime("%Y-%m-%d %H:%M") if report.period_end else "N/A"
 
         targets = data.get("targets", [])
         overall_sla = data.get("overall_sla", data.get("summary", {}).get("overall_sla_percentage", 100.0))
+        target_sla = data.get("target_sla", 99.9)
         mttr = data.get("mttr_minutes", data.get("summary", {}).get("mttr_minutes", 0.0))
         mttd = data.get("mttd_minutes", data.get("summary", {}).get("mttd_minutes", 0.0))
+        total_incidents = data.get("total_incidents", data.get("summary", {}).get("open_incidents", 0))
+
+        remaining_budget = data.get("remaining_budget_minutes", "N/A")
+        allowed_budget = data.get("allowed_downtime_minutes", "N/A")
 
         rows_html = ""
         for t in targets:
+            sla_val = t.get('sla_percentage', 100.0)
+            is_pass = sla_val >= float(target_sla)
+            badge_bg = "#DCFCE7" if is_pass else "#FEE2E2"
+            badge_color = "#15803D" if is_pass else "#B91C1C"
+            badge_text = "CUMPLE" if is_pass else "INCUMPLE"
+
             rows_html += f"""
             <tr>
-                <td style="padding:10px; border-bottom:1px solid #E5E7EB; font-weight:bold;">{t.get('target_name', 'Servicio')}</td>
-                <td style="padding:10px; border-bottom:1px solid #E5E7EB;">{t.get('endpoint', '-')}</td>
-                <td style="padding:10px; border-bottom:1px solid #E5E7EB;">{t.get('total_checks', 0)}</td>
-                <td style="padding:10px; border-bottom:1px solid #E5E7EB; font-weight:bold; color:#10B981;">{t.get('sla_percentage', 100.0)}%</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-weight:600; color:#0F172A;">{t.get('target_name', 'Servicio')}</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-family:monospace; color:#475569; font-size:12px;">{t.get('endpoint', '-')}</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; color:#334155;">{t.get('total_checks', 0):,}</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-weight:700; color:#0F172A;">{sla_val}%</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; text-align:center;">
+                    <span style="display:inline-block; padding:3px 10px; border-radius:9999px; font-size:10px; font-weight:700; background:{badge_bg}; color:{badge_color};">
+                        {badge_text}
+                    </span>
+                </td>
             </tr>
             """
 
         html_content = f"""<!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>{report.title}</title>
+    <title>Sentinel NOC - {report.title}</title>
     <style>
-        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111827; margin: 40px; line-height: 1.5; }}
-        .header {{ border-bottom: 2px solid #10B981; padding-bottom: 20px; margin-bottom: 30px; }}
-        .title {{ font-size: 24px; font-weight: bold; color: #111827; margin: 0; }}
-        .subtitle {{ font-size: 14px; color: #6B7280; margin-top: 5px; }}
-        .kpi-container {{ display: flex; gap: 20px; margin-bottom: 30px; }}
-        .kpi-card {{ flex: 1; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 15px; text-align: center; }}
-        .kpi-value {{ font-size: 22px; font-weight: bold; color: #10B981; margin-top: 5px; }}
-        .kpi-label {{ font-size: 11px; text-transform: uppercase; color: #6B7280; font-weight: bold; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; font-size: 13px; }}
-        th {{ background: #F3F4F6; padding: 10px; border-bottom: 2px solid #E5E7EB; text-transform: uppercase; font-size: 11px; color: #374151; }}
-        .footer {{ margin-top: 50px; font-size: 11px; color: #9CA3AF; text-align: center; border-top: 1px solid #E5E7EB; padding-top: 20px; }}
+        @page {{ size: A4 portrait; margin: 15mm; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #0F172A;
+            background: #FFFFFF;
+            margin: 0;
+            padding: 24px;
+            line-height: 1.5;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }}
+        .header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 3px solid #10B981;
+            padding-bottom: 18px;
+            margin-bottom: 24px;
+        }}
+        .brand {{ font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #0F172A; }}
+        .brand span {{ color: #10B981; }}
+        .badge-executive {{
+            display: inline-block;
+            background: #F1F5F9;
+            border: 1px solid #CBD5E1;
+            border-radius: 9999px;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .report-title {{ font-size: 22px; font-weight: 700; color: #0F172A; margin: 12px 0 4px 0; }}
+        .report-meta {{ font-size: 12px; color: #64748B; }}
+        
+        .kpi-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 26px;
+        }}
+        .kpi-card {{
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: left;
+        }}
+        .kpi-label {{
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #64748B;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }}
+        .kpi-value {{
+            font-size: 24px;
+            font-weight: 800;
+            color: #0F172A;
+            line-height: 1.1;
+        }}
+        .kpi-subtext {{ font-size: 11px; color: #94A3B8; margin-top: 4px; }}
+        
+        .section-title {{
+            font-size: 14px;
+            font-weight: 700;
+            color: #0F172A;
+            margin: 20px 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 8px;
+        }}
+        th {{
+            background: #F1F5F9;
+            padding: 10px 14px;
+            border-bottom: 2px solid #CBD5E1;
+            text-transform: uppercase;
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-align: left;
+        }}
+        
+        .footer {{
+            margin-top: 40px;
+            padding-top: 16px;
+            border-top: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: #94A3B8;
+        }}
+        @media print {{
+            body {{ padding: 0; }}
+            .no-print {{ display: none; }}
+        }}
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="title">Sentinela &bull; {report.title}</div>
-        <div class="subtitle">Informe Ejecutivo de Cumplimiento de SLA y Métricas de Disponibilidad</div>
-        <div style="font-size:12px; color:#4B5563; margin-top:10px;">
-            Período: <strong>{p_start}</strong> al <strong>{p_end}</strong> | Generado el: <strong>{gen_at}</strong>
+        <div>
+            <div class="brand">SENTINEL <span>NOC</span></div>
+            <div class="report-title">{report.title}</div>
+            <div class="report-meta">
+                Período auditado: <strong>{p_start}</strong> &mdash; <strong>{p_end}</strong> | Generado: <strong>{gen_at}</strong>
+            </div>
+        </div>
+        <div>
+            <span class="badge-executive">Informe Oficial {report.report_type.upper()}</span>
         </div>
     </div>
 
-    <div class="kpi-container">
-        <div class="kpi-card">
-            <div class="kpi-label">Cumplimiento de SLA Global</div>
-            <div class="kpi-value">{overall_sla}%</div>
+    <div class="kpi-grid">
+        <div class="kpi-card" style="border-left: 4px solid #10B981;">
+            <div class="kpi-label">SLA Global</div>
+            <div class="kpi-value" style="color:#10B981;">{overall_sla}%</div>
+            <div class="kpi-subtext">Objetivo: &ge; {target_sla}%</div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">MTTR (Tiempo Medio Reparación)</div>
-            <div class="kpi-value" style="color:#3B82F6;">{mttr} min</div>
+        <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
+            <div class="kpi-label">Error Budget Disp.</div>
+            <div class="kpi-value" style="color:#3B82F6;">{remaining_budget}m</div>
+            <div class="kpi-subtext">Límite Total: {allowed_budget}m</div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">MTTD (Tiempo Medio Detección)</div>
-            <div class="kpi-value" style="color:#F59E0B;">{mttd} min</div>
+        <div class="kpi-card" style="border-left: 4px solid #F59E0B;">
+            <div class="kpi-label">MTTR Promedio</div>
+            <div class="kpi-value" style="color:#F59E0B;">{mttr}m</div>
+            <div class="kpi-subtext">Tiempo Resolución</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #8B5CF6;">
+            <div class="kpi-label">Incidentes Período</div>
+            <div class="kpi-value" style="color:#8B5CF6;">{total_incidents}</div>
+            <div class="kpi-subtext">MTTD: {mttd}m</div>
         </div>
     </div>
 
-    <h3>Desglose de Cumplimiento por Objetivo Monitoreado</h3>
+    <div class="section-title">Desglose de Disponibilidad y Cumplimiento por Objetivo</div>
     <table>
         <thead>
             <tr>
                 <th>Servicio / Target</th>
                 <th>Endpoint / Recurso</th>
-                <th>Verificaciones</th>
-                <th>SLA Cumplido (%)</th>
+                <th>Chequeos</th>
+                <th>Disponibilidad SLA</th>
+                <th style="text-align:center;">Dictamen</th>
             </tr>
         </thead>
         <tbody>
-            {rows_html if rows_html else '<tr><td colspan="4" style="padding:15px; text-align:center;">No hay objetivos registrados en el período.</td></tr>'}
+            {rows_html if rows_html else '<tr><td colspan="5" style="padding:16px; text-align:center; color:#94A3B8;">No hay objetivos registrados en el período analizado.</td></tr>'}
         </tbody>
     </table>
 
     <div class="footer">
-        Este documento es un informe ejecutivo oficial generado automáticamente por la Plataforma de Observabilidad Sentinela.
+        <div>Sentinel Observability &bull; Plataforma Centralizada de Operaciones NOC</div>
+        <div>Auditoría Criptográfica e Inmutabilidad de Métricas</div>
     </div>
 </body>
 </html>"""
 
-        filename = f"report_{report.report_type}_{report.id.hex[:8]}.html"
+        filename = f"reporte_{report.report_type}_{report.id.hex[:8]}.html"
         return html_content, filename
