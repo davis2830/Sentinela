@@ -149,6 +149,21 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
   4. *Asignación & SLA:* Selector de operador con botón de reasignación rápida, acceso directo al módulo del servicio y cronograma de hitos.
 - **Exportación de Incidentes a CSV:** Descarga con 1-clic con codificación UTF-8 BOM para auditorías y comités de post-mortem.
 
+## 📢 Portal de Transparencia y Status Page (Status Page Hub - `StatusPageAdmin.tsx`, `PublicStatusPage.tsx` & `backend/status_page/`)
+- **Arquitectura Multi-Status Pages (Multi-Empresa / Multi-Tenant):** Capacidad de crear múltiples páginas de estado públicas o privadas dentro de una misma organización para atender clientes corporativos independientes (*ej. `/status/banco-industrial`*, *`/status/coopeuch`*, *`/status/global`*).
+  - **Selector de Empresa / Switcher:** Dropdown interactivo en cabecera y barra de estado activo para alternar instantáneamente entre portales de clientes.
+  - **Directorio de Status Pages (`StatusPageDirectoryModal.tsx`):** Panel modal con inventario de todas las Status Pages, estado público/privado, badge de "Principal", conteo de componentes asignados, suscriptores y accesos directos.
+  - **Creador Rápido de Portales (`CreateStatusPageModal.tsx`):** Modal para crear nuevas Status Pages con generación de slug en tiempo real, sanitizado de URL y opción de clonar componentes base de otra página.
+  - **Aislamiento Granular de Incidentes & Mantenimientos:** Las páginas públicas filtran estrictamente los incidentes y mantenimientos según los componentes publicados en dicha página. Los incidentes de una empresa nunca se filtran a las demás.
+  - **Suscriptores Segregados:** Suscripción independiente por página de estado (`StatusPageSubscriber.status_page`), asegurando que cada cliente reciba alertas solo de sus servicios.
+- **Selector Interactivo de Componentes (Component Picker):** Capacidad de seleccionar granularmente qué targets de monitoreo (Uptime y API Checks) son públicos mediante [`ComponentPickerModal.tsx`](file:///frontend/src/components/status_page/ComponentPickerModal.tsx), personalizando el nombre visible para clientes y la categoría de negocio (*ej. "Pasarela de Pagos", "Plataforma Web", "APIs de Clientes"*).
+- **Sistema de Suscriptores por Correo Electrónico:** Modelo `StatusPageSubscriber` con endpoint público `POST /api/v1/status-page/public/{slug}/subscribe/` y modal reactivo [`SubscribeModal.tsx`](file:///frontend/src/components/status_page/SubscribeModal.tsx) para que clientes y usuarios finales reciban alertas de incidentes y mantenimientos, más exportación a CSV en panel admin.
+- **Banner de Comunicados Globales (Broadcast Banner):** Publicación de anuncios destacados en cabecera con selector de severidad (`info`, `warning`, `critical`) y switch de activación en vivo para contingencias u operaciones especiales.
+- **Bitácora de Actualizaciones en Mantenimientos:** Modelo `MaintenanceUpdate` para documentar la progresión secuencial en tiempo real de mantenimientos planificados mediante [`MaintenanceUpdateModal.tsx`](file:///frontend/src/components/status_page/MaintenanceUpdateModal.tsx), visualizado en el feed público con badges de fase.
+- **Telemetría de Latencia en 24 Horas:** Cálculo de tiempo de respuesta promedio (`avg_latency_24h_ms`) renderizado junto a la barra histórica de 90 días ([`UptimeBar90Days.tsx`](file:///frontend/src/components/status_page/UptimeBar90Days.tsx)) con tooltips enriquecidos.
+- **Panel Administrativo NOC con 4 Pestañas Scoped:** Rediseño completo de [`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) con `NOCPageHeader`, 4 KPI Cards (Salud Proyectada, Componentes Publicados, Mantenimientos, Suscriptores), tabla compacta [`MaintenanceTableView.tsx`](file:///frontend/src/components/status_page/MaintenanceTableView.tsx) y `NOCBulkActionBar` para acciones masivas.
+- **Página Pública de Alto Impacto:** Rediseño de [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx) con radar pulsante de estado en vivo, acordeones por categoría, feed de incidentes activos e histórico de incidentes resueltos en los últimos 30 días para auditorías y comités de SLA.
+
 ## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
 1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
 2. **Uptime & Latencia** ([`MonitoringPage.tsx`](file:///frontend/src/pages/MonitoringPage.tsx)): Monitoreo HTTP/S, TCP, Ping, gráfica de latencia histórica y prueba de conexión en vivo.
@@ -160,6 +175,7 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
 8. **Gestión de Incidentes** ([`IncidentsPage.tsx`](file:///frontend/src/pages/IncidentsPage.tsx)): Hub de escalación ITIL/SRE, asignación de ingenieros, RCA estructurado y control MTTR/MTTA.
 9. **Centro de Alertas** ([`AlertsPage.tsx`](file:///frontend/src/pages/AlertsPage.tsx)): Gestión de reglas de umbral, elevación a incidentes y resolución masiva.
 10. **Reportes Ejecutivos & SLA** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Informes de disponibilidad con exportación directa a CSV y PDF.
+11. **Status Page & Transparencia** ([`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) & [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx)): Portal público con 90 días de uptime, suscriptores, comunicados broadcast y control granular de componentes.
 
 ## 💻 Convenciones de Entorno y Sincronización Docker
 - **Directorio de Trabajo / Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`
