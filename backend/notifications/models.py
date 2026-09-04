@@ -19,6 +19,7 @@ class NotificationChannel(OrganizationOwnedModel):
         WEBHOOK = "webhook", "Webhook"
 
     name = models.CharField(max_length=255)
+    description = models.CharField(max_length=255, blank=True, default="")
     channel_type = models.CharField(
         max_length=20,
         choices=ChannelType.choices,
@@ -29,6 +30,36 @@ class NotificationChannel(OrganizationOwnedModel):
         help_text="Channel-specific configuration (webhook URL, email recipients, etc.)",
     )
     enabled = models.BooleanField(default=True)
+
+    # Smart Routing & Alert Fatigue Management
+    min_severity = models.CharField(
+        max_length=20,
+        choices=[
+            ("info", "Informativo (Todas)"),
+            ("warning", "Advertencia & Crítica"),
+            ("critical", "Solo Críticas"),
+        ],
+        default="info",
+        help_text="Severidad mínima requerida para despachar a este canal",
+    )
+    subscribed_events = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Eventos suscritos: alert_triggered, alert_resolved, incident_opened, incident_resolved, maintenance",
+    )
+    rate_limit_per_hour = models.PositiveIntegerField(
+        default=0,
+        help_text="Límite máximo de notificaciones por hora (0 = ilimitado)",
+    )
+
+    # Quiet Hours (Horario de Silencio)
+    quiet_hours_enabled = models.BooleanField(default=False)
+    quiet_hours_start = models.CharField(max_length=5, default="22:00", blank=True)
+    quiet_hours_end = models.CharField(max_length=5, default="08:00", blank=True)
+    quiet_hours_critical_override = models.BooleanField(
+        default=True,
+        help_text="Permitir que alertas críticas ignoren las horas de silencio",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -71,6 +102,18 @@ class Notification(BaseModel):
         choices=Status.choices,
         default=Status.PENDING,
     )
+    severity = models.CharField(max_length=20, default="info", blank=True)
+    event_type = models.CharField(max_length=50, default="alert_triggered", blank=True)
+    duration_ms = models.PositiveIntegerField(
+        default=0,
+        help_text="Tiempo de respuesta de la API/SMTP en ms",
+    )
+    http_status = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Código de estado HTTP de respuesta",
+    )
+    retry_count = models.PositiveIntegerField(default=0)
     sent_at = models.DateTimeField(null=True, blank=True)
     response = models.TextField(blank=True)
     error_message = models.TextField(blank=True)

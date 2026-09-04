@@ -163,6 +163,14 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
 - **Telemetría de Latencia en 24 Horas:** Cálculo de tiempo de respuesta promedio (`avg_latency_24h_ms`) renderizado junto a la barra histórica de 90 días ([`UptimeBar90Days.tsx`](file:///frontend/src/components/status_page/UptimeBar90Days.tsx)) con tooltips enriquecidos.
 - **Panel Administrativo NOC con 4 Pestañas Scoped:** Rediseño completo de [`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) con `NOCPageHeader`, 4 KPI Cards (Salud Proyectada, Componentes Publicados, Mantenimientos, Suscriptores), tabla compacta [`MaintenanceTableView.tsx`](file:///frontend/src/components/status_page/MaintenanceTableView.tsx) y `NOCBulkActionBar` para acciones masivas.
 - **Página Pública de Alto Impacto:** Rediseño de [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx) con radar pulsante de estado en vivo, acordeones por categoría, feed de incidentes activos e histórico de incidentes resueltos en los últimos 30 días para auditorías y comités de SLA.
+- **Robustecimiento del Módulo de Canales de Notificación (`NotificationsPage.tsx` & `backend/notifications/`):**
+  - **Enrutamiento Inteligente & Anti-Fatiga:** Soporte para severidad mínima requerida (`info`, `warning`, `critical`), filtrado por eventos suscritos (`alert_triggered`, `alert_resolved`, `incident_opened`, `incident_resolved`, `maintenance`) y límite de tasa por hora (`rate_limit_per_hour`) para proteger cuotas de API de webhooks.
+  - **Horarios de Silencio (Quiet Hours):** Configuración de ventanas de silencio por canal (ej. `22:00` a `08:00`) con interruptor de bypass de emergencia para que las alertas de severidad crítica no se desatiendan.
+  - **Pre-flight Live Connection Test:** Endpoint `POST /api/v1/notifications/test-connection/` y botón interactivo *"Probar Conexión en Vivo"* en el modal para validar credenciales, bot tokens, webhooks o servidores SMTP en tiempo real antes de guardar el canal.
+  - **Auditoría con Latencia, Código HTTP y 1-Click Retry:** Telemetría de tiempo de respuesta en ms (`duration_ms`), captura de códigos de estado (`http_status`) y endpoint `POST /api/v1/notifications/{id}/retry/` para re-despachar entregas fallidas en 1-clic.
+  - **Slide-Over NOCDrawer de 4 Pestañas:** Resumen & Telemetría (con credenciales sanitizadas), Enrutamiento & Filtros, Simulador de Payload en Vivo y feed de Historial de Envíos del Canal con botón de reintento.
+  - **Vistas Duales Persistentes (Grid vs Tabla):** Selector de vista persistente en `localStorage` con cuadrícula de tarjetas y tabla compacta [`ChannelTableView.tsx`](file:///frontend/src/components/notifications/ChannelTableView.tsx).
+  - **Acciones en Lote Atómicas & Exportación CSV:** Endpoint `POST /api/v1/notifications/channels/bulk-action/` para activar, pausar, probar o eliminar en masa vía `NOCBulkActionBar`, más descarga de auditoría a CSV con UTF-8 BOM (`GET /api/v1/notifications/export-csv/`).
 
 ## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
 1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
@@ -176,6 +184,7 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
 9. **Centro de Alertas** ([`AlertsPage.tsx`](file:///frontend/src/pages/AlertsPage.tsx)): Gestión de reglas de umbral, elevación a incidentes y resolución masiva.
 10. **Reportes Ejecutivos & SLA** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Informes de disponibilidad con exportación directa a CSV y PDF.
 11. **Status Page & Transparencia** ([`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) & [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx)): Portal público con 90 días de uptime, suscriptores, comunicados broadcast y control granular de componentes.
+12. **Canales de Notificación** ([`NotificationsPage.tsx`](file:///frontend/src/pages/NotificationsPage.tsx)): Enrutamiento inteligente multicanal (Telegram, Slack, Teams, Discord, Email, Webhook), quiet hours, simulador en vivo, 1-click retry y telemetría de latencia ms.
 
 ## 💻 Convenciones de Entorno y Sincronización Docker
 - **Directorio de Trabajo / Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`

@@ -404,6 +404,8 @@ class AlertService:
                     title=title,
                     message=body,
                     alert_id=alert.id,
+                    severity=alert.severity or "info",
+                    event_type="alert_resolved",
                 )
             except Exception as exc:
                 logger.warning("Failed to dispatch RESOLVED notification: %s", exc)
@@ -462,6 +464,8 @@ class AlertService:
                     title=title,
                     message=body,
                     alert_id=alert.id,
+                    severity=alert.severity or "info",
+                    event_type="alert_resolved",
                 )
             except Exception as exc:
                 logger.warning("Failed to dispatch auto RESOLVED notification: %s", exc)
@@ -680,6 +684,8 @@ class AlertService:
                     title=notif_title,
                     message=notif_body,
                     alert_id=alert.id,
+                    severity=severity or "info",
+                    event_type="alert_triggered",
                 )
             except Exception as notif_err:
                 logger.warning("Failed to dispatch alert notification: %s", notif_err)
