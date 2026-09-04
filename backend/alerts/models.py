@@ -20,13 +20,19 @@ class AlertRule(OrganizationOwnedModel):
 
     class ConditionType(models.TextChoices):
         SSL_EXPIRING = "ssl_expiring", "SSL Expiring"
+        SSL_GRADE_BELOW = "ssl_grade_below", "SSL Grade Below"
+        SSL_INVALID = "ssl_invalid", "SSL Invalid"
         UPTIME_BELOW = "uptime_below", "Uptime Below"
         STATUS_DOWN = "status_down", "Status Down"
         RESPONSE_TIME_ABOVE = "response_time_above", "Response Time Above"
         DNS_CHANGED = "dns_changed", "DNS Changed"
+        DNS_LATENCY_ABOVE = "dns_latency_above", "DNS Latency Above"
         DOMAIN_EXPIRING = "domain_expiring", "Domain Expiring"
+        DOMAIN_UNLOCKED = "domain_unlocked", "Domain Unlocked"
         SECURITY_SCORE_BELOW = "security_score_below", "Security Score Below"
+        SECURITY_LEAK_DETECTED = "security_leak_detected", "Security Leak Detected"
         API_CHECK_FAILED = "api_check_failed", "API Check Failed"
+        API_LATENCY_ABOVE = "api_latency_above", "API Latency Above"
 
     class Severity(models.TextChoices):
         CRITICAL = "critical", "Critical"
@@ -39,7 +45,7 @@ class AlertRule(OrganizationOwnedModel):
         choices=TargetType.choices,
     )
     condition = models.CharField(
-        max_length=30,
+        max_length=40,
         choices=ConditionType.choices,
     )
     threshold = models.FloatField(
@@ -57,6 +63,9 @@ class AlertRule(OrganizationOwnedModel):
         blank=True,
         help_text="Specific target ID or None for all targets of this type",
     )
+    snoozed_until = models.DateTimeField(null=True, blank=True)
+    cooldown_minutes = models.IntegerField(default=15)
+    auto_resolve = models.BooleanField(default=True)
     last_triggered_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -103,6 +112,13 @@ class Alert(BaseModel):
     )
     target_type = models.CharField(max_length=20, blank=True)
     target_id = models.UUIDField(null=True, blank=True)
+    occurrence_count = models.IntegerField(default=1)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    is_flapping = models.BooleanField(default=False)
+    flapping_count = models.IntegerField(default=0)
+    snoozed_until = models.DateTimeField(null=True, blank=True)
+    auto_resolved = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
     triggered_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
 
@@ -113,6 +129,7 @@ class Alert(BaseModel):
             models.Index(fields=["organization", "-triggered_at"]),
             models.Index(fields=["status"]),
             models.Index(fields=["severity"]),
+            models.Index(fields=["target_type", "target_id"]),
         ]
 
     def __str__(self):

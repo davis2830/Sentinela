@@ -40,7 +40,7 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - Suavizado integral de geometría: Contenedores `rounded-2xl` y modales `rounded-3xl`, badges y filtros en cápsula `rounded-full`, y scrollbars sutiles.
 - **Persistencia Global de Vistas (Listado vs Cuadros):**
   - Creado [`usePersistentViewMode.ts`](file:///frontend/src/hooks/usePersistentViewMode.ts) con almacenamiento en `localStorage` por módulo.
-  - Implementado en los 9 módulos principales (`MonitoringPage`, `SSLCertificatesPage`, `DNSRecordsPage`, `DomainsPage`, `APIChecksPage`, `SecurityHeadersPage`, `IncidentsPage`, `DashboardPage`, `ReportsPage`). La vista seleccionada (tabla/lista vs grid) se preserva permanentemente tras actualizar con F5, auto-refresco o navegación entre rutas.
+  - Implementado en los 10 módulos principales (`MonitoringPage`, `SSLCertificatesPage`, `DNSRecordsPage`, `DomainsPage`, `APIChecksPage`, `SecurityHeadersPage`, `IncidentsPage`, `DashboardPage`, `ReportsPage`, `AlertsPage`). La vista seleccionada (tabla/lista vs grid) se preserva permanentemente tras actualizar con F5, auto-refresco o navegación entre rutas. Con vistas dedicadas [`AlertRuleTableView.tsx`](file:///frontend/src/components/alerts/AlertRuleTableView.tsx) y [`AlertTableView.tsx`](file:///frontend/src/components/alerts/AlertTableView.tsx).
 - **Robustecimiento del Módulo de Monitoreo SSL (`SSLCertificatesPage.tsx` & `backend/ssl_monitor/`):**
   - **Soporte Multi-Puerto y Servicios Especiales:** Soporte para puertos personalizados (`:443`, `:8443`, `:636` LDAPS, `:993` IMAP).
   - **Grado de Seguridad Criptográfica:** Evaluación automática de seguridad TLS (`A+`, `A`, `B`, `F`) basada en versión TLS (1.3 / 1.2), vigencia y certificados válidos.
@@ -108,7 +108,7 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
 - **`NOCBulkActionBar`:** Barra flotante adhesiva inferior con desenfoque (`backdrop-blur-md`) para acciones masivas (escaneo por lote, eliminación o cierre masivo).
 - **`NOCDrawer`:** Slide-Over lateral desplegable por la derecha con soporte para atajo de teclado `ESC`, navegación por pestañas e inspección técnica profunda sin pérdida de contexto ni reseteo de filtros.
 
-## ⚡ Motor de Reglas y Alertas (`backend/alerts/`)
+## ⚡ Motor de Reglas y Alertas Inteligentes (Smart Alerts Engine - `backend/alerts/`)
 - **Aprovisionamiento Automático:** Si una organización no tiene reglas configuradas, el sistema auto-aprovisiona automáticamente 6 reglas estándar del NOC mediante `AlertRuleService.ensure_default_rules(organization_id)`:
   1. *Objetivo de Monitoreo Caído* (`status_down` &rarr; Severidad Crítica)
   2. *Latencia Alta de Respuesta* (`response_time_above > 1000ms` &rarr; Advertencia)
@@ -116,8 +116,22 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
   4. *Fallo en API Check Sintético* (`api_check_failed` &rarr; Severidad Crítica)
   5. *Dominio WHOIS por Expirar* (`domain_expiring <= 30d` &rarr; Advertencia)
   6. *Puntuación de Seguridad Baja* (`security_score_below < 70` &rarr; Advertencia)
-- **Evaluación Bajo Demanda:** Endpoint `POST /api/v1/alert-rules/evaluate/` evalúa las reglas filtradas por organización y devuelve estadísticas en tiempo real (`rules_evaluated`, `alerts_created` y mensaje descriptivo).
-- **Auto-Resolución:** Las condiciones de estado (`status_down`) y latencia (`response_time_above`) auto-resuelven las alertas cuando el objetivo se recupera y vuelve a estado óptimo.
+- **14 Condiciones de Alerta Soportadas:**
+  - *Uptime & Red:* `status_down`, `uptime_below`, `response_time_above`.
+  - *Certificados SSL:* `ssl_expiring`, `ssl_grade_below`, `ssl_invalid`.
+  - *Registros DNS:* `dns_changed`, `dns_latency_above`.
+  - *Dominios WHOIS:* `domain_expiring`, `domain_unlocked` (alerta de secuestro / domain hijacking).
+  - *Cabeceras de Seguridad:* `security_score_below`, `security_leak_detected` (fuga de stack / versión en servidor).
+  - *API Checks Sintéticos:* `api_check_failed`, `api_latency_above`.
+- **Deduplicación Inteligente & Trazabilidad MTTR:** Los escaneos recurrentes no resetean `triggered_at` (preservando el cálculo de MTTR real). En su lugar actualizan `last_seen_at` e incrementan `occurrence_count` (ej. `x14`) agrupando alertas continuas en un único hilo de incidente.
+- **Detección Anti-Flapping:** Detección automática de servicios inestables ($\ge 3$ transiciones en 15 minutos). Escala automáticamente la severidad a Crítica y añade telemetría de oscilaciones para evitar fatiga de alertas.
+- **Smart Snooze / Mute:** Capacidad de silenciar alertas o reglas por periodos de 30m, 1h, 4h o 24h (`POST /api/v1/alerts/{id}/snooze/` y `POST /api/v1/alert-rules/{id}/snooze/`), suprimiendo notificaciones externas durante ventanas de mantenimiento sin perder visibilidad en el NOC.
+- **Simulador de Impacto en Vivo (Dry-Run):** Endpoint `POST /api/v1/alert-rules/simulate/` y tarjeta reactiva en el modal `AlertRuleForm.tsx` para previsualizar antes de guardar qué objetivos activos dispararían la regla con su valor actual y umbral.
+- **Slide-Over NOCDrawer de Alertas:** Panel lateral con 3 pestañas especializadas:
+  1. *Causa Raíz (RCA):* Enlace de 1-clic al módulo origen (`/monitoring`, `/ssl`, `/dns`, `/domains`, `/api-checks`, `/security-headers`), diagnóstico de flapping y metadatos de telemetría.
+  2. *Cronología & MTTR:* Stepper vertical con disparo inicial, última detección, vigencia de snooze y tiempo total de duración o mitigación.
+  3. *Acciones Rápidas:* Elevación formal a incidente, silenciado configurable (30m, 1h, 4h, 24h) y cambio de estado.
+- **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/alerts/bulk-action/` para reconocer, resolver, silenciar o eliminar alertas en masa mediante `NOCBulkActionBar`, más exportación completa a CSV con codificación UTF-8 BOM.
 
 ## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
 1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
