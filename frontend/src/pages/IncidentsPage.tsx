@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import type {
@@ -8,6 +9,7 @@ import type {
   CreateIncidentData,
   IncidentStatus,
   IncidentPriority,
+  IncidentStats,
 } from '../types/incidents';
 import StatusBadge from '../components/common/StatusBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
@@ -15,6 +17,8 @@ import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
 import IncidentForm from '../components/incidents/IncidentForm';
 import TimelineView from '../components/incidents/TimelineView';
+import IncidentCard from '../components/incidents/IncidentCard';
+import IncidentTableView from '../components/incidents/IncidentTableView';
 import {
   NOCPageHeader,
   NOCKpiGrid,
@@ -30,7 +34,6 @@ import {
   Plus,
   Loader2,
   Trash2,
-  RefreshCw,
   Clock,
   Pencil,
   CheckCircle2,
@@ -42,11 +45,19 @@ import {
   Wrench,
   ShieldAlert,
   Activity,
-  CheckSquare,
-  Square,
   Flame,
-  AlertTriangle,
   UserCheck,
+  User,
+  Globe,
+  Lock,
+  Plug,
+  Shield,
+  Server,
+  FileText,
+  ExternalLink,
+  Download,
+  AlertTriangle,
+  ArrowRight,
 } from 'lucide-react';
 
 const LIFECYCLE_STEPS: { status: IncidentStatus; label: string; icon: any }[] = [
@@ -58,7 +69,15 @@ const LIFECYCLE_STEPS: { status: IncidentStatus; label: string; icon: any }[] = 
   { status: 'closed', label: 'Cerrado', icon: XCircle },
 ];
 
+interface Member {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
 export default function IncidentsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // State
@@ -72,14 +91,30 @@ export default function IncidentsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [viewMode, setViewMode] = usePersistentViewMode('incidents', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [drawerTab, setDrawerTab] = useState<'timeline' | 'alerts' | 'details'>('timeline');
+  const [drawerTab, setDrawerTab] = useState<'timeline' | 'rca' | 'alerts' | 'details'>('timeline');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // RCA Form State in Drawer
+  const [rcaRootCause, setRcaRootCause] = useState('');
+  const [rcaResolutionSummary, setRcaResolutionSummary] = useState('');
+  const [rcaPreventiveActions, setRcaPreventiveActions] = useState('');
+  const [assigneeState, setAssigneeState] = useState('');
 
   // Auto-refresh hook (15s countdown)
   const autoRefresh = useAutoRefresh({
     intervalSeconds: 15,
     initialEnabled: true,
   });
+
+  // Sync RCA & Assignee states when selectedIncident changes
+  useEffect(() => {
+    if (selectedIncident) {
+      setRcaRootCause(selectedIncident.root_cause || '');
+      setRcaResolutionSummary(selectedIncident.resolution_summary || '');
+      setRcaPreventiveActions(selectedIncident.preventive_actions || '');
+      setAssigneeState(selectedIncident.assigned_to || '');
+    }
+  }, [selectedIncident]);
 
   // Incidents List Query
   const { data: incidents, isLoading } = useQuery<Incident[]>({
@@ -89,6 +124,30 @@ export default function IncidentsPage() {
       return (response.data?.data || []) as Incident[];
     },
     refetchInterval: autoRefresh.refetchInterval,
+  });
+
+  // Incidents Stats Query (Real-time MTTA/MTTR and SLA metrics)
+  const { data: stats } = useQuery<IncidentStats>({
+    queryKey: ['incidents-stats'],
+    queryFn: async () => {
+      const response = await api.get('incidents/stats/');
+      return response.data?.data as IncidentStats;
+    },
+    refetchInterval: autoRefresh.refetchInterval,
+  });
+
+  // Team Members Query for quick assignment
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ['org-members-select'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('organizations/members/');
+        return (response.data?.data || response.data || []) as Member[];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60000,
   });
 
   // Timeline events query for selected incident
@@ -122,6 +181,7 @@ export default function IncidentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
       setShowForm(false);
       setEditingIncident(null);
     },
@@ -140,6 +200,7 @@ export default function IncidentsPage() {
     },
     onSuccess: (updatedIncident) => {
       queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
       queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
       if (selectedIncident && updatedIncident) {
         setSelectedIncident(updatedIncident);
@@ -155,6 +216,7 @@ export default function IncidentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
       if (selectedIncident?.id === deleteTarget?.id) {
         setSelectedIncident(null);
       }
@@ -162,23 +224,61 @@ export default function IncidentsPage() {
     },
   });
 
+  // Add Note Mutation (Resolves 404 URL bug)
   const addNoteMutation = useMutation({
     mutationFn: async ({ id, note }: { id: string; note: string }) => {
-      await api.post(`incidents/${id}/add-timeline-event/`, {
-        event_type: 'note',
-        description: note,
+      await api.post(`incidents/${id}/timeline/`, {
+        note: note,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
       setNoteInput('');
     },
   });
 
+  // RCA Post-Mortem Mutation
+  const rcaMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: { root_cause?: string; resolution_summary?: string; preventive_actions?: string };
+    }) => {
+      const response = await api.post(`incidents/${id}/rca/`, data);
+      return response.data?.data as Incident;
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
+      if (selectedIncident && updated) {
+        setSelectedIncident(updated);
+      }
+    },
+  });
+
+  // Quick Assign Mutation
+  const assignMutation = useMutation({
+    mutationFn: async ({ id, assigned_to }: { id: string; assigned_to: string | null }) => {
+      const response = await api.post(`incidents/${id}/assign/`, { assigned_to });
+      return response.data?.data as Incident;
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
+      if (selectedIncident && updated) {
+        setSelectedIncident(updated);
+      }
+    },
+  });
+
   // Bulk Actions
-  const handleToggleSelect = (incident: Incident) => {
+  const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) =>
-      prev.includes(incident.id) ? prev.filter((id) => id !== incident.id) : [...prev, incident.id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
@@ -191,41 +291,31 @@ export default function IncidentsPage() {
     }
   };
 
-  const handleBulkClose = async () => {
+  const handleBulkAction = async (action: 'resolve' | 'mitigate' | 'close' | 'delete') => {
     if (selectedIds.length === 0) return;
-    setBulkProcessing(true);
-    for (const id of selectedIds) {
-      try {
-        await api.patch(`incidents/${id}/`, { status: 'closed' });
-      } catch (err) {
-        // Continue
+    if (action === 'delete') {
+      if (
+        !window.confirm(
+          `¿Deseas eliminar permanentemente los ${selectedIds.length} incidentes seleccionados?`
+        )
+      ) {
+        return;
       }
     }
-    setSelectedIds([]);
-    setBulkProcessing(false);
-    queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    if (
-      !window.confirm(
-        `¿Deseas eliminar permanentemente los ${selectedIds.length} incidentes seleccionados?`
-      )
-    ) {
-      return;
-    }
     setBulkProcessing(true);
-    for (const id of selectedIds) {
-      try {
-        await api.delete(`incidents/${id}/`);
-      } catch (err) {
-        // Continue
-      }
+    try {
+      await api.post('incidents/bulk-action/', {
+        action,
+        incident_ids: selectedIds,
+      });
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
+    } catch (err) {
+      console.error('Error en acción masiva de incidentes:', err);
+    } finally {
+      setBulkProcessing(false);
     }
-    setSelectedIds([]);
-    setBulkProcessing(false);
-    queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
   };
 
   // Form Handlers
@@ -241,6 +331,27 @@ export default function IncidentsPage() {
     e.preventDefault();
     if (!selectedIncident || !noteInput.trim()) return;
     addNoteMutation.mutate({ id: selectedIncident.id, note: noteInput.trim() });
+  };
+
+  const handleSaveRca = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident) return;
+    rcaMutation.mutate({
+      id: selectedIncident.id,
+      data: {
+        root_cause: rcaRootCause.trim(),
+        resolution_summary: rcaResolutionSummary.trim(),
+        preventive_actions: rcaPreventiveActions.trim(),
+      },
+    });
+  };
+
+  const handleSaveAssignee = () => {
+    if (!selectedIncident) return;
+    assignMutation.mutate({
+      id: selectedIncident.id,
+      assigned_to: assigneeState || null,
+    });
   };
 
   const handleStatusChange = (newStatus: IncidentStatus) => {
@@ -259,16 +370,114 @@ export default function IncidentsPage() {
     setShowForm(true);
   };
 
-  // KPI Calculations
+  // Export CSV Function with UTF-8 BOM
+  const handleExportCSV = () => {
+    if (!incidents || incidents.length === 0) return;
+    const headers = [
+      'ID',
+      'Titulo',
+      'Prioridad',
+      'Estado',
+      'Servicio Afectado',
+      'Tipo Modulo',
+      'Responsable',
+      'Alertas Vinculadas',
+      'Duracion (minutos)',
+      'Fecha Apertura',
+      'Fecha Mitigacion',
+      'Fecha Resolucion',
+      'Fecha Cierre',
+      'Causa Raiz',
+      'Acciones Preventivas',
+    ];
+    const rows = incidents.map((i) => [
+      `"${i.id}"`,
+      `"${(i.title || '').replace(/"/g, '""')}"`,
+      `"${i.priority}"`,
+      `"${i.status}"`,
+      `"${(i.impacted_service || '').replace(/"/g, '""')}"`,
+      `"${i.target_type || ''}"`,
+      `"${(i.assigned_to_name || 'Sin asignar').replace(/"/g, '""')}"`,
+      i.alerts_count,
+      i.duration_minutes || 0,
+      `"${i.opened_at}"`,
+      `"${i.mitigated_at || ''}"`,
+      `"${i.resolved_at || ''}"`,
+      `"${i.closed_at || ''}"`,
+      `"${(i.root_cause || '').replace(/"/g, '""')}"`,
+      `"${(i.preventive_actions || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `sentinel_incidentes_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Helper for navigating to affected module
+  const getModuleRoute = (targetType?: string) => {
+    switch (targetType) {
+      case 'monitoring':
+        return '/monitoring';
+      case 'ssl':
+        return '/ssl';
+      case 'dns':
+        return '/dns';
+      case 'domain':
+        return '/domains';
+      case 'api_check':
+        return '/api-checks';
+      case 'security_headers':
+        return '/security-headers';
+      default:
+        return null;
+    }
+  };
+
+  const getModuleIcon = (targetType?: string) => {
+    switch (targetType) {
+      case 'monitoring':
+        return <Globe size={14} className="text-emerald-400" />;
+      case 'ssl':
+        return <Lock size={14} className="text-rose-400" />;
+      case 'dns':
+        return <Activity size={14} className="text-sky-400" />;
+      case 'domain':
+        return <Globe size={14} className="text-blue-400" />;
+      case 'api_check':
+        return <Plug size={14} className="text-amber-400" />;
+      case 'security_headers':
+        return <Shield size={14} className="text-purple-400" />;
+      default:
+        return <Server size={14} className="text-text-muted" />;
+    }
+  };
+
+  // KPI Calculations (fallback to local if stats is loading)
   const allIncidents = incidents || [];
   const totalCount = allIncidents.length;
-  const criticalCount = allIncidents.filter(
-    (i: Incident) => i.priority === 'critical' && i.status !== 'resolved' && i.status !== 'closed'
-  ).length;
-  const inProgressCount = allIncidents.filter(
-    (i: Incident) =>
-      (i.status === 'investigating' || i.status === 'identified' || i.status === 'mitigated')
-  ).length;
+  const criticalCount =
+    stats?.critical_incidents ??
+    stats?.active_critical ??
+    allIncidents.filter(
+      (i: Incident) =>
+        i.priority === 'critical' && i.status !== 'resolved' && i.status !== 'closed'
+    ).length;
+  const inProgressCount =
+    stats?.in_mitigation ??
+    stats?.in_progress_count ??
+    allIncidents.filter(
+      (i: Incident) =>
+        i.status === 'investigating' || i.status === 'identified' || i.status === 'mitigated'
+    ).length;
   const resolvedCount = allIncidents.filter(
     (i: Incident) => i.status === 'resolved' || i.status === 'closed'
   ).length;
@@ -278,9 +487,12 @@ export default function IncidentsPage() {
 
   // Filtered & Searched Incidents
   const filteredIncidents = allIncidents.filter((incident: Incident) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      incident.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (incident.description && incident.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      incident.title.toLowerCase().includes(term) ||
+      (incident.description && incident.description.toLowerCase().includes(term)) ||
+      (incident.impacted_service && incident.impacted_service.toLowerCase().includes(term)) ||
+      (incident.assigned_to_name && incident.assigned_to_name.toLowerCase().includes(term));
 
     if (!matchesSearch) return false;
     if (statusFilter !== 'all' && incident.status !== statusFilter) return false;
@@ -298,8 +510,8 @@ export default function IncidentsPage() {
       {/* 1. TOP HEADER (Standard NOC Header) */}
       <NOCPageHeader
         title="Gestión de Incidentes"
-        badgeText="NOC ESCALATION"
-        description="Gestión del ciclo de vida, trazabilidad colaborativa y resolución de incidentes operativos."
+        badgeText="NOC ESCALATION HUB"
+        description="Gestión del ciclo de vida ITIL/SRE, asignación de ingenieros, RCA colaborativo y control de MTTR."
         icon={<AlertOctagon size={26} />}
         autoRefresh={{
           enabled: autoRefresh.enabled,
@@ -307,14 +519,25 @@ export default function IncidentsPage() {
           onToggle: autoRefresh.toggle,
         }}
         actions={
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
-          >
-            <Plus size={16} />
-            Nuevo Incidente
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover font-semibold px-4 py-2 rounded-full text-xs transition-all shadow-xs cursor-pointer"
+              title="Exportar inventario de incidentes a CSV"
+            >
+              <Download size={14} />
+              Exportar CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
+            >
+              <Plus size={16} />
+              Nuevo Incidente
+            </button>
+          </div>
         }
       />
 
@@ -335,7 +558,11 @@ export default function IncidentsPage() {
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Nivel de Escalación</span>
-              <span className={criticalCount > 0 ? 'text-accent-red font-semibold' : 'text-accent-green'}>
+              <span
+                className={
+                  criticalCount > 0 ? 'text-accent-red font-semibold' : 'text-accent-green'
+                }
+              >
                 {criticalCount > 0 ? 'Atención Inmediata' : 'Sin Alarma'}
               </span>
             </div>
@@ -356,8 +583,8 @@ export default function IncidentsPage() {
           subtitle="Investigación y contención activa"
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Equipo Asignado</span>
-              <span className="text-amber-400 font-medium">NOC Guard</span>
+              <span>Fase de Contención</span>
+              <span className="text-amber-400 font-medium">NOC Guard Activo</span>
             </div>
           }
         />
@@ -381,22 +608,28 @@ export default function IncidentsPage() {
           }
         />
 
-        {/* KPI 4: Tiempo Medio de Respuesta */}
+        {/* KPI 4: Tiempo Medio de Respuesta & MTTR */}
         <NOCKpiCard
           title="Respuesta Operativa"
           icon={<Clock size={16} className="text-sky-400" />}
           badge={{
-            text: 'SLA Operativo',
-            variant: 'info',
+            text: `SLA ${stats?.sla_compliance_rate ?? 99.2}%`,
+            variant: (stats?.sla_compliance_rate ?? 100) >= 95 ? 'success' : 'warning',
           }}
-          value="< 15m"
+          value={stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '< 15m'}
           valueColor="text-sky-400"
-          valueSuffix="promedio"
-          subtitle="Tiempo medio de contención (MTTR)"
+          valueSuffix="MTTR promedio"
+          subtitle={
+            stats?.avg_mtta_minutes
+              ? `MTTA medio: ${stats.avg_mtta_minutes}m`
+              : 'Tiempo medio de contención'
+          }
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Cumplimiento SLA</span>
-              <span className="text-accent-green font-medium">99.2%</span>
+              <span className="text-accent-green font-medium">
+                {stats?.sla_compliance_rate ?? 99.2}%
+              </span>
             </div>
           }
         />
@@ -406,7 +639,7 @@ export default function IncidentsPage() {
       <NOCToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por título o descripción del incidente..."
+        searchPlaceholder="Buscar por título, servicio afectado, responsable o descripción..."
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         categoryLabel="Prioridad:"
@@ -445,12 +678,18 @@ export default function IncidentsPage() {
             count: allIncidents.filter((i: Incident) => i.status === 'resolved').length,
             variant: 'success',
           },
+          {
+            id: 'closed',
+            label: 'Cerrados',
+            count: allIncidents.filter((i: Incident) => i.status === 'closed').length,
+            variant: 'neutral',
+          },
         ]}
         selectedStatus={statusFilter}
         onStatusChange={setStatusFilter}
       />
 
-      {/* 4. FLOATING BULK ACTIONS BAR */}
+      {/* 4. FLOATING BULK ACTIONS BAR (Atomic & Fast) */}
       <NOCBulkActionBar
         selectedCount={selectedIds.length}
         onClearSelection={() => setSelectedIds([])}
@@ -459,18 +698,36 @@ export default function IncidentsPage() {
           <>
             <button
               type="button"
-              onClick={handleBulkClose}
+              onClick={() => handleBulkAction('resolve')}
               disabled={bulkProcessing}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <CheckCircle2 size={13} />
-              Cerrar Seleccionados
+              Resolver
             </button>
             <button
               type="button"
-              onClick={handleBulkDelete}
+              onClick={() => handleBulkAction('mitigate')}
               disabled={bulkProcessing}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-teal-500 text-black font-semibold rounded-full text-xs hover:bg-teal-400 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              <ShieldAlert size={13} />
+              Mitigar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkAction('close')}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-semibold rounded-full text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              <XCircle size={13} />
+              Cerrar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkAction('delete')}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Trash2 size={13} />
               {bulkProcessing ? 'Eliminando...' : 'Eliminar'}
@@ -488,230 +745,35 @@ export default function IncidentsPage() {
         viewMode === 'grid' ? (
           /* Grid View (Cards) */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredIncidents.map((incident: Incident) => {
-              const isSelected = selectedIds.includes(incident.id);
-
-              return (
-                <div
-                  key={incident.id}
-                  onClick={() => setSelectedIncident(incident)}
-                  className={`bg-bg-card/95 border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
-                    isSelected
-                      ? 'border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40'
-                      : 'border-border-base/70'
-                  }`}
-                >
-                  <div>
-                    {/* Top Row: Checkbox, Badges */}
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleSelect(incident);
-                          }}
-                          className="text-text-dim hover:text-accent-green transition-colors shrink-0"
-                          title={isSelected ? 'Deseleccionar' : 'Seleccionar'}
-                        >
-                          {isSelected ? (
-                            <CheckSquare size={16} className="text-accent-green" />
-                          ) : (
-                            <Square size={16} />
-                          )}
-                        </button>
-                        <PriorityBadge priority={incident.priority} />
-                      </div>
-                      <StatusBadge status={incident.status} />
-                    </div>
-
-                    {/* Title & Description */}
-                    <h3
-                      className="font-bold text-text-main text-base group-hover:text-accent-green transition-colors line-clamp-2 mb-2 font-sans"
-                      title={incident.title}
-                    >
-                      {incident.title}
-                    </h3>
-                    <p className="text-xs text-text-dim line-clamp-2 mb-4 font-sans">
-                      {incident.description || 'Sin descripción adicional registrada.'}
-                    </p>
-
-                    {/* Quick Metric Box */}
-                    <div className="space-y-2 text-xs font-mono text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40 font-sans">
-                      <div className="flex justify-between border-b border-border-base/40 pb-1.5">
-                        <span className="text-text-dim font-medium">Alertas Vinculadas:</span>
-                        <span className="text-accent-green font-bold flex items-center gap-1">
-                          <Bell size={12} />
-                          {incident.alerts_count}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-dim font-medium">Apertura:</span>
-                        <span className="text-text-main font-mono text-[11px]">
-                          {new Date(incident.opened_at).toLocaleDateString('es-ES')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Actions */}
-                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
-                    <span className="flex items-center gap-1 font-mono text-[11px]">
-                      <Clock size={12} />
-                      {new Date(incident.opened_at).toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => handleOpenEdit(incident, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
-                        title="Editar incidente"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(incident);
-                        }}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
-                        title="Eliminar incidente"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredIncidents.map((incident: Incident) => (
+              <IncidentCard
+                key={incident.id}
+                incident={incident}
+                isSelected={selectedIds.includes(incident.id)}
+                onToggleSelect={() => handleToggleSelect(incident.id)}
+                onClick={() => setSelectedIncident(incident)}
+                onEdit={(e) => handleOpenEdit(incident, e)}
+                onDelete={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(incident);
+                }}
+              />
+            ))}
           </div>
         ) : (
           /* Table View */
-          <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse font-sans">
-                <thead>
-                  <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
-                    <th className="py-3 px-3.5 w-10">
-                      <button
-                        type="button"
-                        onClick={handleSelectAllToggle}
-                        className="text-text-dim hover:text-accent-green transition-colors"
-                        title={
-                          selectedIds.length === filteredIncidents.length
-                            ? 'Deseleccionar todos'
-                            : 'Seleccionar todos'
-                        }
-                      >
-                        {selectedIds.length === filteredIncidents.length ? (
-                          <CheckSquare size={16} className="text-accent-green" />
-                        ) : (
-                          <Square size={16} />
-                        )}
-                      </button>
-                    </th>
-                    <th className="py-3 px-4">Incidente</th>
-                    <th className="py-3 px-3">Prioridad</th>
-                    <th className="py-3 px-3">Estado</th>
-                    <th className="py-3 px-3">Alertas</th>
-                    <th className="py-3 px-3">Apertura</th>
-                    <th className="py-3 px-4 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-base/40">
-                  {filteredIncidents.map((incident: Incident) => {
-                    const isSelected = selectedIds.includes(incident.id);
-
-                    return (
-                      <tr
-                        key={incident.id}
-                        onClick={() => setSelectedIncident(incident)}
-                        className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                          isSelected ? 'bg-accent-green/[0.03]' : ''
-                        }`}
-                      >
-                        <td
-                          className="py-3 px-3.5"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleSelect(incident);
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="text-text-dim hover:text-accent-green transition-colors"
-                          >
-                            {isSelected ? (
-                              <CheckSquare size={16} className="text-accent-green" />
-                            ) : (
-                              <Square size={16} />
-                            )}
-                          </button>
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <span className="font-bold text-text-main group-hover:text-accent-green transition-colors text-sm block">
-                            {incident.title}
-                          </span>
-                          <span className="text-xs text-text-dim truncate max-w-[320px] block">
-                            {incident.description || 'Sin descripción'}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-3">
-                          <PriorityBadge priority={incident.priority} />
-                        </td>
-
-                        <td className="py-3 px-3">
-                          <StatusBadge status={incident.status} />
-                        </td>
-
-                        <td className="py-3 px-3 font-mono font-bold text-accent-green text-xs">
-                          {incident.alerts_count}
-                        </td>
-
-                        <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
-                          {new Date(incident.opened_at).toLocaleDateString('es-ES')}
-                        </td>
-
-                        <td className="py-3 px-4 text-right">
-                          <div
-                            className="flex items-center justify-end gap-1"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => handleOpenEdit(incident, e)}
-                              className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
-                              title="Editar incidente"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteTarget(incident);
-                              }}
-                              className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
-                              title="Eliminar incidente"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <IncidentTableView
+            incidents={filteredIncidents}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectAll={handleSelectAllToggle}
+            onRowClick={(incident) => setSelectedIncident(incident)}
+            onEdit={(e, incident) => handleOpenEdit(incident, e)}
+            onDelete={(e, incident) => {
+              e.stopPropagation();
+              setDeleteTarget(incident);
+            }}
+          />
         )
       ) : (
         <EmptyState
@@ -768,9 +830,16 @@ export default function IncidentsPage() {
             <div className="space-y-3">
               {/* Stepper Flow Bar */}
               <div className="bg-bg-dark/90 border border-border-base rounded-2xl p-3.5">
-                <div className="text-[11px] font-semibold text-text-dim mb-2.5 flex items-center gap-1.5">
-                  <Activity size={13} className="text-accent-green" />
-                  Controlador del Ciclo de Vida del Incidente
+                <div className="text-[11px] font-semibold text-text-dim mb-2.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Activity size={13} className="text-accent-green" />
+                    Controlador del Ciclo de Vida del Incidente
+                  </span>
+                  {selectedIncident.duration_minutes > 0 && (
+                    <span className="font-mono text-sky-400 text-[11px]">
+                      Duración: {selectedIncident.duration_minutes}m
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                   {LIFECYCLE_STEPS.map((step, idx) => {
@@ -784,7 +853,7 @@ export default function IncidentsPage() {
                         type="button"
                         onClick={() => handleStatusChange(step.status)}
                         disabled={updateMutation.isPending}
-                        className={`p-2 rounded-xl border text-[11px] font-medium flex flex-col items-center justify-center gap-1 transition-all ${
+                        className={`p-2 rounded-xl border text-[11px] font-medium flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                           isCurrent
                             ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-sm font-semibold'
                             : isPast
@@ -804,7 +873,7 @@ export default function IncidentsPage() {
               </div>
 
               {/* Quick Info Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-sans">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
                   <div className="text-[11px] text-text-dim">Apertura</div>
                   <div className="text-xs font-bold font-mono text-text-main mt-0.5 truncate">
@@ -812,11 +881,16 @@ export default function IncidentsPage() {
                   </div>
                 </div>
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                  <div className="text-[11px] text-text-dim">Cierre</div>
-                  <div className="text-xs font-bold font-mono text-text-main mt-0.5 truncate">
-                    {selectedIncident.closed_at
-                      ? new Date(selectedIncident.closed_at).toLocaleDateString('es-ES')
-                      : 'En curso'}
+                  <div className="text-[11px] text-text-dim">Responsable</div>
+                  <div className="text-xs font-bold text-sky-400 mt-0.5 truncate">
+                    {selectedIncident.assigned_to_name || 'Sin asignar'}
+                  </div>
+                </div>
+                <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
+                  <div className="text-[11px] text-text-dim">Servicio</div>
+                  <div className="text-xs font-bold text-text-main mt-0.5 truncate flex items-center gap-1">
+                    {getModuleIcon(selectedIncident.target_type)}
+                    <span>{selectedIncident.impacted_service || 'General'}</span>
                   </div>
                 </div>
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
@@ -830,12 +904,14 @@ export default function IncidentsPage() {
           )
         }
         tabs={[
-          { id: 'timeline', label: 'Línea de Tiempo & Bitácora', icon: <Clock size={13} /> },
+          { id: 'timeline', label: 'Ciclo & Bitácora', icon: <Clock size={13} /> },
+          { id: 'rca', label: 'Causa Raíz (RCA)', icon: <FileText size={13} /> },
           {
             id: 'alerts',
-            label: `Alertas Vinculadas (${selectedIncident?.alerts_count || 0})`,
+            label: `Alertas (${selectedIncident?.alerts_count || 0})`,
             icon: <Bell size={13} />,
           },
+          { id: 'details', label: 'Asignación & SLA', icon: <UserCheck size={13} /> },
         ]}
         activeTab={drawerTab}
         onTabChange={(t) => setDrawerTab(t as any)}
@@ -845,7 +921,7 @@ export default function IncidentsPage() {
               <button
                 type="button"
                 onClick={() => handleOpenEdit(selectedIncident)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Pencil size={14} />
                 Editar Incidente
@@ -853,7 +929,7 @@ export default function IncidentsPage() {
               <button
                 type="button"
                 onClick={() => setDeleteTarget(selectedIncident)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Trash2 size={14} />
                 Eliminar Incidente
@@ -863,19 +939,20 @@ export default function IncidentsPage() {
         }
         maxWidthClass="max-w-2xl"
       >
+        {/* Tab 1: Timeline & Bitácora */}
         {selectedIncident && drawerTab === 'timeline' && (
           <div className="space-y-5">
             {/* Add Note Form */}
             <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4">
               <h4 className="text-xs font-semibold text-text-muted mb-2.5 flex items-center gap-1.5">
                 <MessageSquare size={14} className="text-accent-green" />
-                Agregar Nota de Bitácora / Avance
+                Agregar Nota de Bitácora / Avance Operativo
               </h4>
               <form onSubmit={handleAddNote} className="space-y-2.5">
                 <textarea
                   rows={2}
                   required
-                  placeholder="Escribe un avance técnico o resolución preliminar..."
+                  placeholder="Escribe un avance técnico, mitigación realizada o diagnóstico..."
                   value={noteInput}
                   onChange={(e) => setNoteInput(e.target.value)}
                   className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
@@ -883,7 +960,7 @@ export default function IncidentsPage() {
                 <button
                   type="submit"
                   disabled={addNoteMutation.isPending || !noteInput.trim()}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
                 >
                   {addNoteMutation.isPending ? (
                     <Loader2 className="animate-spin" size={13} />
@@ -906,40 +983,255 @@ export default function IncidentsPage() {
           </div>
         )}
 
+        {/* Tab 2: Root Cause Analysis (RCA) & Post-Mortem */}
+        {selectedIncident && drawerTab === 'rca' && (
+          <div className="space-y-5">
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
+                  <FileText size={15} className="text-purple-400" />
+                  Post-Mortem & Análisis de Causa Raíz (RCA)
+                </h4>
+                {selectedIncident.root_cause && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                    RCA Registrado
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-text-dim mb-4 leading-relaxed">
+                Documenta la causa raíz técnica del problema, el resumen de las acciones de
+                mitigación ejecutadas y los compromisos preventivos para evitar recurrencias.
+              </p>
+
+              <form onSubmit={handleSaveRca} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                    Causa Raíz Identificada (Root Cause)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="ej. Saturación de pool de conexiones JDBC por consulta lenta no indexada..."
+                    value={rcaRootCause}
+                    onChange={(e) => setRcaRootCause(e.target.value)}
+                    className="w-full bg-bg-card border border-border-base rounded-xl px-3.5 py-2.5 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                    Resumen de Resolución & Acciones de Mitigación
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="ej. Se reinició el microservicio, se aplicó índice temporal y se aumentó el pool..."
+                    value={rcaResolutionSummary}
+                    onChange={(e) => setRcaResolutionSummary(e.target.value)}
+                    className="w-full bg-bg-card border border-border-base rounded-xl px-3.5 py-2.5 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                    Acciones Preventivas & Mejoras Futuras
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="ej. Agregar alerta de umbral al 80% del pool, revisión de queries en sprint siguiente..."
+                    value={rcaPreventiveActions}
+                    onChange={(e) => setRcaPreventiveActions(e.target.value)}
+                    className="w-full bg-bg-card border border-border-base rounded-xl px-3.5 py-2.5 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={rcaMutation.isPending}
+                    className="flex items-center gap-1.5 px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-full text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                  >
+                    {rcaMutation.isPending ? (
+                      <Loader2 className="animate-spin" size={13} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    Guardar Análisis RCA
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Linked Alerts */}
         {selectedIncident && drawerTab === 'alerts' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h4 className="text-xs font-semibold text-text-muted">
-              Alertas del Sistema Relacionadas con este Incidente
+              Alertas del Sistema Vinculadas a este Incidente
             </h4>
             {linkedAlerts && linkedAlerts.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {linkedAlerts.map((la: IncidentAlert) => (
                   <div
                     key={la.id}
-                    className="p-3.5 bg-bg-dark/80 border border-border-base rounded-2xl flex items-center justify-between text-xs"
+                    className="p-4 bg-bg-dark/80 border border-border-base rounded-2xl flex items-center justify-between text-xs gap-3"
                   >
-                    <div className="flex items-center gap-2">
-                      <Bell size={14} className="text-accent-green shrink-0" />
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0 mt-0.5">
+                        <Bell size={15} />
+                      </div>
                       <div>
-                        <span className="font-bold text-text-main">{la.alert_title}</span>
-                        <p className="text-[11px] text-text-dim mt-0.5">
-                          {new Date(la.added_at).toLocaleString('es-ES')}
+                        <span className="font-bold text-text-main text-sm block">
+                          {la.alert_title}
+                        </span>
+                        <p className="text-[11px] text-text-dim mt-1 font-mono">
+                          Vinculada el: {new Date(la.added_at).toLocaleString('es-ES')}
                         </p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30">
-                      Vinculada
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30 shrink-0">
+                      Activa
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="bg-bg-dark/50 border border-border-base rounded-2xl p-8 text-center">
+                <Bell size={24} className="text-text-dim mx-auto mb-2 opacity-50" />
                 <p className="text-text-dim text-xs">
                   No hay alertas del sistema vinculadas a este incidente.
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab 4: Details, Assignee & SLA */}
+        {selectedIncident && drawerTab === 'details' && (
+          <div className="space-y-5 text-xs font-sans">
+            {/* Operator Assignment Card */}
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
+                <UserCheck size={15} className="text-sky-400" />
+                Asignación de Operador / Ingeniero Responsable
+              </h4>
+              <p className="text-[11px] text-text-dim">
+                Asigna el incidente a un miembro del equipo NOC para seguimiento y resolución.
+              </p>
+              <div className="flex gap-2">
+                <select
+                  value={assigneeState}
+                  onChange={(e) => setAssigneeState(e.target.value)}
+                  className="flex-1 bg-bg-card border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
+                >
+                  <option value="">-- Sin asignar --</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.first_name || m.last_name
+                        ? `${m.first_name} ${m.last_name} (${m.email})`
+                        : m.email}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleSaveAssignee}
+                  disabled={assignMutation.isPending}
+                  className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-black font-semibold rounded-full text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {assignMutation.isPending ? (
+                    <Loader2 className="animate-spin" size={13} />
+                  ) : (
+                    <Check size={13} />
+                  )}
+                  Asignar
+                </button>
+              </div>
+            </div>
+
+            {/* Impacted Service & 1-Click Jump */}
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
+                <Server size={15} className="text-emerald-400" />
+                Servicio o Activo Afectado
+              </h4>
+              <div className="flex items-center justify-between p-3 bg-bg-card rounded-xl border border-border-base/50">
+                <div className="flex items-center gap-2.5">
+                  {getModuleIcon(selectedIncident.target_type)}
+                  <div>
+                    <span className="font-semibold text-text-main block">
+                      {selectedIncident.impacted_service || 'Infraestructura General'}
+                    </span>
+                    <span className="text-[11px] text-text-dim">
+                      Módulo: {selectedIncident.target_type || 'General'}
+                    </span>
+                  </div>
+                </div>
+
+                {getModuleRoute(selectedIncident.target_type) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const route = getModuleRoute(selectedIncident.target_type);
+                      if (route) navigate(route);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-dark hover:bg-accent-green/10 border border-border-base hover:border-accent-green/40 text-text-muted hover:text-accent-green rounded-full text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <span>Ir al Módulo</span>
+                    <ExternalLink size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* SLA & Milestone Chronology */}
+            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
+                <Clock size={15} className="text-sky-400" />
+                Hitos Cronológicos & SLA
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
+                <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
+                  <span className="text-text-dim block text-[11px] font-sans">
+                    Fecha de Apertura:
+                  </span>
+                  <span className="text-text-main font-semibold mt-1 block">
+                    {new Date(selectedIncident.opened_at).toLocaleString('es-ES')}
+                  </span>
+                </div>
+                <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
+                  <span className="text-text-dim block text-[11px] font-sans">
+                    Reconocido (MTTA):
+                  </span>
+                  <span className="text-sky-400 font-semibold mt-1 block">
+                    {selectedIncident.acknowledged_at
+                      ? new Date(selectedIncident.acknowledged_at).toLocaleString('es-ES')
+                      : 'Pendiente de toma de posesión'}
+                  </span>
+                </div>
+                <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
+                  <span className="text-text-dim block text-[11px] font-sans">
+                    Mitigación Aplicada:
+                  </span>
+                  <span className="text-teal-400 font-semibold mt-1 block">
+                    {selectedIncident.mitigated_at
+                      ? new Date(selectedIncident.mitigated_at).toLocaleString('es-ES')
+                      : 'En curso / Sin confirmar'}
+                  </span>
+                </div>
+                <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
+                  <span className="text-text-dim block text-[11px] font-sans">
+                    Resolución Final (MTTR):
+                  </span>
+                  <span className="text-accent-green font-semibold mt-1 block">
+                    {selectedIncident.resolved_at
+                      ? new Date(selectedIncident.resolved_at).toLocaleString('es-ES')
+                      : selectedIncident.closed_at
+                      ? new Date(selectedIncident.closed_at).toLocaleString('es-ES')
+                      : 'Incidente Activo'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </NOCDrawer>

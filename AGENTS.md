@@ -133,6 +133,22 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
   3. *Acciones Rápidas:* Elevación formal a incidente, silenciado configurable (30m, 1h, 4h, 24h) y cambio de estado.
 - **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/alerts/bulk-action/` para reconocer, resolver, silenciar o eliminar alertas en masa mediante `NOCBulkActionBar`, más exportación completa a CSV con codificación UTF-8 BOM.
 
+## 🛡️ Centro de Escalación y Gestión de Incidentes (Incident Management Hub - `IncidentsPage.tsx` & `backend/incidents/`)
+- **Asignación de Ingenieros y Operadores:** Soporte para asignar formalmente un responsable (`assigned_to`, `assigned_to_name`) desde la interfaz o modal, con endpoint dedicado `POST /api/v1/incidents/{id}/assign/`.
+- **Correlación de Activo y Servicio Afectado:** Campos `impacted_service`, `target_type` y `target_id` para vincular el incidente directamente con el componente monitoreado, con botón de salto de 1-clic al módulo origen (`/monitoring`, `/ssl`, `/dns`, `/domains`, `/api-checks`, `/security-headers`).
+- **Análisis de Causa Raíz (RCA) y Post-Mortem Estructurado:** Registro de causa raíz técnica (`root_cause`), resumen de resolución (`resolution_summary`) y acciones preventivas (`preventive_actions`) mediante `POST /api/v1/incidents/{id}/rca/`, con pestaña especializada en el Drawer y feedback visual de RCA registrado.
+- **Trazabilidad de Hitos ITIL/SRE y MTTA / MTTR:** Registro automático de marcas de tiempo clave (`opened_at`, `acknowledged_at` para MTTA, `mitigated_at`, `resolved_at` para MTTR y `closed_at`), calculando la duración operativa exacta del incidente.
+- **Telemetría Operativa en Tiempo Real:** Endpoint `GET /api/v1/incidents/stats/` que calcula en tiempo real incidentes críticos, activos en mitigación, tiempo medio de reparación (MTTR), tiempo medio de reconocimiento (MTTA) y tasa de cumplimiento de SLA (<= 60m).
+- **Acciones en Lote Atómicas:** Endpoint `POST /api/v1/incidents/bulk-action/` para resolver, mitigar, cerrar o eliminar incidentes en masa atómicamente, reemplazando bucles iterativos en el cliente.
+- **Bitácora Colaborativa con Trazabilidad de Autor:** Corrección del endpoint de publicación de notas a `POST /api/v1/incidents/{id}/timeline/` con captura de usuario (`actor_name`) y nuevos tipos de eventos (`ASSIGNED`, `RCA_UPDATED`, `MITIGATED`).
+- **Vistas Duales Persistentes (Grid vs Tabla):** Selector de vista interactivo entre tarjetas [`IncidentCard.tsx`](file:///frontend/src/components/incidents/IncidentCard.tsx) y tabla compacta [`IncidentTableView.tsx`](file:///frontend/src/components/incidents/IncidentTableView.tsx) con persistencia en `localStorage` (`usePersistentViewMode`).
+- **Slide-Over NOCDrawer de 4 Pestañas:**
+  1. *Ciclo & Bitácora:* Stepper de ciclo de vida con 6 etapas (`open`, `investigating`, `identified`, `mitigated`, `resolved`, `closed`), formulario de avances y timeline colaborativo.
+  2. *Causa Raíz (RCA):* Formulario para documentar root cause, plan de contingencia y compromisos futuros.
+  3. *Alertas:* Feed de alertas del sistema vinculadas al incidente.
+  4. *Asignación & SLA:* Selector de operador con botón de reasignación rápida, acceso directo al módulo del servicio y cronograma de hitos.
+- **Exportación de Incidentes a CSV:** Descarga con 1-clic con codificación UTF-8 BOM para auditorías y comités de post-mortem.
+
 ## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
 1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
 2. **Uptime & Latencia** ([`MonitoringPage.tsx`](file:///frontend/src/pages/MonitoringPage.tsx)): Monitoreo HTTP/S, TCP, Ping, gráfica de latencia histórica y prueba de conexión en vivo.
@@ -141,7 +157,7 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
 5. **Dominios WHOIS** ([`DomainsPage.tsx`](file:///frontend/src/pages/DomainsPage.tsx)): Vencimiento de registros ICANN y nameservers.
 6. **Registros DNS** ([`DNSRecordsPage.tsx`](file:///frontend/src/pages/DNSRecordsPage.tsx)): Resolución de zonas y detección de mutaciones en registros.
 7. **Cabeceras de Seguridad** ([`SecurityHeadersPage.tsx`](file:///frontend/src/pages/SecurityHeadersPage.tsx)): Auditoría HSTS, CSP, Anti-Clickjacking y calificaciones Mozilla Observatory.
-8. **Gestión de Incidentes** ([`IncidentsPage.tsx`](file:///frontend/src/pages/IncidentsPage.tsx)): Controlador del ciclo de vida interactivo y bitácora de seguimiento.
+8. **Gestión de Incidentes** ([`IncidentsPage.tsx`](file:///frontend/src/pages/IncidentsPage.tsx)): Hub de escalación ITIL/SRE, asignación de ingenieros, RCA estructurado y control MTTR/MTTA.
 9. **Centro de Alertas** ([`AlertsPage.tsx`](file:///frontend/src/pages/AlertsPage.tsx)): Gestión de reglas de umbral, elevación a incidentes y resolución masiva.
 10. **Reportes Ejecutivos & SLA** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Informes de disponibilidad con exportación directa a CSV y PDF.
 
