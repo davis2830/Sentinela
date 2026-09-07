@@ -21,6 +21,7 @@ import {
   Activity,
   Sliders,
   Layers,
+  Wrench,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -59,6 +60,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/alerts', icon: Bell, label: 'Smart Alerts' },
       { to: '/incidents', icon: AlertTriangle, label: 'Incidentes' },
+      { to: '/maintenance', icon: Wrench, label: 'Mantenimientos' },
       { to: '/status-page', icon: Activity, label: 'Status Page' },
       { to: '/notifications', icon: Send, label: 'Notificaciones' },
       { to: '/reports', icon: FileText, label: 'Reportes' },

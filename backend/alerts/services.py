@@ -584,7 +584,23 @@ class AlertService:
         now = timezone.now()
         metadata = metadata or {}
 
-        # 1. Check if the parent rule is currently snoozed
+        # 1. Check if target is in an active maintenance window
+        is_in_maintenance = False
+        try:
+            from maintenance.services import MaintenanceWindowService
+            is_in_maintenance = MaintenanceWindowService.is_target_in_maintenance(
+                organization_id=organization_id,
+                target_type=target_type,
+                target_id=target_id,
+                at_time=now,
+            )
+        except Exception:
+            pass
+
+        if is_in_maintenance:
+            metadata["suppressed_by_maintenance"] = True
+
+        # 2. Check if the parent rule is currently snoozed
         rule_obj = AlertRule.objects.filter(id=rule_id).first() if rule_id else None
         rule_snoozed = bool(rule_obj and rule_obj.snoozed_until and rule_obj.snoozed_until > now)
 
@@ -611,9 +627,9 @@ class AlertService:
                     rule_obj.last_triggered_at = now
                     rule_obj.save(update_fields=["last_triggered_at"])
 
-                # If alert is specifically snoozed or rule is snoozed, suppress notifications
+                # If alert is specifically snoozed, rule is snoozed, or in maintenance, suppress notifications
                 alert_snoozed = bool(existing.snoozed_until and existing.snoozed_until > now)
-                if alert_snoozed or rule_snoozed:
+                if alert_snoozed or rule_snoozed or is_in_maintenance:
                     return existing
 
                 return existing
@@ -657,10 +673,11 @@ class AlertService:
             rule_obj.last_triggered_at = now
             rule_obj.save(update_fields=["last_triggered_at"])
 
-        AlertService.correlate_alert_with_incident(alert)
+        if not is_in_maintenance:
+            AlertService.correlate_alert_with_incident(alert)
 
-        # 5. Dispatch notifications if not snoozed
-        if not rule_snoozed:
+        # 5. Dispatch notifications if not snoozed and not in maintenance
+        if not rule_snoozed and not is_in_maintenance:
             try:
                 from notifications.services import NotificationService
                 rule_name = rule_obj.name if rule_obj else title

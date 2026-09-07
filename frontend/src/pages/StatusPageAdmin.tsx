@@ -55,6 +55,7 @@ import {
   Sliders,
   Eye,
   Clock,
+  Wrench,
 } from 'lucide-react';
 
 export default function StatusPageAdmin() {
@@ -942,14 +943,45 @@ export default function StatusPageAdmin() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleOpenCreateMaint}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black font-semibold rounded-full text-xs hover:bg-amber-400 transition-all shadow-sm cursor-pointer"
+            <div className="flex items-center gap-2">
+              <a
+                href="/maintenance"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover font-semibold rounded-full text-xs transition-all cursor-pointer"
+              >
+                <Wrench size={14} className="text-accent-blue" />
+                <span>NOC Mantenimientos</span>
+              </a>
+              <button
+                type="button"
+                onClick={handleOpenCreateMaint}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black font-semibold rounded-full text-xs hover:bg-amber-400 transition-all shadow-sm cursor-pointer"
+              >
+                <Plus size={15} />
+                Nuevo Mantenimiento
+              </button>
+            </div>
+          </div>
+
+          {/* Banner de Sincronización NOC */}
+          <div className="p-3.5 bg-accent-blue/10 border border-accent-blue/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <Wrench size={18} className="text-accent-blue shrink-0" />
+              <div>
+                <span className="font-bold text-text-main block">
+                  Sincronización Automática con el NOC
+                </span>
+                <span className="text-[11px] text-text-dim">
+                  Cualquier mantenimiento técnico programado en <strong className="text-text-main">/maintenance</strong> con la opción "Publicar en Status Page" activa se refleja aquí en tiempo real, silenciando alertas y protegiendo el SLA.
+                </span>
+              </div>
+            </div>
+            <a
+              href="/maintenance"
+              className="px-3 py-1.5 rounded-full bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue border border-accent-blue/40 font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
             >
-              <Plus size={15} />
-              Nuevo Mantenimiento
-            </button>
+              <span>Abrir en /maintenance</span>
+              <ExternalLink size={12} />
+            </a>
           </div>
 
           {/* Maintenance Table View */}
