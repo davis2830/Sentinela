@@ -12,9 +12,12 @@ class SSLCertificateSerializer(serializers.ModelSerializer):
             "id",
             "organization",
             "domain",
+            "port",
             "issuer",
             "subject",
+            "issued_at",
             "expiration_date",
+            "security_grade",
             "algorithm",
             "fingerprint",
             "days_remaining",
@@ -31,7 +34,9 @@ class SSLCertificateSerializer(serializers.ModelSerializer):
             "organization",
             "issuer",
             "subject",
+            "issued_at",
             "expiration_date",
+            "security_grade",
             "algorithm",
             "fingerprint",
             "days_remaining",
@@ -49,3 +54,4 @@ class SSLCertificateCreateSerializer(serializers.Serializer):
     """Serializer for certificate creation."""
 
     domain = serializers.CharField(max_length=500)
+    port = serializers.IntegerField(default=443, required=False)

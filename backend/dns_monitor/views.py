@@ -193,3 +193,47 @@ class DNSBulkScanView(APIView):
             return success_response({"message": "Re-resolución masiva de registros DNS iniciada."})
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class DNSTestResolutionView(APIView):
+    """Endpoint to test DNS query resolution in real-time before saving.
+
+    POST /api/v1/dns-records/test-resolution/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        domain = request.data.get("domain", "").strip()
+        record_type = request.data.get("record_type", "A").strip().upper()
+        if not domain:
+            return error_response(
+                "El dominio es requerido para la consulta DNS.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        result = DNSMonitorService.test_resolution(domain, record_type=record_type)
+        return success_response(result)
+
+
+class DNSBulkActionView(APIView):
+    """Endpoint to execute bulk actions on DNS records.
+
+    POST /api/v1/dns-records/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        record_ids = request.data.get("record_ids", [])
+        if not action or not record_ids:
+            return error_response(
+                "Parámetros 'action' y 'record_ids' son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            res = DNSMonitorService.bulk_action(org_id, action, record_ids)
+            return success_response(res)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

@@ -15,7 +15,14 @@ class APICheckTarget(OrganizationOwnedModel):
     method = models.CharField(
         max_length=10,
         default="GET",
-        choices=[("GET", "GET"), ("POST", "POST"), ("PUT", "PUT"), ("PATCH", "PATCH")],
+        choices=[
+            ("GET", "GET"),
+            ("POST", "POST"),
+            ("PUT", "PUT"),
+            ("PATCH", "PATCH"),
+            ("DELETE", "DELETE"),
+            ("HEAD", "HEAD"),
+        ],
     )
     expected_status = models.IntegerField(default=200)
     expected_response_time_ms = models.IntegerField(default=2000)
@@ -27,6 +34,8 @@ class APICheckTarget(OrganizationOwnedModel):
     enabled = models.BooleanField(default=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, null=True, blank=True)
+    last_response_time_ms = models.FloatField(null=True, blank=True)
+    last_http_status = models.IntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

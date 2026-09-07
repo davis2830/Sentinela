@@ -7,6 +7,7 @@ import TargetCard from '../components/monitoring/TargetCard';
 import TargetTableView from '../components/monitoring/TargetTableView';
 import TargetDetailDrawer from '../components/monitoring/TargetDetailDrawer';
 import TargetForm from '../components/monitoring/TargetForm';
+import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Plus,
   Loader2,
@@ -39,7 +40,7 @@ export default function MonitoringPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'up' | 'down' | 'slow' | 'disabled'>('all');
   const [protocolFilter, setProtocolFilter] = useState<string>('all');
   const [selectedTag, setSelectedTag] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('monitoring', 'grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortField, setSortField] = useState<'name' | 'latency' | 'status'>('status');
   const [sortAsc, setSortAsc] = useState(true);

@@ -10,6 +10,11 @@ import {
   CheckSquare,
   Square,
   Shield,
+  ShieldAlert,
+  Lock,
+  FileCode2,
+  Layers,
+  Zap,
 } from 'lucide-react';
 
 export interface SecurityHeaderTableViewProps {
@@ -38,7 +43,9 @@ export default function SecurityHeaderTableView({
   const allSelected =
     targets.length > 0 && selectedIds.length === targets.length;
 
-  const calculateGrade = (score: number | null) => {
+  const calculateGrade = (target: SecurityHeaderTarget) => {
+    if (target.last_grade) return target.last_grade;
+    const score = target.last_score;
     if (score === null) return null;
     if (score >= 90) return 'A+';
     if (score >= 80) return 'A';
@@ -70,8 +77,10 @@ export default function SecurityHeaderTableView({
               </th>
               <th className="py-3 px-4">Endpoint / Servicio</th>
               <th className="py-3 px-3">Calificación</th>
-              <th className="py-3 px-3">Puntuación</th>
-              <th className="py-3 px-3">Estado Monitoreo</th>
+              <th className="py-3 px-3">Blindaje Crítico</th>
+              <th className="py-3 px-3">Latencia</th>
+              <th className="py-3 px-3">Fuga de Stack</th>
+              <th className="py-3 px-3">Monitoreo</th>
               <th className="py-3 px-3">Último Análisis</th>
               <th className="py-3 px-4 text-right">Acciones</th>
             </tr>
@@ -80,7 +89,7 @@ export default function SecurityHeaderTableView({
             {targets.map((target) => {
               const isSelected = selectedIds.includes(target.id);
               const isScanning = scanningId === target.id;
-              const grade = calculateGrade(target.last_score);
+              const grade = calculateGrade(target);
 
               return (
                 <tr
@@ -118,7 +127,7 @@ export default function SecurityHeaderTableView({
                         {target.name}
                       </span>
                     </div>
-                    <div className="text-xs font-mono text-text-dim truncate max-w-[280px] flex items-center gap-1 mt-0.5">
+                    <div className="text-xs font-mono text-text-dim truncate max-w-[260px] flex items-center gap-1 mt-0.5">
                       <span className="truncate">{target.url}</span>
                       <a
                         href={target.url}
@@ -133,27 +142,91 @@ export default function SecurityHeaderTableView({
                     </div>
                   </td>
 
-                  {/* Grade Badge */}
+                  {/* Grade & Score */}
                   <td className="py-3 px-3">
-                    <GradeBadge grade={grade} score={target.last_score} />
+                    <div className="flex items-center gap-2">
+                      <GradeBadge grade={grade} score={target.last_score} />
+                      {target.last_score !== null && (
+                        <span className="font-mono font-bold text-xs text-text-muted">
+                          {target.last_score} pts
+                        </span>
+                      )}
+                    </div>
                   </td>
 
-                  {/* Score */}
-                  <td className="py-3 px-3 font-mono font-bold text-xs">
-                    {target.last_score !== null ? (
+                  {/* Critical Protections (HSTS, CSP, XFO) */}
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-1 font-mono text-[10px]">
                       <span
-                        className={
-                          target.last_score >= 80
-                            ? 'text-emerald-400'
-                            : target.last_score >= 60
-                            ? 'text-amber-400'
-                            : 'text-rose-400'
-                        }
+                        className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                          target.has_hsts
+                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
+                            : 'bg-bg-dark border border-border-base/40 text-text-dim'
+                        }`}
+                        title={target.has_hsts ? 'HSTS Activo' : 'HSTS Ausente'}
                       >
-                        {target.last_score} / 100
+                        <Lock size={9} />
+                        HSTS
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                          target.has_csp
+                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
+                            : 'bg-bg-dark border border-border-base/40 text-text-dim'
+                        }`}
+                        title={target.has_csp ? 'CSP Activo' : 'CSP Ausente'}
+                      >
+                        <FileCode2 size={9} />
+                        CSP
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                          target.has_xfo
+                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
+                            : 'bg-bg-dark border border-border-base/40 text-text-dim'
+                        }`}
+                        title={target.has_xfo ? 'X-Frame-Options Activo' : 'XFO Ausente'}
+                      >
+                        <Layers size={9} />
+                        XFO
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Latency */}
+                  <td className="py-3 px-3 font-mono text-xs">
+                    {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined ? (
+                      <span
+                        className={`flex items-center gap-1 font-semibold ${
+                          target.last_response_time_ms < 150
+                            ? 'text-emerald-400'
+                            : target.last_response_time_ms < 400
+                            ? 'text-sky-400'
+                            : 'text-amber-400'
+                        }`}
+                      >
+                        <Zap size={11} />
+                        {target.last_response_time_ms} ms
                       </span>
                     ) : (
-                      <span className="text-text-dim">Sin evaluar</span>
+                      <span className="text-text-dim">-</span>
+                    )}
+                  </td>
+
+                  {/* Server Leak Detection */}
+                  <td className="py-3 px-3">
+                    {target.info_leak_detected ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse"
+                        title={target.server_header || target.powered_by_header || 'Expone software de servidor'}
+                      >
+                        <ShieldAlert size={11} />
+                        Fuga detectada
+                      </span>
+                    ) : (
+                      <span className="text-emerald-400/80 text-[11px] font-mono">
+                        Protegido
+                      </span>
                     )}
                   </td>
 

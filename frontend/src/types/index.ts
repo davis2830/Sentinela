@@ -3,8 +3,42 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
+  phone_number?: string;
+  timezone?: string;
+  notification_preferences?: {
+    email_critical_alerts?: boolean;
+    sound_alerts?: boolean;
+    incident_assignments?: boolean;
+    weekly_digest?: boolean;
+  };
+  role?: string;
   is_staff: boolean;
   is_active: boolean;
+  last_login?: string | null;
+  created_at?: string;
+  teams?: Array<{
+    id: string;
+    name: string;
+    color: string;
+    is_lead?: boolean;
+  }>;
+  organization?: {
+    id: string;
+    name: string;
+    timezone: string;
+    locale: string;
+  };
+}
+
+export interface APITokenItem {
+  id: string;
+  name: string;
+  token: string;
+  scope: 'read' | 'full';
+  expires_at: string | null;
+  is_expired: boolean;
+  created_at: string;
+  last_used_at: string | null;
 }
 
 export interface AuthResponse {
@@ -30,4 +64,6 @@ export * from './domain';
 export * from './api_checks';
 export * from './security_headers';
 export * from './alerts';
-export * from './incidents';
+export * from './incidents';
+export * from './reports';
+export * from './users';

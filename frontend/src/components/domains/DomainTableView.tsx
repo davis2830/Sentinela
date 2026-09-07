@@ -10,6 +10,9 @@ import {
   CheckSquare,
   Square,
   Globe2,
+  Lock,
+  Unlock,
+  Server,
 } from 'lucide-react';
 
 export interface DomainTableViewProps {
@@ -39,11 +42,36 @@ export default function DomainTableView({
     domains.length > 0 && selectedIds.length === domains.length;
 
   const getStatusType = (domain: DomainInfo) => {
-    if (domain.status === 'error') return 'fallo';
+    if (domain.status === 'error' || Boolean(domain.error_message)) return 'fallo';
     const days = domain.days_until_expiration;
     if (days !== null && days <= 0) return 'expirado';
     if (days !== null && days <= 30) return 'por_expirar';
     return 'valido';
+  };
+
+  const calculateLifePercentage = (domain: DomainInfo) => {
+    if (!domain.creation_date || !domain.expiration_date) return null;
+    const start = new Date(domain.creation_date).getTime();
+    const end = new Date(domain.expiration_date).getTime();
+    const now = Date.now();
+    const total = end - start;
+    if (total <= 0) return 100;
+    const elapsed = now - start;
+    return Math.min(Math.max(Math.round((elapsed / total) * 100), 0), 100);
+  };
+
+  const parseNameservers = (nsData: any): string[] => {
+    if (!nsData) return [];
+    if (Array.isArray(nsData)) return nsData.map((s) => String(s).toLowerCase());
+    if (typeof nsData === 'string') {
+      try {
+        const parsed = JSON.parse(nsData);
+        if (Array.isArray(parsed)) return parsed.map((s) => String(s).toLowerCase());
+      } catch {
+        return nsData.split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase());
+      }
+    }
+    return [];
   };
 
   return (
@@ -56,7 +84,7 @@ export default function DomainTableView({
                 <button
                   type="button"
                   onClick={onSelectAll}
-                  className="text-text-dim hover:text-accent-green transition-colors"
+                  className="text-text-dim hover:text-accent-green transition-colors cursor-pointer"
                   title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
                 >
                   {allSelected ? (
@@ -66,11 +94,11 @@ export default function DomainTableView({
                   )}
                 </button>
               </th>
-              <th className="py-3 px-4">Dominio WHOIS</th>
-              <th className="py-3 px-3">Registrador</th>
-              <th className="py-3 px-3">Estado</th>
-              <th className="py-3 px-3">Vigencia</th>
-              <th className="py-3 px-3">Expiración</th>
+              <th className="py-3 px-4">Dominio FQDN</th>
+              <th className="py-3 px-3">Registrador ICANN</th>
+              <th className="py-3 px-3">Bloqueo EPP</th>
+              <th className="py-3 px-3">Vigencia & Timeline</th>
+              <th className="py-3 px-3">Fecha Vencimiento</th>
               <th className="py-3 px-3">Servidores NS</th>
               <th className="py-3 px-4 text-right">Acciones</th>
             </tr>
@@ -81,6 +109,8 @@ export default function DomainTableView({
               const isScanning = scanningId === domain.id;
               const statusType = getStatusType(domain);
               const days = domain.days_until_expiration;
+              const lifePct = calculateLifePercentage(domain);
+              const nsList = parseNameservers(domain.name_servers);
 
               return (
                 <tr
@@ -100,7 +130,7 @@ export default function DomainTableView({
                   >
                     <button
                       type="button"
-                      className="text-text-dim hover:text-accent-green transition-colors"
+                      className="text-text-dim hover:text-accent-green transition-colors cursor-pointer"
                     >
                       {isSelected ? (
                         <CheckSquare size={16} className="text-accent-green" />
@@ -131,32 +161,72 @@ export default function DomainTableView({
                   </td>
 
                   {/* Registrar */}
-                  <td className="py-3 px-3 text-text-muted text-xs truncate max-w-[160px]" title={domain.registrar || ''}>
+                  <td
+                    className="py-3 px-3 text-text-muted text-xs truncate max-w-[170px]"
+                    title={domain.registrar || ''}
+                  >
                     {domain.registrar || 'Desconocido'}
                   </td>
 
-                  {/* Status Badge */}
+                  {/* EPP Domain Lock */}
                   <td className="py-3 px-3">
-                    <StatusBadge status={statusType} />
-                  </td>
-
-                  {/* Days until expiration */}
-                  <td className="py-3 px-3 font-mono font-bold text-xs">
-                    {days !== null ? (
-                      <span
-                        className={`px-2 py-0.5 rounded-full ${
-                          days <= 0
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : days <= 30
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        }`}
-                      >
-                        {days <= 0 ? 'Expirado' : `${days} días`}
+                    {domain.is_locked ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+                        <Lock size={10} />
+                        Protegido
                       </span>
                     ) : (
-                      <span className="text-text-dim">-</span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
+                        <Unlock size={10} />
+                        Sin Bloqueo
+                      </span>
                     )}
+                  </td>
+
+                  {/* Days remaining & Lifecycle timeline */}
+                  <td className="py-3 px-3 min-w-[140px]">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-mono font-bold">
+                          {days !== null ? (
+                            <span
+                              className={
+                                days <= 0
+                                  ? 'text-accent-red'
+                                  : days <= 30
+                                  ? 'text-accent-yellow'
+                                  : 'text-accent-green'
+                              }
+                            >
+                              {days <= 0 ? 'Expirado' : `${days} días`}
+                            </span>
+                          ) : (
+                            <span className="text-text-dim">-</span>
+                          )}
+                        </span>
+                        {lifePct !== null && (
+                          <span className="text-[10px] font-mono text-text-dim">
+                            {lifePct}% consumido
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Micro Progress Bar */}
+                      {lifePct !== null && (
+                        <div className="w-full h-1 bg-bg-dark rounded-full overflow-hidden border border-border-base/50">
+                          <div
+                            className={`h-full transition-all duration-500 rounded-full ${
+                              days !== null && days <= 15
+                                ? 'bg-accent-red'
+                                : days !== null && days <= 30
+                                ? 'bg-accent-yellow'
+                                : 'bg-accent-green'
+                            }`}
+                            style={{ width: `${lifePct}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Expiration Date */}
@@ -167,10 +237,18 @@ export default function DomainTableView({
                   </td>
 
                   {/* Nameservers */}
-                  <td className="py-3 px-3 text-text-dim font-mono text-[11px] truncate max-w-[180px]">
-                    {Array.isArray(domain.name_servers) && domain.name_servers.length > 0
-                      ? domain.name_servers[0]
-                      : 'Sin NS'}
+                  <td className="py-3 px-3 font-mono text-xs">
+                    {nsList.length > 0 ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue border border-accent-blue/30 text-[11px] font-medium"
+                        title={nsList.join(', ')}
+                      >
+                        <Server size={11} />
+                        {nsList.length} NS
+                      </span>
+                    ) : (
+                      <span className="text-text-dim text-[11px]">Sin NS</span>
+                    )}
                   </td>
 
                   {/* Actions */}
@@ -183,18 +261,18 @@ export default function DomainTableView({
                         type="button"
                         onClick={(e) => onScan(domain.id, e)}
                         disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
+                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
                         title="Consultar WHOIS ahora"
                       >
                         <RefreshCw
                           size={14}
-                          className={isScanning ? 'animate-spin' : ''}
+                          className={isScanning ? 'animate-spin text-accent-green' : ''}
                         />
                       </button>
                       <button
                         type="button"
                         onClick={(e) => onEdit(domain, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
+                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar dominio"
                       >
                         <Pencil size={14} />
@@ -202,7 +280,7 @@ export default function DomainTableView({
                       <button
                         type="button"
                         onClick={(e) => onDelete(domain, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
+                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                         title="Eliminar dominio"
                       >
                         <Trash2 size={14} />

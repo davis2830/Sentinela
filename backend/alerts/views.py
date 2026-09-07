@@ -7,11 +7,12 @@ from common.responses import error_response, success_response
 from .serializers import (
     AlertRuleCreateSerializer,
     AlertRuleSerializer,
+    AlertRuleSimulateSerializer,
     AlertRuleUpdateSerializer,
     AlertSerializer,
     AlertUpdateSerializer,
 )
-from .services import AlertRuleService, AlertService
+from .services import AlertEvaluatorService, AlertRuleService, AlertService
 
 
 class AlertRuleListView(APIView):
@@ -108,6 +109,101 @@ class AlertRuleDetailView(APIView):
             )
 
 
+class AlertRuleSimulateView(APIView):
+    """Endpoint for simulating an alert rule against organization targets in real time.
+
+    POST /api/v1/alert-rules/simulate/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        serializer = AlertRuleSimulateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                "Parámetros inválidos para la simulación.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = AlertRuleService.simulate_rule(
+                organization_id=org_id,
+                target_type=serializer.validated_data["target_type"],
+                condition=serializer.validated_data["condition"],
+                threshold=serializer.validated_data.get("threshold", 0),
+                target_id=serializer.validated_data.get("target_id"),
+            )
+            return success_response(result)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class AlertRuleSnoozeView(APIView):
+    """Endpoint to temporarily snooze/mute an alert rule.
+
+    POST /api/v1/alert-rules/<rule_id>/snooze/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, rule_id):
+        org_id = request.user.organization_id
+        minutes = int(request.data.get("minutes", 60))
+        try:
+            rule = AlertRuleService.snooze_rule(rule_id, org_id, minutes=minutes)
+            serializer = AlertRuleSerializer(rule)
+            return success_response({
+                "rule": serializer.data,
+                "message": f"Regla silenciada por {minutes} minutos.",
+            })
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class AlertRuleEvaluateView(APIView):
+    """Endpoint for manual on-demand evaluation of all alert rules.
+
+    POST /api/v1/alert-rules/evaluate/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            from .models import AlertRule
+
+            org_id = request.user.organization_id
+
+            # Ensure default standard rules exist if organization has none
+            seeded = AlertRuleService.ensure_default_rules(org_id)
+
+            # Evaluate rules for this organization
+            count = AlertEvaluatorService.evaluate_all_rules(org_id=org_id)
+            total_rules = AlertRule.objects.filter(
+                organization_id=org_id, enabled=True
+            ).count()
+
+            if seeded > 0:
+                msg = f"Se aprovisionaron y evaluaron {total_rules} reglas estándar. Alertas generadas: {count}."
+            elif count > 0:
+                msg = f"Evaluación completada con {total_rules} reglas. Se generaron {count} nueva(s) alerta(s)."
+            else:
+                msg = f"Evaluación completada: {total_rules} regla(s) verificada(s). Todos los umbrales nominales (0 alertas)."
+
+            return success_response(
+                {
+                    "alerts_created": count,
+                    "rules_evaluated": total_rules,
+                    "seeded_rules": seeded,
+                    "message": msg,
+                }
+            )
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
 class AlertListView(APIView):
     """Endpoint for listing alerts.
 
@@ -177,19 +273,24 @@ class AlertDetailView(APIView):
             )
 
 
-class AlertRuleEvaluateView(APIView):
-    """Endpoint for manual on-demand evaluation of all alert rules.
+class AlertSnoozeView(APIView):
+    """Endpoint to temporarily snooze/mute a specific alert.
 
-    POST /api/v1/alert-rules/evaluate/
+    POST /api/v1/alerts/<alert_id>/snooze/
     """
 
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    def post(self, request, alert_id):
+        org_id = request.user.organization_id
+        minutes = int(request.data.get("minutes", 60))
         try:
-            from .services import AlertEvaluatorService
-            count = AlertEvaluatorService.evaluate_all_rules()
-            return success_response({"alerts_created": count, "message": "Evaluación completada."})
+            alert = AlertService.snooze_alert(alert_id, org_id, minutes=minutes)
+            serializer = AlertSerializer(alert)
+            return success_response({
+                "alert": serializer.data,
+                "message": f"Alerta silenciada por {minutes} minutos.",
+            })
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -220,6 +321,33 @@ class AlertBulkResolveView(APIView):
         org_id = request.user.organization_id
         count = AlertService.resolve_all(org_id)
         return success_response({"updated": count, "message": f"{count} alertas resueltas."})
+
+
+class AlertBulkActionView(APIView):
+    """Endpoint to execute bulk actions on selected alerts.
+
+    POST /api/v1/alerts/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        alert_ids = request.data.get("alert_ids", [])
+        minutes = int(request.data.get("minutes", 60))
+
+        if not action or not alert_ids:
+            return error_response(
+                "Parámetros 'action' y 'alert_ids' son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            res = AlertService.bulk_action(org_id, action, alert_ids, minutes=minutes)
+            return success_response(res)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertStatsView(APIView):

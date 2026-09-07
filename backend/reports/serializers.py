@@ -43,5 +43,20 @@ class ReportCreateSerializer(serializers.Serializer):
     )
     title = serializers.CharField(max_length=500)
     parameters = serializers.DictField(required=False, default=dict)
+    target_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list
+    )
+    sla_target = serializers.FloatField(
+        required=False, min_value=90.0, max_value=100.0, default=99.9
+    )
     period_start = serializers.DateTimeField(required=False)
     period_end = serializers.DateTimeField(required=False)
+
+
+class ReportBulkActionSerializer(serializers.Serializer):
+    """Serializer for bulk actions on reports."""
+
+    action = serializers.ChoiceField(choices=["delete"])
+    report_ids = serializers.ListField(
+        child=serializers.UUIDField(), min_length=1
+    )

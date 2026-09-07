@@ -27,6 +27,9 @@ class MonitoringTargetListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         targets = MonitoringService.list_targets(org_id)
+        team_id = request.query_params.get("team_id")
+        if team_id:
+            targets = targets.filter(owner_team_id=team_id)
         serializer = MonitoringTargetSerializer(targets, many=True)
         return success_response(serializer.data)
 
@@ -49,6 +52,7 @@ class MonitoringTargetListView(APIView):
                 interval=serializer.validated_data.get("interval", 60),
                 enabled=serializer.validated_data.get("enabled", True),
                 tags=serializer.validated_data.get("tags", []),
+                owner_team=serializer.validated_data.get("owner_team"),
             )
             from audit.services import AuditService
             AuditService.log_from_request(

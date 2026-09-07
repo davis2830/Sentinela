@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -10,7 +10,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import type { TimeseriesPoint, TimeseriesSummary } from '../../types/monitoring';
-import { TrendingUp, RefreshCw, Zap, AlertTriangle } from 'lucide-react';
+import { TrendingUp, RefreshCw, Zap, Activity } from 'lucide-react';
 
 interface LatencyChartProps {
   timeseries: TimeseriesPoint[];
@@ -54,7 +54,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
         )}
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
           <span className="text-text-muted">Latencia Promedio:</span>
           <span
@@ -68,8 +68,10 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 
         {data.max_latency !== null && (
           <div className="flex items-center justify-between gap-4 text-[11px]">
-            <span className="text-text-dim">Pico Máximo:</span>
-            <span className="text-text-main font-semibold">{data.max_latency} ms</span>
+            <span className="text-accent-yellow">Pico Máximo en Intervalo:</span>
+            <span className={`font-bold ${data.max_latency > 500 ? 'text-accent-red' : 'text-accent-yellow'}`}>
+              {data.max_latency} ms
+            </span>
           </div>
         )}
 
@@ -81,7 +83,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
         )}
 
         <div className="flex items-center justify-between gap-4 text-[10px] text-text-dim pt-1 border-t border-border-base/30">
-          <span>Muestras en intervalo:</span>
+          <span>Muestras analizadas:</span>
           <span>{data.total_count}</span>
         </div>
       </div>
@@ -95,6 +97,8 @@ export default function LatencyChart({
   period,
   isLoading = false,
 }: LatencyChartProps) {
+  const [viewMode, setViewMode] = useState<'both' | 'avg' | 'max'>('both');
+
   if (isLoading) {
     return (
       <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 flex items-center justify-center py-16">
@@ -106,50 +110,105 @@ export default function LatencyChart({
   const periodLabel =
     period === '24h' ? 'Últimas 24 Horas' : period === '7d' ? 'Últimos 7 Días' : 'Últimos 30 Días';
 
-  // Format chart data: replace null latency with 0 for continuous drawing
-  const chartData = timeseries.map((item) => ({
-    ...item,
-    displayLatency: item.latency !== null ? item.latency : 0,
-  }));
+  // Format chart data: populate average and max peak values
+  const chartData = timeseries.map((item) => {
+    const avg = item.latency !== null ? item.latency : 0;
+    const max = item.max_latency !== null ? item.max_latency : avg;
+    return {
+      ...item,
+      displayLatency: avg,
+      displayMaxLatency: max,
+    };
+  });
 
-  const maxVal = Math.max(...chartData.map((d) => d.displayLatency || 0), 100);
+  // Calculate dynamic max domain according to active view mode
+  const relevantValues = chartData.map((d) =>
+    viewMode === 'avg' ? d.displayLatency : Math.max(d.displayLatency, d.displayMaxLatency)
+  );
+  const maxVal = Math.max(...relevantValues, 100);
   const yDomainMax = Math.ceil((maxVal * 1.15) / 50) * 50;
 
   return (
     <div className="bg-bg-card border border-border-base rounded-xl p-6 mb-6 shadow-xl">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-border-base/50 pb-4">
+      {/* Header with Stats and View Mode Switcher */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 border-b border-border-base/50 pb-4">
         <div>
-          <div className="flex items-center gap-2 font-bold text-text-main text-base">
+          <div className="flex items-center gap-2 font-bold text-text-main text-base font-sans">
             <TrendingUp size={20} className="text-accent-green" />
-            <span>Curva Continua de Latencia & Rendimiento ({periodLabel})</span>
+            <span>Curva de Latencia & Rendimiento ({periodLabel})</span>
           </div>
           <p className="text-[11px] text-text-dim mt-0.5 font-sans">
-            Métricas de tiempo de respuesta en tiempo real con detección de picos y caídas
+            Comparativa en tiempo real entre latencia promedio y picos máximos detectados
           </p>
         </div>
 
-        {/* Stats Pills */}
-        <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Latencia promedio">
-            <span className="text-text-muted">AVG:</span>
-            <span className="font-bold text-accent-green">{summary.avg_latency}ms</span>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-bg-dark border border-border-base rounded-lg p-1 font-mono text-xs">
+            <button
+              onClick={() => setViewMode('both')}
+              className={`px-2.5 py-1 rounded transition-all font-semibold cursor-pointer ${
+                viewMode === 'both'
+                  ? 'bg-accent-green text-black shadow-xs'
+                  : 'text-text-muted hover:text-text-main'
+              }`}
+              title="Mostrar promedio sombreado y picos máximos simultáneamente"
+            >
+              Ambas Curvas
+            </button>
+            <button
+              onClick={() => setViewMode('avg')}
+              className={`px-2.5 py-1 rounded transition-all font-semibold cursor-pointer ${
+                viewMode === 'avg'
+                  ? 'bg-accent-green text-black shadow-xs'
+                  : 'text-text-muted hover:text-text-main'
+              }`}
+              title="Ver solo latencia promedio suavizada"
+            >
+              Promedio
+            </button>
+            <button
+              onClick={() => setViewMode('max')}
+              className={`px-2.5 py-1 rounded transition-all font-semibold cursor-pointer ${
+                viewMode === 'max'
+                  ? 'bg-accent-green text-black shadow-xs'
+                  : 'text-text-muted hover:text-text-main'
+              }`}
+              title="Ver picos máximos registrados en cada intervalo"
+            >
+              Picos Máximos
+            </button>
           </div>
-          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Percentil 50 (Mediana)">
-            <span className="text-text-muted">P50:</span>
-            <span className="font-bold text-accent-blue">{summary.p50_latency}ms</span>
-          </div>
-          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Percentil 90">
-            <span className="text-text-muted">P90:</span>
-            <span className="font-bold text-accent-yellow">{summary.p90_latency}ms</span>
-          </div>
-          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Percentil 99">
-            <span className="text-text-muted">P99:</span>
-            <span className="font-bold text-accent-red">{summary.p99_latency}ms</span>
-          </div>
-          <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Pico máximo registrado">
-            <span className="text-text-muted">MAX:</span>
-            <span className="font-bold text-text-main">{summary.max_latency}ms</span>
+
+          {/* Stats Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+            <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Latencia promedio general">
+              <span className="text-text-muted">AVG:</span>
+              <span className="font-bold text-accent-green">{summary.avg_latency}ms</span>
+            </div>
+            <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Percentil 50 (Mediana habitual)">
+              <span className="text-text-muted">P50:</span>
+              <span className="font-bold text-accent-blue">{summary.p50_latency}ms</span>
+            </div>
+            <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Percentil 90">
+              <span className="text-text-muted">P90:</span>
+              <span className="font-bold text-accent-yellow">{summary.p90_latency}ms</span>
+            </div>
+            <div
+              className={`border px-2.5 py-1 rounded-lg flex items-center gap-1 ${
+                summary.p99_latency > 500
+                  ? 'bg-accent-red/10 border-accent-red/40 text-accent-red'
+                  : 'bg-bg-dark border-border-base text-accent-yellow'
+              }`}
+              title="Percentil 99 (Pico del 1% de chequeos más lentos)"
+            >
+              <span className="text-text-muted">P99:</span>
+              <span className="font-bold">{summary.p99_latency}ms</span>
+            </div>
+            <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Pico máximo registrado">
+              <span className="text-text-muted">MAX:</span>
+              <span className="font-bold text-text-main">{summary.max_latency}ms</span>
+            </div>
           </div>
         </div>
       </div>
@@ -204,51 +263,72 @@ export default function LatencyChart({
                   }}
                 />
 
-                <Area
-                  type="monotone"
-                  dataKey="displayLatency"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#latencyGradient)"
-                  dot={(props: any) => {
-                    const { cx, cy, payload } = props;
-                    if (payload && payload.is_down) {
-                      return (
-                        <circle
-                          key={`dot-down-${props.index}`}
-                          cx={cx}
-                          cy={cy}
-                          r={5}
-                          fill="#EF4444"
-                          stroke="#FFFFFF"
-                          strokeWidth={2}
-                          className="animate-pulse"
-                        />
-                      );
-                    }
-                    if (payload && payload.status === 'slow') {
-                      return (
-                        <circle
-                          key={`dot-slow-${props.index}`}
-                          cx={cx}
-                          cy={cy}
-                          r={3.5}
-                          fill="#F59E0B"
-                          stroke="#111720"
-                          strokeWidth={1.5}
-                        />
-                      );
-                    }
-                    return <></>;
-                  }}
-                  activeDot={{
-                    r: 5,
-                    fill: '#10b981',
-                    stroke: '#FFFFFF',
-                    strokeWidth: 2,
-                  }}
-                />
+                {/* Average Latency Area (Shown when viewMode is 'both' or 'avg') */}
+                {(viewMode === 'both' || viewMode === 'avg') && (
+                  <Area
+                    type="monotone"
+                    dataKey="displayLatency"
+                    name="Latencia Promedio"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#latencyGradient)"
+                    dot={(props: any) => {
+                      const { cx, cy, payload } = props;
+                      if (payload && payload.is_down) {
+                        return (
+                          <circle
+                            key={`dot-down-${props.index}`}
+                            cx={cx}
+                            cy={cy}
+                            r={5}
+                            fill="#EF4444"
+                            stroke="#FFFFFF"
+                            strokeWidth={2}
+                            className="animate-pulse"
+                          />
+                        );
+                      }
+                      return <></>;
+                    }}
+                    activeDot={{
+                      r: 5,
+                      fill: '#10b981',
+                      stroke: '#FFFFFF',
+                      strokeWidth: 2,
+                    }}
+                  />
+                )}
+
+                {/* Max Peak Line (Shown when viewMode is 'both' or 'max') */}
+                {(viewMode === 'both' || viewMode === 'max') && (
+                  <Area
+                    type="monotone"
+                    dataKey="displayMaxLatency"
+                    name="Pico Máximo"
+                    stroke="#F59E0B"
+                    strokeWidth={viewMode === 'max' ? 2 : 1.5}
+                    strokeDasharray={viewMode === 'both' ? '4 3' : undefined}
+                    fill="none"
+                    dot={(props: any) => {
+                      const { cx, cy, payload } = props;
+                      if (payload && payload.displayMaxLatency > 500 && !payload.is_down) {
+                        return (
+                          <circle
+                            key={`dot-peak-${props.index}`}
+                            cx={cx}
+                            cy={cy}
+                            r={3.5}
+                            fill="#F59E0B"
+                            stroke="#111720"
+                            strokeWidth={1.5}
+                          />
+                        );
+                      }
+                      return <></>;
+                    }}
+                  />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -257,12 +337,12 @@ export default function LatencyChart({
           <div className="mt-4 pt-3 border-t border-border-base/50 flex flex-wrap items-center justify-between gap-4 text-[11px] font-mono text-text-muted">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-0.5 bg-accent-green" />
-                <span>Latencia Regular</span>
+                <span className="w-3.5 h-0.5 bg-accent-green" />
+                <span>Latencia Promedio (AVG)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-accent-yellow" />
-                <span>Lentitud (&gt;300ms)</span>
+                <span className="w-3.5 h-0.5 border-b border-dashed border-accent-yellow" />
+                <span>Pico Máximo en Intervalo (MAX)</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-accent-red animate-pulse" />
@@ -270,7 +350,7 @@ export default function LatencyChart({
               </div>
             </div>
 
-            <div className="flex items-center gap-1 text-text-dim">
+            <div className="flex items-center gap-1 text-text-dim font-sans">
               <Zap size={13} className="text-accent-green" />
               <span>Actualización en vivo cada 30s</span>
             </div>

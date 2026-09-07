@@ -19,6 +19,9 @@ class DomainInfo(OrganizationOwnedModel):
     name_servers = models.TextField(blank=True)
     registrant_country = models.CharField(max_length=100, blank=True)
     days_until_expiration = models.IntegerField(null=True, blank=True)
+    is_locked = models.BooleanField(default=True)
+    whois_server = models.CharField(max_length=255, blank=True)
+    dnssec = models.CharField(max_length=100, blank=True)
     last_scanned_at = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True)
 

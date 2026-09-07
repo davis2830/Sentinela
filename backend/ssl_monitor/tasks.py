@@ -1,8 +1,4 @@
 import logging
-import socket
-import ssl as ssl_module
-from datetime import datetime, timezone as dt_timezone
-
 from celery import shared_task
 
 from .models import SSLCertificate
@@ -15,8 +11,8 @@ logger = logging.getLogger(__name__)
 def scan_ssl_certificate(self, certificate_id):
     """Scan an SSL certificate for a given certificate record.
 
-    Connects to the domain on port 443, retrieves the certificate,
-    and extracts issuer, subject, expiration date, algorithm, and fingerprint.
+    Connects to the domain on configured port (default 443), retrieves the certificate,
+    and extracts issuer, subject, expiration date, issued date, algorithm, and fingerprint.
 
     Args:
         certificate_id: UUID string of the SSLCertificate record.
@@ -28,78 +24,36 @@ def scan_ssl_certificate(self, certificate_id):
         return
 
     domain = cert.domain
-    logger.info("Scanning SSL certificate for domain: %s", domain)
+    port = cert.port or 443
+    logger.info("Scanning SSL certificate for %s:%d", domain, port)
 
-    try:
-        tls_version = ""
-        context = ssl_module.create_default_context()
-        with socket.create_connection((domain, 443), timeout=10) as sock:
-            with context.wrap_socket(sock, server_hostname=domain) as ssock:
-                cert_der = ssock.getpeercert(binary_form=True)
-                cert_info = ssock.getpeercert()
-                tls_version = ssock.version() or ""
+    res = SSLMonitorService.perform_ssl_scan(domain, port=port)
 
-        issuer = dict(x[0] for x in cert_info.get("issuer", []))
-        subject = dict(x[0] for x in cert_info.get("subject", []))
-
-        san_domains = []
-        san_entries = cert_info.get("subjectAltName", [])
-        for entry_type, entry_value in san_entries:
-            if entry_type.lower() in ("dns", "uri", "ip address"):
-                if entry_value not in san_domains:
-                    san_domains.append(entry_value)
-
-        issuer_str = ", ".join(
-            f"{k}={v}" for k, v in issuer.items()
-        ) if issuer else ""
-        subject_str = ", ".join(
-            f"{k}={v}" for k, v in subject.items()
-        ) if subject else ""
-
-        not_after = cert_info.get("notAfter", "")
-        expiration_date = None
-        if not_after:
-            try:
-                expiration_date = datetime.strptime(
-                    not_after, "%b %d %H:%M:%S %Y %Z"
-                ).replace(tzinfo=dt_timezone.utc)
-            except ValueError:
-                pass
-
-        days_remaining = None
-        if expiration_date:
-            now = datetime.now(dt_timezone.utc)
-            days_remaining = (expiration_date - now).days
-
-        fingerprint = ""
-        if cert_der:
-            import hashlib
-            fingerprint = hashlib.sha256(cert_der).hexdigest()
-
-        algorithm = "SHA-256"
-
+    if res.get("is_valid"):
         SSLMonitorService.update_certificate_scan(
             certificate_id=cert.id,
-            issuer=issuer_str,
-            subject=subject_str,
-            expiration_date=expiration_date,
-            algorithm=algorithm,
-            fingerprint=fingerprint,
-            days_remaining=days_remaining,
+            issuer=res.get("issuer", ""),
+            subject=res.get("subject", ""),
+            expiration_date=res.get("expiration_date"),
+            algorithm=res.get("algorithm", "SHA-256"),
+            fingerprint=res.get("fingerprint", ""),
+            days_remaining=res.get("days_remaining"),
             is_valid=True,
             error_message="",
-            san_domains=san_domains,
-            tls_version=tls_version,
+            san_domains=res.get("san_domains", []),
+            tls_version=res.get("tls_version", ""),
+            issued_at=res.get("issued_at"),
+            security_grade=res.get("security_grade", "A"),
+            port=port,
         )
-
         logger.info(
-            "SSL scan complete for %s: expires in %d days",
+            "SSL scan complete for %s:%d: expires in %s days (grade %s)",
             domain,
-            days_remaining or 0,
+            port,
+            res.get("days_remaining"),
+            res.get("security_grade"),
         )
-
-    except ssl_module.SSLError as exc:
-        logger.error("SSL error for %s: %s", domain, exc)
+    else:
         SSLMonitorService.update_certificate_scan(
             certificate_id=cert.id,
             issuer="",
@@ -109,34 +63,14 @@ def scan_ssl_certificate(self, certificate_id):
             fingerprint="",
             days_remaining=None,
             is_valid=False,
-            error_message=f"SSL error: {exc}",
+            error_message=res.get("error_message", "Fallo de conexión SSL"),
+            san_domains=[],
+            tls_version="",
+            issued_at=None,
+            security_grade="F",
+            port=port,
         )
-    except socket.gaierror as exc:
-        logger.error("DNS resolution error for %s: %s", domain, exc)
-        SSLMonitorService.update_certificate_scan(
-            certificate_id=cert.id,
-            issuer="",
-            subject="",
-            expiration_date=None,
-            algorithm="",
-            fingerprint="",
-            days_remaining=None,
-            is_valid=False,
-            error_message=f"DNS error: {exc}",
-        )
-    except (socket.timeout, ConnectionRefusedError, OSError) as exc:
-        logger.error("Connection error for %s: %s", domain, exc)
-        SSLMonitorService.update_certificate_scan(
-            certificate_id=cert.id,
-            issuer="",
-            subject="",
-            expiration_date=None,
-            algorithm="",
-            fingerprint="",
-            days_remaining=None,
-            is_valid=False,
-            error_message=f"Connection error: {exc}",
-        )
+        logger.error("SSL scan failed for %s:%d: %s", domain, port, res.get("error_message"))
 
 
 @shared_task(name="ssl_monitor.scan_all")

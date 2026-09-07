@@ -1,6 +1,4 @@
 import logging
-
-import dns.resolver
 from celery import shared_task
 
 from .models import DNSRecord
@@ -14,7 +12,7 @@ def scan_dns_records(self, record_id):
     """Scan a DNS record for a given record.
 
     Resolves the DNS query for the specified domain and record type,
-    then updates the record with the result and detects changes.
+    measures query response time, updates the record, and detects zone mutations.
 
     Args:
         record_id: UUID string of the DNSRecord.
@@ -29,61 +27,38 @@ def scan_dns_records(self, record_id):
     record_type = record.record_type
     logger.info("Scanning DNS %s record for domain: %s", record_type, domain)
 
-    try:
-        resolver = dns.resolver.Resolver()
-        resolver.lifetime = 10
+    res = DNSMonitorService.resolve_dns_query(domain, record_type)
 
-        answers = resolver.resolve(domain, record_type)
-
-        values = []
-        ttl = None
-        for rdata in answers:
-            values.append(str(rdata))
-            if ttl is None:
-                ttl = answers.rrset.ttl
-
-        new_value = "\n".join(values)
-
+    if res.get("success"):
+        new_value = "\n".join(res.get("values", []))
         DNSMonitorService.update_record_scan(
             record_id=record.id,
             new_value=new_value,
-            ttl=ttl,
+            ttl=res.get("ttl"),
+            response_time_ms=res.get("response_time_ms"),
         )
-
         logger.info(
-            "DNS scan complete for %s %s: %d records found",
+            "DNS scan complete for %s %s: %d values in %sms (TTL %s)",
             domain,
             record_type,
-            len(values),
+            len(res.get("values", [])),
+            res.get("response_time_ms"),
+            res.get("ttl"),
         )
-
-    except dns.resolver.NXDOMAIN:
-        logger.warning("Domain %s does not exist (NXDOMAIN).", domain)
+    else:
         DNSMonitorService.update_record_scan(
             record_id=record.id,
             new_value="",
             ttl=None,
+            response_time_ms=res.get("response_time_ms"),
         )
-    except dns.resolver.NoAnswer:
-        logger.warning("No %s record found for %s.", record_type, domain)
-        DNSMonitorService.update_record_scan(
-            record_id=record.id,
-            new_value="",
-            ttl=None,
-        )
-    except dns.resolver.Timeout:
-        logger.error("DNS query timeout for %s.", domain)
-        DNSMonitorService.update_record_scan(
-            record_id=record.id,
-            new_value="",
-            ttl=None,
-        )
-    except Exception as exc:
-        logger.exception("Error scanning DNS for %s: %s", domain, exc)
-        DNSMonitorService.update_record_scan(
-            record_id=record.id,
-            new_value="",
-            ttl=None,
+        logger.warning(
+            "DNS scan failed for %s %s (%s): %s in %sms",
+            domain,
+            record_type,
+            res.get("error_type"),
+            res.get("error_message"),
+            res.get("response_time_ms"),
         )
 
 

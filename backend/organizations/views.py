@@ -122,12 +122,16 @@ class OrganizationMembersView(APIView):
         from accounts.models import User
         from .models import InvitationToken
 
-        users = User.objects.filter(organization_id=org_id).order_by("-created_at")
+        users = User.objects.filter(organization_id=org_id).prefetch_related("teams").order_by("-created_at")
         registered_emails = set()
 
         data = []
         for u in users:
             registered_emails.add(u.email)
+            user_teams = [
+                {"id": str(t.id), "name": t.name, "color": t.color}
+                for t in u.teams.all()
+            ]
             data.append({
                 "id": str(u.id),
                 "email": u.email,
@@ -136,10 +140,11 @@ class OrganizationMembersView(APIView):
                 "role": "admin" if u.is_staff else "member",
                 "is_active": u.is_active,
                 "status_code": "active" if u.is_active else "revoked",
-                "status_label": "Activo" if u.is_active else "Revocado",
+                "status_label": "Activo" if u.is_active else "Desactivado",
                 "date_joined": u.created_at.isoformat() if u.created_at else None,
                 "last_login": u.last_login.isoformat() if u.last_login else None,
                 "is_invitation": False,
+                "teams": user_teams,
             })
 
         # Add active pending invitations
@@ -161,6 +166,7 @@ class OrganizationMembersView(APIView):
                     "date_joined": inv.created_at.isoformat() if inv.created_at else None,
                     "last_login": None,
                     "is_invitation": True,
+                    "teams": [],
                 })
 
         return success_response(data)
@@ -319,6 +325,244 @@ class OrganizationMemberDetailView(APIView):
             return success_response({"detail": "Invitación revocada exitosamente."})
         except InvitationToken.DoesNotExist:
             return error_response("Miembro o invitación no encontrada.", status_code=status.HTTP_404_NOT_FOUND)
+
+
+class OrganizationMemberResendInviteView(APIView):
+    """Endpoint to resend a magic link invitation email.
+
+    POST /api/v1/organizations/members/{id}/resend/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, user_id):
+        org_id = request.user.organization_id
+        from .models import InvitationToken, Organization
+
+        try:
+            inv = InvitationToken.objects.get(id=user_id, organization_id=org_id)
+        except InvitationToken.DoesNotExist:
+            return error_response(
+                "Invitación no encontrada o el usuario ya está registrado.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        from notifications.models import NotificationChannel
+        email_channel = NotificationChannel.objects.filter(
+            organization_id=org_id,
+            channel_type="email",
+            enabled=True,
+        ).first()
+
+        if not email_channel:
+            return error_response(
+                "No hay un canal de correo (SMTP) activo para enviar la invitación.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from datetime import timedelta
+        from django.utils import timezone
+        inv.expires_at = timezone.now() + timedelta(hours=48)
+        inv.is_used = False
+        inv.save()
+
+        invite_link = f"http://localhost:3000/accept-invitation?token={inv.token}"
+        org_name = inv.organization.name or "Sentinela"
+
+        try:
+            from notifications.models import Notification
+            from notifications.services import EmailDeliveryHandler
+
+            notif = Notification(
+                organization=inv.organization,
+                channel=email_channel,
+                event_type="invitation",
+                severity="info",
+                title=f"Recordatorio de Invitación a {org_name} - Sentinela NOC",
+                message=f"""Hola {inv.first_name or 'Colega'},
+
+Te reenviamos la invitación oficial para unirte al equipo de operaciones de {org_name} en la plataforma Sentinela NOC.
+
+Para activar tu cuenta y configurar tu contraseña de acceso, haz clic en el siguiente enlace:
+{invite_link}
+
+Este enlace de acceso seguro es válido por 48 horas.
+
+Atentamente,
+Equipo de Operaciones Sentinela NOC""",
+            )
+            EmailDeliveryHandler.send(email_channel, notif, recipient_override=inv.email)
+
+            from audit.services import AuditService
+            AuditService.log(
+                action="update",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} reenvió la invitación por correo a {inv.email}.",
+            )
+
+            return success_response({"detail": "Invitación reenviada exitosamente."})
+        except Exception as exc:
+            return error_response(
+                f"Error al enviar correo SMTP: {str(exc)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class OrganizationMemberBulkActionView(APIView):
+    """Endpoint for bulk operations on team members.
+
+    POST /api/v1/organizations/members/bulk-action/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org_id = request.user.organization_id
+        action = request.data.get("action")
+        member_ids = request.data.get("member_ids", [])
+
+        if not action or not member_ids:
+            return error_response(
+                "Los campos 'action' y 'member_ids' son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from accounts.models import User
+        from .models import InvitationToken
+        from audit.services import AuditService
+
+        current_user_id = str(request.user.id)
+        safe_ids = [mid for mid in member_ids if str(mid) != current_user_id]
+
+        affected_count = 0
+
+        if action == "activate":
+            affected_count = User.objects.filter(
+                id__in=safe_ids, organization_id=org_id
+            ).update(is_active=True)
+            AuditService.log(
+                action="update",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} activó {affected_count} cuenta(s) en lote.",
+            )
+
+        elif action == "deactivate":
+            affected_count = User.objects.filter(
+                id__in=safe_ids, organization_id=org_id
+            ).update(is_active=False)
+            AuditService.log(
+                action="update",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} desactivó {affected_count} cuenta(s) en lote.",
+            )
+
+        elif action == "delete":
+            deleted_users, _ = User.objects.filter(
+                id__in=safe_ids, organization_id=org_id
+            ).delete()
+            deleted_invites, _ = InvitationToken.objects.filter(
+                id__in=safe_ids, organization_id=org_id
+            ).delete()
+            affected_count = deleted_users + deleted_invites
+            AuditService.log(
+                action="delete",
+                module="users",
+                organization_id=org_id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                description=f"El usuario {request.user.email} eliminó/revocó {affected_count} miembro(s) o invitación(es) en lote.",
+            )
+        else:
+            return error_response(
+                f"Acción no soportada: {action}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return success_response({
+            "action": action,
+            "affected": affected_count,
+        })
+
+
+class OrganizationMemberExportCSVView(APIView):
+    """Endpoint for exporting team members to CSV format."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        import csv
+        import io
+        from django.http import HttpResponse
+        from django.utils import timezone
+        from accounts.models import User
+        from .models import InvitationToken
+
+        org_id = request.user.organization_id
+
+        output = io.StringIO()
+        # UTF-8 BOM for Excel on Windows
+        output.write('\ufeff')
+        writer = csv.writer(output)
+
+        writer.writerow(["INVENTARIO DE USUARIOS Y EQUIPOS"])
+        writer.writerow(["ORGANIZACION", request.user.organization.name if request.user.organization else "N/A"])
+        writer.writerow(["FECHA DE EXPORTACION", timezone.now().strftime("%Y-%m-%d %H:%M:%S")])
+        writer.writerow([])
+        writer.writerow([
+            "NOMBRE",
+            "CORREO ELECTRONICO",
+            "TIPO",
+            "ROL",
+            "EQUIPOS ASIGNADOS",
+            "ESTADO",
+            "FECHA REGISTRO / INVITACION",
+            "ULTIMO INGRESO",
+        ])
+
+        users = User.objects.filter(organization_id=org_id).prefetch_related("teams").order_by("-created_at")
+        for u in users:
+            teams_str = ", ".join([t.name for t in u.teams.all()]) or "Sin equipo"
+            role_label = "Administrador" if u.is_staff else "Ingeniero Operaciones"
+            writer.writerow([
+                u.full_name or "Usuario",
+                u.email,
+                "Usuario Registrado",
+                role_label,
+                teams_str,
+                "Activo" if u.is_active else "Desactivado",
+                u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else "N/A",
+                u.last_login.strftime("%Y-%m-%d %H:%M:%S") if u.last_login else "Nunca",
+            ])
+
+        pending_invites = InvitationToken.objects.filter(
+            organization_id=org_id, is_used=False
+        ).order_by("-created_at")
+        for inv in pending_invites:
+            if inv.is_valid():
+                writer.writerow([
+                    f"{inv.first_name} {inv.last_name}".strip() or "Invitado",
+                    inv.email,
+                    "Invitación Pendiente",
+                    inv.role.capitalize(),
+                    "Pendiente",
+                    "Invitación Pendiente",
+                    inv.created_at.strftime("%Y-%m-%d %H:%M:%S") if inv.created_at else "N/A",
+                    "N/A",
+                ])
+
+        filename = f"usuarios_equipos_{timezone.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        response = HttpResponse(output.getvalue(), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class ValidateInvitationView(APIView):

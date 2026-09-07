@@ -1,4 +1,4 @@
-export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH';
+export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
 export interface APICheckTarget {
   id: string;
@@ -16,6 +16,8 @@ export interface APICheckTarget {
   enabled: boolean;
   last_checked_at: string | null;
   last_status: string | null;
+  last_response_time_ms?: number | null;
+  last_http_status?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,13 +32,14 @@ export interface CreateAPICheckTargetData {
   enabled?: boolean;
   request_headers?: Record<string, string>;
   request_body?: Record<string, any>;
+  expected_headers?: Record<string, string>;
   expected_schema?: Record<string, any>;
 }
 
 export interface APICheckResult {
   id: string;
   target: string;
-  status: 'up' | 'down' | 'slow' | 'error' | string;
+  status: 'pass' | 'fail' | 'slow' | 'error' | string;
   http_status: number | null;
   response_time_ms: number | null;
   json_valid: boolean;
@@ -53,5 +56,18 @@ export interface APICheckStats {
   pass_count: number;
   slow_count: number;
   fail_count: number;
+  paused_count?: number;
   avg_latency: number;
+}
+
+export interface APITestRequestResult {
+  success: boolean;
+  status_code: number | null;
+  response_time_ms: number | null;
+  headers: Record<string, string>;
+  body: any;
+  is_json: boolean;
+  size_bytes: number;
+  schema_inferred?: Record<string, string>;
+  error?: string | null;
 }

@@ -70,7 +70,7 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { to: '/audit-logs', icon: ShieldAlert, label: 'Logs de Auditoría' },
-      { to: '/users', icon: Users, label: 'Usuarios & Equipo' },
+      { to: '/users', icon: Users, label: 'Usuarios y Equipos' },
       { to: '/profile', icon: User, label: 'Perfil de Usuario' },
     ],
   },

@@ -22,6 +22,9 @@ class SSLCertificate(OrganizationOwnedModel):
     error_message = models.TextField(blank=True)
     san_domains = models.JSONField(default=list, blank=True)
     tls_version = models.CharField(max_length=50, blank=True)
+    port = models.IntegerField(default=443)
+    issued_at = models.DateTimeField(null=True, blank=True)
+    security_grade = models.CharField(max_length=10, blank=True, default="A")
 
     class Meta:
         ordering = ["-created_at"]
@@ -29,4 +32,4 @@ class SSLCertificate(OrganizationOwnedModel):
         unique_together = ("organization", "domain")
 
     def __str__(self):
-        return f"{self.domain} (expires: {self.expiration_date})"
+        return f"{self.domain}:{self.port} (expires: {self.expiration_date})"

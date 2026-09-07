@@ -9,6 +9,7 @@ from .views import (
     MeView,
     RefreshTokenView,
     RegisterView,
+    RevokeSessionsView,
 )
 
 urlpatterns = [
@@ -17,6 +18,7 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("refresh/", RefreshTokenView.as_view(), name="refresh"),
     path("password/change/", ChangePasswordView.as_view(), name="change_password"),
+    path("revoke-sessions/", RevokeSessionsView.as_view(), name="revoke_sessions"),
     path("me/", MeView.as_view(), name="me"),
     path("api-tokens/", APITokenListView.as_view(), name="api_token_list"),
     path("api-tokens/<uuid:token_id>/", APITokenDetailView.as_view(), name="api_token_detail"),

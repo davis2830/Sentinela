@@ -39,6 +39,13 @@ class MonitoringTarget(OrganizationOwnedModel):
     last_status = models.CharField(max_length=20, null=True, blank=True)
     last_latency = models.FloatField(null=True, blank=True)
     tags = models.JSONField(default=list, blank=True)
+    owner_team = models.ForeignKey(
+        "users.Team",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="monitoring_targets",
+    )
 
     class Meta:
         ordering = ["-created_at"]

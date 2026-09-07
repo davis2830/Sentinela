@@ -50,6 +50,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    phone_number = models.CharField(max_length=50, blank=True, default="")
+    timezone = models.CharField(max_length=50, blank=True, default="")
+    notification_preferences = models.JSONField(default=dict, blank=True)
     last_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -74,10 +77,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 class APIToken(models.Model):
     """API token for programmatic access to Sentinel endpoints."""
 
+    SCOPE_CHOICES = [
+        ("read", "Read Only"),
+        ("full", "Full Access"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_tokens")
     name = models.CharField(max_length=255)
     token = models.CharField(max_length=64, unique=True)
+    scope = models.CharField(max_length=20, default="full", choices=SCOPE_CHOICES)
+    expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
 
@@ -87,3 +97,10 @@ class APIToken(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.user.email})"
+
+    @property
+    def is_expired(self):
+        if self.expires_at:
+            from django.utils import timezone
+            return timezone.now() > self.expires_at
+        return False

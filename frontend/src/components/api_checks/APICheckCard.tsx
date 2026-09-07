@@ -10,6 +10,8 @@ import {
   CheckSquare,
   Square,
   Radio,
+  Code2,
+  Activity,
 } from 'lucide-react';
 
 export interface APICheckCardProps {
@@ -44,12 +46,22 @@ export default function APICheckCard({
         return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
       case 'DELETE':
         return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+      case 'HEAD':
+        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
       default:
         return 'bg-zinc-800 text-zinc-300 border-zinc-700';
     }
   };
 
   const isUp = target.enabled && target.last_status === 'pass';
+  const hasSchema =
+    target.expected_schema &&
+    typeof target.expected_schema === 'object' &&
+    Object.keys(target.expected_schema).length > 0;
+
+  const latency = target.last_response_time_ms;
+  const maxLatency = target.expected_response_time_ms;
+  const isSlow = latency !== null && latency !== undefined && latency > maxLatency;
 
   return (
     <div
@@ -71,7 +83,7 @@ export default function APICheckCard({
                 e.stopPropagation();
                 onToggleSelect();
               }}
-              className="text-text-dim hover:text-accent-green transition-colors shrink-0"
+              className="text-text-dim hover:text-accent-green transition-colors shrink-0 cursor-pointer"
               title={isSelected ? 'Deseleccionar' : 'Seleccionar'}
             >
               {isSelected ? (
@@ -83,7 +95,7 @@ export default function APICheckCard({
 
             {/* Method Badge */}
             <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border shrink-0 ${getMethodBadgeClass(
+              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border shrink-0 font-mono ${getMethodBadgeClass(
                 target.method
               )}`}
             >
@@ -131,22 +143,47 @@ export default function APICheckCard({
         {/* Key Metrics Grid */}
         <div className="space-y-2 text-xs font-mono text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40">
           <div className="flex justify-between border-b border-border-base/40 pb-1.5 font-sans">
-            <span className="text-text-dim font-medium">Status Esperado:</span>
-            <span className="text-accent-green font-bold font-mono">
-              {target.expected_status}
-            </span>
+            <span className="text-text-dim font-medium">Status HTTP:</span>
+            <div className="flex items-center gap-1.5 font-mono font-bold">
+              {target.last_http_status && (
+                <span className="text-text-main">{target.last_http_status}</span>
+              )}
+              <span className="text-text-dim text-[11px]">
+                (esperado {target.expected_status})
+              </span>
+            </div>
           </div>
+
           <div className="flex justify-between border-b border-border-base/40 pb-1.5 font-sans">
-            <span className="text-text-dim font-medium">Max Latencia:</span>
-            <span className="text-text-main font-semibold font-mono">
-              {target.expected_response_time_ms} ms
-            </span>
+            <span className="text-text-dim font-medium">Latencia:</span>
+            <div className="flex items-center gap-1.5 font-mono">
+              {latency !== null && latency !== undefined ? (
+                <span
+                  className={`font-bold ${
+                    isSlow ? 'text-accent-yellow' : 'text-accent-green'
+                  }`}
+                >
+                  {Math.round(latency)}ms
+                </span>
+              ) : (
+                <span className="text-text-dim">-</span>
+              )}
+              <span className="text-text-dim text-[11px]">
+                / &lt;{maxLatency}ms
+              </span>
+            </div>
           </div>
+
           <div className="flex justify-between font-sans">
-            <span className="text-text-dim font-medium">Frecuencia:</span>
-            <span className="text-sky-400 font-semibold font-mono">
-              Cada {target.check_interval || 60}s
-            </span>
+            <span className="text-text-dim font-medium">Esquema:</span>
+            {hasSchema ? (
+              <span className="inline-flex items-center gap-1 text-accent-blue font-mono font-medium text-[11px]">
+                <Code2 size={11} />
+                {Object.keys(target.expected_schema || {}).length} Campos
+              </span>
+            ) : (
+              <span className="text-text-dim font-mono text-[11px]">Sin Schema</span>
+            )}
           </div>
         </div>
       </div>
@@ -164,20 +201,22 @@ export default function APICheckCard({
         </span>
 
         <div className="flex items-center gap-1">
-          {/* Instant scan button */}
           <button
             type="button"
             onClick={onScan}
             disabled={isScanning}
-            className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
+            className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
             title="Escanear endpoint ahora"
           >
-            <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
+            <RefreshCw
+              size={14}
+              className={isScanning ? 'animate-spin text-accent-green' : ''}
+            />
           </button>
           <button
             type="button"
             onClick={onEdit}
-            className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
+            className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
             title="Editar target"
           >
             <Pencil size={14} />
@@ -185,7 +224,7 @@ export default function APICheckCard({
           <button
             type="button"
             onClick={onDelete}
-            className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
+            className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
             title="Eliminar target"
           >
             <Trash2 size={14} />

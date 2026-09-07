@@ -15,6 +15,14 @@ class SecurityHeaderTarget(OrganizationOwnedModel):
     enabled = models.BooleanField(default=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_score = models.IntegerField(null=True, blank=True)
+    last_grade = models.CharField(max_length=5, blank=True, default="")
+    last_response_time_ms = models.IntegerField(null=True, blank=True)
+    has_hsts = models.BooleanField(default=False)
+    has_csp = models.BooleanField(default=False)
+    has_xfo = models.BooleanField(default=False)
+    info_leak_detected = models.BooleanField(default=False)
+    server_header = models.CharField(max_length=255, blank=True, default="")
+    powered_by_header = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
         ordering = ["-created_at"]
@@ -38,8 +46,11 @@ class SecurityHeaderResult(BaseModel):
     )
     score = models.IntegerField(default=0)
     grade = models.CharField(max_length=5, blank=True)
+    response_time_ms = models.IntegerField(null=True, blank=True)
     headers_found = models.JSONField(default=dict, blank=True)
     headers_missing = models.JSONField(default=list, blank=True)
+    directives_analysis = models.JSONField(default=dict, blank=True)
+    info_leaks = models.JSONField(default=dict, blank=True)
     raw_headers = models.JSONField(default=dict, blank=True)
     error_message = models.TextField(blank=True)
     checked_at = models.DateTimeField()
