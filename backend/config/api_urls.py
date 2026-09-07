@@ -47,4 +47,7 @@ urlpatterns = [
 
     # Status Page
     path("status-page/", include("status_page.urls")),
+
+    # Maintenance Windows
+    path("maintenance/", include("maintenance.urls")),
 ]

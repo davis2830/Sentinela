@@ -13,6 +13,7 @@ import SecurityHeadersPage from './pages/SecurityHeadersPage';
 import NotificationsPage from './pages/NotificationsPage';
 import StatusPageAdmin from './pages/StatusPageAdmin';
 import PublicStatusPage from './pages/PublicStatusPage';
+import MaintenancePage from './pages/MaintenancePage';
 import AlertsPage from './pages/AlertsPage';
 import IncidentsPage from './pages/IncidentsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -168,6 +169,16 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <StatusPageAdmin />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/maintenance"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <MaintenancePage />
                 </AppLayout>
               </ProtectedRoute>
             }

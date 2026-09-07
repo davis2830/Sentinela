@@ -66,4 +66,5 @@ export * from './security_headers';
 export * from './alerts';
 export * from './incidents';
 export * from './reports';
-export * from './users';
+export * from './users';
+export * from './maintenance';

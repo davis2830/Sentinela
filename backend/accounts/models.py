@@ -71,7 +71,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
+        return f"{self.first_name} {self.last_name}".strip() or self.email
+
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}".strip() or self.email
+
+    def get_short_name(self):
+        return self.first_name or self.email
 
 
 class APIToken(models.Model):
