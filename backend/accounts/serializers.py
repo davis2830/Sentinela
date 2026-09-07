@@ -13,6 +13,9 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
+            "phone_number",
+            "timezone",
+            "notification_preferences",
             "is_active",
             "is_staff",
             "last_login",
@@ -63,6 +66,9 @@ class UserUpdateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False)
     last_name = serializers.CharField(max_length=150, required=False)
     email = serializers.EmailField(required=False)
+    phone_number = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    timezone = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    notification_preferences = serializers.DictField(required=False)
 
 
 from .models import APIToken
@@ -71,13 +77,17 @@ from .models import APIToken
 class APITokenSerializer(serializers.ModelSerializer):
     """Serializer for APIToken model."""
 
+    is_expired = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = APIToken
-        fields = ("id", "name", "token", "created_at", "last_used_at")
-        read_only_fields = ("id", "token", "created_at", "last_used_at")
+        fields = ("id", "name", "token", "scope", "expires_at", "is_expired", "created_at", "last_used_at")
+        read_only_fields = ("id", "token", "is_expired", "created_at", "last_used_at")
 
 
 class APITokenCreateSerializer(serializers.Serializer):
     """Serializer for APIToken creation."""
 
     name = serializers.CharField(max_length=255)
+    scope = serializers.ChoiceField(choices=["read", "full"], default="full", required=False)
+    expires_in_days = serializers.IntegerField(required=False, allow_null=True)
