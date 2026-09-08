@@ -38,26 +38,18 @@ class MonitoringService:
         enabled=True,
         tags=None,
         owner_team=None,
+        runner_type="cloud",
+        agent_probe=None,
     ):
-        """Create a new monitoring target.
-
-        Args:
-            organization_id: UUID of the organization.
-            name: Display name for the target.
-            target_type: One of HTTP, HTTPS, TCP, DNS, API, SSL.
-            endpoint: URL, domain, or address to monitor.
-            interval: Check interval in seconds (default 60).
-            enabled: Whether checks are active (default True).
-            tags: List of custom string tags.
-            owner_team: UUID of the assigned owner team.
-
-        Returns:
-            The created MonitoringTarget instance.
-        """
         owner_team_obj = None
         if owner_team:
             from users.models import Team
             owner_team_obj = Team.objects.filter(id=owner_team, organization_id=organization_id).first()
+
+        agent_probe_obj = None
+        if agent_probe:
+            from .models import AgentProbe
+            agent_probe_obj = AgentProbe.objects.filter(id=agent_probe, organization_id=organization_id).first()
 
         target = MonitoringTarget.objects.create(
             organization_id=organization_id,
@@ -68,6 +60,8 @@ class MonitoringService:
             enabled=enabled,
             tags=tags or [],
             owner_team=owner_team_obj,
+            runner_type=runner_type,
+            agent_probe=agent_probe_obj,
         )
         # Asynchronously register in submonitors after transaction commits
         from .tasks import register_target_in_submonitors
@@ -89,6 +83,14 @@ class MonitoringService:
                 target.owner_team = Team.objects.filter(id=team_val, organization_id=organization_id).first()
             else:
                 target.owner_team = None
+
+        if "agent_probe" in fields:
+            probe_val = fields.pop("agent_probe")
+            if probe_val:
+                from .models import AgentProbe
+                target.agent_probe = AgentProbe.objects.filter(id=probe_val, organization_id=organization_id).first()
+            else:
+                target.agent_probe = None
 
         for field, value in fields.items():
             if value is not None:
@@ -397,4 +399,127 @@ class MonitoringService:
             "timeseries": timeseries,
             "daily_availability": daily_availability,
             "incidents": incidents,
-        }
+        }
+
+
+class AgentProbeService:
+    """Service for private satellite runners (Probes)."""
+
+    @staticmethod
+    def list_probes(organization_id):
+        from .models import AgentProbe
+        return AgentProbe.objects.filter(organization_id=organization_id).order_by("-created_at")
+
+    @staticmethod
+    def get_probe(probe_id, organization_id):
+        from .models import AgentProbe
+        return AgentProbe.objects.get(id=probe_id, organization_id=organization_id)
+
+    @staticmethod
+    @transaction.atomic
+    def create_probe(organization_id, name):
+        from .models import AgentProbe
+        raw_token, token_hash = AgentProbe.generate_token()
+        probe = AgentProbe.objects.create(
+            organization_id=organization_id,
+            name=name,
+            token_hash=token_hash,
+            status=AgentProbe.ProbeStatus.OFFLINE,
+        )
+        return probe, raw_token
+
+    @staticmethod
+    @transaction.atomic
+    def delete_probe(probe_id, organization_id):
+        from .models import AgentProbe
+        probe = AgentProbe.objects.get(id=probe_id, organization_id=organization_id)
+        probe.delete()
+
+    @staticmethod
+    def authenticate_token(raw_token):
+        """Look up an AgentProbe by its raw token header."""
+        if not raw_token or not raw_token.startswith("prb_live_"):
+            return None
+        import hashlib
+        from .models import AgentProbe
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        return AgentProbe.objects.filter(token_hash=token_hash).first()
+
+    @staticmethod
+    def process_heartbeat(probe, hostname="", ip_address="", os_info="", version="1.0.0"):
+        from .models import AgentProbe
+        probe.last_heartbeat = timezone.now()
+        probe.status = AgentProbe.ProbeStatus.ONLINE
+        if hostname:
+            probe.hostname = hostname
+        if ip_address:
+            probe.ip_address = ip_address
+        if os_info:
+            probe.os_info = os_info
+        if version:
+            probe.version = version
+        probe.save(update_fields=["last_heartbeat", "status", "hostname", "ip_address", "os_info", "version", "updated_at"])
+
+        # Fetch assigned active targets
+        targets = probe.assigned_targets.filter(enabled=True)
+        task_list = []
+        for t in targets:
+            task_list.append({
+                "target_id": str(t.id),
+                "name": t.name,
+                "target_type": t.target_type,
+                "endpoint": t.endpoint,
+                "http_method": t.http_method,
+                "expected_status": t.expected_status,
+                "custom_headers": t.custom_headers,
+                "request_body": t.request_body,
+                "max_latency_ms": t.max_latency_ms,
+                "interval": t.interval,
+            })
+        return task_list
+
+    @staticmethod
+    @transaction.atomic
+    def ingest_results(probe, results):
+        """Ingest batch check execution results from private probe."""
+        from .models import MonitoringCheck, MonitoringTarget
+        ingested = 0
+        now = timezone.now()
+        for item in results:
+            target_id = item.get("target_id")
+            if not target_id:
+                continue
+            target = MonitoringTarget.objects.filter(id=target_id, organization=probe.organization).first()
+            if not target:
+                continue
+
+            status_val = item.get("status", "down")
+            latency_val = float(item.get("response_time_ms", 0.0))
+            http_status_val = item.get("http_status")
+            error_msg = item.get("error_message", "")
+
+            # Create check
+            check = MonitoringCheck.objects.create(
+                target=target,
+                status=status_val,
+                latency=latency_val,
+                status_code=http_status_val,
+                error_message=error_msg,
+                checked_at=now,
+            )
+
+            # Update target
+            target.last_status = status_val
+            target.last_latency = latency_val
+            target.last_checked_at = now
+            target.save(update_fields=["last_status", "last_latency", "last_checked_at"])
+
+            # Evaluate alert rules
+            try:
+                from alerts.services import AlertRuleService
+                AlertRuleService.evaluate_target(target, check)
+            except Exception:
+                pass
+
+            ingested += 1
+        return ingested

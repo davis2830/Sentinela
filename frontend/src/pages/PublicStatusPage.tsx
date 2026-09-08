@@ -626,7 +626,7 @@ export default function PublicStatusPage() {
       {/* 3. Public Footer */}
       <footer className="border-t border-[#1E293B] py-8 mt-12 bg-[#090D11] text-center text-xs font-mono text-[#64748B] space-y-2">
         <p>
-          Powered by <strong className="text-[#F8FAFC]">Sentinel NOC Observability</strong> &bull; Monitorización continua
+          Powered by <strong className="text-[#F8FAFC]">Sentinel Observability</strong> &bull; Monitorización continua
         </p>
         <p className="text-[11px] text-[#64748B]/80">
           Los datos de disponibilidad se actualizan cada 30 segundos automáticamente.

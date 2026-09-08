@@ -483,7 +483,7 @@ class TeamSeedDefaultsView(APIView):
                 "color": "#10B981",
             },
             {
-                "name": "NOC Nivel 1",
+                "name": "Soporte Nivel 1",
                 "description": "Monitoreo 24/7 de alertas de conectividad, primera respuesta y mitigación de incidentes.",
                 "color": "#3B82F6",
             },

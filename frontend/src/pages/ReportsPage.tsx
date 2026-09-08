@@ -199,7 +199,7 @@ export default function ReportsPage() {
       {/* 1. TOP HEADER (Standard NOC Header) */}
       <NOCPageHeader
         title="Reportes SLA & Métricas"
-        badgeText="NOC AUDIT"
+        badgeText="AUDITORÍA & SLA"
         description="Generación automatizada de informes ejecutivos de cumplimiento de SLA, presupuesto de error SRE, tiempos MTTR / MTTD y exportación directa a PDF y CSV."
         icon={<FileText size={26} />}
         autoRefresh={{
@@ -248,7 +248,7 @@ export default function ReportsPage() {
           title="MTTR (Tiempo Reparación)"
           icon={<Wrench size={16} className="text-sky-400" />}
           badge={{
-            text: 'Eficiencia NOC',
+            text: 'Eficiencia Operativa',
             variant: 'info',
           }}
           value={`${mttr}m`}

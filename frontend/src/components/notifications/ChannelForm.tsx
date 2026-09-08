@@ -374,7 +374,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                   <input
                     type="text"
                     required
-                    placeholder="ej. Alertas Telegram NOC / Slack #incidentes"
+                    placeholder="ej. Alertas Telegram / Slack #incidentes"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
@@ -525,7 +525,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       <label className="block text-[11px] font-mono text-text-dim mb-1">Encabezado Custom (Key)</label>
                       <input
                         type="text"
-                        placeholder="ej. Authorization / X-NOC-Secret"
+                        placeholder="ej. Authorization / X-Sentinel-Secret"
                         value={customHeaderKey}
                         onChange={(e) => setCustomHeaderKey(e.target.value)}
                         className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"

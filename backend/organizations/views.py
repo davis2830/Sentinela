@@ -1,15 +1,20 @@
+import json
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from audit.services import AuditService
 from common.responses import error_response, success_response
 
+from .models import Organization
 from .serializers import (
+    OrganizationChangePlanSerializer,
     OrganizationCreateSerializer,
     OrganizationSerializer,
     OrganizationUpdateSerializer,
 )
-from .services import OrganizationService
+from .services import OrganizationService, QuotaService
 
 
 class OrganizationListView(APIView):
@@ -185,6 +190,20 @@ class OrganizationMembersView(APIView):
         if User.objects.filter(email=email).exists():
             return error_response("Un usuario con este correo ya está registrado.", status_code=status.HTTP_400_BAD_REQUEST)
 
+        from .models import InvitationToken, Organization
+        from .services import QuotaExceededException, QuotaService
+        org = Organization.objects.get(id=org_id)
+
+        # Check team members quota
+        try:
+            QuotaService.check_quota(org, "team_members")
+        except QuotaExceededException as qe:
+            return error_response(
+                str(qe),
+                errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         # 1. Check if organization has an active email/SMTP channel
         from notifications.models import NotificationChannel
         email_channel = NotificationChannel.objects.filter(
@@ -200,8 +219,6 @@ class OrganizationMembersView(APIView):
             )
 
         # 2. Create InvitationToken for secure magic link invitation
-        from .models import InvitationToken, Organization
-        org = Organization.objects.get(id=org_id)
 
         # Remove previous unused pending invitations for this email
         InvitationToken.objects.filter(organization=org, email=email, is_used=False).delete()
@@ -221,17 +238,17 @@ class OrganizationMembersView(APIView):
             from notifications.models import Notification
             from notifications.services import EmailDeliveryHandler
 
-            org_name = org.name or "Sentinela"
+            org_name = org.name or "Sentinel"
 
             notif = Notification(
                 title=f"Invitación de acceso a {org_name}",
                 message=(
                     f"Hola {first_name or email},\n\n"
-                    f"Has sido invitado a unirte a la organización '{org_name}' en la plataforma Sentinela con el rol de {role.upper()}.\n\n"
+                    f"Has sido invitado a unirte a la organización '{org_name}' en la plataforma Sentinel con el rol de {role.upper()}.\n\n"
                     f"Para activar tu cuenta y definir tu contraseña personal de forma segura, ingresa al siguiente enlace:\n\n"
                     f"{invite_link}\n\n"
                     f"Nota: Este enlace seguro es de un solo uso y expira en 48 horas.\n\n"
-                    f"Saludos,\nEl equipo de Sentinela"
+                    f"Saludos,\nEl equipo de Sentinel"
                 ),
             )
 
@@ -367,7 +384,7 @@ class OrganizationMemberResendInviteView(APIView):
         inv.save()
 
         invite_link = f"http://localhost:3000/accept-invitation?token={inv.token}"
-        org_name = inv.organization.name or "Sentinela"
+        org_name = inv.organization.name or "Sentinel"
 
         try:
             from notifications.models import Notification
@@ -378,10 +395,10 @@ class OrganizationMemberResendInviteView(APIView):
                 channel=email_channel,
                 event_type="invitation",
                 severity="info",
-                title=f"Recordatorio de Invitación a {org_name} - Sentinela NOC",
+                title=f"Recordatorio de Invitación a {org_name} - Sentinel",
                 message=f"""Hola {inv.first_name or 'Colega'},
 
-Te reenviamos la invitación oficial para unirte al equipo de operaciones de {org_name} en la plataforma Sentinela NOC.
+Te reenviamos la invitación oficial para unirte al equipo de operaciones de {org_name} en la plataforma Sentinel.
 
 Para activar tu cuenta y configurar tu contraseña de acceso, haz clic en el siguiente enlace:
 {invite_link}
@@ -389,7 +406,7 @@ Para activar tu cuenta y configurar tu contraseña de acceso, haz clic en el sig
 Este enlace de acceso seguro es válido por 48 horas.
 
 Atentamente,
-Equipo de Operaciones Sentinela NOC""",
+Equipo de Operaciones Sentinel""",
             )
             EmailDeliveryHandler.send(email_channel, notif, recipient_override=inv.email)
 
@@ -675,3 +692,232 @@ class AcceptInvitationView(APIView):
             })
         except InvitationToken.DoesNotExist:
             return error_response("El token de invitación no es válido.", status_code=status.HTTP_404_NOT_FOUND)
+
+
+class OrganizationCurrentView(APIView):
+    """Endpoint for inspecting and updating the authenticated user's organization.
+
+    GET /api/v1/organizations/current/
+    PATCH /api/v1/organizations/current/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = OrganizationSerializer(org)
+        return success_response(serializer.data)
+
+    def patch(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = OrganizationUpdateSerializer(data=request.data, partial=True)
+        if not serializer.is_valid():
+            return error_response(
+                "Datos de configuración inválidos.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        updated_fields = list(serializer.validated_data.keys())
+        for field, value in serializer.validated_data.items():
+            setattr(org, field, value)
+        org.save()
+
+        # Audit log for security & compliance
+        try:
+            ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
+            if ip and "," in ip:
+                ip = ip.split(",")[0].strip()
+            AuditService.log(
+                action="ORGANIZATION_UPDATED",
+                module="ORGANIZATION",
+                organization_id=org.id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                ip_address=ip,
+                description=f"Configuración de organización actualizada por {request.user.email}: {', '.join(updated_fields)}",
+                metadata={"updated_fields": updated_fields},
+            )
+        except Exception:
+            pass
+
+        response_serializer = OrganizationSerializer(org)
+        return success_response(
+            response_serializer.data,
+            message="Configuración de la organización guardada exitosamente.",
+        )
+
+
+class OrganizationSubscriptionView(APIView):
+    """Endpoint for retrieving live quota usage and SaaS plan details.
+
+    GET /api/v1/organizations/current/subscription/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        summary = QuotaService.get_usage_summary(org)
+        return success_response(summary)
+
+
+class OrganizationChangePlanView(APIView):
+    """Endpoint for self-service plan upgrade or tier change.
+
+    POST /api/v1/organizations/current/change-plan/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = OrganizationChangePlanSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response(
+                "Nivel de plan no válido.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_tier = org.plan_tier
+        new_tier = serializer.validated_data["plan_tier"]
+
+        try:
+            updated_org = OrganizationService.change_plan(org.id, new_tier)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+        # Audit log for billing & plan change
+        try:
+            ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
+            if ip and "," in ip:
+                ip = ip.split(",")[0].strip()
+            AuditService.log(
+                action="PLAN_CHANGED",
+                module="BILLING",
+                organization_id=org.id,
+                user_id=request.user.id,
+                user_email=request.user.email,
+                ip_address=ip,
+                description=f"Plan actualizado de {old_tier.upper()} a {new_tier.upper()} por {request.user.email}",
+                metadata={"old_tier": old_tier, "new_tier": new_tier},
+            )
+        except Exception:
+            pass
+
+        summary = QuotaService.get_usage_summary(updated_org)
+        return success_response(
+            summary,
+            message=f"Plan actualizado exitosamente a {summary['plan_name']}.",
+        )
+
+
+class OrganizationExportBackupView(APIView):
+    """Endpoint for downloading full organization backup and settings (JSON).
+
+    GET /api/v1/organizations/current/export/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        summary = QuotaService.get_usage_summary(org)
+        org_data = OrganizationSerializer(org).data
+
+        backup_payload = {
+            "version": "1.0",
+            "exported_at": timezone.now().isoformat(),
+            "exported_by": request.user.email,
+            "organization": org_data,
+            "subscription_and_quotas": summary,
+        }
+
+        response = HttpResponse(
+            json.dumps(backup_payload, indent=2, default=str),
+            content_type="application/json; charset=utf-8",
+        )
+        filename = f"sentinel-backup-{org.slug}-{timezone.now().strftime('%Y%m%d%H%M')}.json"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class OrganizationInvoicesView(APIView):
+    """Endpoint for retrieving generated B2B invoices and billing receipts.
+
+    GET /api/v1/organizations/current/invoices/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import PLAN_LIMITS
+
+        plan_meta = PLAN_LIMITS.get(org.plan_tier, {})
+        price = plan_meta.get("price_monthly_usd", 0)
+
+        invoices = []
+        created_at = org.created_at or timezone.now()
+        current_date = timezone.now()
+
+        # Calculate monthly intervals (up to 6 months back)
+        months_back = max(1, min(6, (current_date.year - created_at.year) * 12 + (current_date.month - created_at.month) + 1))
+
+        for i in range(months_back):
+            invoice_date = current_date - timedelta(days=30 * i)
+            inv_num = f"SNT-{invoice_date.strftime('%Y%m')}-{str(org.id)[:4].upper()}-{i+1:02d}"
+            invoices.append({
+                "id": inv_num,
+                "invoice_number": inv_num,
+                "period": invoice_date.strftime("%B %Y"),
+                "date": invoice_date.strftime("%Y-%m-%d"),
+                "due_date": (invoice_date + timedelta(days=15)).strftime("%Y-%m-%d"),
+                "plan_name": plan_meta.get("name", "Plan"),
+                "plan_tier": org.plan_tier,
+                "amount_usd": float(price),
+                "status": "paid" if price > 0 or org.subscription_status in ("active", "trialing") else "free",
+                "status_label": "Pagada" if price > 0 else "Gratuito / Starter",
+                "payment_method": "Tarjeta Corporativa (•••• 4242)" if price > 0 else "N/A",
+                "billing_email": org.billing_email or request.user.email,
+                "tax_id": org.tax_id or "N/A",
+            })
+
+        return success_response(invoices)

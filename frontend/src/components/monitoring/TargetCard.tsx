@@ -172,6 +172,15 @@ export default function TargetCard({
                 {target.name}
               </h3>
               {renderStatusIndicator()}
+              {target.runner_type === 'agent' && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-purple/10 text-accent-purple border border-accent-purple/30"
+                  title={`Ejecutado localmente por agente: ${target.agent_probe_name || 'LAN'}`}
+                >
+                  <Server size={10} />
+                  <span>{target.agent_probe_name || 'Agente LAN'}</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-text-dim font-mono truncate mt-1" title={target.endpoint}>
               {target.endpoint}

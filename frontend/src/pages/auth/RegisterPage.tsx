@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, UserPlus, Loader2, AlertCircle, Eye, EyeOff, Shield } from 'lucide-react';
+import {
+  Mail,
+  Lock,
+  User,
+  UserPlus,
+  Loader2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Shield,
+  Building,
+  Sparkles,
+} from 'lucide-react';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuthStore } from '../../store/authStore';
 
@@ -12,6 +24,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
   const [localError, setLocalError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -29,8 +42,9 @@ export default function RegisterPage() {
       return;
     }
 
-    const success = await register(email, password, firstName, lastName);
+    const success = await register(email, password, firstName, lastName, organizationName);
     if (success) {
+      localStorage.setItem('sentinel_launch_onboarding', 'true');
       navigate('/dashboard');
     }
   };
@@ -43,21 +57,25 @@ export default function RegisterPage() {
         {/* Subtle top edge glow */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-80" />
 
-        {/* Card Header with Official Sentinela Logo */}
+        {/* Card Header with Official Sentinel Logo */}
         <div className="text-center mb-6">
           <div className="inline-flex p-3 rounded-2xl bg-bg-dark border border-border-base shadow-inner mb-3">
             <img
               src="/logo.png"
-              alt="Sentinela Logo"
+              alt="Sentinel Logo"
               className="h-10 w-auto object-contain drop-shadow-[0_0_12px_rgba(16,185,129,0.35)]"
             />
           </div>
           <h2 className="text-2xl font-extrabold text-text-main tracking-tight font-sans">
-            Crear Cuenta
+            Crear Cuenta Corporativa
           </h2>
           <p className="text-xs text-text-muted mt-1 font-mono">
-            Únete a la plataforma de observabilidad Sentinela
+            Plataforma de observabilidad y monitoreo continuo
           </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30">
+            <Sparkles size={12} className="text-accent-green" />
+            <span>14 días de prueba Pro gratis &bull; Sin tarjeta de crédito</span>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -109,6 +127,26 @@ export default function RegisterPage() {
                   className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 pl-10 text-sm text-text-main placeholder:text-text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent-green/20 transition-all font-sans"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Organization / Company Name */}
+          <div>
+            <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
+              Nombre de la Empresa / Organización <span className="text-text-dim font-normal">(Opcional)</span>
+            </label>
+            <div className="relative group">
+              <Building
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
+                size={17}
+              />
+              <input
+                type="text"
+                placeholder="Ej. Acme Cloud Services / Banco Central"
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 pl-10 text-sm text-text-main placeholder:text-text-dim/60 focus:outline-none focus:ring-2 focus:ring-accent-green/20 transition-all font-sans"
+              />
             </div>
           </div>
 
@@ -224,7 +262,7 @@ export default function RegisterPage() {
 
           <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-text-dim mt-3">
             <Shield size={12} className="text-accent-green" />
-            <span>Sentinela NOC &bull; v1.0.0</span>
+            <span>Sentinel &bull; v1.0.0</span>
           </div>
         </div>
       </div>

@@ -315,7 +315,7 @@ class IncidentService:
     def bulk_action(organization_id, action, incident_ids, **kwargs):
         """Execute an atomic bulk action on multiple incidents."""
         qs = Incident.objects.filter(id__in=incident_ids, organization_id=organization_id)
-        actor_name = kwargs.get("actor_name", "Operador NOC")
+        actor_name = kwargs.get("actor_name", "Operador")
 
         if action == "status":
             new_status = kwargs.get("status")

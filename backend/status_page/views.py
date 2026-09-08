@@ -42,6 +42,18 @@ class StatusPageListView(APIView):
         if not serializer.is_valid():
             return error_response(serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
+        # Enforce status_pages quota
+        if getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_quota(request.user.organization, "status_pages")
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             page = StatusPageService.create_status_page(org_id, serializer.validated_data)
             res_serializer = StatusPageConfigSerializer(page)

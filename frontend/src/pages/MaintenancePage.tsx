@@ -359,7 +359,7 @@ export default function MaintenancePage() {
           valueColor="text-text-main"
           icon={<Layers size={16} className="text-text-dim" />}
           badge={{
-            text: 'Horas NOC',
+            text: 'Tiempo Reservado',
             variant: 'neutral',
           }}
           subtitle="Tiempo reservado en el mes"

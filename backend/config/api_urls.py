@@ -4,8 +4,9 @@ urlpatterns = [
     # Accounts (Auth)
     path("auth/", include("accounts.urls")),
 
-    # Organizations
+    # Organizations & Platform Admin
     path("organizations/", include("organizations.urls")),
+    path("platform-admin/", include("organizations.urls_admin")),
 
     # Users (includes roles and permissions)
     path("users/", include("users.urls")),
@@ -13,6 +14,7 @@ urlpatterns = [
     # Monitoring
     path("monitoring-targets/", include("monitoring.urls")),
     path("monitoring/", include("monitoring.urls")),
+    path("agent-probes/", include("monitoring.urls_probes")),
 
     # SSL
     path("ssl-certificates/", include("ssl_monitor.urls")),

@@ -537,7 +537,7 @@ export default function IncidentsPage() {
       {/* 1. TOP HEADER (Standard NOC Header) */}
       <NOCPageHeader
         title="Gestión de Incidentes"
-        badgeText="NOC ESCALATION HUB"
+        badgeText="CENTRO DE INCIDENTES"
         description="Gestión del ciclo de vida ITIL/SRE, asignación de ingenieros, RCA colaborativo y control de MTTR."
         icon={<AlertOctagon size={26} />}
         autoRefresh={{
@@ -611,7 +611,7 @@ export default function IncidentsPage() {
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Fase de Contención</span>
-              <span className="text-amber-400 font-medium">NOC Guard Activo</span>
+              <span className="text-amber-400 font-medium">Monitoreo Activo</span>
             </div>
           }
         />
@@ -1143,7 +1143,7 @@ export default function IncidentsPage() {
                   Asignación de Responsables (Operador & Cuadrilla)
                 </h4>
                 <p className="text-[11px] text-text-dim">
-                  Asigna el incidente a un miembro del equipo NOC y/o a una cuadrilla especializada para resolución y seguimiento.
+                  Asigna el incidente a un miembro del equipo de guardia y/o a una cuadrilla especializada para resolución y seguimiento.
                 </p>
               </div>
 

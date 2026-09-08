@@ -7,6 +7,8 @@ import NOCPageHeader from '../components/common/noc/NOCPageHeader';
 import PasswordStrengthMeter from '../components/profile/PasswordStrengthMeter';
 import CreateTokenModal from '../components/profile/CreateTokenModal';
 import UserActivityTab from '../components/profile/UserActivityTab';
+import TwoFactorModal from '../components/profile/TwoFactorModal';
+import Disable2FAModal from '../components/profile/Disable2FAModal';
 import type { APITokenItem } from '../types';
 import {
   User as UserIcon,
@@ -88,6 +90,12 @@ export default function ProfilePage() {
   const [revealedTokenIds, setRevealedTokenIds] = useState<Set<string>>(new Set());
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
   const [deleteTokenTarget, setDeleteTokenTarget] = useState<APITokenItem | null>(null);
+
+  // 2FA state
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showDisable2FAModal, setShowDisable2FAModal] = useState(false);
+  const [totpSetupData, setTotpSetupData] = useState<{ secret: string; qr_code: string; provisioning_uri: string } | null>(null);
+  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
 
   // 1. Fetch current user data from /api/v1/auth/me/
   const { data: meData, isLoading: isLoadingMe, refetch: refetchMe } = useQuery({
@@ -249,6 +257,39 @@ export default function ProfilePage() {
     },
   });
 
+  // 2FA Handlers
+  const handleInitiate2FA = async () => {
+    setIsSettingUp2FA(true);
+    try {
+      const res = await api.post('auth/2fa/setup/');
+      setTotpSetupData(res.data?.data);
+      setShow2FAModal(true);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error al iniciar la configuración de 2FA.');
+    } finally {
+      setIsSettingUp2FA(false);
+    }
+  };
+
+  const verify2FAMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const res = await api.post('auth/2fa/verify/', { code });
+      return res.data?.data?.backup_codes as string[];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auth-me-profile'] });
+    },
+  });
+
+  const disable2FAMutation = useMutation({
+    mutationFn: async (password: string) => {
+      await api.post('auth/2fa/disable/', { password });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auth-me-profile'] });
+    },
+  });
+
   // Mutation: Update Operational Preferences
   const updatePreferencesMutation = useMutation({
     mutationFn: async () => {
@@ -350,7 +391,7 @@ export default function ProfilePage() {
       <NOCPageHeader
         title="Perfil de Usuario"
         badgeText="IDENTIDAD & SEGURIDAD"
-        description="Gestión de credenciales, cuadrillas operativas, preferencias del NOC y tokens de integración"
+        description="Gestión de credenciales, cuadrillas operativas, preferencias del sistema y tokens de integración"
         icon={<UserIcon size={26} className="text-accent-green" />}
         actions={
           <div className="flex items-center gap-2">
@@ -469,7 +510,7 @@ export default function ProfilePage() {
                     }`}
                   >
                     <ShieldCheck size={12} />
-                    {isAdmin ? 'Administrador NOC' : 'Operador de Turno'}
+                    {isAdmin ? 'Administrador' : 'Operador de Turno'}
                   </span>
                   {isTeamLeadInAny && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400">
@@ -488,7 +529,7 @@ export default function ProfilePage() {
                   Organización
                 </span>
                 <span className="text-xs font-semibold text-text-main mt-0.5 block truncate max-w-[130px]">
-                  {meData?.organization?.name || 'Sentinel NOC'}
+                  {meData?.organization?.name || 'Sentinel'}
                 </span>
               </div>
               <div>
@@ -713,189 +754,274 @@ export default function ProfilePage() {
 
       {/* TAB 2: SEGURIDAD, CONTRASEÑA & SESIONES */}
       {activeTab === 'security' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* Formulario de Cambio de Contraseña */}
-          <div className="lg:col-span-2 bg-bg-card border border-border-base rounded-2xl p-6 sm:p-7 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-base font-bold text-text-main flex items-center gap-2">
-                <Lock size={18} className="text-accent-green" />
-                Actualización de Contraseña
-              </h2>
-              <p className="text-xs text-text-dim mt-0.5">
-                Ingresa tu contraseña actual y define una nueva clave con alta entropía criptográfica
-              </p>
-            </div>
-
-            {securityMsg && (
-              <div
-                className={`p-3.5 rounded-xl flex items-center gap-2.5 text-xs border font-sans ${
-                  securityMsg.type === 'success'
-                    ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
-                    : 'bg-accent-red/10 border-accent-red/30 text-accent-red'
-                }`}
-              >
-                {securityMsg.type === 'success' ? (
-                  <CheckCircle2 size={16} className="shrink-0" />
-                ) : (
-                  <AlertCircle size={16} className="shrink-0" />
-                )}
-                <span>{securityMsg.text}</span>
-              </div>
-            )}
-
-            <form onSubmit={handlePasswordSubmit} className="space-y-4 text-xs">
-              {/* Old Password */}
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  Contraseña Actual <span className="text-accent-red">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showOldPassword ? 'text' : 'password'}
-                    required
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOldPassword(!showOldPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main cursor-pointer"
-                  >
-                    {showOldPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* New Password */}
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  Nueva Contraseña <span className="text-accent-red">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    required
-                    minLength={8}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main cursor-pointer"
-                  >
-                    {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-                {/* Reactive Strength Meter */}
-                <PasswordStrengthMeter password={newPassword} />
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  Confirmar Nueva Contraseña <span className="text-accent-red">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    required
-                    minLength={8}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main cursor-pointer"
-                  >
-                    {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border-base flex justify-end">
-                <button
-                  type="submit"
-                  disabled={changePasswordMutation.isPending || !newPassword || !oldPassword}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-accent-green text-black font-bold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 disabled:opacity-50 cursor-pointer"
+        <div className="space-y-6">
+          {/* Tarjeta de Autenticación en Dos Pasos (2FA / TOTP) */}
+          <div className="bg-bg-card border border-border-base rounded-2xl p-6 sm:p-7 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className={`p-3 rounded-2xl border ${
+                    meData?.is_2fa_enabled
+                      ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
+                      : 'bg-accent-yellow/10 border-accent-yellow/30 text-accent-yellow'
+                  }`}
                 >
-                  {changePasswordMutation.isPending ? (
-                    <Loader2 className="animate-spin" size={15} />
-                  ) : (
-                    <Save size={15} />
-                  )}
-                  Actualizar Contraseña
-                </button>
+                  <ShieldCheck size={26} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-base font-bold text-text-main">
+                      Autenticación en Dos Pasos (2FA / TOTP)
+                    </h3>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                        meData?.is_2fa_enabled
+                          ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
+                          : 'bg-accent-yellow/10 border-accent-yellow/30 text-accent-yellow'
+                      }`}
+                    >
+                      {meData?.is_2fa_enabled ? 'Activado & Protegido' : 'Desactivado'}
+                    </span>
+                    {meData?.organization?.require_2fa && !meData?.is_2fa_enabled && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-accent-red/10 border-accent-red/30 text-accent-red">
+                        Obligatorio por Organización
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-dim mt-0.5">
+                    {meData?.is_2fa_enabled
+                      ? `Tu cuenta está blindada con códigos temporales RFC 6238. Códigos de recuperación restantes: ${meData?.backup_codes_remaining ?? 10}`
+                      : meData?.organization?.require_2fa
+                      ? 'Tu organización exige activar 2FA de forma obligatoria para proteger el acceso a los servicios.'
+                      : 'Protege tu acceso contra ataques de fuerza bruta requiriendo un código de 6 dígitos en tu móvil al iniciar sesión'}
+                  </p>
+                </div>
               </div>
-            </form>
+
+              <div>
+                {meData?.is_2fa_enabled ? (
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowDisable2FAModal(true)}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-accent-red bg-accent-red/10 border border-accent-red/30 hover:bg-accent-red/20 transition-colors cursor-pointer"
+                    >
+                      Desactivar 2FA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleInitiate2FA}
+                      disabled={isSettingUp2FA}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-text-main bg-white/5 border border-border-base hover:bg-white/10 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      {isSettingUp2FA && <Loader2 className="animate-spin" size={13} />}
+                      <span>Reconfigurar / Nuevos Códigos</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleInitiate2FA}
+                    disabled={isSettingUp2FA}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-accent-green text-black font-bold rounded-xl text-xs hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSettingUp2FA ? (
+                      <Loader2 className="animate-spin" size={15} />
+                    ) : (
+                      <ShieldCheck size={15} />
+                    )}
+                    <span>Configurar Autenticación 2FA</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Tarjeta de Sesiones Activas & Revocación Remota */}
-          <div className="bg-bg-card border border-border-base rounded-2xl p-6 shadow-sm space-y-5">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            {/* Formulario de Cambio de Contraseña */}
+            <div className="lg:col-span-2 bg-bg-card border border-border-base rounded-2xl p-6 sm:p-7 shadow-sm space-y-6">
               <div>
-                <h3 className="text-base font-bold text-text-main flex items-center gap-2">
-                  <Laptop size={18} className="text-accent-blue" />
-                  Sesión & Dispositivos
-                </h3>
+                <h2 className="text-base font-bold text-text-main flex items-center gap-2">
+                  <Lock size={18} className="text-accent-green" />
+                  Actualización de Contraseña
+                </h2>
                 <p className="text-xs text-text-dim mt-0.5">
-                  Control de sesiones abiertas y tokens de refresco
+                  Ingresa tu contraseña actual y define una nueva clave con alta entropía criptográfica
                 </p>
               </div>
 
-              {revokeSessionsMsg && (
+              {securityMsg && (
                 <div
-                  className={`p-3 rounded-xl flex items-center gap-2 text-xs border ${
-                    revokeSessionsMsg.type === 'success'
+                  className={`p-3.5 rounded-xl flex items-center gap-2.5 text-xs border font-sans ${
+                    securityMsg.type === 'success'
                       ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
                       : 'bg-accent-red/10 border-accent-red/30 text-accent-red'
                   }`}
                 >
-                  <CheckCircle2 size={15} className="shrink-0" />
-                  <span>{revokeSessionsMsg.text}</span>
+                  {securityMsg.type === 'success' ? (
+                    <CheckCircle2 size={16} className="shrink-0" />
+                  ) : (
+                    <AlertCircle size={16} className="shrink-0" />
+                  )}
+                  <span>{securityMsg.text}</span>
                 </div>
               )}
 
-              <div className="p-3.5 bg-bg-dark border border-border-base rounded-xl space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-text-main flex items-center gap-1.5">
-                    <Laptop size={13} className="text-accent-green" /> Este Navegador
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
-                    En línea
-                  </span>
+              <form onSubmit={handlePasswordSubmit} className="space-y-4 text-xs">
+                {/* Old Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                    Contraseña Actual <span className="text-accent-red">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showOldPassword ? 'text' : 'password'}
+                      required
+                      value={oldPassword}
+                      onChange={(e) => setOldPassword(e.target.value)}
+                      className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOldPassword(!showOldPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors"
+                    >
+                      {showOldPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
-                <div className="text-[11px] text-text-dim font-mono">
-                  Último login:{' '}
-                  {meData?.last_login
-                    ? new Date(meData.last_login).toLocaleString('es-ES')
-                    : 'Sesión activa'}
-                </div>
-              </div>
 
-              <div className="p-3 bg-bg-dark/60 border border-border-base/70 rounded-xl text-[11px] text-text-dim leading-relaxed">
-                Si detectas actividad inusual o utilizaste una computadora compartida, puedes invalidar de inmediato todas las sesiones remotas fuera de este navegador.
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* New Password */}
+                  <div>
+                    <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                      Nueva Contraseña <span className="text-accent-red">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors"
+                      >
+                        {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label className="block text-xs font-semibold text-text-muted mb-1.5">
+                      Confirmar Nueva Contraseña <span className="text-accent-red">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reactive Password Strength Meter */}
+                <PasswordStrengthMeter password={newPassword} />
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={changePasswordMutation.isPending || !newPassword || newPassword !== confirmPassword}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-accent-green text-black font-bold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 disabled:opacity-50 cursor-pointer"
+                  >
+                    {changePasswordMutation.isPending ? (
+                      <Loader2 className="animate-spin" size={15} />
+                    ) : (
+                      <Key size={15} />
+                    )}
+                    Actualizar Contraseña
+                  </button>
+                </div>
+              </form>
             </div>
 
-            <div className="pt-2 border-t border-border-base">
-              <button
-                type="button"
-                onClick={() => revokeSessionsMutation.mutate()}
-                disabled={revokeSessionsMutation.isPending}
-                className="w-full py-2.5 px-4 rounded-full border border-accent-red/40 bg-accent-red/10 text-accent-red hover:bg-accent-red/20 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {revokeSessionsMutation.isPending ? (
-                  <Loader2 className="animate-spin" size={14} />
-                ) : (
-                  <ShieldAlert size={14} />
+            {/* Sesión & Dispositivos */}
+            <div className="bg-bg-card border border-border-base rounded-2xl p-6 sm:p-7 shadow-sm flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-base font-bold text-text-main flex items-center gap-2">
+                    <Laptop size={18} className="text-accent-blue" />
+                    Sesión & Dispositivos
+                  </h3>
+                  <p className="text-xs text-text-dim mt-0.5">
+                    Control de sesiones abiertas y tokens de refresco
+                  </p>
+                </div>
+
+                {revokeSessionsMsg && (
+                  <div
+                    className={`p-3 rounded-xl flex items-center gap-2 text-xs border ${
+                      revokeSessionsMsg.type === 'success'
+                        ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
+                        : 'bg-accent-red/10 border-accent-red/30 text-accent-red'
+                    }`}
+                  >
+                    <CheckCircle2 size={15} className="shrink-0" />
+                    <span>{revokeSessionsMsg.text}</span>
+                  </div>
                 )}
-                Cerrar Otras Sesiones Remotas
-              </button>
+
+                <div className="p-3.5 bg-bg-dark border border-border-base rounded-xl space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-text-main flex items-center gap-1.5">
+                      <Laptop size={13} className="text-accent-green" /> Este Navegador
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+                      En línea
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-dim font-mono">
+                    Último login:{' '}
+                    {meData?.last_login
+                      ? new Date(meData.last_login).toLocaleString('es-ES')
+                      : 'Sesión activa'}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-bg-dark/60 border border-border-base/70 rounded-xl text-[11px] text-text-dim leading-relaxed">
+                  Si detectas actividad inusual o utilizaste una computadora compartida, puedes invalidar de inmediato todas las sesiones remotas fuera de este navegador.
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border-base">
+                <button
+                  type="button"
+                  onClick={() => revokeSessionsMutation.mutate()}
+                  disabled={revokeSessionsMutation.isPending}
+                  className="w-full py-2.5 px-4 rounded-full border border-accent-red/40 bg-accent-red/10 text-accent-red hover:bg-accent-red/20 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {revokeSessionsMutation.isPending ? (
+                    <Loader2 className="animate-spin" size={14} />
+                  ) : (
+                    <ShieldAlert size={14} />
+                  )}
+                  Cerrar Otras Sesiones Remotas
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -910,7 +1036,7 @@ export default function ProfilePage() {
               Preferencias Operativas del Operador
             </h2>
             <p className="text-xs text-text-dim mt-0.5">
-              Personaliza el comportamiento sonoro de alertas de consola y el huso horario de visualización del NOC
+              Personaliza el comportamiento sonoro de alertas de consola y el huso horario de visualización
             </p>
           </div>
 
@@ -946,7 +1072,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <div className="font-bold text-sm text-text-main flex items-center gap-2">
-                    Sonido de Alerta NOC (Audio Chime)
+                    Sonido de Alerta (Audio Chime)
                     <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
                       Sintetizador Web Audio
                     </span>
@@ -1200,6 +1326,26 @@ export default function ProfilePage() {
 
       {/* TAB 5: BITÁCORA DE ACTIVIDAD (AUDIT LOG) */}
       {activeTab === 'activity' && <UserActivityTab userId={meData?.id || ''} />}
+
+      {/* MODALES DE 2FA */}
+      <TwoFactorModal
+        isOpen={show2FAModal}
+        onClose={() => setShow2FAModal(false)}
+        setupData={totpSetupData}
+        onVerify={async (code) => {
+          return await verify2FAMutation.mutateAsync(code);
+        }}
+        isVerifying={verify2FAMutation.isPending}
+      />
+
+      <Disable2FAModal
+        isOpen={showDisable2FAModal}
+        onClose={() => setShowDisable2FAModal(false)}
+        onConfirm={async (password) => {
+          await disable2FAMutation.mutateAsync(password);
+        }}
+        isLoading={disable2FAMutation.isPending}
+      />
     </div>
   );
 }

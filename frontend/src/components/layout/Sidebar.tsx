@@ -22,9 +22,12 @@ import {
   Sliders,
   Layers,
   Wrench,
+  Building,
+  Crown,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 interface NavItem {
   to: string;
@@ -71,6 +74,7 @@ const navGroups: NavGroup[] = [
     title: 'Sistema',
     icon: Settings,
     items: [
+      { to: '/organization', icon: Building, label: 'Organización & Planes' },
       { to: '/audit-logs', icon: ShieldAlert, label: 'Logs de Auditoría' },
       { to: '/users', icon: Users, label: 'Usuarios y Equipos' },
       { to: '/profile', icon: User, label: 'Perfil de Usuario' },
@@ -80,6 +84,24 @@ const navGroups: NavGroup[] = [
 
 export default function Sidebar() {
   const location = useLocation();
+  const user = useAuthStore((state) => state.user);
+  const isSuperadmin = Boolean(user?.is_staff || (user as any)?.is_superuser);
+
+  const currentNavGroups = navGroups.map((group) => {
+    if (group.id === 'sistema' && isSuperadmin) {
+      const alreadyHas = group.items.some((i) => i.to === '/admin/platform');
+      if (!alreadyHas) {
+        return {
+          ...group,
+          items: [
+            ...group.items,
+            { to: '/admin/platform', icon: Crown, label: 'Administración de Plataforma' },
+          ],
+        };
+      }
+    }
+    return group;
+  });
 
   // Collapsed state with LocalStorage persistence
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -100,13 +122,13 @@ export default function Sidebar() {
 
   // Automatically expand group if current path is inside it
   useEffect(() => {
-    navGroups.forEach((group) => {
+    currentNavGroups.forEach((group) => {
       const hasActiveChild = group.items.some((item) => location.pathname.startsWith(item.to));
       if (hasActiveChild) {
         setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, isSuperadmin]);
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
@@ -179,7 +201,7 @@ export default function Sidebar() {
         {/* COLLAPSED MODE VIEW (Icon Rail) */}
         {isCollapsed ? (
           <div className="space-y-4 pt-2">
-            {navGroups.map((group) => {
+            {currentNavGroups.map((group) => {
               const hasActiveChild = group.items.some((item) =>
                 location.pathname.startsWith(item.to)
               );
@@ -223,7 +245,7 @@ export default function Sidebar() {
               </div>
 
               {/* Group 1: Conectividad */}
-              {navGroups
+              {currentNavGroups
                 .filter((g) => g.id === 'conectividad' || g.id === 'gestion')
                 .map((group) => {
                   const isOpen = openGroups[group.id] ?? true;
@@ -299,7 +321,7 @@ export default function Sidebar() {
                 CONFIGURACIÓN
               </div>
 
-              {navGroups
+              {currentNavGroups
                 .filter((g) => g.id === 'sistema')
                 .map((group) => {
                   const isOpen = openGroups[group.id] ?? false;
@@ -376,12 +398,12 @@ export default function Sidebar() {
           <div className="px-2 flex items-center justify-between text-[11px] font-mono text-text-dim">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
-              <span>NOC Activo</span>
+              <span>Monitoreo Activo</span>
             </span>
             <span>v1.0.0</span>
           </div>
         ) : (
-          <div className="flex justify-center" title="NOC Activo (v1.0.0)">
+          <div className="flex justify-center" title="Monitoreo Activo (v1.0.0)">
             <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
           </div>
         )}

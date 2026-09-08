@@ -58,6 +58,7 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(max_length=150, required=False, default="")
     last_name = serializers.CharField(max_length=150, required=False, default="")
+    organization_name = serializers.CharField(max_length=255, required=False, default="")
 
 
 class UserUpdateSerializer(serializers.Serializer):

@@ -5,14 +5,16 @@ from rest_framework.views import APIView
 from common.responses import error_response, success_response
 
 from .serializers import (
+    AgentProbeCreateSerializer,
+    AgentProbeSerializer,
+    MaintenanceWindowSerializer,
     MonitoringCheckSerializer,
     MonitoringTargetCreateSerializer,
     MonitoringTargetSerializer,
     MonitoringTargetUpdateSerializer,
-    MaintenanceWindowSerializer,
 )
 from .models import MaintenanceWindow
-from .services import MonitoringService
+from .services import AgentProbeService, MonitoringService
 
 
 class MonitoringTargetListView(APIView):
@@ -43,6 +45,20 @@ class MonitoringTargetListView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Enforce quota limits & min interval
+        if getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_quota(request.user.organization, "targets")
+                if "interval" in serializer.validated_data:
+                    QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval"])
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             target = MonitoringService.create_target(
                 organization_id=org_id,
@@ -53,6 +69,8 @@ class MonitoringTargetListView(APIView):
                 enabled=serializer.validated_data.get("enabled", True),
                 tags=serializer.validated_data.get("tags", []),
                 owner_team=serializer.validated_data.get("owner_team"),
+                runner_type=serializer.validated_data.get("runner_type", "cloud"),
+                agent_probe=serializer.validated_data.get("agent_probe"),
             )
             from audit.services import AuditService
             AuditService.log_from_request(
@@ -102,6 +120,17 @@ class MonitoringTargetDetailView(APIView):
                 errors=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        if "interval" in serializer.validated_data and getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval"])
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
 
         try:
             target = MonitoringService.update_target(
@@ -595,4 +624,164 @@ class BulkActionView(APIView):
         else:
             return error_response(f"Acción '{action}' inválida.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        return success_response({"message": msg, "affected_count": count})
+        return success_response({"message": msg, "affected_count": count})
+
+
+class AgentProbeListView(APIView):
+    """Endpoint for listing and creating private satellite runners (Probes).
+
+    GET /api/v1/agent-probes/
+    POST /api/v1/agent-probes/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        probes = AgentProbeService.list_probes(org_id)
+        serializer = AgentProbeSerializer(probes, many=True)
+        return success_response(serializer.data)
+
+    def post(self, request):
+        org = getattr(request.user, "organization", None)
+        if not org:
+            return error_response(
+                "El usuario no tiene una organización asignada.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Enforce quota limits for private probes
+        try:
+            from organizations.services import QuotaService, QuotaExceededException
+            QuotaService.check_quota(org, "private_agents")
+        except QuotaExceededException as qe:
+            return error_response(
+                str(qe),
+                errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = AgentProbeCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return error_response("Nombre de agente inválido.", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
+
+        name = serializer.validated_data["name"]
+        probe, raw_token = AgentProbeService.create_probe(org.id, name)
+
+        # Build one-click Docker command
+        host = request.get_host()
+        scheme = request.scheme
+        base_url = f"{scheme}://{host}"
+        docker_cmd = (
+            f"docker run -d --name sentinel-probe --restart unless-stopped "
+            f"-e SENTINEL_TOKEN=\"{raw_token}\" "
+            f"-e SENTINEL_SERVER=\"{base_url}\" "
+            f"sentinel/probe:latest"
+        )
+
+        probe_data = AgentProbeSerializer(probe).data
+        probe_data["raw_token"] = raw_token
+        probe_data["docker_command"] = docker_cmd
+
+        # Audit log
+        try:
+            from audit.services import AuditService
+            AuditService.log_from_request(
+                request,
+                action="create",
+                module="monitoring",
+                description=f"Se registró un nuevo Agente Satélite Privado: {probe.name}",
+            )
+        except Exception:
+            pass
+
+        return success_response(probe_data, status_code=status.HTTP_201_CREATED)
+
+
+class AgentProbeDetailView(APIView):
+    """Endpoint for deleting/revoking a private satellite runner.
+
+    DELETE /api/v1/agent-probes/{id}/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def delete(self, request, probe_id):
+        org_id = request.user.organization_id
+        try:
+            AgentProbeService.delete_probe(probe_id, org_id)
+            return success_response({"message": "Agente satélite eliminado exitosamente."})
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+
+
+class AgentProbeHeartbeatView(APIView):
+    """Endpoint for private satellite runner heartbeat and task fetching.
+
+    POST /api/v1/agent-probes/heartbeat/
+    Headers: X-Probe-Token: prb_live_...
+    """
+
+    permission_classes = ()
+    authentication_classes = ()
+
+    def post(self, request):
+        token = request.headers.get("X-Probe-Token") or request.data.get("token")
+        if not token:
+            return error_response("Token de agente ausente.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+        probe = AgentProbeService.authenticate_token(token)
+        if not probe:
+            return error_response("Token de agente no válido o revocado.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+        hostname = request.data.get("hostname", "")
+        ip_address = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
+        if ip_address and "," in ip_address:
+            ip_address = ip_address.split(",")[0].strip()
+        os_info = request.data.get("os_info", "")
+        version = request.data.get("version", "1.0.0")
+
+        tasks = AgentProbeService.process_heartbeat(
+            probe=probe,
+            hostname=hostname,
+            ip_address=ip_address,
+            os_info=os_info,
+            version=version,
+        )
+
+        return success_response({
+            "probe_id": str(probe.id),
+            "probe_name": probe.name,
+            "tasks": tasks,
+            "poll_interval_seconds": 10,
+        })
+
+
+class AgentProbeSubmitResultsView(APIView):
+    """Endpoint for receiving local check results from a private satellite runner.
+
+    POST /api/v1/agent-probes/submit-results/
+    Headers: X-Probe-Token: prb_live_...
+    """
+
+    permission_classes = ()
+    authentication_classes = ()
+
+    def post(self, request):
+        token = request.headers.get("X-Probe-Token") or request.data.get("token")
+        if not token:
+            return error_response("Token de agente ausente.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+        probe = AgentProbeService.authenticate_token(token)
+        if not probe:
+            return error_response("Token de agente no válido o revocado.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+        results = request.data.get("results", [])
+        if not isinstance(results, list):
+            return error_response("El payload de resultados debe ser una lista.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        ingested_count = AgentProbeService.ingest_results(probe, results)
+        return success_response({
+            "ingested_count": ingested_count,
+            "message": f"Se procesaron {ingested_count} chequeos exitosamente.",
+        })

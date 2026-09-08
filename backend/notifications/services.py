@@ -367,7 +367,7 @@ class NotificationService:
         notification = NotificationService.create_notification(
             organization_id=organization_id,
             channel_id=channel.id,
-            title="[PRUEBA] Sentinela - Notificación de Prueba",
+            title="[PRUEBA] Sentinel - Notificación de Prueba",
             message=f"Esta es una notificación de prueba para validar la integración con el canal '{channel.name}' ({channel.channel_type}).",
             severity="info",
             event_type="test",
@@ -381,7 +381,7 @@ class NotificationService:
     def test_channel_config(channel_type, config, custom_title=None, custom_message=None):
         """Perform a pre-flight live connection test before saving the channel."""
         t0 = time.monotonic()
-        test_title = custom_title or "[TEST EN VIVO] Sentinela NOC - Verificación de Conexión"
+        test_title = custom_title or "[TEST EN VIVO] Sentinel - Verificación de Conexión"
         test_msg = custom_message or "Esta es una prueba de pre-vuelo para validar credenciales y endpoint antes de registrar el canal."
 
         class MockChannel:
@@ -536,7 +536,7 @@ class EmailDeliveryHandler:
             raise ValueError("No recipients configured for email channel.")
 
         smtp_host = config.get("smtp_host")
-        from_email = config.get("from_email") or config.get("smtp_user") or "alertas@sentinela.local"
+        from_email = config.get("from_email") or config.get("smtp_user") or "alertas@sentinel.local"
 
         if smtp_host:
             from django.core.mail import EmailMessage, get_connection

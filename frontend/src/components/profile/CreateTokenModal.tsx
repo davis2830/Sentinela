@@ -50,7 +50,7 @@ export default function CreateTokenModal({
                 Generar Nuevo API Token
               </h2>
               <p className="text-xs text-text-dim">
-                Clave programática para integración de scripts y sistemas NOC
+                Clave programática para integración de scripts y sistemas externos
               </p>
             </div>
           </div>

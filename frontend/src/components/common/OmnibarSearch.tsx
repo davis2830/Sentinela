@@ -161,7 +161,7 @@ export default function OmnibarSearch({ isOpen, onClose }: OmnibarSearchProps) {
             </div>
           ) : (
             <div className="py-8 text-center text-xs font-mono text-text-dim">
-              Escribe al menos 2 caracteres para buscar en la plataforma Sentinela.
+              Escribe al menos 2 caracteres para buscar en la plataforma Sentinel.
             </div>
           )}
         </div>

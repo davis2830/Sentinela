@@ -25,6 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { MonitoringTarget, CreateTargetData } from '../../types/monitoring';
 import type { Team } from '../../types/users';
+import type { AgentProbe } from '../../types/agent_probe';
 
 interface TargetFormProps {
   target: MonitoringTarget | null;
@@ -137,6 +138,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [enabled, setEnabled] = useState(target?.enabled ?? true);
 
   const [ownerTeam, setOwnerTeam] = useState<string>(target?.owner_team || '');
+  const [runnerType, setRunnerType] = useState<'cloud' | 'agent'>(target?.runner_type || 'cloud');
+  const [agentProbeId, setAgentProbeId] = useState<string>(target?.agent_probe || '');
 
   // Fetch squads/teams for ownership assignment
   const { data: teams = [] } = useQuery<Team[]>({
@@ -151,6 +154,42 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
     },
     staleTime: 60000,
   });
+
+  // Fetch private satellite agents
+  const { data: probes = [] } = useQuery<AgentProbe[]>({
+    queryKey: ['agent-probes-select'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('agent-probes/');
+        return (response.data?.data || []) as AgentProbe[];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 30000,
+  });
+
+  // Fetch organization subscription for plan quota & min_interval enforcement
+  const { data: subData } = useQuery({
+    queryKey: ['org-subscription-targetform'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('organizations/current/subscription/');
+        return res.data?.data;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 60000,
+  });
+
+  const minAllowedInterval = subData?.limits?.min_check_interval_seconds ?? 60;
+
+  useEffect(() => {
+    if (minAllowedInterval && interval < minAllowedInterval) {
+      setInterval(minAllowedInterval);
+    }
+  }, [minAllowedInterval]);
 
   // TCP dedicated helper state
   const [tcpHost, setTcpHost] = useState('');
@@ -375,6 +414,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
         max_latency_ms: Number(maxLatencyMs),
         tags,
         owner_team: ownerTeam || null,
+        runner_type: runnerType,
+        agent_probe: runnerType === 'agent' && agentProbeId ? agentProbeId : null,
       });
       onClose();
     } catch (err: any) {
@@ -744,21 +785,42 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {intervalPresets.map((preset) => (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => setInterval(preset.value)}
-                      className={`py-1.5 px-4 rounded-full border text-center transition-all font-medium ${
-                        interval === preset.value
-                          ? 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm'
-                          : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-accent-green/40'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+                  {intervalPresets.map((preset) => {
+                    const isRestricted = preset.value < minAllowedInterval;
+                    return (
+                      <button
+                        key={preset.value}
+                        type="button"
+                        disabled={isRestricted}
+                        onClick={() => setInterval(preset.value)}
+                        title={
+                          isRestricted
+                            ? `Tu plan actual (${subData?.plan_name || 'Free'}) requiere un intervalo mínimo de ${minAllowedInterval}s. Actualiza a un plan superior para monitoreo de alta frecuencia.`
+                            : undefined
+                        }
+                        className={`py-1.5 px-3.5 rounded-full border text-center transition-all font-medium flex items-center gap-1.5 ${
+                          isRestricted
+                            ? 'opacity-40 cursor-not-allowed bg-bg-dark/30 border-border-base/40 text-text-dim'
+                            : interval === preset.value
+                            ? 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm cursor-pointer'
+                            : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-accent-green/40 cursor-pointer'
+                        }`}
+                      >
+                        {preset.label}
+                        {isRestricted && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            Upgrade
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+                {minAllowedInterval > 60 && (
+                  <p className="text-[11px] text-amber-400/90 flex items-center gap-1 mt-1">
+                    <span>⚠️ Tu plan actual limita chequeos de alta frecuencia a un mínimo de {minAllowedInterval}s ({Math.round(minAllowedInterval / 60)}m).</span>
+                  </p>
+                )}
               </div>
 
               {/* Tag Chips Management */}
@@ -826,6 +888,93 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       </button>
                     ))}
                 </div>
+              </div>
+
+              {/* Runner Execution Location (Cloud vs Private Agent) */}
+              <div className="space-y-3 pt-4 border-t border-border-base/60">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+                    <Server size={14} className="text-accent-green" />
+                    Ubicación de Monitoreo (Runner)
+                  </label>
+                  <span className="text-[11px] text-text-dim">
+                    {runnerType === 'cloud' ? 'Red Pública Sentinel' : 'Red Local / Privada'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRunnerType('cloud');
+                      setAgentProbeId('');
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 ${
+                      runnerType === 'cloud'
+                        ? 'bg-accent-blue/10 border-accent-blue/40 ring-1 ring-accent-blue/30 text-text-main'
+                        : 'bg-bg-dark/60 border-border-base hover:border-border-accent text-text-muted'
+                    }`}
+                  >
+                    <Globe size={18} className="text-accent-blue shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-text-main">Sentinel Cloud</div>
+                      <div className="text-[11px] text-text-dim mt-0.5">
+                        Escaneo desde la nube para sitios web, APIs y servicios públicos.
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRunnerType('agent');
+                      if (probes.length > 0 && !agentProbeId) {
+                        setAgentProbeId(probes[0].id);
+                      }
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 ${
+                      runnerType === 'agent'
+                        ? 'bg-accent-green/10 border-accent-green/40 ring-1 ring-accent-green/30 text-text-main'
+                        : 'bg-bg-dark/60 border-border-base hover:border-border-accent text-text-muted'
+                    }`}
+                  >
+                    <Server size={18} className="text-accent-green shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-text-main">Agente Satélite On-Premise</div>
+                      <div className="text-[11px] text-text-dim mt-0.5">
+                        Ejecución en red local privada (192.168.x.x / 10.x.x.x) sin abrir puertos.
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* If Agent Runner selected: Show Probe Dropdown */}
+                {runnerType === 'agent' && (
+                  <div className="p-4 rounded-2xl bg-bg-dark/80 border border-border-base space-y-2 animate-in fade-in">
+                    <label className="block text-xs font-semibold text-text-muted">
+                      Selecciona el Agente Satélite Asignado *
+                    </label>
+                    {probes.length > 0 ? (
+                      <select
+                        value={agentProbeId}
+                        onChange={(e) => setAgentProbeId(e.target.value)}
+                        required={runnerType === 'agent'}
+                        className="w-full bg-bg-card border border-border-base rounded-xl px-4 py-2.5 text-xs text-text-main focus:border-accent-green focus:outline-none"
+                      >
+                        <option value="">-- Elige un runner privado --</option>
+                        {probes.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} {p.is_online ? '🟢 (Online)' : '⚪ (Offline)'} - {p.ip_address || p.hostname || 'LAN'}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow text-xs">
+                        <span>No tienes agentes satélite registrados en tu organización.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

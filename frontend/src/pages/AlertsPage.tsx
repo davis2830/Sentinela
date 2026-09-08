@@ -1759,7 +1759,7 @@ export default function AlertsPage() {
 
             <p className="text-xs text-text-muted leading-relaxed">
               Silenciar pausa las alertas enviadas a canales externos para{' '}
-              <strong className="text-text-main">{snoozeTarget.name}</strong>. Seguirá visible en el NOC para trazabilidad.
+              <strong className="text-text-main">{snoozeTarget.name}</strong>. Seguirá visible en la consola para trazabilidad.
             </p>
 
             <div className="space-y-2">

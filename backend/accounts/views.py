@@ -66,6 +66,7 @@ class RegisterView(APIView):
                 password=serializer.validated_data["password"],
                 first_name=serializer.validated_data.get("first_name", ""),
                 last_name=serializer.validated_data.get("last_name", ""),
+                organization_name=serializer.validated_data.get("organization_name", ""),
             )
             return success_response(
                 result,
@@ -195,6 +196,7 @@ class MeView(APIView):
                 "name": user.organization.name,
                 "timezone": user.organization.timezone,
                 "locale": user.organization.locale,
+                "require_2fa": getattr(user.organization, "require_2fa", False),
             }
 
         # Teams the user belongs to
@@ -220,6 +222,8 @@ class MeView(APIView):
                 "role": "admin" if user.is_staff else "operator",
                 "is_staff": user.is_staff,
                 "is_active": user.is_active,
+                "is_2fa_enabled": getattr(user, "is_2fa_enabled", False),
+                "backup_codes_remaining": len(getattr(user, "backup_codes", []) or []),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "teams": user_teams,
@@ -299,6 +303,8 @@ class MeView(APIView):
                 "role": "admin" if user.is_staff else "operator",
                 "is_staff": user.is_staff,
                 "is_active": user.is_active,
+                "is_2fa_enabled": getattr(user, "is_2fa_enabled", False),
+                "backup_codes_remaining": len(getattr(user, "backup_codes", []) or []),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "teams": user_teams,
@@ -416,3 +422,89 @@ class APITokenDetailView(APIView):
                 "API token not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
+
+
+class Login2FAView(APIView):
+    """Endpoint to complete 2FA login with pre_auth_token and TOTP code or backup code.
+
+    POST /api/v1/auth/login/2fa/
+    """
+
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        pre_auth_token = request.data.get("pre_auth_token")
+        code = request.data.get("code")
+        if not pre_auth_token or not code:
+            return error_response(
+                "El token de pre-autenticación y el código son requeridos.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = AuthService.verify_2fa_login(pre_auth_token, code)
+            return success_response(result)
+        except ValueError as exc:
+            return error_response(str(exc), status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+class TwoFactorSetupView(APIView):
+    """Endpoint to initiate 2FA setup and get QR code and secret.
+
+    POST /api/v1/auth/2fa/setup/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            result = AuthService.setup_2fa(request.user)
+            return success_response(result)
+        except Exception as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class TwoFactorVerifyView(APIView):
+    """Endpoint to verify provisional TOTP code and enable 2FA with backup codes.
+
+    POST /api/v1/auth/2fa/verify/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        code = request.data.get("code")
+        if not code:
+            return error_response(
+                "El código de verificación es requerido.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = AuthService.verify_and_enable_2fa(request.user, code)
+            return success_response(result)
+        except ValueError as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class TwoFactorDisableView(APIView):
+    """Endpoint to disable 2FA after password confirmation.
+
+    POST /api/v1/auth/2fa/disable/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        password = request.data.get("password")
+        if not password:
+            return error_response(
+                "La contraseña es requerida para confirmar la desactivación.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = AuthService.disable_2fa(request.user, password)
+            return success_response(result)
+        except ValueError as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

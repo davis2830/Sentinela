@@ -220,6 +220,15 @@ export default function TargetTableView({
                               <span className="truncate max-w-[90px]">{target.owner_team_name}</span>
                             </span>
                           )}
+                          {target.runner_type === 'agent' && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-purple/10 text-accent-purple border border-accent-purple/30 shrink-0"
+                              title={`Ejecutado por agente satélite: ${target.agent_probe_name || 'Agente LAN'}`}
+                            >
+                              <Server size={9} className="shrink-0" />
+                              <span className="truncate max-w-[85px]">{target.agent_probe_name || 'Agente LAN'}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-text-dim font-mono truncate max-w-[260px]" title={target.endpoint}>
                           {target.endpoint}

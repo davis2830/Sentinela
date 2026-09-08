@@ -437,7 +437,7 @@ export default function StatusPageAdmin() {
       {/* 1. TOP HEADER (Standard NOC Header) */}
       <NOCPageHeader
         title="Administración de Status Page"
-        badgeText="NOC PUBLIC VISIBILITY"
+        badgeText="ESTADO PÚBLICO"
         description="Portales de transparencia multi-empresa, publicación de componentes, mantenimientos y suscriptores."
         icon={<Activity size={26} />}
         actions={
@@ -610,7 +610,7 @@ export default function StatusPageAdmin() {
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Impacto Preventivo</span>
-              <span className="text-amber-400 font-medium">NOC Schedule</span>
+              <span className="text-amber-400 font-medium">Programación Activa</span>
             </div>
           }
         />
@@ -949,7 +949,7 @@ export default function StatusPageAdmin() {
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover font-semibold rounded-full text-xs transition-all cursor-pointer"
               >
                 <Wrench size={14} className="text-accent-blue" />
-                <span>NOC Mantenimientos</span>
+                <span>Gestión de Mantenimientos</span>
               </a>
               <button
                 type="button"
@@ -968,7 +968,7 @@ export default function StatusPageAdmin() {
               <Wrench size={18} className="text-accent-blue shrink-0" />
               <div>
                 <span className="font-bold text-text-main block">
-                  Sincronización Automática con el NOC
+                  Sincronización Automática con Monitoreo
                 </span>
                 <span className="text-[11px] text-text-dim">
                   Cualquier mantenimiento técnico programado en <strong className="text-text-main">/maintenance</strong> con la opción "Publicar en Status Page" activa se refleja aquí en tiempo real, silenciando alertas y protegiendo el SLA.

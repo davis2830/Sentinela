@@ -27,11 +27,11 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <div className="flex items-center gap-3 mb-3">
           <img
             src="/logo.png"
-            alt="Sentinela Logo"
+            alt="Sentinel Logo"
             className="h-11 w-auto object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.35)]"
           />
           <span className="text-3xl font-extrabold tracking-tight text-text-main font-sans">
-            Sentinela
+            Sentinel
           </span>
         </div>
 
@@ -53,15 +53,15 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             <div className="flex items-center gap-4 mb-6">
               <img
                 src="/logo.png"
-                alt="Sentinela Logo"
+                alt="Sentinel Logo"
                 className="h-12 xl:h-14 w-auto object-contain drop-shadow-[0_0_18px_rgba(16,185,129,0.35)]"
               />
               <div>
                 <span className="text-3xl xl:text-4xl font-extrabold tracking-tight text-text-main font-sans block">
-                  Sentinela
+                  Sentinel
                 </span>
                 <span className="text-xs xl:text-sm font-medium text-text-dim tracking-wider uppercase font-sans">
-                  Centro de Operaciones &bull; NOC y Observabilidad
+                  Centro de Operaciones &bull; Monitoreo y Observabilidad
                 </span>
               </div>
             </div>

@@ -549,7 +549,7 @@ class SecurityHeadersService:
 
         target_url = raw_url
         headers = {
-            "User-Agent": "Sentinel-NOC-HeaderAudit/1.0",
+            "User-Agent": "Sentinel-HeaderAudit/1.0",
         }
 
         # If testing internal backend in docker

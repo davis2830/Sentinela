@@ -49,7 +49,7 @@ export default function TeamsView({
             No hay equipos de trabajo configurados
           </h3>
           <p className="text-xs text-text-dim max-w-md mx-auto mt-1 leading-relaxed">
-            Organiza a tus operadores en cuadrillas especializadas (ej. SRE & Infraestructura, NOC Nivel 1, SecOps) para delegar la propiedad de servicios e incidentes.
+            Organiza a tus operadores en cuadrillas especializadas (ej. SRE & Infraestructura, Soporte Nivel 1, SecOps) para delegar la propiedad de servicios e incidentes.
           </p>
         </div>
 

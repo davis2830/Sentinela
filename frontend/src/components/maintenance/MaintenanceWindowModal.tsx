@@ -576,7 +576,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                     ))}
                   </select>
                   <p className="text-[10px] text-text-dim leading-relaxed">
-                    Se mantendrán sincronizados en tiempo real el título, fechas de intervención y las notas de avance que publiques en la bitácora del NOC.
+                    Se mantendrán sincronizados en tiempo real el título, fechas de intervención y las notas de avance que publiques en la bitácora de mantenimiento.
                   </p>
                 </div>
               )}
