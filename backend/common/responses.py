@@ -2,18 +2,19 @@ from rest_framework import status
 from rest_framework.response import Response
 
 
-def success_response(data=None, status_code=status.HTTP_200_OK):
+def success_response(data=None, status_code=status.HTTP_200_OK, message=None):
     """Standard success response format.
 
     {
         "success": true,
-        "data": {}
+        "data": {},
+        "message": "..." (optional)
     }
     """
-    return Response(
-        {"success": True, "data": data if data is not None else {}},
-        status=status_code,
-    )
+    payload = {"success": True, "data": data if data is not None else {}}
+    if message is not None:
+        payload["message"] = message
+    return Response(payload, status=status_code)
 
 
 def error_response(message, errors=None, status_code=status.HTTP_400_BAD_REQUEST):

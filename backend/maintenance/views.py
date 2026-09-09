@@ -90,6 +90,18 @@ class MaintenanceWindowListView(APIView):
         if not serializer.is_valid():
             return error_response(serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
+        org = getattr(request.user, "organization", None)
+        if org:
+            try:
+                from organizations.services import QuotaService, FeatureNotAllowedException
+                QuotaService.check_feature_access(org, "maintenance_windows")
+            except FeatureNotAllowedException as fe:
+                return error_response(
+                    str(fe),
+                    errors={"code": "FEATURE_NOT_INCLUDED", "feature": fe.feature_name, "plan": fe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             window = MaintenanceWindowService.create_window(
                 organization_id=org_id,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../services/api';
 import type {
   APICheckTarget,
@@ -364,9 +365,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -957,6 +958,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

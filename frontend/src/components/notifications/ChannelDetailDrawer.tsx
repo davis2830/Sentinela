@@ -63,7 +63,7 @@ export default function ChannelDetailDrawer({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Live Simulator State
-  const [testTitle, setTestTitle] = useState('[SIMULACIÓN] Sentinela NOC - Alerta de Prueba');
+  const [testTitle, setTestTitle] = useState('[SIMULACIÓN] Sentinel - Alerta de Prueba');
   const [testMessage, setTestMessage] = useState('Servicio payment-gateway responde con latencia anormal (1820ms).');
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState<{
@@ -358,7 +358,7 @@ export default function ChannelDetailDrawer({
                 {channel.min_severity === 'warning' &&
                   'Recibe alertas de severidad Advertencia (Warning) y Crítica. Las alertas meramente informativas se ignoran.'}
                 {channel.min_severity === 'info' &&
-                  'Recibe absolutamente todas las alertas disparadas por las reglas del NOC.'}
+                  'Recibe absolutamente todas las alertas disparadas por las reglas del sistema.'}
               </p>
             </div>
 

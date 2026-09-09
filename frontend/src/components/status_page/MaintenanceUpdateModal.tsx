@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ScheduledMaintenanceItem, MaintenanceStatus } from '../../types/status_page';
 import { X, Loader2, MessageSquarePlus, Clock, CheckCircle2 } from 'lucide-react';
 
@@ -36,9 +37,9 @@ export default function MaintenanceUpdateModal({
 
   const updates = maintenance.updates || [];
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 font-sans"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 font-sans"
       onClick={onClose}
     >
       <div
@@ -143,4 +144,7 @@ export default function MaintenanceUpdateModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

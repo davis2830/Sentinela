@@ -5,6 +5,11 @@
 @layer base {
   html {
     color-scheme: dark;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
   * {
@@ -13,10 +18,13 @@
     padding: 0;
   }
 
-  body {
+  body, #root {
     @apply bg-bg-dark text-text-main font-sans;
-    min-height: 100vh;
-    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     color-scheme: dark;
   }
 

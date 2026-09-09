@@ -37,6 +37,12 @@ class SecurityHeaderTargetListView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        from common.security import validate_safe_public_url, SSRFSecurityException
+        try:
+            validate_safe_public_url(serializer.validated_data["url"])
+        except SSRFSecurityException as s_exc:
+            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
+
         try:
             target = SecurityHeadersService.create_target(
                 organization_id=org_id,
@@ -201,6 +207,13 @@ class SecurityHeaderTestView(APIView):
                 "La URL es requerida para auditar las cabeceras.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        from common.security import validate_safe_public_url, SSRFSecurityException
+        try:
+            validate_safe_public_url(url)
+        except SSRFSecurityException as s_exc:
+            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
+
         result = SecurityHeadersService.test_headers(url)
         return success_response(result)
 

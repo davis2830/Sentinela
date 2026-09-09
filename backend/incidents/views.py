@@ -241,6 +241,18 @@ class IncidentRCAView(APIView):
 
         actor_name = request.user.get_full_name() or request.user.email
 
+        org = getattr(request.user, "organization", None)
+        if org:
+            try:
+                from organizations.services import QuotaService, FeatureNotAllowedException
+                QuotaService.check_feature_access(org, "rca_postmortem")
+            except FeatureNotAllowedException as fe:
+                return error_response(
+                    str(fe),
+                    errors={"code": "FEATURE_NOT_INCLUDED", "feature": fe.feature_name, "plan": fe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             incident = IncidentService.update_rca(
                 incident_id=incident_id,

@@ -18,6 +18,9 @@ export interface MonitoringTarget {
   owner_team?: string | null;
   owner_team_name?: string | null;
   owner_team_color?: string | null;
+  runner_type?: 'cloud' | 'agent';
+  agent_probe?: string | null;
+  agent_probe_name?: string | null;
   recent_checks?: RecentCheckItem[];
   created_at: string;
   updated_at: string;
@@ -60,6 +63,8 @@ export interface CreateTargetData {
   max_latency_ms?: number;
   tags?: string[];
   owner_team?: string | null;
+  runner_type?: 'cloud' | 'agent';
+  agent_probe?: string | null;
 }
 
 export interface UpdateTargetData {
@@ -75,6 +80,8 @@ export interface UpdateTargetData {
   max_latency_ms?: number;
   tags?: string[];
   owner_team?: string | null;
+  runner_type?: 'cloud' | 'agent';
+  agent_probe?: string | null;
 }
 
 export interface TimeseriesPoint {

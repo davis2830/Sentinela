@@ -128,7 +128,7 @@ export default function PublicStatusPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090D11] text-[#F8FAFC] font-sans selection:bg-emerald-500 selection:text-black">
+    <div className="h-full w-full overflow-y-auto bg-[#090D11] text-[#F8FAFC] font-sans selection:bg-emerald-500 selection:text-black">
       {/* 1. Header Navigation Bar */}
       <header className="border-b border-[#1E293B]/80 bg-[#111720]/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -626,7 +626,7 @@ export default function PublicStatusPage() {
       {/* 3. Public Footer */}
       <footer className="border-t border-[#1E293B] py-8 mt-12 bg-[#090D11] text-center text-xs font-mono text-[#64748B] space-y-2">
         <p>
-          Powered by <strong className="text-[#F8FAFC]">Sentinel NOC Observability</strong> &bull; Monitorización continua
+          Powered by <strong className="text-[#F8FAFC]">Sentinel Observability</strong> &bull; Monitorización continua
         </p>
         <p className="text-[11px] text-[#64748B]/80">
           Los datos de disponibilidad se actualizan cada 30 segundos automáticamente.

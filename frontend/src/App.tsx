@@ -21,6 +21,7 @@ import ReportsPage from './pages/ReportsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import OrganizationSettingsPage from './pages/OrganizationSettingsPage';
 import UsersPage from './pages/UsersPage';
+import PlatformAdminPage from './pages/PlatformAdminPage';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './store/authStore';
 
@@ -250,6 +251,16 @@ export default function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <UsersPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/platform"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <PlatformAdminPage />
                 </AppLayout>
               </ProtectedRoute>
             }

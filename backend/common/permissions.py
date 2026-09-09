@@ -32,3 +32,29 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user.is_staff
+
+
+class IsSuperUser(BasePermission):
+    """Allows access only to genuine platform superusers (is_superuser=True).
+
+    Customer organization administrators (is_staff=True) are strictly forbidden
+    from accessing global platform admin operations.
+    """
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_superuser
+        )
+
+
+class IsOrgAdmin(BasePermission):
+    """Allows access to organization administrators (is_staff=True) or platform superusers."""
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and (request.user.is_staff or request.user.is_superuser)
+        )

@@ -1,6 +1,52 @@
 from rest_framework import serializers
 
-from .models import MaintenanceWindow, MonitoringCheck, MonitoringTarget
+from .models import AgentProbe, MaintenanceWindow, MonitoringCheck, MonitoringTarget
+
+
+class AgentProbeSerializer(serializers.ModelSerializer):
+    """Serializer for AgentProbe private satellite runners."""
+
+    is_online = serializers.BooleanField(read_only=True)
+    assigned_targets_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AgentProbe
+        fields = (
+            "id",
+            "name",
+            "status",
+            "is_online",
+            "last_heartbeat",
+            "ip_address",
+            "hostname",
+            "version",
+            "os_info",
+            "assigned_targets_count",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "status",
+            "is_online",
+            "last_heartbeat",
+            "ip_address",
+            "hostname",
+            "version",
+            "os_info",
+            "assigned_targets_count",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_assigned_targets_count(self, obj):
+        return obj.assigned_targets.count()
+
+
+class AgentProbeCreateSerializer(serializers.Serializer):
+    """Serializer for registering a new AgentProbe."""
+
+    name = serializers.CharField(max_length=150)
 
 
 class MonitoringTargetSerializer(serializers.ModelSerializer):
@@ -28,6 +74,9 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "owner_team",
             "owner_team_name",
             "owner_team_color",
+            "runner_type",
+            "agent_probe",
+            "agent_probe_name",
             "recent_checks",
             "created_at",
             "updated_at",
@@ -40,6 +89,7 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "last_latency",
             "owner_team_name",
             "owner_team_color",
+            "agent_probe_name",
             "recent_checks",
             "created_at",
             "updated_at",
@@ -48,6 +98,7 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
     recent_checks = serializers.SerializerMethodField()
     owner_team_name = serializers.CharField(source="owner_team.name", read_only=True, allow_null=True)
     owner_team_color = serializers.CharField(source="owner_team.color", read_only=True, allow_null=True)
+    agent_probe_name = serializers.CharField(source="agent_probe.name", read_only=True, allow_null=True)
 
     def get_recent_checks(self, obj):
         checks = obj.checks.order_by("-checked_at")[:20]
@@ -78,6 +129,8 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     max_latency_ms = serializers.IntegerField(required=False, default=2000)
     tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     owner_team = serializers.UUIDField(required=False, allow_null=True)
+    runner_type = serializers.ChoiceField(choices=["cloud", "agent"], required=False, default="cloud")
+    agent_probe = serializers.UUIDField(required=False, allow_null=True)
 
 
 class MonitoringTargetUpdateSerializer(serializers.Serializer):
@@ -97,6 +150,8 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
     max_latency_ms = serializers.IntegerField(required=False)
     tags = serializers.ListField(child=serializers.CharField(), required=False)
     owner_team = serializers.UUIDField(required=False, allow_null=True)
+    runner_type = serializers.ChoiceField(choices=["cloud", "agent"], required=False)
+    agent_probe = serializers.UUIDField(required=False, allow_null=True)
 
 
 class MonitoringCheckSerializer(serializers.ModelSerializer):

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -1738,8 +1739,8 @@ export default function AlertsPage() {
       )}
 
       {/* 8. SNOOZE MODAL DIALOG */}
-      {snoozeTarget && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+      {snoozeTarget && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-bg-card border border-border-base rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2 text-amber-400">
@@ -1759,7 +1760,7 @@ export default function AlertsPage() {
 
             <p className="text-xs text-text-muted leading-relaxed">
               Silenciar pausa las alertas enviadas a canales externos para{' '}
-              <strong className="text-text-main">{snoozeTarget.name}</strong>. Seguirá visible en el NOC para trazabilidad.
+              <strong className="text-text-main">{snoozeTarget.name}</strong>. Seguirá visible en la consola para trazabilidad.
             </p>
 
             <div className="space-y-2">
@@ -1825,7 +1826,8 @@ export default function AlertsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 9. CREATE / EDIT RULE MODAL */}

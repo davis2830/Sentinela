@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   SecurityHeaderTarget,
   CreateSecurityHeaderTargetData,
@@ -95,9 +96,9 @@ export default function SecurityHeaderForm({
 
   const leakKeys = testResult?.info_leaks ? Object.keys(testResult.info_leaks) : [];
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -307,4 +308,7 @@ export default function SecurityHeaderForm({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

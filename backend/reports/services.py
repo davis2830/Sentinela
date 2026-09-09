@@ -740,7 +740,7 @@ class ReportExporter:
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Sentinel NOC - {report.title}</title>
+    <title>Sentinel - {report.title}</title>
     <style>
         @page {{ size: A4 portrait; margin: 15mm; }}
         body {{
@@ -853,7 +853,7 @@ class ReportExporter:
 <body>
     <div class="header">
         <div>
-            <div class="brand">SENTINEL <span>NOC</span></div>
+            <div class="brand">SENTINEL <span>OBSERVABILIDAD</span></div>
             <div class="report-title">{report.title}</div>
             <div class="report-meta">
                 Período auditado: <strong>{p_start}</strong> &mdash; <strong>{p_end}</strong> | Generado: <strong>{gen_at}</strong>
@@ -904,7 +904,7 @@ class ReportExporter:
     </table>
 
     <div class="footer">
-        <div>Sentinel Observability &bull; Plataforma Centralizada de Operaciones NOC</div>
+        <div>Sentinel Observability &bull; Plataforma Centralizada de Operaciones</div>
         <div>Auditoría Criptográfica e Inmutabilidad de Métricas</div>
     </div>
 </body>

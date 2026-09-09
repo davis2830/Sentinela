@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import type {
@@ -1093,9 +1094,9 @@ export default function SSLCertificatesPage() {
       </NOCDrawer>
 
       {/* 7. CREATE / EDIT FORM MODAL WITH LIVE TEST CONNECTION */}
-      {showModal && (
+      {showModal && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={handleCloseModal}
         >
           <div
@@ -1244,7 +1245,8 @@ export default function SSLCertificatesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 8. DELETE CONFIRMATION MODAL */}

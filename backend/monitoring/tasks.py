@@ -311,3 +311,35 @@ def register_target_in_submonitors(target_id):
         SecurityHeadersService.get_or_create_target(organization_id, name, endpoint)
     except Exception as exc:
         logger.warning("Failed to register target in security_headers: %s", exc)
+
+
+@shared_task(name="monitoring.purge_old_checks_by_retention")
+def purge_old_checks_by_retention():
+    """Purge MonitoringCheck records that exceed the organization's retention policy."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from organizations.models import Organization
+
+    total_deleted = 0
+    orgs = Organization.objects.all()
+    for org in orgs:
+        retention_days = org.metrics_retention_days or 30
+        cutoff_date = timezone.now() - timedelta(days=retention_days)
+
+        target_ids = MonitoringTarget.objects.filter(organization_id=org.id).values_list("id", flat=True)
+        if target_ids:
+            deleted_count, _ = MonitoringCheck.objects.filter(
+                target_id__in=target_ids,
+                checked_at__lt=cutoff_date,
+            ).delete()
+            total_deleted += deleted_count
+            if deleted_count > 0:
+                logger.info(
+                    "Purged %d monitoring checks older than %d days for org %s (%s).",
+                    deleted_count,
+                    retention_days,
+                    org.name,
+                    org.id,
+                )
+
+    return f"Purged {total_deleted} old monitoring checks."

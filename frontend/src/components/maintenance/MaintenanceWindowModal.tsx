@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   X,
@@ -234,7 +235,9 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
     }
   };
 
-  return (
+  if (!isOpen) return null;
+
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-8 flex flex-col max-h-[90vh]">
         {/* Header */}
@@ -576,7 +579,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                     ))}
                   </select>
                   <p className="text-[10px] text-text-dim leading-relaxed">
-                    Se mantendrán sincronizados en tiempo real el título, fechas de intervención y las notas de avance que publiques en la bitácora del NOC.
+                    Se mantendrán sincronizados en tiempo real el título, fechas de intervención y las notas de avance que publiques en la bitácora de mantenimiento.
                   </p>
                 </div>
               )}
@@ -631,4 +634,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 };

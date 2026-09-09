@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -7,6 +8,7 @@ import TargetCard from '../components/monitoring/TargetCard';
 import TargetTableView from '../components/monitoring/TargetTableView';
 import TargetDetailDrawer from '../components/monitoring/TargetDetailDrawer';
 import TargetForm from '../components/monitoring/TargetForm';
+import ProbeDirectoryDrawer from '../components/monitoring/ProbeDirectoryDrawer';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Plus,
@@ -25,6 +27,7 @@ import {
   CheckSquare,
   AlertTriangle,
   Radio,
+  Server,
 } from 'lucide-react';
 
 export default function MonitoringPage() {
@@ -34,6 +37,7 @@ export default function MonitoringPage() {
   const [editingTarget, setEditingTarget] = useState<MonitoringTarget | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<MonitoringTarget | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<MonitoringTarget | null>(null);
+  const [showProbeDrawer, setShowProbeDrawer] = useState(false);
 
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,6 +58,16 @@ export default function MonitoringPage() {
     queryFn: async () => {
       const response = await api.get('/monitoring/');
       return (response.data?.data || []) as MonitoringTarget[];
+    },
+    refetchInterval: autoRefreshEnabled ? 15000 : false,
+  });
+
+  // Probe query for live badge count
+  const { data: probes } = useQuery({
+    queryKey: ['agent-probes'],
+    queryFn: async () => {
+      const res = await api.get('agent-probes/');
+      return res.data?.data || [];
     },
     refetchInterval: autoRefreshEnabled ? 15000 : false,
   });
@@ -286,7 +300,7 @@ export default function MonitoringPage() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-extrabold tracking-tight">Uptime & Latencia</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
-              NOC TELEMETRY
+              TELEMETRÍA EN VIVO
             </span>
           </div>
           <p className="text-text-muted text-sm mt-1">
@@ -316,6 +330,15 @@ export default function MonitoringPage() {
           >
             <RefreshCw size={15} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
             Actualizar Todo
+          </button>
+
+          <button
+            onClick={() => setShowProbeDrawer(true)}
+            className="flex items-center gap-2 bg-accent-purple/10 border border-accent-purple/40 text-accent-purple font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-purple/20 transition-all shadow-sm"
+            title="Administrar agentes satélite para monitorear redes privadas y On-Premise"
+          >
+            <Server size={15} />
+            <span>Agentes Satélite ({probes?.length || 0})</span>
           </button>
 
           <button
@@ -470,7 +493,7 @@ export default function MonitoringPage() {
               className={`p-1.5 rounded-full transition-all ${
                 viewMode === 'table' ? 'bg-accent-green text-black font-semibold shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
-              title="Vista de Tabla Compacta (NOC)"
+              title="Vista de Tabla Compacta"
             >
               <ListIcon size={16} />
             </button>
@@ -666,6 +689,12 @@ export default function MonitoringPage() {
         />
       )}
 
+      {/* Private Satellite Agent Directory Drawer */}
+      <ProbeDirectoryDrawer
+        isOpen={showProbeDrawer}
+        onClose={() => setShowProbeDrawer(false)}
+      />
+
       {/* Target Create/Edit Modal Form */}
       {showForm && (
         <TargetForm
@@ -679,42 +708,44 @@ export default function MonitoringPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-          onClick={() => setDeleteConfirm(null)}
-        >
+      {deleteConfirm &&
+        createPortal(
           <div
-            className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-sm shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+            onClick={() => setDeleteConfirm(null)}
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center">
-                <Trash2 className="text-accent-red" size={20} />
+            <div
+              className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-sm shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center">
+                  <Trash2 className="text-accent-red" size={20} />
+                </div>
+                <h2 className="text-lg font-bold">Eliminar Target</h2>
               </div>
-              <h2 className="text-lg font-bold">Eliminar Target</h2>
+              <p className="text-text-muted text-sm mb-6">
+                ¿Seguro que deseas eliminar <strong className="text-text-main">{deleteConfirm.name}</strong>?
+                Esta acción eliminará todo su historial de métricas y no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
-            <p className="text-text-muted text-sm mb-6">
-              ¿Seguro que deseas eliminar <strong className="text-text-main">{deleteConfirm.name}</strong>?
-              Esta acción eliminará todo su historial de métricas y no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

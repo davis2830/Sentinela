@@ -139,7 +139,7 @@ export default function NOCToolbar({
                   ? 'bg-accent-green text-black font-semibold shadow-sm'
                   : 'text-text-muted hover:text-text-main'
               }`}
-              title="Vista de Tabla Compacta (NOC)"
+              title="Vista de Tabla Compacta"
             >
               <ListIcon size={16} />
             </button>

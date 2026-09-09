@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { ShieldCheck, Lock, Building, CheckCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Lock, Building, CheckCircle, CheckCircle2, AlertCircle, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function AcceptInvitationPage() {
   const [searchParams] = useSearchParams();
@@ -20,6 +20,8 @@ export default function AcceptInvitationPage() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -140,30 +142,80 @@ export default function AcceptInvitationPage() {
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-3 text-text-dim" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     placeholder="Mínimo 8 caracteres"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono text-text-main focus:outline-none focus:border-accent-green"
+                    className="w-full bg-bg-dark border border-border-base rounded-xl pl-9 pr-10 py-2.5 text-xs font-mono text-text-main focus:outline-none focus:border-accent-green"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors p-1"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  Confirmar Contraseña
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-text-muted">
+                    Confirmar Contraseña
+                  </label>
+                  {confirmPassword && (
+                    <span
+                      className={`text-[11px] font-medium flex items-center gap-1 ${
+                        password === confirmPassword ? 'text-accent-green' : 'text-amber-400'
+                      }`}
+                    >
+                      {password === confirmPassword ? (
+                        <>
+                          <CheckCircle2 size={12} />
+                          <span>Coinciden</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={12} />
+                          <span>No coinciden</span>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-3 text-text-dim" />
+                  <Lock
+                    size={16}
+                    className={`absolute left-3 top-3 transition-colors ${
+                      confirmPassword && password === confirmPassword
+                        ? 'text-accent-green'
+                        : confirmPassword
+                        ? 'text-amber-400'
+                        : 'text-text-dim'
+                    }`}
+                  />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     required
                     placeholder="Repite tu contraseña"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-bg-dark border border-border-base rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono text-text-main focus:outline-none focus:border-accent-green"
+                    className={`w-full bg-bg-dark border rounded-xl pl-9 pr-10 py-2.5 text-xs font-mono text-text-main focus:outline-none ${
+                      confirmPassword && password === confirmPassword
+                        ? 'border-accent-green/60'
+                        : confirmPassword
+                        ? 'border-amber-500/60'
+                        : 'border-border-base focus:border-accent-green'
+                    }`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors p-1"
+                  >
+                    {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
                 </div>
               </div>
 

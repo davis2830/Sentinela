@@ -7,7 +7,7 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-[100dvh] w-full bg-bg-dark text-text-main flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 xl:px-16 py-8 lg:py-12 relative overflow-x-hidden overflow-y-auto selection:bg-accent-green selection:text-black font-sans">
+    <div className="h-full w-full bg-bg-dark text-text-main flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 xl:px-16 py-8 lg:py-12 relative overflow-x-hidden overflow-y-auto selection:bg-accent-green selection:text-black font-sans">
       {/* Ambient background glowing orbs */}
       <div className="absolute top-1/4 left-1/12 w-96 lg:w-[32rem] h-96 lg:h-[32rem] bg-accent-green/6 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-1/4 right-1/12 w-96 lg:w-[32rem] h-96 lg:h-[32rem] bg-accent-blue/6 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -27,11 +27,11 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         <div className="flex items-center gap-3 mb-3">
           <img
             src="/logo.png"
-            alt="Sentinela Logo"
+            alt="Sentinel Logo"
             className="h-11 w-auto object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.35)]"
           />
           <span className="text-3xl font-extrabold tracking-tight text-text-main font-sans">
-            Sentinela
+            Sentinel
           </span>
         </div>
 
@@ -53,15 +53,15 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             <div className="flex items-center gap-4 mb-6">
               <img
                 src="/logo.png"
-                alt="Sentinela Logo"
+                alt="Sentinel Logo"
                 className="h-12 xl:h-14 w-auto object-contain drop-shadow-[0_0_18px_rgba(16,185,129,0.35)]"
               />
               <div>
                 <span className="text-3xl xl:text-4xl font-extrabold tracking-tight text-text-main font-sans block">
-                  Sentinela
+                  Sentinel
                 </span>
                 <span className="text-xs xl:text-sm font-medium text-text-dim tracking-wider uppercase font-sans">
-                  Centro de Operaciones &bull; NOC y Observabilidad
+                  Centro de Operaciones &bull; Monitoreo y Observabilidad
                 </span>
               </div>
             </div>

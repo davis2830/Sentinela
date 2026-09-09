@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
@@ -14,6 +14,7 @@ import GradeBadge from '../components/common/GradeBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import EmptyState from '../components/common/EmptyState';
+import QuickStartWizardModal from '../components/onboarding/QuickStartWizardModal';
 import {
   NOCPageHeader,
   NOCKpiGrid,
@@ -48,6 +49,8 @@ import {
   Loader2,
   Info,
   X,
+  Rocket,
+  Sparkles,
 } from 'lucide-react';
 
 type PerspectiveMode = 'all' | 'issues' | 'services' | 'security';
@@ -76,6 +79,14 @@ export default function DashboardPage() {
     message: string;
     type: 'success' | 'info' | 'error';
   } | null>(null);
+  const [showQuickStartWizard, setShowQuickStartWizard] = useState(false);
+
+  // Auto-trigger onboarding wizard if new account registered
+  useEffect(() => {
+    if (localStorage.getItem('sentinel_launch_onboarding') === 'true' || localStorage.getItem('sentinela_launch_onboarding') === 'true') {
+      setShowQuickStartWizard(true);
+    }
+  }, []);
 
   // Auto-refresh hook (15s countdown)
   const autoRefresh = useAutoRefresh({
@@ -341,8 +352,8 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
       <NOCPageHeader
-        title="Centro de Operaciones NOC"
-        badgeText="NOC OBSERVABILITY"
+        title="Centro de Operaciones"
+        badgeText="OBSERVABILIDAD"
         description="Consola unificada de observabilidad, salud de infraestructura, telemetría y seguridad en tiempo real."
         icon={<Activity size={26} />}
         autoRefresh={{
@@ -418,6 +429,32 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* 1.5. ONBOARDING HERO BANNER (If 0 monitoring targets) */}
+      {!isLoadingMon && (!monitoringTargets || monitoringTargets.length === 0) && (
+        <div className="bg-gradient-to-r from-accent-green/10 via-bg-card to-accent-purple/10 border border-accent-green/30 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-3 duration-300">
+          <div className="space-y-2 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-accent-green/20 text-accent-green border border-accent-green/40">
+              <Sparkles size={13} className="text-accent-green" />
+              <span>Primeros Pasos &bull; Configuración en 60 Segundos</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-main">
+              Activa la Observabilidad de tu Infraestructura
+            </h3>
+            <p className="text-sm text-text-muted">
+              Comienza agregando tu primer sitio web, API o microservicio. Sentinel aprovisionará automáticamente métricas de uptime, certificados SSL, cabeceras de seguridad y reglas de alerta inteligentes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowQuickStartWizard(true)}
+            className="shrink-0 bg-accent-green hover:bg-accent-green/90 text-black font-bold px-6 py-3 rounded-2xl text-sm flex items-center gap-2.5 shadow-lg shadow-accent-green/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          >
+            <Rocket size={18} />
+            <span>Desplegar Primer Monitor</span>
+          </button>
+        </div>
+      )}
+
       {/* 2. NOC COMMAND CENTER: 4 CONSOLIDATED KPI CARDS */}
       <NOCKpiGrid columns={4}>
         {/* KPI 1: Salud Global Consolidada */}
@@ -486,7 +523,7 @@ export default function DashboardPage() {
           }
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Tiempo de Respuesta NOC</span>
+              <span>Tiempo de Respuesta Global</span>
               <span className="text-accent-green font-medium">&lt; 15 min</span>
             </div>
           }
@@ -607,7 +644,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <span className="font-mono text-[11px] text-accent-green hidden md:inline-block">
-            Radar NOC Activo
+            Radar Activo
           </span>
         </div>
       )}
@@ -1329,6 +1366,13 @@ export default function DashboardPage() {
           </div>
         )}
       </NOCDrawer>
+
+      {/* Quick-Start Onboarding Wizard Modal */}
+      <QuickStartWizardModal
+        isOpen={showQuickStartWizard}
+        onClose={() => setShowQuickStartWizard(false)}
+        onComplete={() => setShowQuickStartWizard(false)}
+      />
     </div>
   );
 }

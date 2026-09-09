@@ -1,6 +1,58 @@
+import hashlib
+import secrets
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 
 from common.models import BaseModel, OrganizationOwnedModel
+
+
+class AgentProbe(OrganizationOwnedModel):
+    """Represents an on-premise / private network satellite runner (Probe).
+
+    Installed in a customer's private datacenter, VPC, or LAN.
+    Polls Sentinel via outbound HTTPS to receive local check targets.
+    """
+
+    class ProbeStatus(models.TextChoices):
+        ONLINE = "online", "Online"
+        OFFLINE = "offline", "Offline"
+
+    name = models.CharField(
+        max_length=150,
+        help_text="Human-readable probe identifier (e.g. Datacenter Santiago)",
+    )
+    token_hash = models.CharField(max_length=128, unique=True, db_index=True)
+    status = models.CharField(
+        max_length=20,
+        choices=ProbeStatus.choices,
+        default=ProbeStatus.OFFLINE,
+    )
+    last_heartbeat = models.DateTimeField(null=True, blank=True)
+    ip_address = models.CharField(max_length=45, blank=True, default="")
+    hostname = models.CharField(max_length=255, blank=True, default="")
+    version = models.CharField(max_length=20, default="1.0.0")
+    os_info = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["-created_at"]
+        db_table = "monitoring_agent_probe"
+
+    def __str__(self):
+        return f"{self.name} [{self.status}]"
+
+    @property
+    def is_online(self):
+        if not self.last_heartbeat:
+            return False
+        return timezone.now() - self.last_heartbeat <= timedelta(seconds=45)
+
+    @classmethod
+    def generate_token(cls):
+        raw_token = f"prb_live_{secrets.token_urlsafe(32)}"
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        return raw_token, token_hash
 
 
 class MonitoringTarget(OrganizationOwnedModel):
@@ -45,6 +97,20 @@ class MonitoringTarget(OrganizationOwnedModel):
         null=True,
         blank=True,
         related_name="monitoring_targets",
+    )
+    runner_type = models.CharField(
+        max_length=20,
+        default="cloud",
+        choices=[("cloud", "Sentinel Cloud"), ("agent", "Private Agent")],
+        help_text="Where the check is executed from.",
+    )
+    agent_probe = models.ForeignKey(
+        AgentProbe,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_targets",
+        help_text="Assigned private probe if runner_type is agent.",
     )
 
     class Meta:

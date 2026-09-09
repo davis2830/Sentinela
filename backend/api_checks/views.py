@@ -38,6 +38,20 @@ class APICheckTargetListView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Enforce quota limits
+        if getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_quota(request.user.organization, "api_checks")
+                if "interval_seconds" in serializer.validated_data:
+                    QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval_seconds"])
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             target = APICheckService.create_target(
                 organization_id=org_id,
@@ -88,6 +102,17 @@ class APICheckTargetDetailView(APIView):
                 errors=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        if "interval_seconds" in serializer.validated_data and getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval_seconds"])
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
 
         try:
             target = APICheckService.update_target(
@@ -202,6 +227,12 @@ class APICheckTestRequestView(APIView):
                 "La URL del endpoint es obligatoria.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        from common.security import validate_safe_public_url, SSRFSecurityException
+        try:
+            validate_safe_public_url(url)
+        except SSRFSecurityException as s_exc:
+            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
 
         method = request.data.get("method", "GET").strip().upper()
         headers = request.data.get("headers", {})

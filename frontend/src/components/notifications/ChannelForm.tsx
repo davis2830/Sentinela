@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   NotificationChannel,
   CreateChannelData,
@@ -282,9 +283,9 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
     }
   };
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -374,7 +375,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                   <input
                     type="text"
                     required
-                    placeholder="ej. Alertas Telegram NOC / Slack #incidentes"
+                    placeholder="ej. Alertas Telegram / Slack #incidentes"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
@@ -525,7 +526,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       <label className="block text-[11px] font-mono text-text-dim mb-1">Encabezado Custom (Key)</label>
                       <input
                         type="text"
-                        placeholder="ej. Authorization / X-NOC-Secret"
+                        placeholder="ej. Authorization / X-Sentinel-Secret"
                         value={customHeaderKey}
                         onChange={(e) => setCustomHeaderKey(e.target.value)}
                         className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs font-mono text-text-main"
@@ -796,4 +797,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

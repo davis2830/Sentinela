@@ -14,6 +14,8 @@ export interface User {
   role?: string;
   is_staff: boolean;
   is_active: boolean;
+  is_2fa_enabled?: boolean;
+  backup_codes_remaining?: number;
   last_login?: string | null;
   created_at?: string;
   teams?: Array<{
@@ -42,9 +44,11 @@ export interface APITokenItem {
 }
 
 export interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-  user: User;
+  access_token?: string;
+  refresh_token?: string;
+  user?: User;
+  requires_2fa?: boolean;
+  pre_auth_token?: string;
 }
 
 export interface ApiSuccessResponse<T> {
