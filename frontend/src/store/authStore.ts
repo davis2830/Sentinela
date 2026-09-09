@@ -24,6 +24,7 @@ interface AuthState {
     organizationName?: string
   ) => Promise<boolean>;
   logout: () => Promise<void>;
+  fetchCurrentUser: () => Promise<void>;
   updateUser: (user: Partial<User>) => void;
   clearError: () => void;
 }
@@ -173,6 +174,22 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           isAuthenticated: false,
         });
+      },
+
+      fetchCurrentUser: async () => {
+        if (!get().isAuthenticated && !localStorage.getItem('access_token')) return;
+        try {
+          const res = await api.get('auth/me/');
+          const userData = res.data?.data;
+          if (userData) {
+            set((state) => ({
+              user: state.user ? { ...state.user, ...userData } : userData,
+              isAuthenticated: true,
+            }));
+          }
+        } catch {
+          // Silent fallback if session expired
+        }
       },
 
       updateUser: (updatedUser) =>

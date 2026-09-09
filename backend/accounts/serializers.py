@@ -18,11 +18,12 @@ class UserSerializer(serializers.ModelSerializer):
             "notification_preferences",
             "is_active",
             "is_staff",
+            "is_superuser",
             "last_login",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "last_login", "created_at", "updated_at")
+        read_only_fields = ("id", "is_superuser", "last_login", "created_at", "updated_at")
 
 
 class LoginSerializer(serializers.Serializer):

@@ -23,6 +23,7 @@ import OrganizationSettingsPage from './pages/OrganizationSettingsPage';
 import UsersPage from './pages/UsersPage';
 import PlatformAdminPage from './pages/PlatformAdminPage';
 import AppLayout from './components/layout/AppLayout';
+import SuperAdminRoute from './components/auth/SuperAdminRoute';
 import { useAuthStore } from './store/authStore';
 
 const queryClient = new QueryClient({
@@ -258,11 +259,11 @@ export default function App() {
           <Route
             path="/admin/platform"
             element={
-              <ProtectedRoute>
+              <SuperAdminRoute>
                 <AppLayout>
                   <PlatformAdminPage />
                 </AppLayout>
-              </ProtectedRoute>
+              </SuperAdminRoute>
             }
           />
         </Routes>

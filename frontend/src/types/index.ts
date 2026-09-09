@@ -13,6 +13,7 @@ export interface User {
   };
   role?: string;
   is_staff: boolean;
+  is_superuser?: boolean;
   is_active: boolean;
   is_2fa_enabled?: boolean;
   backup_codes_remaining?: number;
