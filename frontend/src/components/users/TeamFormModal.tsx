@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Team, TeamMember } from '../../types/users';
 import {
   X,
@@ -108,9 +109,9 @@ export default function TeamFormModal({
   // Filter only active registered users (invitations cannot be assigned yet until accepted)
   const assignableMembers = availableMembers.filter((m) => !m.is_invitation);
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -352,4 +353,7 @@ export default function TeamFormModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

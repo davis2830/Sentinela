@@ -177,6 +177,12 @@ class OrganizationMembersView(APIView):
         return success_response(data)
 
     def post(self, request):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización pueden invitar miembros al equipo.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         org_id = request.user.organization_id
         email = request.data.get("email", "").strip().lower()
         role = request.data.get("role", "member")
@@ -301,6 +307,12 @@ class OrganizationMemberDetailView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def delete(self, request, user_id):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización pueden revocar o eliminar miembros.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         if str(request.user.id) == str(user_id):
             return error_response("No puedes revocar tu propio usuario.", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -353,6 +365,12 @@ class OrganizationMemberResendInviteView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, user_id):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización pueden reenviar invitaciones.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         org_id = request.user.organization_id
         from .models import InvitationToken, Organization
 
@@ -787,6 +805,12 @@ class OrganizationChangePlanView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización tienen autorización para cambiar el plan de suscripción.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         org = getattr(request.user, "organization", None)
         if not org:
             return error_response(

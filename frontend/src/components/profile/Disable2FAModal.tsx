@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldAlert, X, Loader2, AlertCircle } from 'lucide-react';
 
 interface Disable2FAModalProps {
@@ -32,7 +33,7 @@ export default function Disable2FAModal({
     }
   };
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-md shadow-2xl overflow-hidden relative font-sans">
         {/* Header */}
@@ -121,4 +122,7 @@ export default function Disable2FAModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createPortal } from 'react-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import {
   X,
@@ -40,6 +41,19 @@ export default function QuickStartWizardModal({
   const [enableSecurityHeaders, setEnableSecurityHeaders] = useState(true);
   const [enableDNS, setEnableDNS] = useState(true);
   const [interval, setInterval] = useState(60);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  // Fetch plan limits to enforce minimum interval smoothly
+  const { data: subData } = useQuery({
+    queryKey: ['org-subscription'],
+    queryFn: async () => {
+      const res = await api.get('organizations/current/subscription/');
+      return res.data?.data;
+    },
+    enabled: isOpen,
+  });
+
+  const minAllowedInterval = subData?.limits?.min_check_interval_seconds || 60;
 
   // Live Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -53,13 +67,24 @@ export default function QuickStartWizardModal({
   // Submit Mutation
   const launchMutation = useMutation({
     mutationFn: async () => {
+      setLaunchError(null);
       // 1. Create Monitoring Target
       const formattedUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+      let hostname = '';
+      try {
+        hostname = new URL(formattedUrl).hostname;
+      } catch {
+        hostname = url;
+      }
+      const targetName = name.trim() || hostname;
+
+      const effectiveInterval = Math.max(interval, minAllowedInterval);
+
       const targetRes = await api.post('/monitoring/', {
-        name: name.trim() || new URL(formattedUrl).hostname,
+        name: targetName,
         endpoint: formattedUrl,
         target_type: formattedUrl.startsWith('https') ? 'https' : 'http',
-        interval: interval,
+        interval: effectiveInterval,
         enabled: true,
         tags: ['onboarding', 'production'],
       });
@@ -73,12 +98,61 @@ export default function QuickStartWizardModal({
           // Non-blocking scan failure
         }
       }
+
+      // 3. 360° Parallel Cross-Discovery Provisioning
+      const tasks: Promise<any>[] = [];
+
+      if (enableSSL && formattedUrl.startsWith('https') && hostname) {
+        tasks.push(
+          api.post('/ssl-certificates/', {
+            endpoint: hostname,
+            port: 443,
+            enabled: true,
+          }).catch(() => null)
+        );
+      }
+
+      if (enableSecurityHeaders && formattedUrl) {
+        tasks.push(
+          api.post('/security-headers/', {
+            name: `${targetName} - Security Headers`,
+            url: formattedUrl,
+            enabled: true,
+          }).catch(() => null)
+        );
+      }
+
+      if (enableDNS && hostname && !hostname.includes(':') && !/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+        tasks.push(
+          api.post('/dns-records/', {
+            name: targetName,
+            domain: hostname,
+            record_type: 'A',
+            enabled: true,
+          }).catch(() => null)
+        );
+      }
+
+      await Promise.allSettled(tasks);
       return newTarget;
     },
+    onError: (err: any) => {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.detail ||
+        (typeof err.response?.data === 'string' ? err.response?.data : null) ||
+        err.message ||
+        'Error al iniciar el monitoreo. Por favor intenta nuevamente.';
+      setLaunchError(msg);
+    },
     onSuccess: () => {
+      setLaunchError(null);
       queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
       queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
       queryClient.invalidateQueries({ queryKey: ['org-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
+      queryClient.invalidateQueries({ queryKey: ['security-headers'] });
       localStorage.removeItem('sentinel_launch_onboarding');
       localStorage.removeItem('sentinela_launch_onboarding');
       if (onComplete) {
@@ -130,7 +204,9 @@ export default function QuickStartWizardModal({
     }
   };
 
-  return (
+  if (!isOpen) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
         {/* Top Edge Glow */}
@@ -292,23 +368,40 @@ export default function QuickStartWizardModal({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: '30 seg (Alta Fidelidad)', value: 30 },
-                    { label: '60 seg (Recomendado)', value: 60 },
-                    { label: '300 seg (Estándar)', value: 300 },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setInterval(opt.value)}
-                      className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${
-                        interval === opt.value
-                          ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-sm'
-                          : 'bg-bg-dark border-border-base text-text-muted hover:border-zinc-700'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                    { label: '60 seg (Recomendado)', value: 60, minPlan: 'Pro' },
+                    { label: '30 seg (Alta Fidelidad)', value: 30, minPlan: 'Business' },
+                    { label: '300 seg (Estándar)', value: 300, minPlan: 'Free' },
+                  ].map((opt) => {
+                    const isAllowed = opt.value >= minAllowedInterval;
+                    const isSelected = interval === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          if (isAllowed) {
+                            setInterval(opt.value);
+                          }
+                        }}
+                        disabled={!isAllowed}
+                        className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all text-center relative flex flex-col items-center justify-center min-h-[52px] ${
+                          !isAllowed
+                            ? 'opacity-40 bg-bg-dark border-border-base/50 text-text-dim cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-sm cursor-pointer'
+                            : 'bg-bg-dark border-border-base text-text-muted hover:border-zinc-700 cursor-pointer'
+                        }`}
+                        title={!isAllowed ? `Requiere plan ${opt.minPlan}` : ''}
+                      >
+                        <span className="font-mono text-xs">{opt.label}</span>
+                        {!isAllowed && (
+                          <span className="text-[10px] text-amber-400 font-mono mt-0.5 font-bold">
+                            Plan {opt.minPlan}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -412,6 +505,17 @@ export default function QuickStartWizardModal({
                   </label>
                 </div>
               </div>
+
+              {/* Error Alert Banner */}
+              {launchError && (
+                <div className="p-3.5 bg-accent-red/10 border border-accent-red/30 rounded-2xl text-xs text-accent-red flex items-start gap-2.5 animate-in fade-in">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-bold block mb-0.5">No se pudo iniciar el monitoreo</span>
+                    <span className="text-[11px] opacity-90">{launchError}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Summary notice */}
               <div className="p-3 bg-accent-green/10 border border-accent-green/20 rounded-xl text-xs text-text-main flex items-center gap-2.5">
@@ -519,6 +623,7 @@ export default function QuickStartWizardModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

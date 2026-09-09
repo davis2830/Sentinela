@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { AgentProbe } from '../../types/agent_probe';
@@ -59,8 +60,8 @@ export default function ProbeDirectoryDrawer({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+  const content = (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-bg-card border-l border-border-base w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="p-6 border-b border-border-base flex items-start justify-between bg-gradient-to-r from-bg-card via-bg-card-hover to-bg-card">
@@ -243,4 +244,7 @@ export default function ProbeDirectoryDrawer({
       />
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

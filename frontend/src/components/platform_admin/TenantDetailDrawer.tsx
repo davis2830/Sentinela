@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { PlatformOrganizationDetail } from '../../types/platform_admin';
@@ -44,8 +45,8 @@ export default function TenantDetailDrawer({
 
   if (!orgId) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+  const content = (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-bg-card border-l border-border-base h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="p-6 border-b border-border-base flex items-start justify-between bg-bg-dark/70">
@@ -314,4 +315,7 @@ export default function TenantDetailDrawer({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

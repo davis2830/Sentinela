@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { SubscriptionSummary } from '../../types/organization';
@@ -152,7 +153,7 @@ export default function UpgradePlanModal({
     },
   ];
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-6xl overflow-hidden shadow-2xl my-8 animate-in fade-in duration-200">
         {/* Header */}
@@ -308,4 +309,7 @@ export default function UpgradePlanModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

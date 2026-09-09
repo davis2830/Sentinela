@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ShieldCheck,
   X,
@@ -89,7 +90,7 @@ export default function TwoFactorModal({
     onClose();
   };
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative font-sans">
         {/* Header */}
@@ -272,4 +273,7 @@ export default function TwoFactorModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

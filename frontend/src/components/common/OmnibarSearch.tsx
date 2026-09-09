@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import {
@@ -91,9 +92,9 @@ export default function OmnibarSearch({ isOpen, onClose }: OmnibarSearchProps) {
     }
   };
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-start justify-center z-50 pt-20 px-4"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-start justify-center z-50 pt-20 px-4"
       onClick={onClose}
     >
       <div
@@ -168,4 +169,7 @@ export default function OmnibarSearch({ isOpen, onClose }: OmnibarSearchProps) {
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

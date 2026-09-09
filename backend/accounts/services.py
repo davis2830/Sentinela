@@ -80,6 +80,7 @@ class AuthService:
             description=f"El usuario {user.email} inició sesión exitosamente.",
         )
 
+        org_requires_2fa = bool(user.organization and getattr(user.organization, "require_2fa", False))
         refresh = RefreshToken.for_user(user)
         return {
             "access_token": str(refresh.access_token),
@@ -90,7 +91,9 @@ class AuthService:
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "is_staff": user.is_staff,
+                "is_superuser": user.is_superuser,
                 "is_2fa_enabled": user.is_2fa_enabled,
+                "requires_2fa_setup": org_requires_2fa and not user.is_2fa_enabled,
             },
         }
 
@@ -158,7 +161,9 @@ class AuthService:
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "is_staff": user.is_staff,
+                "is_superuser": user.is_superuser,
                 "is_2fa_enabled": user.is_2fa_enabled,
+                "requires_2fa_setup": False,
             },
         }
 
@@ -383,6 +388,7 @@ class AuthService:
             first_name=first_name,
             last_name=last_name,
             organization=org,
+            is_staff=True,
         )
 
         # Ensure 6 default NOC alert rules are provisioned

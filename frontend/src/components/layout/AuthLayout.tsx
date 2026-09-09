@@ -7,7 +7,7 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-[100dvh] w-full bg-bg-dark text-text-main flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 xl:px-16 py-8 lg:py-12 relative overflow-x-hidden overflow-y-auto selection:bg-accent-green selection:text-black font-sans">
+    <div className="h-full w-full bg-bg-dark text-text-main flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 xl:px-16 py-8 lg:py-12 relative overflow-x-hidden overflow-y-auto selection:bg-accent-green selection:text-black font-sans">
       {/* Ambient background glowing orbs */}
       <div className="absolute top-1/4 left-1/12 w-96 lg:w-[32rem] h-96 lg:h-[32rem] bg-accent-green/6 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-1/4 right-1/12 w-96 lg:w-[32rem] h-96 lg:h-[32rem] bg-accent-blue/6 rounded-full blur-3xl pointer-events-none -z-10" />

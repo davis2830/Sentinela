@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -707,42 +708,44 @@ export default function MonitoringPage() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-          onClick={() => setDeleteConfirm(null)}
-        >
+      {deleteConfirm &&
+        createPortal(
           <div
-            className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-sm shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+            onClick={() => setDeleteConfirm(null)}
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center">
-                <Trash2 className="text-accent-red" size={20} />
+            <div
+              className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-sm shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-accent-red/10 flex items-center justify-center">
+                  <Trash2 className="text-accent-red" size={20} />
+                </div>
+                <h2 className="text-lg font-bold">Eliminar Target</h2>
               </div>
-              <h2 className="text-lg font-bold">Eliminar Target</h2>
+              <p className="text-text-muted text-sm mb-6">
+                ¿Seguro que deseas eliminar <strong className="text-text-main">{deleteConfirm.name}</strong>?
+                Esta acción eliminará todo su historial de métricas y no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
-            <p className="text-text-muted text-sm mb-6">
-              ¿Seguro que deseas eliminar <strong className="text-text-main">{deleteConfirm.name}</strong>?
-              Esta acción eliminará todo su historial de métricas y no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

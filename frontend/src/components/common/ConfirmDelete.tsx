@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2, Loader2 } from 'lucide-react';
 
 interface ConfirmDeleteProps {
@@ -20,7 +21,7 @@ export default function ConfirmDelete({
 }: ConfirmDeleteProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
@@ -61,6 +62,7 @@ export default function ConfirmDelete({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

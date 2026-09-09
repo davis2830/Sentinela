@@ -27,7 +27,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="flex items-center justify-between px-8 py-3 bg-bg-dark/85 backdrop-blur-md border-b border-border-base sticky top-0 z-50">
+      <nav className="h-14 shrink-0 flex items-center justify-between px-8 bg-bg-dark/95 backdrop-blur-md border-b border-border-base z-30">
         {/* Brand */}
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-3 font-bold text-lg text-text-main no-underline group">

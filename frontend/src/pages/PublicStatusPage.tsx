@@ -128,7 +128,7 @@ export default function PublicStatusPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090D11] text-[#F8FAFC] font-sans selection:bg-emerald-500 selection:text-black">
+    <div className="h-full w-full overflow-y-auto bg-[#090D11] text-[#F8FAFC] font-sans selection:bg-emerald-500 selection:text-black">
       {/* 1. Header Navigation Bar */}
       <header className="border-b border-[#1E293B]/80 bg-[#111720]/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">

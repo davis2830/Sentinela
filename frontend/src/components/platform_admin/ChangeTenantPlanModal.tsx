@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { PlatformOrganization } from '../../types/platform_admin';
@@ -44,7 +45,7 @@ export default function ChangeTenantPlanModal({
     { id: 'enterprise', name: 'Enterprise Custom', price: '$299/mes', color: 'border-accent-purple' },
   ];
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative">
         {/* Header */}
@@ -155,4 +156,7 @@ export default function ChangeTenantPlanModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

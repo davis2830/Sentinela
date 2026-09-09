@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import type {
@@ -1207,9 +1208,9 @@ export default function StatusPageAdmin() {
       />
 
       {/* Maintenance Create / Edit Modal */}
-      {showMaintModal && (
+      {showMaintModal && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 font-sans"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 font-sans"
           onClick={() => setShowMaintModal(false)}
         >
           <div
@@ -1323,7 +1324,8 @@ export default function StatusPageAdmin() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Maintenance Live Update Modal */}

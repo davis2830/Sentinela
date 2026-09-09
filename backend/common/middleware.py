@@ -29,6 +29,19 @@ class IPAllowlistMiddleware:
                 return self.get_response(request)
 
         user = getattr(request, "user", None)
+        if not (user and user.is_authenticated):
+            auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+            if auth_header.startswith("Bearer "):
+                token_str = auth_header.split(" ", 1)[1].strip()
+                try:
+                    from rest_framework_simplejwt.authentication import JWTAuthentication
+                    jwt_auth = JWTAuthentication()
+                    validated_token = jwt_auth.get_validated_token(token_str)
+                    user = jwt_auth.get_user(validated_token)
+                    request.user = user
+                except Exception:
+                    pass
+
         if user and user.is_authenticated and not user.is_superuser:
             org = getattr(user, "organization", None)
             if org and org.allowed_ip_ranges:

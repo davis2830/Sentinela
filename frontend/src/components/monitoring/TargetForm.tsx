@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Loader2,
@@ -427,7 +428,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
   const isHttpType = targetType === 'http' || targetType === 'https' || targetType === 'api';
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
@@ -1194,6 +1195,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

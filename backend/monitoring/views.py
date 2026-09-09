@@ -529,6 +529,12 @@ class TestConnectionView(APIView):
         if not endpoint:
             return error_response("Endpoint es requerido.", status_code=status.HTTP_400_BAD_REQUEST)
 
+        from common.security import validate_safe_public_url, SSRFSecurityException
+        try:
+            validate_safe_public_url(endpoint)
+        except SSRFSecurityException as s_exc:
+            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
+
         start = time.perf_counter()
         try:
             if target_type in ("http", "https", "api"):

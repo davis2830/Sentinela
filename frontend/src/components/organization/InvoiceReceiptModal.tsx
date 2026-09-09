@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { FileText, X, Download, Printer, CheckCircle2, Building, Shield } from 'lucide-react';
 
 interface InvoiceReceiptModalProps {
@@ -34,7 +35,7 @@ export default function InvoiceReceiptModal({
     window.print();
   };
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden font-sans">
         {/* Header Actions */}
@@ -174,4 +175,7 @@ export default function InvoiceReceiptModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

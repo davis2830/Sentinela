@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import {
@@ -127,9 +128,9 @@ export default function TargetDetailDrawer({
     );
   };
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 bg-black/75 backdrop-blur-xs z-50 flex justify-end animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-end animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -347,4 +348,7 @@ export default function TargetDetailDrawer({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

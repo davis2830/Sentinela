@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -1185,7 +1186,7 @@ export default function OrganizationSettingsPage() {
       />
 
       {/* Invite Member Modal */}
-      {showInviteModal && (
+      {showInviteModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-150">
             <h3 className="text-lg font-bold text-text-main mb-1 flex items-center gap-2">
@@ -1276,7 +1277,8 @@ export default function OrganizationSettingsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

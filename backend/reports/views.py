@@ -38,6 +38,18 @@ class ReportListView(APIView):
                 errors=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        # Feature gate check for SLA reports
+        org = getattr(request.user, "organization", None)
+        if org:
+            try:
+                from organizations.services import QuotaService, FeatureNotAllowedException
+                QuotaService.check_feature_access(org, "sla_reports")
+            except FeatureNotAllowedException as fe:
+                return error_response(
+                    str(fe),
+                    errors={"code": "FEATURE_NOT_INCLUDED", "feature": fe.feature_name, "plan": fe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
 
         try:
             params = dict(serializer.validated_data.get("parameters") or {})

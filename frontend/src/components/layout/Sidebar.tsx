@@ -148,7 +148,7 @@ export default function Sidebar() {
     <aside
       className={`bg-bg-dark border-r border-border-base flex flex-col justify-between transition-all duration-300 ease-in-out shrink-0 select-none z-30 ${
         isCollapsed ? 'w-20 p-3' : 'w-64 p-4'
-      } h-[calc(100vh-57px)] sticky top-[57px] overflow-y-auto overflow-x-hidden`}
+      } h-full overflow-y-auto overflow-x-hidden`}
     >
       {/* Top Nav Content */}
       <div className="space-y-4">

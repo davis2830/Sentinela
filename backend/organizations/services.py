@@ -20,8 +20,17 @@ class QuotaExceededException(Exception):
         self.plan_tier = plan_tier
 
 
+class FeatureNotAllowedException(Exception):
+    """Raised when an organization attempts to use a feature not included in its plan."""
+
+    def __init__(self, message, feature_name, plan_tier):
+        super().__init__(message)
+        self.feature_name = feature_name
+        self.plan_tier = plan_tier
+
+
 class QuotaService:
-    """Service for enforcing and tracking SaaS plan limits."""
+    """Service for enforcing and tracking SaaS plan limits and premium feature gates."""
 
     @staticmethod
     def get_usage_summary(organization):
@@ -176,6 +185,32 @@ class QuotaService:
                 resource_type="min_interval",
                 current=val,
                 limit=min_allowed,
+                plan_tier=organization.plan_tier,
+            )
+        return True
+
+    @staticmethod
+    def check_feature_access(organization, feature_name):
+        """Check if a specific premium feature is included in the organization's plan."""
+        if not organization:
+            return True
+
+        limits = organization.get_plan_limits()
+        has_access = limits.get(feature_name, False)
+
+        if not has_access:
+            feature_labels = {
+                "sla_reports": "Informes Oficiales de Auditoría & SLA",
+                "maintenance_windows": "Programación de Ventanas de Mantenimiento",
+                "rca_postmortem": "Análisis de Causa Raíz (RCA) y Post-Mortems",
+                "custom_domain_status_page": "Dominio Personalizado en Status Page",
+            }
+            label = feature_labels.get(feature_name, feature_name)
+            plan_name = PLAN_LIMITS.get(organization.plan_tier, {}).get("name", organization.plan_tier)
+            raise FeatureNotAllowedException(
+                f"La funcionalidad '{label}' no está incluida en tu plan actual ({plan_name}). "
+                f"Actualiza tu suscripción a Pro o Business para desbloquear esta capacidad.",
+                feature_name=feature_name,
                 plan_tier=organization.plan_tier,
             )
         return True

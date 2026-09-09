@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { AgentProbe } from '../../types/agent_probe';
@@ -74,7 +75,7 @@ export default function CreateProbeModal({
     onClose();
   };
 
-  return (
+  const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl my-8 animate-in zoom-in-95 duration-150">
         {/* Header */}
@@ -266,4 +267,7 @@ export default function CreateProbeModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }
