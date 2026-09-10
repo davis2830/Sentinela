@@ -15,6 +15,7 @@ import PriorityBadge from '../components/common/PriorityBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import EmptyState from '../components/common/EmptyState';
 import QuickStartWizardModal from '../components/onboarding/QuickStartWizardModal';
+import TrialStatusBanner from '../components/common/TrialStatusBanner';
 import {
   NOCPageHeader,
   NOCKpiGrid,
@@ -428,6 +429,9 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
+
+      {/* Trial Status / Expiration Warning Banner */}
+      <TrialStatusBanner />
 
       {/* 1.5. ONBOARDING HERO BANNER (If 0 monitoring targets) */}
       {!isLoadingMon && (!monitoringTargets || monitoringTargets.length === 0) && (

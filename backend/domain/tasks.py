@@ -75,7 +75,10 @@ def scan_all_domains():
 
     Runs periodically via Celery Beat.
     """
-    domains = DomainInfo.objects.all()
+    domains = DomainInfo.objects.filter(
+        organization__status="active",
+        organization__subscription_status__in=["active", "trialing"],
+    )
     for domain in domains:
         scan_whois.delay(str(domain.id))
 

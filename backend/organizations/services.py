@@ -84,6 +84,34 @@ class QuotaService:
         except Exception:
             agents_count = 0
 
+        # 7. DNS Records
+        try:
+            DNSRecord = apps.get_model("dns_monitor", "DNSRecord")
+            dns_count = DNSRecord.objects.filter(organization=organization).count()
+        except Exception:
+            dns_count = 0
+
+        # 8. Monitored Domains (WHOIS)
+        try:
+            DomainInfo = apps.get_model("domain", "DomainInfo")
+            domains_count = DomainInfo.objects.filter(organization=organization).count()
+        except Exception:
+            domains_count = 0
+
+        # 9. Security Headers Targets
+        try:
+            SecurityHeaderTarget = apps.get_model("security_headers", "SecurityHeaderTarget")
+            sec_headers_count = SecurityHeaderTarget.objects.filter(organization=organization).count()
+        except Exception:
+            sec_headers_count = 0
+
+        # 10. Notification Channels
+        try:
+            NotificationChannel = apps.get_model("notifications", "NotificationChannel")
+            channels_count = NotificationChannel.objects.filter(organization=organization).count()
+        except Exception:
+            channels_count = 0
+
         def build_metric(current, limit):
             limit_val = limit if limit is not None else 9999
             pct = 0
@@ -103,6 +131,10 @@ class QuotaService:
             "targets": build_metric(targets_count, limits.get("max_monitoring_targets")),
             "ssl_certificates": build_metric(ssl_count, limits.get("max_ssl_certificates")),
             "api_checks": build_metric(api_count, limits.get("max_api_checks")),
+            "dns_records": build_metric(dns_count, limits.get("max_dns_records")),
+            "domains": build_metric(domains_count, limits.get("max_domains")),
+            "security_headers": build_metric(sec_headers_count, limits.get("max_security_headers")),
+            "notification_channels": build_metric(channels_count, limits.get("max_notification_channels")),
             "team_members": build_metric(members_count, limits.get("max_team_members")),
             "status_pages": build_metric(status_pages_count, limits.get("max_status_pages")),
             "private_agents": build_metric(agents_count, limits.get("max_private_agents")),
@@ -146,6 +178,10 @@ class QuotaService:
                 "targets": "monitores de Uptime",
                 "ssl_certificates": "certificados SSL",
                 "api_checks": "API Checks sintéticos",
+                "dns_records": "registros DNS monitoreados",
+                "domains": "dominios WHOIS monitoreados",
+                "security_headers": "objetivos de cabeceras de seguridad",
+                "notification_channels": "canales de notificación",
                 "team_members": "miembros de equipo",
                 "status_pages": "páginas de estado",
                 "private_agents": "agentes satélite privados",

@@ -36,6 +36,18 @@ class DomainListView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Enforce quota limits
+        if getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_quota(request.user.organization, "domains")
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             domain_info = DomainService.create_domain(
                 organization_id=org_id,

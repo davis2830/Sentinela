@@ -15,6 +15,7 @@ from organizations.models import (
     PLAN_LIMITS,
 )
 from audit.models import AuditLog
+from audit.services import AuditService
 
 
 class PlatformStatsView(APIView):
@@ -225,14 +226,14 @@ class PlatformOrganizationDetailView(APIView):
         audit_logs = [
             {
                 "id": str(a.id),
-                "user_email": a.user.email if a.user else "Sistema",
+                "user_email": a.user_email or "Sistema",
                 "action": a.action,
-                "resource_type": a.resource_type,
-                "resource_name": a.resource_name,
+                "resource_type": a.module,
+                "resource_name": a.description,
                 "description": a.description,
-                "created_at": a.created_at.isoformat(),
+                "created_at": a.timestamp.isoformat(),
             }
-            for a in AuditLog.objects.filter(organization=org).order_by("-created_at")[:10]
+            for a in AuditLog.objects.filter(organization_id=org.id).order_by("-timestamp")[:10]
         ]
 
         return success_response({
@@ -281,13 +282,12 @@ class PlatformOrganizationExtendTrialView(APIView):
         org.subscription_status = OrganizationSubscriptionStatus.TRIALING
         org.save()
 
-        AuditLog.objects.create(
-            organization=org,
-            user=request.user,
+        AuditService.log(
             action="update",
-            resource_type="subscription",
-            resource_id=str(org.id),
-            resource_name=org.name,
+            module="subscription",
+            organization_id=org.id,
+            user_id=request.user.id,
+            user_email=request.user.email,
             description=f"Superadmin {request.user.email} extendió el periodo de prueba por {days} días (Vence: {org.trial_ends_at.strftime('%Y-%m-%d')}).",
         )
 
@@ -329,13 +329,12 @@ class PlatformOrganizationSetPlanView(APIView):
         org.subscription_status = new_status
         org.save()
 
-        AuditLog.objects.create(
-            organization=org,
-            user=request.user,
+        AuditService.log(
             action="update",
-            resource_type="subscription",
-            resource_id=str(org.id),
-            resource_name=org.name,
+            module="subscription",
+            organization_id=org.id,
+            user_id=request.user.id,
+            user_email=request.user.email,
             description=f"Superadmin {request.user.email} modificó manualmente el plan de {old_plan} a {new_plan} (Estado: {new_status}).",
         )
 
@@ -373,13 +372,12 @@ class PlatformOrganizationToggleStatusView(APIView):
         else:
             return error_response("Acción inválida. Usa 'suspend' o 'reactivate'.")
 
-        AuditLog.objects.create(
-            organization=org,
-            user=request.user,
+        AuditService.log(
             action="update",
-            resource_type="organization",
-            resource_id=str(org.id),
-            resource_name=org.name,
+            module="organization",
+            organization_id=org.id,
+            user_id=request.user.id,
+            user_email=request.user.email,
             description=msg,
         )
 

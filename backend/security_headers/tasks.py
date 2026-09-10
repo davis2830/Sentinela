@@ -104,7 +104,11 @@ def scan_all_security_headers():
 
     Runs periodically via Celery Beat.
     """
-    targets = SecurityHeaderTarget.objects.filter(enabled=True)
+    targets = SecurityHeaderTarget.objects.filter(
+        enabled=True,
+        organization__status="active",
+        organization__subscription_status__in=["active", "trialing"],
+    )
     for target in targets:
         scan_security_headers.delay(str(target.id))
 

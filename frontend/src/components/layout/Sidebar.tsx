@@ -85,7 +85,7 @@ const navGroups: NavGroup[] = [
 export default function Sidebar() {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  const isSuperadmin = Boolean(user?.is_staff || (user as any)?.is_superuser);
+  const isSuperadmin = Boolean(user?.is_superuser);
 
   const currentNavGroups = navGroups.map((group) => {
     if (group.id === 'sistema' && isSuperadmin) {

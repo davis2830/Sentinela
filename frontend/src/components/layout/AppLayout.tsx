@@ -1,17 +1,21 @@
 import { ReactNode, useEffect } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import { useAuthStore } from '../../store/authStore';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const fetchCurrentUser = useAuthStore((state) => state.fetchCurrentUser);
+
   useEffect(() => {
     window.scrollTo(0, 0);
     if (document.documentElement) document.documentElement.scrollTop = 0;
     if (document.body) document.body.scrollTop = 0;
-  }, []);
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
 
   return (
     <div className="fixed inset-0 bg-bg-dark flex flex-col overflow-hidden">
