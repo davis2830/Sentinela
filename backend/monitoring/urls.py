@@ -8,6 +8,7 @@ from .views import (
     MonitoringTargetBulkScanView,
     MonitoringUptimeView,
     MonitoringTimeseriesView,
+    MonitoringGlobalPerformanceView,
     GlobalSearchView,
     MonitoringTargetExportView,
     MaintenanceWindowListView,
@@ -18,6 +19,7 @@ from .views import (
 
 urlpatterns = [
     path("", MonitoringTargetListView.as_view(), name="target_list"),
+    path("global-performance/", MonitoringGlobalPerformanceView.as_view(), name="global_performance"),
     path("scan-all/", MonitoringTargetBulkScanView.as_view(), name="target_bulk_scan"),
     path("bulk-action/", BulkActionView.as_view(), name="target_bulk_action"),
     path("test-connection/", TestConnectionView.as_view(), name="target_test_connection"),
