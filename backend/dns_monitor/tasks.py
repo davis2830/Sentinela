@@ -68,7 +68,10 @@ def scan_all_dns_records():
 
     Runs periodically via Celery Beat.
     """
-    records = DNSRecord.objects.all()
+    records = DNSRecord.objects.filter(
+        organization__status="active",
+        organization__subscription_status__in=["active", "trialing"],
+    )
     for record in records:
         scan_dns_records.delay(str(record.id))
 

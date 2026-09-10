@@ -79,7 +79,10 @@ def scan_all_certificates():
 
     Runs periodically via Celery Beat.
     """
-    certs = SSLCertificate.objects.all()
+    certs = SSLCertificate.objects.filter(
+        organization__status="active",
+        organization__subscription_status__in=["active", "trialing"],
+    )
     for cert in certs:
         scan_ssl_certificate.delay(str(cert.id))
 

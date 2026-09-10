@@ -36,6 +36,8 @@ import {
   ArrowUpRight,
   Database,
   FileText,
+  Network,
+  Bell,
 } from 'lucide-react';
 
 type OrgTab = 'company' | 'billing' | 'team';
@@ -829,6 +831,102 @@ export default function OrganizationSettingsPage() {
                 <div className="flex justify-between text-[11px] text-text-dim">
                   <span>{usage?.api_checks?.percentage ?? 0}% consumido</span>
                   <span>JSON Schema</span>
+                </div>
+              </div>
+
+              {/* Metric: DNS Records */}
+              <div className="bg-bg-card border border-border-base rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Network size={16} className="text-accent-blue" />
+                    <span className="text-xs font-semibold text-text-muted">Registros DNS Monitoreados</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-text-main">
+                    {usage?.dns_records?.current ?? 0} /{' '}
+                    {(usage?.dns_records?.limit ?? 9999) >= 9999 ? '∞' : usage?.dns_records?.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden mb-2 border border-border-base/40">
+                  <div
+                    className="h-full bg-accent-blue transition-all duration-500"
+                    style={{ width: `${usage?.dns_records?.percentage || 0}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-text-dim">
+                  <span>{usage?.dns_records?.percentage ?? 0}% consumido</span>
+                  <span>SPF / DMARC / Latencia</span>
+                </div>
+              </div>
+
+              {/* Metric: WHOIS Domains */}
+              <div className="bg-bg-card border border-border-base rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Globe size={16} className="text-accent-yellow" />
+                    <span className="text-xs font-semibold text-text-muted">Dominios Monitoreados (WHOIS)</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-text-main">
+                    {usage?.domains?.current ?? 0} /{' '}
+                    {(usage?.domains?.limit ?? 9999) >= 9999 ? '∞' : usage?.domains?.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden mb-2 border border-border-base/40">
+                  <div
+                    className="h-full bg-accent-yellow transition-all duration-500"
+                    style={{ width: `${usage?.domains?.percentage || 0}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-text-dim">
+                  <span>{usage?.domains?.percentage ?? 0}% consumido</span>
+                  <span>Protección Anti-Robo</span>
+                </div>
+              </div>
+
+              {/* Metric: Security Headers */}
+              <div className="bg-bg-card border border-border-base rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Shield size={16} className="text-accent-green" />
+                    <span className="text-xs font-semibold text-text-muted">Cabeceras de Seguridad</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-text-main">
+                    {usage?.security_headers?.current ?? 0} /{' '}
+                    {(usage?.security_headers?.limit ?? 9999) >= 9999 ? '∞' : usage?.security_headers?.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden mb-2 border border-border-base/40">
+                  <div
+                    className="h-full bg-accent-green transition-all duration-500"
+                    style={{ width: `${usage?.security_headers?.percentage || 0}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-text-dim">
+                  <span>{usage?.security_headers?.percentage ?? 0}% consumido</span>
+                  <span>Auditoría CSP / HSTS</span>
+                </div>
+              </div>
+
+              {/* Metric: Notification Channels */}
+              <div className="bg-bg-card border border-border-base rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Bell size={16} className="text-accent-purple" />
+                    <span className="text-xs font-semibold text-text-muted">Canales de Notificación</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-text-main">
+                    {usage?.notification_channels?.current ?? 0} /{' '}
+                    {(usage?.notification_channels?.limit ?? 9999) >= 9999 ? '∞' : usage?.notification_channels?.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden mb-2 border border-border-base/40">
+                  <div
+                    className="h-full bg-accent-purple transition-all duration-500"
+                    style={{ width: `${usage?.notification_channels?.percentage || 0}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-text-dim">
+                  <span>{usage?.notification_channels?.percentage ?? 0}% consumido</span>
+                  <span>Slack / Email / Webhooks</span>
                 </div>
               </div>
 

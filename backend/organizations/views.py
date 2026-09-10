@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from audit.services import AuditService
+from common.permissions import IsSuperUser
 from common.responses import error_response, success_response
 
 from .models import Organization
@@ -24,7 +25,7 @@ class OrganizationListView(APIView):
     POST /api/v1/organizations/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsSuperUser,)
 
     def get(self, request):
         organizations = OrganizationService.list_organizations()
@@ -66,7 +67,7 @@ class OrganizationDetailView(APIView):
     DELETE /api/v1/organizations/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsSuperUser,)
 
     def get(self, request, organization_id):
         try:
@@ -732,6 +733,12 @@ class OrganizationCurrentView(APIView):
         return success_response(serializer.data)
 
     def patch(self, request):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización tienen autorización para modificar su configuración.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         org = getattr(request.user, "organization", None)
         if not org:
             return error_response(
@@ -868,6 +875,12 @@ class OrganizationExportBackupView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización tienen autorización para exportar respaldos.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         org = getattr(request.user, "organization", None)
         if not org:
             return error_response(
@@ -904,6 +917,12 @@ class OrganizationInvoicesView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
+        if not (request.user.is_staff or request.user.is_superuser):
+            return error_response(
+                "Solo los administradores de la organización tienen autorización para consultar facturas.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
         org = getattr(request.user, "organization", None)
         if not org:
             return error_response(

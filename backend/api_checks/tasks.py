@@ -227,7 +227,11 @@ def run_all_api_checks():
     Runs periodically via Celery Beat every 30 seconds.
     """
     now = timezone.now()
-    targets = APICheckTarget.objects.filter(enabled=True)
+    targets = APICheckTarget.objects.filter(
+        enabled=True,
+        organization__status="active",
+        organization__subscription_status__in=["active", "trialing"],
+    )
     count = 0
     for target in targets:
         if not target.last_checked_at:

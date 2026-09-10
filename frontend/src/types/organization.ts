@@ -52,6 +52,10 @@ export interface PlanLimitInfo {
   max_monitoring_targets: number;
   max_ssl_certificates: number;
   max_api_checks: number;
+  max_dns_records: number;
+  max_domains: number;
+  max_security_headers: number;
+  max_notification_channels: number;
   max_private_agents: number;
   min_check_interval_seconds: number;
   metrics_retention_days: number;
@@ -76,6 +80,10 @@ export interface SubscriptionSummary {
     targets: QuotaMetric;
     ssl_certificates: QuotaMetric;
     api_checks: QuotaMetric;
+    dns_records: QuotaMetric;
+    domains: QuotaMetric;
+    security_headers: QuotaMetric;
+    notification_channels: QuotaMetric;
     team_members: QuotaMetric;
     status_pages: QuotaMetric;
     private_agents: QuotaMetric;

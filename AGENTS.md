@@ -220,6 +220,14 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
   - *Control de Recurrencia:* Soporte para ventanas únicas (*One-time*), semanales, quincenales o mensuales con días y horas configurables.
   - *Cobertura Granular o Global:* Opción de mantenimiento en toda la organización o selección granular de targets (Uptime, SSL, API Checks, DNS).
   - *UI Sentinel NOC Toolkit:* `NOCPageHeader` con auto-refresco en vivo, 4 `NOCKpiCard` (Mantenimientos En Curso con halo pulsante, Próximas Ventanas 7d, Targets Protegidos, Horas Planificadas), `NOCToolbar` con buscador Omnibar y selector persistente (Cards vs Tabla compacta), modal moderno [`MaintenanceWindowModal.tsx`](file:///frontend/src/components/maintenance/MaintenanceWindowModal.tsx) con selector de Status Page y cálculo automático de duración, slide-over lateral [`MaintenanceDetailDrawer.tsx`](file:///frontend/src/components/maintenance/MaintenanceDetailDrawer.tsx) de 3 pestañas (*Detalles & Targets con enlace a la Status Page pública*, *Bitácora en Vivo con publicación de notas*, *Controles Operativos de Inicio/Finalización Rápida*), acciones en lote `NOCBulkActionBar` y exportación CSV con codificación UTF-8 BOM.
+16. **Separación Estricta Superadmin Global (SaaS Owner) vs Admin de Organización (Tenant Admin):**
+  - *Aislamiento Estricto:* Diferenciación formal entre `user.is_superuser` (dueño de plataforma) y `role="admin"` (administrador del cliente). Los administradores de organización no tienen visibilidad ni acceso a la consola global `/admin/platform`.
+  - *Guard de Ruta & Backend Security:* Protección frontend con `<SuperAdminRoute>` y protección en serializers (`is_superuser` en `read_only_fields`) para impedir escalada de privilegios.
+17. **Ciclo de Vida SaaS, Cuotas y Expiración Automatizada de Suscripciones:**
+  - *Celery Beat Scheduler:* Tarea periódica cada 15 minutos (`organizations.check_expired_trials`) que transiciona tenants con trial vencido a estado `past_due` con auditoría en `AuditLog`.
+  - *Protección de Infraestructura:* Suspensión selectiva a nivel de queries en los 6 motores de chequeo periódico (Uptime, SSL, DNS, WHOIS, Security Headers, API checks) para tenants inactivos o vencidos.
+  - *Cuotas Multi-Módulo (10 Recursos):* Control y bloqueo HTTP 403 `QUOTA_EXCEEDED` en creación de recursos (Monitores de Uptime, Certificados SSL, API Checks, Registros DNS, Dominios WHOIS, Cabeceras de Seguridad, Canales de Notificación, Miembros de Equipo, Status Pages y Agentes Satélite).
+  - *Banner Proactivo & Reactivación:* Componente `TrialStatusBanner.tsx` en el Dashboard (alerta ámbar `<=3d` y alerta roja `past_due`) con flujo de actualización y reactivación en 1-clic vía `UpgradePlanModal.tsx`.
 
 ## 💻 Convenciones de Entorno y Sincronización Docker
 - **Directorio de Trabajo / Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`

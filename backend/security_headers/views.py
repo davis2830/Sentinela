@@ -43,6 +43,18 @@ class SecurityHeaderTargetListView(APIView):
         except SSRFSecurityException as s_exc:
             return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
 
+        # Enforce quota limits
+        if getattr(request.user, "organization", None):
+            try:
+                from organizations.services import QuotaService, QuotaExceededException
+                QuotaService.check_quota(request.user.organization, "security_headers")
+            except QuotaExceededException as qe:
+                return error_response(
+                    str(qe),
+                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
         try:
             target = SecurityHeadersService.create_target(
                 organization_id=org_id,

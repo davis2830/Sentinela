@@ -203,6 +203,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "security_headers.scan_all",
         "schedule": 3600.0,
     },
+    "check-expired-trials-every-15m": {
+        "task": "organizations.check_expired_trials",
+        "schedule": 900.0,
+    },
 }
 
 # CORS
