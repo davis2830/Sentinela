@@ -59,6 +59,8 @@ class IncidentSerializer(serializers.ModelSerializer):
         return obj.assigned_team.color if obj.assigned_team else None
 
     def get_alerts_count(self, obj):
+        if hasattr(obj, "alerts_count_annotated"):
+            return obj.alerts_count_annotated
         return obj.incident_alerts.count()
 
     def get_duration_minutes(self, obj):

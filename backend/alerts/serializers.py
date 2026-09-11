@@ -96,14 +96,50 @@ class AlertRuleSimulateSerializer(serializers.Serializer):
     target_id = serializers.UUIDField(required=False, allow_null=True)
 
 
+class AlertListSerializer(serializers.ListSerializer):
+    """Custom ListSerializer to batch preload incident_alerts in a single SQL query."""
+
+    def to_representation(self, data):
+        from incidents.models import IncidentAlert
+        try:
+            iterable = data.all() if hasattr(data, "all") else data
+            alert_ids = [obj.id for obj in iterable if hasattr(obj, "id")]
+            if alert_ids:
+                links = {
+                    link.alert_id: link
+                    for link in IncidentAlert.objects.filter(alert_id__in=alert_ids).select_related("incident")
+                }
+                self.context["_incident_links_cache"] = links
+        except Exception:
+            pass
+        return super().to_representation(data)
+
+
 class AlertSerializer(serializers.ModelSerializer):
     """Serializer for Alert model with smart telemetry and incident info."""
 
     incident_id = serializers.SerializerMethodField()
     incident_title = serializers.SerializerMethodField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Batch preload incident alerts to eliminate N+1 queries
+        if getattr(self, "many", False) and self.instance:
+            try:
+                from incidents.models import IncidentAlert
+                alert_ids = [obj.id for obj in self.instance if hasattr(obj, "id")]
+                if alert_ids:
+                    links = {
+                        link.alert_id: link
+                        for link in IncidentAlert.objects.filter(alert_id__in=alert_ids).select_related("incident")
+                    }
+                    self._incident_links_cache = links
+            except Exception:
+                pass
+
     class Meta:
         model = Alert
+        list_serializer_class = AlertListSerializer
         fields = (
             "id",
             "organization",
@@ -148,15 +184,22 @@ class AlertSerializer(serializers.ModelSerializer):
         )
 
     def get_incident_id(self, obj):
+        cache = self.context.get("_incident_links_cache")
+        if cache is not None:
+            link = cache.get(obj.id)
+            return str(link.incident_id) if link else None
         from incidents.models import IncidentAlert
         link = IncidentAlert.objects.filter(alert_id=obj.id).first()
         return str(link.incident_id) if link else None
 
     def get_incident_title(self, obj):
+        cache = self.context.get("_incident_links_cache")
+        if cache is not None:
+            link = cache.get(obj.id)
+            return link.incident.title if link and link.incident else None
         from incidents.models import IncidentAlert
         link = IncidentAlert.objects.filter(alert_id=obj.id).select_related("incident").first()
         return link.incident.title if link and link.incident else None
-
 
 class AlertUpdateSerializer(serializers.Serializer):
     """Serializer for alert status updates."""

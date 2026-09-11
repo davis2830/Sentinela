@@ -18,8 +18,11 @@ class IncidentService:
 
     @staticmethod
     def list_incidents(organization_id, status_filter=None, priority_filter=None):
-        """Return incidents for an organization with optional filters."""
-        qs = Incident.objects.filter(organization_id=organization_id)
+        """Return incidents for an organization with N+1 annotations."""
+        from django.db.models import Count
+        qs = Incident.objects.filter(organization_id=organization_id).select_related("assigned_team").annotate(
+            alerts_count_annotated=Count("incident_alerts")
+        )
         if status_filter and status_filter != "all":
             qs = qs.filter(status=status_filter)
         if priority_filter and priority_filter != "all":

@@ -23,6 +23,13 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
 - `07-roadmap.md`: Fases y roadmap de producto.
 
 ## 🚀 Estado de Avances Realizados
+- **Auditoría y Erradicación Total de Consultas N+1 (ORM & TimescaleDB):**
+  - **Diagnóstico Integral:** Se detectaron cuellos de botella severos de consultas recurrentes en serializadores clave: MonitoringTargetSerializer (1 query por cada target barriendo casi 400,000 checks en TimescaleDB), AlertSerializer (40 queries para 20 alertas por resolución de incidentes) e IncidentSerializer (queries COUNT(*) por cada fila).
+  - **Resolución en Monitoring Targets:** Prefetch optimizado con ventana de tiempo de 1 hora (checked_at__gte=since_1h) más select_related('owner_team', 'agent_probe'), reduciendo de 11 queries a **0 queries en serialización** en solo 3.8 ms.
+  - **Resolución en Alertas (DRF list_serializer_class):** Implementación de AlertListSerializer con precarga en lote (lert_id IN (...)) y resolución en memoria O(1), reduciendo de 40 queries a **1 sola query** en 13.1 ms.
+  - **Resolución en Incidentes (nnotate):** Implementación de .annotate(alerts_count_annotated=Count('incident_alerts')) y select_related('assigned_team'), reduciendo a **0 queries en serialización** en 2.2 ms.
+  - **Indexación B-Tree en PostgreSQL:** Creado índice incidents_incidentalert_alert_id_idx sobre lert_id en incidents_incident_alert para búsquedas en O(log N).
+  - **Nuevo Récord de Benchmark k6:** Latencia promedio reducida a **22.36 ms** y **p95 a 38.81 ms** (reducción acumulada del 40.7% frente a la base original de 37.69 ms / 55.88 ms) con 0% de errores bajo 40 VUs concurrentes.
 - **Optimización Integral del Backend (Redis, Celery, PostgreSQL & Caching):**
   - **Connection Pooling en PostgreSQL:** Activado `CONN_MAX_AGE=60` y `CONN_HEALTH_CHECKS=True` en [`backend/config/settings/base.py`](file:///backend/config/settings/base.py) para reutilización de sockets TCP entre peticiones HTTP eliminando coste de handshake en BD.
   - **Caché Distribuido en Redis (DB 2):** Implementación de `django.core.cache.backends.redis.RedisCache` con TTL de 15 segundos en telemetría global NOC (`/monitoring/global-performance/`) y estadísticas de incidentes/MTTR (`/incidents/stats/`), absorbiendo concurrencia masiva de operadores en < 2ms.

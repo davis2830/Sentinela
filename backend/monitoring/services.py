@@ -15,9 +15,20 @@ class MonitoringService:
 
     @staticmethod
     def list_targets(organization_id):
-        """Return all monitoring targets for an organization."""
+        """Return all monitoring targets for an organization with TimescaleDB time-window prefetch."""
+        from django.db.models import Prefetch
+        from django.utils import timezone
+        from datetime import timedelta
+
+        since_1h = timezone.now() - timedelta(hours=1)
         return MonitoringTarget.objects.filter(
             organization_id=organization_id
+        ).select_related("owner_team", "agent_probe").prefetch_related(
+            Prefetch(
+                "checks",
+                queryset=MonitoringCheck.objects.filter(checked_at__gte=since_1h).order_by("-checked_at"),
+                to_attr="prefetched_recent_checks"
+            )
         ).order_by("-created_at")
 
     @staticmethod
@@ -677,4 +688,4 @@ class AgentProbeService:
                 pass
 
             ingested += 1
-        return ingested
+        return ingested
