@@ -41,8 +41,10 @@ export default function LoginPage() {
           {/* Logo badge: shown on desktop inside card; on mobile it is in the top header */}
           <div className="hidden lg:inline-flex p-3.5 rounded-2xl bg-bg-dark border border-border-base shadow-inner mb-3.5">
             <img
-              src="/logo.png"
+              src="/logo.webp"
               alt="Sentinel Logo"
+              width={44}
+              height={44}
               className="h-11 w-auto object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.35)]"
             />
           </div>
@@ -53,7 +55,7 @@ export default function LoginPage() {
           <p className="text-sm text-text-muted mt-1.5 font-sans">
             {requires2FA
               ? `Ingresa el código generado para ${loginEmail || email}`
-              : 'Acceso corporativo a la consola de operaciones'}
+              : 'Acceso seguro a la consola de operaciones'}
           </p>
         </div>
 

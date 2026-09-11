@@ -8,6 +8,7 @@ class IncidentSerializer(serializers.ModelSerializer):
 
     alerts_count = serializers.SerializerMethodField()
     duration_minutes = serializers.SerializerMethodField()
+    assigned_team_color = serializers.SerializerMethodField()
 
     class Meta:
         model = Incident
@@ -42,6 +43,7 @@ class IncidentSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id",
             "organization",
+            "assigned_team_color",
             "opened_at",
             "acknowledged_at",
             "mitigated_at",

@@ -409,6 +409,7 @@ class IncidentService:
                 if diff >= 0:
                     total_mtta_minutes += diff
                     mtta_count += 1
+        avg_mtta_minutes = round(total_mtta_minutes / mtta_count, 1) if mtta_count > 0 else 0
 
         # SLA Compliance: percentage of resolved incidents resolved within SLA target (60 mins)
         sla_met = 0

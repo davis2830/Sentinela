@@ -239,6 +239,31 @@ class MonitoringTimeseriesView(APIView):
             )
 
 
+class MonitoringGlobalPerformanceView(APIView):
+    """Endpoint for organization-wide aggregate performance metrics and subservice breakdown.
+
+    GET /api/v1/monitoring/global-performance/?period=1h|6h|24h|7d|30d
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        period = request.query_params.get("period", "24h").strip().lower()
+        if period not in ("1h", "6h", "24h", "7d", "30d"):
+            period = "24h"
+        try:
+            data = MonitoringService.get_organization_global_performance(
+                org_id, period=period
+            )
+            return success_response(data)
+        except Exception as exc:
+            return error_response(
+                f"Error retrieving global performance: {str(exc)}",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+
 class MonitoringTargetScanView(APIView):
     """Endpoint for manual execution of a monitoring target check.
 

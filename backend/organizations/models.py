@@ -127,8 +127,8 @@ class Organization(models.Model):
             ("cancelled", "Cancelled"),
         ],
     )
-    timezone = models.CharField(max_length=50, default="UTC")
-    locale = models.CharField(max_length=10, default="en-US")
+    timezone = models.CharField(max_length=50, default="America/Guatemala")
+    locale = models.CharField(max_length=10, default="es-GT")
 
     # SaaS Subscription & Billing
     plan_tier = models.CharField(

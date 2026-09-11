@@ -66,8 +66,10 @@ export default function RegisterPage() {
         <div className="text-center mb-6">
           <div className="inline-flex p-3 rounded-2xl bg-bg-dark border border-border-base shadow-inner mb-3">
             <img
-              src="/logo.png"
+              src="/logo.webp"
               alt="Sentinel Logo"
+              width={40}
+              height={40}
               className="h-10 w-auto object-contain drop-shadow-[0_0_12px_rgba(16,185,129,0.35)]"
             />
           </div>

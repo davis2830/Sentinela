@@ -23,6 +23,27 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
 - `07-roadmap.md`: Fases y roadmap de producto.
 
 ## 🚀 Estado de Avances Realizados
+- **Suite Integral de Pruebas de Rendimiento, Carga & Estrés con Grafana k6 (`tests_perf/`):**
+  - **Ubicación en el Workspace:** Carpeta [`tests_perf/`](file:///tests_perf/) con configuración, runners y 5 escenarios especializados.
+  - **5 Escenarios de Prueba:**
+    1. *Dashboard NOC Telemetría (`01_noc_dashboard_stress.js`):* Monitoreo concurrente de operadores sobre endpoints en vivo (`/global-performance/`, `/alerts/`, `/incidents/stats/`, `/monitoring/`).
+    2. *Lectura Multi-Módulo (`02_full_platform_read_heavy.js`):* Tráfico concurrente (15 a 50 VUs) a través de los 8 módulos de la plataforma.
+    3. *CRUD Transaccional (`03_monitoring_crud_stress.js`):* Pre-flight checks de red, creación y eliminación limpia de targets.
+    4. *Spike Test (`04_spike_stress_test.js`):* Ráfagas repentinas de 2 a 70 VUs en 10s para validar elasticidad.
+    5. *Soak Test (`05_soak_endurance_test.js`):* Resistencia prolongada para detección de fugas de memoria.
+  - **Runners Automatizados:** [`run_perf.ps1`](file:///tests_perf/run_perf.ps1) y [`run_perf.bat`](file:///tests_perf/run_perf.bat) para ejecución con 1 comando.
+  - **Reportes Visuales:** Generación automática de dashboards HTML interactivos en [`tests_perf/reports/`](file:///tests_perf/reports/) con paleta oficial Dark Mode de Sentinel NOC.
+  - **Benchmark Verificado:** 1,965 peticiones procesadas en 1m con latencia promedio de **37.69 ms** y **p95 de 55.88 ms** (SLA < 300 ms superado) con 0% de errores.
+- **Modernización Visual y Operativa del Dashboard NOC (Mockup de Alta Densidad):**
+  - **Arquitectura Modular de 7 Componentes (`frontend/src/components/dashboard/`):**
+    - [`NOCDashboardHeader.tsx`](file:///frontend/src/components/dashboard/NOCDashboardHeader.tsx): Cabecera NOC con textura de red global, reloj digital con segundero en vivo, botón de telemetría pulsante, selector de ventana temporal (`1h`, `6h`, `24h`, `7d`) y contador de alertas dinámico.
+    - [`NOCExecutiveKpis.tsx`](file:///frontend/src/components/dashboard/NOCExecutiveKpis.tsx): 5 KPI cards ejecutivas (Disponibilidad SLA con sparkline SVG verde, Latencia Promedio con sparkline cyan, Targets Totales con desglose Online/Degradado/Caído, Incidentes Activos y Estado de Seguridad con Donut Gauge circular).
+    - [`NOCPerformanceSection.tsx`](file:///frontend/src/components/dashboard/NOCPerformanceSection.tsx): Gráfica de área multieje suavizada (`recharts`) para Disponibilidad, Latencia y Solicitudes/seg, más barra de flujo de micro-servicios (Web, APIs, Base de Datos, SSL, DNS).
+    - [`NOCInfraHealthDonut.tsx`](file:///frontend/src/components/dashboard/NOCInfraHealthDonut.tsx): Donut chart SVG proporcional de salud de infraestructura con contador central y barra reactiva de salud general.
+    - [`NOCRecentActivityFeed.tsx`](file:///frontend/src/components/dashboard/NOCRecentActivityFeed.tsx): Feed cronológico multievento con badges semánticos por estado para sondeos y validaciones en vivo.
+    - [`NOCCriticalTargetsTable.tsx`](file:///frontend/src/components/dashboard/NOCCriticalTargetsTable.tsx): Tabla densa de servicios críticos con orden prioritario (Caídos -> Degradados -> Online), switch toggle interactivo on/off, re-sondeo manual inmediato, alertas e inspección en drawer.
+    - [`NOCLiveAlertsList.tsx`](file:///frontend/src/components/dashboard/NOCLiveAlertsList.tsx): Lista unificada de alarmas e incidentes con badges de severidad y enlace directo al drawer ITIL/RCA.
+  - **Ensamble y Compatibilidad Total:** Integrado en [`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx) preservando `NOCDrawer`, `TrialStatusBanner` y `QuickStartWizardModal`. Compilación limpia de TypeScript (0 errores) y replicación al mirror.
 - **Slice 4 (SSL + DNS + Domain / Uptime & Latencia):** Implementado al 100% (6 fases completadas):
   1. *Fase 1:* Escaneo Manual bajo Demanda (`POST /api/v1/monitoring/{id}/scan/`).
   2. *Fase 2:* Gráfica Histórica de Latencia ([`LatencyChart.tsx`](file:///frontend/src/components/monitoring/LatencyChart.tsx)).

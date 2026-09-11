@@ -53,7 +53,7 @@ export default function OrganizationSettingsPage() {
   // Form states - Company & Compliance
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [timezoneVal, setTimezoneVal] = useState('UTC');
+  const [timezoneVal, setTimezoneVal] = useState('America/Guatemala');
   const [localeVal, setLocaleVal] = useState('es-ES');
   const [billingEmail, setBillingEmail] = useState('');
   const [taxId, setTaxId] = useState('');
@@ -127,7 +127,7 @@ export default function OrganizationSettingsPage() {
     if (orgData) {
       setName(orgData.name || '');
       setSlug(orgData.slug || '');
-      setTimezoneVal(orgData.timezone || 'UTC');
+      setTimezoneVal(orgData.timezone || 'America/Guatemala');
       setLocaleVal(orgData.locale || 'es-ES');
       setBillingEmail(orgData.billing_email || '');
       setTaxId(orgData.tax_id || '');

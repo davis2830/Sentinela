@@ -32,8 +32,10 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-3 font-bold text-lg text-text-main no-underline group">
             <img
-              src="/logo.png"
+              src="/logo.webp"
               alt="Sentinel"
+              width={32}
+              height={32}
               className="h-8 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
             />
             <span className="font-sans font-extrabold text-xl tracking-tight text-text-main">

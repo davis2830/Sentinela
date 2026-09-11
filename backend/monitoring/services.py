@@ -401,6 +401,152 @@ class MonitoringService:
             "incidents": incidents,
         }
 
+    @staticmethod
+    def get_organization_global_performance(organization_id, period="24h"):
+        """Calculate real aggregate timeseries metrics and breakdown per service for the NOC Dashboard."""
+        now = timezone.now()
+        period = (period or "24h").strip().lower()
+        if period == "1h":
+            since = now - timedelta(hours=1)
+            slot_seconds = 180  # 3 min intervals (20 points)
+            label_fmt = "%H:%M"
+        elif period == "6h":
+            since = now - timedelta(hours=6)
+            slot_seconds = 900  # 15 min intervals (24 points)
+            label_fmt = "%H:%M"
+        elif period == "7d":
+            since = now - timedelta(days=7)
+            slot_seconds = 21600  # 6h intervals (28 points)
+            label_fmt = "%d/%m %Hh"
+        elif period == "30d":
+            since = now - timedelta(days=30)
+            slot_seconds = 86400  # 24h intervals (30 points)
+            label_fmt = "%d/%m"
+        else:  # 24h default
+            period = "24h"
+            since = now - timedelta(hours=24)
+            slot_seconds = 3600  # 1h intervals (24 points)
+            label_fmt = "%H:%M"
+
+        checks_qs = MonitoringCheck.objects.filter(
+            target__organization_id=organization_id,
+            checked_at__gte=since
+        ).values("checked_at", "latency", "status")
+
+        start_epoch = int(since.timestamp() // slot_seconds * slot_seconds)
+        end_epoch = int(now.timestamp())
+        buckets = {
+            ep: {"lats": [], "up": 0, "down": 0}
+            for ep in range(start_epoch, end_epoch + slot_seconds, slot_seconds)
+        }
+
+        for chk in checks_qs:
+            ep = int(chk["checked_at"].timestamp() // slot_seconds * slot_seconds)
+            if ep in buckets:
+                if chk["latency"] is not None:
+                    buckets[ep]["lats"].append(chk["latency"])
+                if chk["status"] in ("up",):
+                    buckets[ep]["up"] += 1
+                else:
+                    buckets[ep]["down"] += 1
+
+        import datetime as dt_mod
+        points = []
+        last_valid_latency = 0
+        all_latencies = []
+        total_up = 0
+        total_down = 0
+
+        for ep, b in sorted(buckets.items()):
+            dt = dt_mod.datetime.fromtimestamp(ep, tz=dt_mod.timezone.utc)
+            lats = b["lats"]
+            t = b["up"] + b["down"]
+            total_up += b["up"]
+            total_down += b["down"]
+            if lats:
+                avg_l = round(sum(lats) / len(lats), 1)
+                last_valid_latency = avg_l
+                all_latencies.extend(lats)
+            else:
+                avg_l = last_valid_latency
+
+            uptime = round((b["up"] / t) * 100, 2) if t > 0 else 100.0
+            points.append({
+                "time": dt.strftime(label_fmt),
+                "uptime": uptime,
+                "latency": avg_l,
+                "requests": t,
+            })
+
+        total_checks = total_up + total_down
+        global_avg_uptime = round((total_up / total_checks * 100), 2) if total_checks > 0 else 100.0
+        global_avg_latency = round(sum(all_latencies) / len(all_latencies)) if all_latencies else 0
+
+        # Subservices real data
+        # 1. Web targets (HTTP/HTTPS)
+        web_targets = MonitoringTarget.objects.filter(
+            organization_id=organization_id,
+            target_type__in=["http", "https"]
+        )
+        web_total = web_targets.count()
+        web_up = web_targets.filter(last_status="up").count()
+        web_lats = [t.last_latency for t in web_targets if t.last_latency is not None]
+        web_avg_lat = round(sum(web_lats) / len(web_lats)) if web_lats else 0
+
+        # 2. Synthetic API Checks
+        from api_checks.models import APICheckTarget
+        api_targets = APICheckTarget.objects.filter(organization_id=organization_id)
+        api_total = api_targets.count()
+        api_up = api_targets.filter(last_status="pass").count()
+        api_lats = [t.last_response_time_ms for t in api_targets if t.last_response_time_ms is not None]
+        api_avg_lat = round(sum(api_lats) / len(api_lats)) if api_lats else 0
+
+        # 3. Database / TCP
+        db_targets = MonitoringTarget.objects.filter(
+            organization_id=organization_id,
+            target_type__in=["tcp", "db"]
+        )
+        db_total = db_targets.count()
+        db_up = db_targets.filter(last_status="up").count()
+        db_lats = [t.last_latency for t in db_targets if t.last_latency is not None]
+        db_avg_lat = round(sum(db_lats) / len(db_lats)) if db_lats else 0
+
+        # 4. SSL Certificates
+        from ssl_monitor.models import SSLCertificate
+        ssl_certs = SSLCertificate.objects.filter(organization_id=organization_id)
+        ssl_total = ssl_certs.count()
+        ssl_valid = ssl_certs.filter(is_valid=True).count()
+
+        # 5. DNS Records
+        from dns_monitor.models import DNSRecord
+        dns_records = DNSRecord.objects.filter(organization_id=organization_id)
+        dns_total = dns_records.count()
+        dns_valid = dns_records.filter(last_scanned_at__isnull=False).count()
+        dns_lats = [r.response_time_ms for r in dns_records if getattr(r, "response_time_ms", None) is not None]
+        dns_avg_lat = round(sum(dns_lats) / len(dns_lats)) if dns_lats else 0
+
+        period_seconds = max(1, int((now - since).total_seconds()))
+        rps = round(total_checks / period_seconds, 2)
+        rps_str = f"{round(rps * 60)}/m" if rps < 1 else f"{rps:.1f} rps"
+
+        return {
+            "period": period,
+            "summary": {
+                "avg_uptime": global_avg_uptime,
+                "avg_latency": global_avg_latency,
+                "total_requests": total_checks,
+                "estimated_rps": rps_str,
+            },
+            "points": points,
+            "services": {
+                "web": {"count": web_up, "total": web_total, "avg_latency": web_avg_lat},
+                "api": {"count": api_up, "total": api_total, "avg_latency": api_avg_lat},
+                "db": {"count": db_up, "total": db_total, "avg_latency": db_avg_lat},
+                "ssl": {"count": ssl_valid, "total": ssl_total, "avg_latency": 0},
+                "dns": {"count": dns_valid, "total": dns_total, "avg_latency": dns_avg_lat},
+            },
+        }
+
 
 class AgentProbeService:
     """Service for private satellite runners (Probes)."""
