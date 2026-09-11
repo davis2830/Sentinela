@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -20,7 +20,7 @@ interface NOCCriticalTargetsTableProps {
   isScanningId?: string | null;
 }
 
-export default function NOCCriticalTargetsTable({
+function NOCCriticalTargetsTable({
   targets,
   onScanTarget,
   onToggleActive,
@@ -29,17 +29,21 @@ export default function NOCCriticalTargetsTable({
 }: NOCCriticalTargetsTableProps) {
   const navigate = useNavigate();
 
-  // Sort targets: down first, then degraded, then up, then unknown
-  const sortedTargets = [...targets].sort((a, b) => {
-    const priority: Record<string, number> = { down: 1, degraded: 2, unknown: 3, up: 4 };
-    const pA = priority[a.last_status || 'unknown'] || 5;
-    const pB = priority[b.last_status || 'unknown'] || 5;
-    return pA - pB;
-  });
+  // Memoized sorted targets: down first, then degraded, then up, then unknown
+  const sortedTargets = useMemo(() => {
+    return [...targets].sort((a, b) => {
+      const priority: Record<string, number> = { down: 1, degraded: 2, unknown: 3, up: 4 };
+      const pA = priority[a.last_status || 'unknown'] || 5;
+      const pB = priority[b.last_status || 'unknown'] || 5;
+      return pA - pB;
+    });
+  }, [targets]);
 
-  const criticalCount = targets.filter(
-    (t) => t.last_status === 'down' || t.last_status === 'degraded'
-  ).length;
+  const criticalCount = useMemo(() => {
+    return targets.filter(
+      (t) => t.last_status === 'down' || t.last_status === 'degraded'
+    ).length;
+  }, [targets]);
 
   return (
     <div className="bg-bg-card border border-border-base rounded-2xl p-5 md:p-6 shadow-sm flex flex-col justify-between">
@@ -233,3 +237,5 @@ export default function NOCCriticalTargetsTable({
     </div>
   );
 }
+
+export default React.memo(NOCCriticalTargetsTable);

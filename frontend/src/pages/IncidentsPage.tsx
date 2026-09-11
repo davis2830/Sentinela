@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -512,21 +512,23 @@ export default function IncidentsPage() {
   const resolutionRate =
     totalCount > 0 ? Math.round((resolvedCount / totalCount) * 1000) / 10 : 100.0;
 
-  // Filtered & Searched Incidents
-  const filteredIncidents = allIncidents.filter((incident: Incident) => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      incident.title.toLowerCase().includes(term) ||
-      (incident.description && incident.description.toLowerCase().includes(term)) ||
-      (incident.impacted_service && incident.impacted_service.toLowerCase().includes(term)) ||
-      (incident.assigned_to_name && incident.assigned_to_name.toLowerCase().includes(term));
+  // Filtered & Searched Incidents (Memoized)
+  const filteredIncidents = useMemo(() => {
+    return allIncidents.filter((incident: Incident) => {
+      const term = searchTerm.toLowerCase();
+      const matchesSearch =
+        incident.title.toLowerCase().includes(term) ||
+        (incident.description && incident.description.toLowerCase().includes(term)) ||
+        (incident.impacted_service && incident.impacted_service.toLowerCase().includes(term)) ||
+        (incident.assigned_to_name && incident.assigned_to_name.toLowerCase().includes(term));
 
-    if (!matchesSearch) return false;
-    if (statusFilter !== 'all' && incident.status !== statusFilter) return false;
-    if (priorityFilter !== 'all' && incident.priority !== priorityFilter) return false;
+      if (!matchesSearch) return false;
+      if (statusFilter !== 'all' && incident.status !== statusFilter) return false;
+      if (priorityFilter !== 'all' && incident.priority !== priorityFilter) return false;
 
-    return true;
-  });
+      return true;
+    });
+  }, [allIncidents, searchTerm, statusFilter, priorityFilter]);
 
   const currentStepIndex = selectedIncident
     ? LIFECYCLE_STEPS.findIndex((s) => s.status === selectedIncident.status)

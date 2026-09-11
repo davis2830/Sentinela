@@ -15,7 +15,7 @@ interface NOCExecutiveKpisProps {
   securityVulnerabilitiesCount: number;
 }
 
-export default function NOCExecutiveKpis({
+function NOCExecutiveKpis({
   slaPercentage,
   avgLatencyMs,
   totalTargets,
@@ -295,3 +295,5 @@ export default function NOCExecutiveKpis({
     </div>
   );
 }
+
+export default React.memo(NOCExecutiveKpis);

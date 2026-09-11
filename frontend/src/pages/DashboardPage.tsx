@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
@@ -187,7 +187,7 @@ export default function DashboardPage() {
   });
 
   // 2. Refresh All Telemetry
-  const handleRefetchAll = async () => {
+  const handleRefetchAll = useCallback(async () => {
     setIsRefreshing(true);
     try {
       await Promise.all([
@@ -215,7 +215,17 @@ export default function DashboardPage() {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [
+    refetchMon,
+    refetchSSL,
+    refetchDomains,
+    refetchAPI,
+    refetchSec,
+    refetchDNS,
+    refetchAlerts,
+    refetchIncidents,
+    refetchPerf,
+  ]);
 
   // 3. Quick Actions: Scan & Toggle Active
   const scanMutation = useMutation({
@@ -319,75 +329,122 @@ export default function DashboardPage() {
     (t) => t.target_type === 'tcp'
   );
 
-  const subServices = {
-    webCount: webTargets.filter((t) => t.last_status === 'up').length,
-    webTotal: Math.max(1, webTargets.length),
-    apiCount: passingAPIChecks,
-    apiTotal: Math.max(1, totalAPIChecks),
-    dbCount: dbTargets.filter((t) => t.last_status === 'up').length || 1,
-    dbTotal: Math.max(1, dbTargets.length),
-    sslCount: validSSL || Math.max(1, totalSSL),
-    sslTotal: Math.max(1, totalSSL),
-    dnsCount: (dnsRecords || []).length || 1,
-    dnsTotal: Math.max(1, (dnsRecords || []).length),
-  };
+  // Memoized handlers for child components
+  const handleScanTarget = useCallback((id: string) => {
+    scanMutation.mutate(id);
+  }, [scanMutation]);
 
-  // 5. Build Chronological Activity Events Feed
-  const recentEvents: ActivityEvent[] = [];
+  const handleToggleActive = useCallback((id: string, currentEnabled: boolean) => {
+    toggleActiveMutation.mutate({ id, enabled: currentEnabled });
+  }, [toggleActiveMutation]);
 
-  (apiChecks || []).slice(0, 3).forEach((a) => {
-    recentEvents.push({
-      id: `act-api-${a.id}`,
-      serviceName: a.name,
-      timestamp: a.last_checked_at
-        ? new Date(a.last_checked_at).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '09:29',
-      statusText: a.last_status === 'pass' ? 'Respuesta OK' : 'Fallo de Verificación',
-      type: a.last_status === 'pass' ? 'success' : 'error',
-      category: 'api',
+  const handleInspectTarget = useCallback((target: MonitoringTarget) => {
+    setSelectedItem({ type: 'monitoring', item: target });
+  }, []);
+
+  const handleInspectAlertItem = useCallback(
+    (item: { type: 'incident' | 'alert'; data: Incident | Alert }) => {
+      setSelectedItem(
+        item.type === 'incident'
+          ? { type: 'incident', item: item.data as Incident }
+          : { type: 'alert', item: item.data as Alert }
+      );
+    },
+    []
+  );
+
+  const handleTimeRangeChange = useCallback((range: '1h' | '6h' | '24h' | '7d') => {
+    setTimeRange(range);
+  }, []);
+
+  const subServices = useMemo(
+    () => ({
+      webCount: webTargets.filter((t) => t.last_status === 'up').length,
+      webTotal: Math.max(1, webTargets.length),
+      apiCount: passingAPIChecks,
+      apiTotal: Math.max(1, totalAPIChecks),
+      dbCount: dbTargets.filter((t) => t.last_status === 'up').length || 1,
+      dbTotal: Math.max(1, dbTargets.length),
+      sslCount: validSSL || Math.max(1, totalSSL),
+      sslTotal: Math.max(1, totalSSL),
+      dnsCount: (dnsRecords || []).length || 1,
+      dnsTotal: Math.max(1, (dnsRecords || []).length),
+    }),
+    [webTargets, passingAPIChecks, totalAPIChecks, dbTargets, validSSL, totalSSL, dnsRecords]
+  );
+
+  // 5. Build Chronological Activity Events Feed (Memoized)
+  const recentEvents: ActivityEvent[] = useMemo(() => {
+    const events: ActivityEvent[] = [];
+
+    (apiChecks || []).slice(0, 3).forEach((a) => {
+      events.push({
+        id: `act-api-${a.id}`,
+        serviceName: a.name,
+        timestamp: a.last_checked_at
+          ? new Date(a.last_checked_at).toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '09:29',
+        statusText: a.last_status === 'pass' ? 'Respuesta OK' : 'Fallo de Verificación',
+        type: a.last_status === 'pass' ? 'success' : 'error',
+        category: 'api',
+      });
     });
-  });
 
-  (monitoringTargets || []).slice(0, 4).forEach((m) => {
-    const isDegraded = m.last_latency && m.last_latency > 450;
-    const isDown = m.last_status === 'down';
-    recentEvents.push({
-      id: `act-mon-${m.id}`,
-      serviceName: m.name,
-      timestamp: m.last_checked_at
-        ? new Date(m.last_checked_at).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '09:25',
-      statusText: isDown
-        ? 'Caído / Inaccesible'
-        : isDegraded
-        ? `Latencia ${Math.round(m.last_latency || 0)}ms`
-        : 'Respuesta OK',
-      type: isDown ? 'error' : isDegraded ? 'warning' : 'success',
-      category: 'uptime',
+    (monitoringTargets || []).slice(0, 4).forEach((m) => {
+      const isDegraded = m.last_latency && m.last_latency > 450;
+      const isDown = m.last_status === 'down';
+      events.push({
+        id: `act-mon-${m.id}`,
+        serviceName: m.name,
+        timestamp: m.last_checked_at
+          ? new Date(m.last_checked_at).toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '09:25',
+        statusText: isDown
+          ? 'Caído / Inaccesible'
+          : isDegraded
+          ? `Latencia ${Math.round(m.last_latency || 0)}ms`
+          : 'Respuesta OK',
+        type: isDown ? 'error' : isDegraded ? 'warning' : 'success',
+        category: 'uptime',
+      });
     });
-  });
 
-  (sslCerts || []).slice(0, 2).forEach((s) => {
-    recentEvents.push({
-      id: `act-ssl-${s.id}`,
-      serviceName: s.domain,
-      timestamp: s.last_scanned_at
-        ? new Date(s.last_scanned_at).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '09:22',
-      statusText: s.is_valid ? 'SSL Válido' : 'Certificado Inválido',
-      type: s.is_valid ? 'success' : 'error',
-      category: 'ssl',
+    (sslCerts || []).slice(0, 2).forEach((s) => {
+      events.push({
+        id: `act-ssl-${s.id}`,
+        serviceName: s.domain,
+        timestamp: s.last_scanned_at
+          ? new Date(s.last_scanned_at).toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '09:22',
+        statusText: s.is_valid ? 'SSL Válido' : 'Certificado Inválido',
+        type: s.is_valid ? 'success' : 'error',
+        category: 'ssl',
+      });
     });
-  });
+
+    return events;
+  }, [apiChecks, monitoringTargets, sslCerts]);
+
+  const servicesBarData = useMemo(() => {
+    return (
+      globalPerfData?.services || {
+        web: { count: subServices.webCount, total: subServices.webTotal, avg_latency: avgLatency },
+        api: { count: subServices.apiCount, total: subServices.apiTotal, avg_latency: 300 },
+        db: { count: subServices.dbCount, total: subServices.dbTotal, avg_latency: 0 },
+        ssl: { count: subServices.sslCount, total: subServices.sslTotal },
+        dns: { count: subServices.dnsCount, total: subServices.dnsTotal, avg_latency: 10 },
+      }
+    );
+  }, [globalPerfData?.services, subServices, avgLatency]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-12 font-sans">
@@ -397,7 +454,7 @@ export default function DashboardPage() {
         isRefreshing={isRefreshing}
         activeAlertsCount={alertsCount + incidentsCount}
         timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
+        onTimeRangeChange={handleTimeRangeChange}
       />
 
       {/* Action Notification Banner */}
@@ -482,7 +539,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-6 flex flex-col">
           <NOCPerformanceSection
             timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
+            onTimeRangeChange={handleTimeRangeChange}
             avgUptime={globalPerfData?.summary?.avg_uptime ?? globalHealthScore}
             avgLatencyMs={globalPerfData?.summary?.avg_latency ?? avgLatency}
             estimatedRps={globalPerfData?.summary?.estimated_rps ?? '1.2k'}
@@ -509,17 +566,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 3.1 DEDICATED 5-SERVICE BAR (Web, APIs, Base de Datos, SSL, DNS - Outside of Container with Real Data) */}
-      <NOCServicesBar
-        services={
-          globalPerfData?.services || {
-            web: { count: subServices.webCount, total: subServices.webTotal, avg_latency: avgLatency },
-            api: { count: subServices.apiCount, total: subServices.apiTotal, avg_latency: 300 },
-            db: { count: subServices.dbCount, total: subServices.dbTotal, avg_latency: 0 },
-            ssl: { count: subServices.sslCount, total: subServices.sslTotal },
-            dns: { count: subServices.dnsCount, total: subServices.dnsTotal, avg_latency: 10 },
-          }
-        }
-      />
+      <NOCServicesBar services={servicesBarData} />
 
       {/* 4. BOTTOM SECTION (Critical Targets Table & Live Incidents/Alerts) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -527,9 +574,9 @@ export default function DashboardPage() {
         <div className="lg:col-span-7">
           <NOCCriticalTargetsTable
             targets={monitoringTargets || []}
-            onScanTarget={(id) => scanMutation.mutate(id)}
-            onToggleActive={(id, enabled) => toggleActiveMutation.mutate({ id, enabled })}
-            onInspectTarget={(target) => setSelectedItem({ type: 'monitoring', item: target })}
+            onScanTarget={handleScanTarget}
+            onToggleActive={handleToggleActive}
+            onInspectTarget={handleInspectTarget}
             isScanningId={scanningTargetId}
           />
         </div>
@@ -539,13 +586,7 @@ export default function DashboardPage() {
           <NOCLiveAlertsList
             incidents={openIncidents || []}
             alerts={activeAlerts || []}
-            onInspectItem={(item) =>
-              setSelectedItem(
-                item.type === 'incident'
-                  ? { type: 'incident', item: item.data as Incident }
-                  : { type: 'alert', item: item.data as Alert }
-              )
-            }
+            onInspectItem={handleInspectAlertItem}
           />
         </div>
       </div>

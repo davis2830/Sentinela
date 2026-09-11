@@ -1,36 +1,42 @@
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import AcceptInvitationPage from './pages/AcceptInvitationPage';
-import DashboardPage from './pages/DashboardPage';
-import MonitoringPage from './pages/MonitoringPage';
-import SSLCertificatesPage from './pages/SSLCertificatesPage';
-import DNSRecordsPage from './pages/DNSRecordsPage';
-import DomainsPage from './pages/DomainsPage';
-import APIChecksPage from './pages/APIChecksPage';
-import SecurityHeadersPage from './pages/SecurityHeadersPage';
-import NotificationsPage from './pages/NotificationsPage';
-import StatusPageAdmin from './pages/StatusPageAdmin';
-import PublicStatusPage from './pages/PublicStatusPage';
-import MaintenancePage from './pages/MaintenancePage';
-import AlertsPage from './pages/AlertsPage';
-import IncidentsPage from './pages/IncidentsPage';
-import ProfilePage from './pages/ProfilePage';
-import ReportsPage from './pages/ReportsPage';
-import AuditLogsPage from './pages/AuditLogsPage';
-import OrganizationSettingsPage from './pages/OrganizationSettingsPage';
-import UsersPage from './pages/UsersPage';
-import PlatformAdminPage from './pages/PlatformAdminPage';
 import AppLayout from './components/layout/AppLayout';
 import SuperAdminRoute from './components/auth/SuperAdminRoute';
 import { useAuthStore } from './store/authStore';
+import PageLoadingSpinner from './components/common/PageLoadingSpinner';
+
+// Lazy-loaded pages for optimal route-level code splitting
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
+const SSLCertificatesPage = lazy(() => import('./pages/SSLCertificatesPage'));
+const DNSRecordsPage = lazy(() => import('./pages/DNSRecordsPage'));
+const DomainsPage = lazy(() => import('./pages/DomainsPage'));
+const APIChecksPage = lazy(() => import('./pages/APIChecksPage'));
+const SecurityHeadersPage = lazy(() => import('./pages/SecurityHeadersPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const StatusPageAdmin = lazy(() => import('./pages/StatusPageAdmin'));
+const PublicStatusPage = lazy(() => import('./pages/PublicStatusPage'));
+const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
+const AlertsPage = lazy(() => import('./pages/AlertsPage'));
+const IncidentsPage = lazy(() => import('./pages/IncidentsPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
+const OrganizationSettingsPage = lazy(() => import('./pages/OrganizationSettingsPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
+const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 30_000,
+      gcTime: 300_000,
     },
   },
 });
@@ -51,222 +57,93 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-text-main mb-4">{title}</h1>
-        <p className="text-text-muted">Proximamente...</p>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Background prefetch of primary operational modules once authenticated
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    const idleCallback =
+      (window as any).requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1000));
+    const handle = idleCallback(() => {
+      import('./pages/MonitoringPage');
+      import('./pages/AlertsPage');
+      import('./pages/IncidentsPage');
+      import('./pages/SSLCertificatesPage');
+      import('./pages/DNSRecordsPage');
+      import('./pages/DomainsPage');
+      import('./pages/APIChecksPage');
+      import('./pages/SecurityHeadersPage');
+    });
+    return () => {
+      if ((window as any).cancelIdleCallback) {
+        (window as any).cancelIdleCallback(handle);
+      }
+    };
+  }, [isAuthenticated]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <RegisterPage />
-              </PublicRoute>
-            }
-          />
-          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <DashboardPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/monitoring"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <MonitoringPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ssl"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <SSLCertificatesPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dns"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <DNSRecordsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/domains"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <DomainsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/api-checks"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <APIChecksPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/security-headers"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <SecurityHeadersPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <NotificationsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/status-page"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <StatusPageAdmin />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/maintenance"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <MaintenancePage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/status/:slug" element={<PublicStatusPage />} />
-          <Route
-            path="/alerts"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <AlertsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/incidents"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <IncidentsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <ProfilePage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <ReportsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/audit-logs"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <AuditLogsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/organization"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <OrganizationSettingsPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <UsersPage />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/platform"
-            element={
-              <SuperAdminRoute>
-                <AppLayout>
-                  <PlatformAdminPage />
-                </AppLayout>
-              </SuperAdminRoute>
-            }
-          />
-        </Routes>
+        <Suspense fallback={<PageLoadingSpinner />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              }
+            />
+            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+            <Route path="/status/:slug" element={<PublicStatusPage />} />
+
+            {/* Persistent Authenticated NOC Layout (Navbar & Sidebar NEVER unmount) */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/monitoring" element={<MonitoringPage />} />
+              <Route path="/ssl" element={<SSLCertificatesPage />} />
+              <Route path="/dns" element={<DNSRecordsPage />} />
+              <Route path="/domains" element={<DomainsPage />} />
+              <Route path="/api-checks" element={<APIChecksPage />} />
+              <Route path="/security-headers" element={<SecurityHeadersPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/status-page" element={<StatusPageAdmin />} />
+              <Route path="/maintenance" element={<MaintenancePage />} />
+              <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/incidents" element={<IncidentsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/audit-logs" element={<AuditLogsPage />} />
+              <Route path="/organization" element={<OrganizationSettingsPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route
+                path="/admin/platform"
+                element={
+                  <SuperAdminRoute>
+                    <PlatformAdminPage />
+                  </SuperAdminRoute>
+                }
+              />
+            </Route>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </QueryClientProvider>
   );

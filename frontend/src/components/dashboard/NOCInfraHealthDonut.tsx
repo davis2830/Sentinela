@@ -10,7 +10,7 @@ interface NOCInfraHealthDonutProps {
   healthScore: number;
 }
 
-export default function NOCInfraHealthDonut({
+function NOCInfraHealthDonut({
   total,
   online,
   degraded,
@@ -176,3 +176,5 @@ export default function NOCInfraHealthDonut({
     </div>
   );
 }
+
+export default React.memo(NOCInfraHealthDonut);

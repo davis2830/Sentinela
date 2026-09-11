@@ -8,7 +8,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Security
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend,*").split(",")
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend,*").split(",") if h.strip()]
+if "[::1]" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("[::1]")
+if "::1" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("::1")
 
 # Applications
 INSTALLED_APPS = [
@@ -109,8 +113,8 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = "accounts.User"
 
 # Internationalization
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = "es-es"
+TIME_ZONE = os.environ.get("TIME_ZONE", "America/Guatemala")
 USE_I18N = True
 USE_TZ = True
 

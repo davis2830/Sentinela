@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Clock, RefreshCw, Calendar, Bell, ChevronDown } from 'lucide-react';
 
+import { formatTime } from '../../utils/date';
+
 interface NOCDashboardHeaderProps {
   onRefreshAll: () => void;
   isRefreshing: boolean;
@@ -10,7 +12,7 @@ interface NOCDashboardHeaderProps {
   onTimeRangeChange: (range: '1h' | '6h' | '24h' | '7d') => void;
 }
 
-export default function NOCDashboardHeader({
+function NOCDashboardHeader({
   onRefreshAll,
   isRefreshing,
   activeAlertsCount,
@@ -18,16 +20,12 @@ export default function NOCDashboardHeader({
   onTimeRangeChange,
 }: NOCDashboardHeaderProps) {
   const navigate = useNavigate();
-  const [currentTime, setCurrentTime] = useState<string>(() =>
-    new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  );
+  const [currentTime, setCurrentTime] = useState<string>(() => formatTime(new Date()));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(
-        new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
+      setCurrentTime(formatTime(new Date()));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -114,8 +112,11 @@ export default function NOCDashboardHeader({
           {/* Live Digital Clock */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-bg-dark/80 border border-border-base text-xs shadow-inner">
             <Clock size={14} className="text-accent-green" />
-            <span className="text-[11px] text-text-dim">Última actualización</span>
+            <span className="text-[11px] text-text-dim">Hora NOC</span>
             <span className="font-mono font-bold text-text-main tracking-wider">{currentTime}</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-green/15 text-accent-green border border-accent-green/30 font-semibold">
+              GTM
+            </span>
           </div>
 
           {/* Telemetría en Vivo Button */}
@@ -201,3 +202,5 @@ export default function NOCDashboardHeader({
     </header>
   );
 }
+
+export default React.memo(NOCDashboardHeader);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -400,27 +400,31 @@ export default function AlertsPage() {
     }
   };
 
-  // Filtered alerts by search term
-  const filteredAlerts = (alerts || []).filter((alert: Alert) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      alert.title.toLowerCase().includes(term) ||
-      (alert.message && alert.message.toLowerCase().includes(term)) ||
-      (alert.target_type && alert.target_type.toLowerCase().includes(term))
-    );
-  });
+  // Filtered alerts by search term (Memoized)
+  const filteredAlerts = useMemo(() => {
+    return (alerts || []).filter((alert: Alert) => {
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        alert.title.toLowerCase().includes(term) ||
+        (alert.message && alert.message.toLowerCase().includes(term)) ||
+        (alert.target_type && alert.target_type.toLowerCase().includes(term))
+      );
+    });
+  }, [alerts, searchTerm]);
 
-  // Filtered rules by search term
-  const filteredRules = (rules || []).filter((rule: AlertRule) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      rule.name.toLowerCase().includes(term) ||
-      (rule.target_type && rule.target_type.toLowerCase().includes(term)) ||
-      (rule.condition && rule.condition.toLowerCase().includes(term))
-    );
-  });
+  // Filtered rules by search term (Memoized)
+  const filteredRules = useMemo(() => {
+    return (rules || []).filter((rule: AlertRule) => {
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        rule.name.toLowerCase().includes(term) ||
+        (rule.target_type && rule.target_type.toLowerCase().includes(term)) ||
+        (rule.condition && rule.condition.toLowerCase().includes(term))
+      );
+    });
+  }, [rules, searchTerm]);
 
   // Multi-selection helpers
   const handleToggleSelectAlert = (id: string, e: React.MouseEvent) => {

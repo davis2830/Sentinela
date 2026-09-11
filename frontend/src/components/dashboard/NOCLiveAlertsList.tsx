@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -27,7 +27,7 @@ interface NOCLiveAlertsListProps {
   onInspectItem: (item: { type: 'incident' | 'alert'; data: Incident | Alert }) => void;
 }
 
-export default function NOCLiveAlertsList({
+function NOCLiveAlertsList({
   incidents,
   alerts,
   onInspectItem,
@@ -35,7 +35,7 @@ export default function NOCLiveAlertsList({
   const navigate = useNavigate();
 
   // Unified items list combining active incidents and recent alerts
-  const items: UnifiedAlertItem[] = [
+  const items: UnifiedAlertItem[] = useMemo(() => [
     ...incidents.map((inc) => ({
       id: `inc-${inc.id}`,
       title: inc.title,
@@ -78,9 +78,9 @@ export default function NOCLiveAlertsList({
       }),
       rawAlert: al,
     })),
-  ];
+  ], [incidents, alerts]);
 
-  const totalActive = items.filter((i) => i.status !== 'resolved').length;
+  const totalActive = useMemo(() => items.filter((i) => i.status !== 'resolved').length, [items]);
 
   const getSeverityIcon = (sev: UnifiedAlertItem['severity']) => {
     switch (sev) {
@@ -201,3 +201,5 @@ export default function NOCLiveAlertsList({
     </div>
   );
 }
+
+export default React.memo(NOCLiveAlertsList);

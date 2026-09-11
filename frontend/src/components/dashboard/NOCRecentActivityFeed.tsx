@@ -24,7 +24,7 @@ interface NOCRecentActivityFeedProps {
   events: ActivityEvent[];
 }
 
-export default function NOCRecentActivityFeed({ events }: NOCRecentActivityFeedProps) {
+function NOCRecentActivityFeed({ events }: NOCRecentActivityFeedProps) {
   const navigate = useNavigate();
 
   const getStatusIcon = (type: ActivityEvent['type']) => {
@@ -133,3 +133,5 @@ export default function NOCRecentActivityFeed({ events }: NOCRecentActivityFeedP
     </div>
   );
 }
+
+export default React.memo(NOCRecentActivityFeed);

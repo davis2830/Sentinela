@@ -18,7 +18,7 @@ export interface NOCServicesBarProps {
   };
 }
 
-export default function NOCServicesBar({ services }: NOCServicesBarProps) {
+function NOCServicesBar({ services }: NOCServicesBarProps) {
   const navigate = useNavigate();
 
   const renderMiniSpark = (color: string, healthyRatio: number) => {
@@ -174,3 +174,5 @@ export default function NOCServicesBar({ services }: NOCServicesBarProps) {
     </div>
   );
 }
+
+export default React.memo(NOCServicesBar);

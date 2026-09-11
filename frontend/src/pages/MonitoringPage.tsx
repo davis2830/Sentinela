@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -253,44 +253,49 @@ export default function MonitoringPage() {
       ? Math.round(((onlineCount + slowCount) / Math.max(totalCount - pausedCount, 1)) * 1000) / 10
       : 100.0;
 
-  const allTags = Array.from(new Set(allTargets.flatMap((t) => t.tags || []))) as string[];
+  const allTags = useMemo(
+    () => Array.from(new Set(allTargets.flatMap((t) => t.tags || []))) as string[],
+    [allTargets]
+  );
 
-  // Filtered & Sorted Targets
-  const filteredTargets = allTargets
-    .filter((t: MonitoringTarget) => {
-      const matchesSearch =
-        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.endpoint.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filtered & Sorted Targets (Memoized)
+  const filteredTargets = useMemo(() => {
+    return allTargets
+      .filter((t: MonitoringTarget) => {
+        const matchesSearch =
+          t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          t.endpoint.toLowerCase().includes(searchTerm.toLowerCase());
 
-      if (!matchesSearch) return false;
+        if (!matchesSearch) return false;
 
-      if (statusFilter === 'up') return t.last_status === 'up';
-      if (statusFilter === 'down') return t.last_status === 'down' || t.last_status === 'error';
-      if (statusFilter === 'slow') return t.last_status === 'slow';
-      if (statusFilter === 'disabled') return !t.enabled;
+        if (statusFilter === 'up') return t.last_status === 'up';
+        if (statusFilter === 'down') return t.last_status === 'down' || t.last_status === 'error';
+        if (statusFilter === 'slow') return t.last_status === 'slow';
+        if (statusFilter === 'disabled') return !t.enabled;
 
-      if (protocolFilter !== 'all' && t.target_type !== protocolFilter) return false;
-      if (selectedTag !== 'all' && (!t.tags || !t.tags.includes(selectedTag))) return false;
+        if (protocolFilter !== 'all' && t.target_type !== protocolFilter) return false;
+        if (selectedTag !== 'all' && (!t.tags || !t.tags.includes(selectedTag))) return false;
 
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortField === 'latency') {
-        const latA = a.last_latency ?? 999999;
-        const latB = b.last_latency ?? 999999;
-        return sortAsc ? latA - latB : latB - latA;
-      }
-      if (sortField === 'name') {
-        return sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-      }
-      if (sortField === 'status') {
-        const order: Record<string, number> = { down: 0, error: 0, slow: 1, up: 2, unknown: 3 };
-        const scoreA = a.enabled ? (order[a.last_status || 'unknown'] ?? 3) : 4;
-        const scoreB = b.enabled ? (order[b.last_status || 'unknown'] ?? 3) : 4;
-        return sortAsc ? scoreA - scoreB : scoreB - scoreA;
-      }
-      return 0;
-    });
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortField === 'latency') {
+          const latA = a.last_latency ?? 999999;
+          const latB = b.last_latency ?? 999999;
+          return sortAsc ? latA - latB : latB - latA;
+        }
+        if (sortField === 'name') {
+          return sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+        }
+        if (sortField === 'status') {
+          const order: Record<string, number> = { down: 0, error: 0, slow: 1, up: 2, unknown: 3 };
+          const scoreA = a.enabled ? (order[a.last_status || 'unknown'] ?? 3) : 4;
+          const scoreB = b.enabled ? (order[b.last_status || 'unknown'] ?? 3) : 4;
+          return sortAsc ? scoreA - scoreB : scoreB - scoreA;
+        }
+        return 0;
+      });
+  }, [allTargets, searchTerm, statusFilter, protocolFilter, selectedTag, sortField, sortAsc]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

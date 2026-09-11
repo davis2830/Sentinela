@@ -35,7 +35,7 @@ interface NOCPerformanceSectionProps {
   isLoading?: boolean;
 }
 
-export default function NOCPerformanceSection({
+function NOCPerformanceSection({
   timeRange,
   onTimeRangeChange,
   avgUptime,
@@ -203,3 +203,5 @@ export default function NOCPerformanceSection({
     </div>
   );
 }
+
+export default React.memo(NOCPerformanceSection);
