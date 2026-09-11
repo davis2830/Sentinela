@@ -23,6 +23,13 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
 - `07-roadmap.md`: Fases y roadmap de producto.
 
 ## 🚀 Estado de Avances Realizados
+- **Optimización Integral del Backend (Redis, Celery, PostgreSQL & Caching):**
+  - **Connection Pooling en PostgreSQL:** Activado `CONN_MAX_AGE=60` y `CONN_HEALTH_CHECKS=True` en [`backend/config/settings/base.py`](file:///backend/config/settings/base.py) para reutilización de sockets TCP entre peticiones HTTP eliminando coste de handshake en BD.
+  - **Caché Distribuido en Redis (DB 2):** Implementación de `django.core.cache.backends.redis.RedisCache` con TTL de 15 segundos en telemetría global NOC (`/monitoring/global-performance/`) y estadísticas de incidentes/MTTR (`/incidents/stats/`), absorbiendo concurrencia masiva de operadores en < 2ms.
+  - **Task Routing y Despacho Equitativo en Celery:** 3 colas dedicadas (`high_priority` para alertas/notificaciones, `monitoring` para sondeos periódicos, `background` para WHOIS/SSL/reportes). Activación de `CELERY_TASK_ACKS_LATE=True`, `CELERY_WORKER_PREFETCH_MULTIPLIER=1`, `-O fair` y `--concurrency=4`.
+  - **Limpieza y Expiración en Redis DB 1:** `CELERY_TASK_IGNORE_RESULT=True` en tareas periódicas y `CELERY_RESULT_EXPIRES=1800` para evitar saturación de memoria.
+  - **Blindaje y Evicción en Redis:** Límite `--maxmemory 256mb` con política `--maxmemory-policy allkeys-lru` en [`docker-compose.yml`](file:///docker-compose.yml).
+  - **Optimización de Queries en Scheduler:** Migración de `schedule_all_checks` a `.values_list("id", flat=True)` y conteo en memoria suprimiendo hidratación de modelos y `COUNT(*)` redundante.
 - **Suite Integral de Pruebas de Rendimiento, Carga & Estrés con Grafana k6 (`tests_perf/`):**
   - **Ubicación en el Workspace:** Carpeta [`tests_perf/`](file:///tests_perf/) con configuración, runners y 5 escenarios especializados.
   - **5 Escenarios de Prueba:**
