@@ -1,4 +1,4 @@
-from django.conf import settings
+﻿from django.conf import settings
 from django.db import models
 
 from common.models import BaseModel, OrganizationOwnedModel
@@ -100,7 +100,7 @@ class IncidentAlert(BaseModel):
         on_delete=models.CASCADE,
         related_name="incident_alerts",
     )
-    alert_id = models.UUIDField()
+    alert_id = models.UUIDField(db_index=True)
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

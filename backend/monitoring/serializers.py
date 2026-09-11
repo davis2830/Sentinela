@@ -101,7 +101,10 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
     agent_probe_name = serializers.CharField(source="agent_probe.name", read_only=True, allow_null=True)
 
     def get_recent_checks(self, obj):
-        checks = obj.checks.order_by("-checked_at")[:20]
+        if hasattr(obj, "prefetched_recent_checks"):
+            checks = obj.prefetched_recent_checks[:20]
+        else:
+            checks = obj.checks.order_by("-checked_at")[:20]
         return [
             {
                 "status": c.status,

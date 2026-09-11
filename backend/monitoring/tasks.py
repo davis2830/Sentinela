@@ -252,15 +252,17 @@ def schedule_all_checks():
     This task runs periodically via Celery Beat and dispatches
     individual check tasks for each enabled target.
     """
-    targets = MonitoringTarget.objects.filter(
-        enabled=True,
-        organization__status="active",
-        organization__subscription_status__in=["active", "trialing"],
+    target_ids = list(
+        MonitoringTarget.objects.filter(
+            enabled=True,
+            organization__status="active",
+            organization__subscription_status__in=["active", "trialing"],
+        ).values_list("id", flat=True)
     )
-    for target in targets:
-        run_monitoring_check.delay(str(target.id))
+    for tid in target_ids:
+        run_monitoring_check.delay(str(tid))
 
-    logger.info("Scheduled checks for %d targets.", targets.count())
+    logger.info("Scheduled checks for %d targets.", len(target_ids))
 
 
 @shared_task(name="monitoring.check_all")

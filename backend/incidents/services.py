@@ -18,8 +18,11 @@ class IncidentService:
 
     @staticmethod
     def list_incidents(organization_id, status_filter=None, priority_filter=None):
-        """Return incidents for an organization with optional filters."""
-        qs = Incident.objects.filter(organization_id=organization_id)
+        """Return incidents for an organization with N+1 annotations."""
+        from django.db.models import Count
+        qs = Incident.objects.filter(organization_id=organization_id).select_related("assigned_team").annotate(
+            alerts_count_annotated=Count("incident_alerts")
+        )
         if status_filter and status_filter != "all":
             qs = qs.filter(status=status_filter)
         if priority_filter and priority_filter != "all":
@@ -364,6 +367,12 @@ class IncidentService:
     @staticmethod
     def get_stats(organization_id):
         """Calculate real-time operational metrics and MTTR/MTTA for incidents."""
+        from django.core.cache import cache
+        cache_key = f"incidents_stats_{organization_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         qs = Incident.objects.filter(organization_id=organization_id)
         total = qs.count()
 
@@ -421,7 +430,7 @@ class IncidentService:
                     sla_met += 1
         sla_compliance_rate = round((sla_met / mttr_count * 100), 1) if mttr_count > 0 else 99.2
 
-        return {
+        result = {
             "total": total,
             "open_count": open_count,
             "in_progress_count": in_progress,
@@ -435,3 +444,5 @@ class IncidentService:
             "avg_mtta_minutes": avg_mtta_minutes,
             "sla_compliance_rate": sla_compliance_rate,
         }
+        cache.set(cache_key, result, timeout=15)
+        return result

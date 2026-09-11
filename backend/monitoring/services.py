@@ -15,9 +15,20 @@ class MonitoringService:
 
     @staticmethod
     def list_targets(organization_id):
-        """Return all monitoring targets for an organization."""
+        """Return all monitoring targets for an organization with TimescaleDB time-window prefetch."""
+        from django.db.models import Prefetch
+        from django.utils import timezone
+        from datetime import timedelta
+
+        since_1h = timezone.now() - timedelta(hours=1)
         return MonitoringTarget.objects.filter(
             organization_id=organization_id
+        ).select_related("owner_team", "agent_probe").prefetch_related(
+            Prefetch(
+                "checks",
+                queryset=MonitoringCheck.objects.filter(checked_at__gte=since_1h).order_by("-checked_at"),
+                to_attr="prefetched_recent_checks"
+            )
         ).order_by("-created_at")
 
     @staticmethod
@@ -404,6 +415,13 @@ class MonitoringService:
     @staticmethod
     def get_organization_global_performance(organization_id, period="24h"):
         """Calculate real aggregate timeseries metrics and breakdown per service for the NOC Dashboard."""
+        period = (period or "24h").strip().lower()
+        from django.core.cache import cache
+        cache_key = f"noc_perf_{organization_id}_{period}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         now = timezone.now()
         period = (period or "24h").strip().lower()
         if period == "1h":
@@ -529,7 +547,7 @@ class MonitoringService:
         rps = round(total_checks / period_seconds, 2)
         rps_str = f"{round(rps * 60)}/m" if rps < 1 else f"{rps:.1f} rps"
 
-        return {
+        result = {
             "period": period,
             "summary": {
                 "avg_uptime": global_avg_uptime,
@@ -546,6 +564,8 @@ class MonitoringService:
                 "dns": {"count": dns_valid, "total": dns_total, "avg_latency": dns_avg_lat},
             },
         }
+        cache.set(cache_key, result, timeout=15)
+        return result
 
 
 class AgentProbeService:
@@ -668,4 +688,4 @@ class AgentProbeService:
                 pass
 
             ingested += 1
-        return ingested
+        return ingested

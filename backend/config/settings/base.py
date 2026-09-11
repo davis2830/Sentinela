@@ -90,6 +90,22 @@ DATABASES = {
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "sentinel"),
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        "CONN_HEALTH_CHECKS": True,
+    }
+}
+
+# Caches (Distributed Redis DB 2)
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get(
+            "REDIS_CACHE_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
+        ),
+        "TIMEOUT": 300,
+        "KEY_PREFIX": "sentinel",
     }
 }
 
@@ -176,6 +192,26 @@ CELERY_IMPORTS = (
     "incidents.tasks",
     "reports.tasks",
 )
+
+# Celery Performance & Reliability
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_RESULT_EXPIRES = 1800
+
+# Celery Dedicated Task Queues
+CELERY_TASK_DEFAULT_QUEUE = "celery"
+CELERY_TASK_ROUTES = {
+    "alerts.*": {"queue": "high_priority"},
+    "notifications.*": {"queue": "high_priority"},
+    "monitoring.run_check": {"queue": "monitoring"},
+    "api_checks.*": {"queue": "monitoring"},
+    "ssl_monitor.*": {"queue": "background"},
+    "dns_monitor.*": {"queue": "background"},
+    "domain.*": {"queue": "background"},
+    "security_headers.*": {"queue": "background"},
+    "reports.*": {"queue": "background"},
+}
 
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {

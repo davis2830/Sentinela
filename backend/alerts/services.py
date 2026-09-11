@@ -352,8 +352,8 @@ class AlertService:
 
     @staticmethod
     def list_alerts(organization_id, status_filter=None, severity_filter=None):
-        """Return alerts for an organization with optional filters."""
-        qs = Alert.objects.filter(organization_id=organization_id)
+        """Return alerts for an organization with select_related on rule to eliminate N+1."""
+        qs = Alert.objects.filter(organization_id=organization_id).select_related("rule")
         if status_filter:
             qs = qs.filter(status=status_filter)
         if severity_filter:
