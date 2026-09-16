@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Security
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend,*").split(",") if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend").split(",") if h.strip()]
 if "[::1]" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append("[::1]")
 if "::1" not in ALLOWED_HOSTS:
@@ -250,8 +250,8 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = False
 
 # Blackbox Exporter
 BLACKBOX_EXPORTER_URL = os.environ.get("BLACKBOX_EXPORTER_URL", "http://blackbox_exporter:9115")

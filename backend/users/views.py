@@ -3,8 +3,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrgAdmin
+from accounts.models import User
 
-from .models import Team
+from .models import Role, Team
 from .serializers import (
     AssignRoleSerializer,
     PermissionSerializer,
@@ -26,7 +28,7 @@ class UserListView(APIView):
     POST /api/v1/users/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -82,7 +84,7 @@ class UserDetailView(APIView):
     DELETE /api/v1/users/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def get(self, request, user_id):
         org_id = request.user.organization_id
@@ -154,7 +156,7 @@ class UserRoleView(APIView):
     DELETE /api/v1/users/{id}/roles/{role_id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsOrgAdmin,)
 
     def post(self, request, user_id):
         serializer = AssignRoleSerializer(data=request.data)
@@ -166,8 +168,10 @@ class UserRoleView(APIView):
             )
 
         try:
-            UserService.assign_role(user_id, serializer.validated_data["role_id"])
+            UserService.assign_role(user_id, serializer.validated_data["role_id"], request.user.organization_id)
             return success_response({"detail": "Role assigned."})
+        except (User.DoesNotExist, Role.DoesNotExist):
+            return error_response("User or role not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
@@ -175,8 +179,10 @@ class UserRoleView(APIView):
 
     def delete(self, request, user_id, role_id):
         try:
-            UserService.remove_role(user_id, role_id)
+            UserService.remove_role(user_id, role_id, request.user.organization_id)
             return success_response({"detail": "Role removed."})
+        except (User.DoesNotExist, Role.DoesNotExist):
+            return error_response("User or role not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
@@ -190,7 +196,7 @@ class RoleListView(APIView):
     POST /api/v1/roles/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -233,7 +239,7 @@ class RoleDetailView(APIView):
     DELETE /api/v1/roles/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def get(self, request, role_id):
         org_id = request.user.organization_id

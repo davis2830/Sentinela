@@ -40,6 +40,12 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-True}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
+      SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-3600}
+      SECURE_HSTS_INCLUDE_SUBDOMAINS: ${SECURE_HSTS_INCLUDE_SUBDOMAINS:-false}
+      SECURE_HSTS_PRELOAD: ${SECURE_HSTS_PRELOAD:-false}
+      TRUST_X_FORWARDED_PROTO: ${TRUST_X_FORWARDED_PROTO:-false}
       TIME_ZONE: ${TIME_ZONE:-America/Guatemala}
       TZ: ${TZ:-America/Guatemala}
       POSTGRES_DB: ${POSTGRES_DB:-sentinel}
@@ -69,6 +75,7 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-True}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       TIME_ZONE: ${TIME_ZONE:-America/Guatemala}
       TZ: ${TZ:-America/Guatemala}
       POSTGRES_DB: ${POSTGRES_DB:-sentinel}
@@ -96,6 +103,7 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-True}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       TIME_ZONE: ${TIME_ZONE:-America/Guatemala}
       TZ: ${TZ:-America/Guatemala}
       POSTGRES_DB: ${POSTGRES_DB:-sentinel}
