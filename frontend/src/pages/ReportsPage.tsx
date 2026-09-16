@@ -246,19 +246,19 @@ export default function ReportsPage() {
         {/* KPI 2: MTTR (Tiempo de Reparación) */}
         <NOCKpiCard
           title="MTTR (Tiempo Reparación)"
-          icon={<Wrench size={16} className="text-sky-400" />}
+          icon={<Wrench size={16} className="text-accent-cyan" />}
           badge={{
             text: 'Eficiencia Operativa',
             variant: 'info',
           }}
           value={`${mttr}m`}
-          valueColor="text-sky-400"
+          valueColor="text-accent-cyan"
           valueSuffix="promedio"
           subtitle="Tiempo medio para contener y resolver caídas"
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Límite Tolerado</span>
-              <span className="text-sky-400 font-medium">&lt; 30 min</span>
+              <span className="text-accent-cyan font-medium">&lt; 30 min</span>
             </div>
           }
         />

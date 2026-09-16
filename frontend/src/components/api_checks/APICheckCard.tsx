@@ -177,7 +177,7 @@ export default function APICheckCard({
           <div className="flex justify-between font-sans">
             <span className="text-text-dim font-medium">Esquema:</span>
             {hasSchema ? (
-              <span className="inline-flex items-center gap-1 text-accent-blue font-mono font-medium text-[11px]">
+              <span className="inline-flex items-center gap-1 text-accent-purple font-mono font-medium text-[11px]">
                 <Code2 size={11} />
                 {Object.keys(target.expected_schema || {}).length} Campos
               </span>

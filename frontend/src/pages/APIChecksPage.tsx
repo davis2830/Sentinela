@@ -387,13 +387,13 @@ export default function APIChecksPage() {
         {/* KPI 2: Latencia de APIs */}
         <NOCKpiCard
           title="Velocidad de Respuesta"
-          icon={<Activity size={16} className="text-sky-400" />}
+          icon={<Activity size={16} className="text-accent-cyan" />}
           badge={{
             text: 'REST Benchmark',
             variant: 'info',
           }}
           value={stats?.avg_latency ? `${Math.round(stats.avg_latency)}ms` : '0ms'}
-          valueColor="text-sky-400"
+          valueColor="text-accent-cyan"
           valueSuffix="promedio"
           subtitle={`Calculado sobre ${totalCount} endpoints monitoreados`}
           footer={

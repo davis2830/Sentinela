@@ -640,13 +640,13 @@ export default function IncidentsPage() {
         {/* KPI 4: Tiempo Medio de Respuesta & MTTR */}
         <NOCKpiCard
           title="Respuesta Operativa"
-          icon={<Clock size={16} className="text-sky-400" />}
+          icon={<Clock size={16} className="text-accent-cyan" />}
           badge={{
             text: `SLA ${stats?.sla_compliance_rate ?? 99.2}%`,
             variant: (stats?.sla_compliance_rate ?? 100) >= 95 ? 'success' : 'warning',
           }}
           value={stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '< 15m'}
-          valueColor="text-sky-400"
+          valueColor="text-accent-cyan"
           valueSuffix="MTTR promedio"
           subtitle={
             stats?.avg_mtta_minutes
@@ -1260,7 +1260,7 @@ export default function IncidentsPage() {
                   <span className="text-text-dim block text-[11px] font-sans">
                     Reconocido (MTTA):
                   </span>
-                  <span className="text-sky-400 font-semibold mt-1 block">
+                  <span className="text-accent-cyan font-semibold mt-1 block">
                     {selectedIncident.acknowledged_at
                       ? new Date(selectedIncident.acknowledged_at).toLocaleString('es-ES')
                       : 'Pendiente de toma de posesión'}

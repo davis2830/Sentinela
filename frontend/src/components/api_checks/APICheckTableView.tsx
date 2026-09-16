@@ -199,7 +199,7 @@ export default function APICheckTableView({
                   {/* Schema validation badge */}
                   <td className="py-3 px-3">
                     {hasSchema ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-blue/10 text-accent-blue border border-accent-blue/30 font-mono">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30 font-mono">
                         <Code2 size={10} />
                         {Object.keys(target.expected_schema || {}).length} Campos
                       </span>

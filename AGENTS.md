@@ -109,30 +109,33 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - **Acciones en Lote Atómicas & Exportación CSV:** Endpoint `POST /api/v1/security-headers/bulk-action/` para escanear, pausar, reanudar o eliminar en masa, más exportación a CSV con codificación UTF-8 BOM.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
 
-## 🎨 Paleta Oficial de Colores (Design System Tokens)
+## 🎨 Paleta Oficial de Colores y Semántica Estricta (Design System Tokens)
+El sistema implementa un marco semántico estricto de observabilidad (NOC / SRE) para eliminar ambigüedades operativas:
+
 - **Fondos y Superficies:**
-  - `bg-dark` / `bg-main`: `#090D11` (Fondo base global ultra oscuro).
-  - `bg-card`: `#111720` (Contenedores elevados, tarjetas KPI, drawers y modales).
-  - `bg-card-hover`: `#17202C` (Hover sobre filas interactivas y botones secundarios).
+  - g-dark / g-main: #090D11 (Fondo base global ultra oscuro).
+  - g-card: #111720 (Contenedores elevados, tarjetas KPI, drawers y modales).
+  - g-card-hover: #17202C (Hover sobre filas interactivas y botones secundarios).
 - **Bordes y Delimitadores:**
-  - `border-base`: `#1E293B` (Borde sutil estándar).
-  - `border-accent`: `#263345` (Borde de contraste / elementos en foco).
+  - order-base: #1E293B (Borde sutil estándar).
+  - order-accent: #263345 (Borde de contraste / elementos en foco).
 - **Tipografía y Textos:**
-  - `text-main`: `#F8FAFC` (Blanco primario para títulos y métricas).
-  - `text-muted`: `#94A3B8` (Gris intermedio para descripciones y labels).
-  - `text-dim`: `#64748B` (Gris terciario para timestamps, metadatos y placeholders).
-- **Acentos Semánticos & Estados:**
-  - `accent-green`: `#10b981` (Online, Up, Pass, Valid, SLA óptimo) &bull; Fondo: `bg-accent-green/10`, Borde: `border-accent-green/30`.
-  - `accent-green-glow`: `#34d399` (Halo de radar pulsante en vivo).
-  - `accent-red`: `#EF4444` (Down, Fail, Invalid, Incidentes críticos) &bull; Fondo: `bg-accent-red/10`, Borde: `border-accent-red/30`.
-  - `accent-yellow`: `#F59E0B` (Advertencias, Lento, Por expirar <= 30d) &bull; Fondo: `bg-accent-yellow/10`, Borde: `border-accent-yellow/30`.
-  - `accent-blue`: `#3B82F6` (Informativo, telemetría de red, DNS) &bull; Fondo: `bg-accent-blue/10`, Borde: `border-accent-blue/30`.
-  - `accent-purple`: `#8B5CF6` (Roles, autenticación, API tokens) &bull; Fondo: `bg-accent-purple/10`, Borde: `border-accent-purple/30`.
+  - 	ext-main: #F8FAFC (Blanco primario para títulos y métricas).
+  - 	ext-muted: #94A3B8 (Gris intermedio para descripciones y labels).
+  - 	ext-dim: #64748B (Gris terciario para timestamps, metadatos y placeholders).
+- **Acentos Semánticos Estrictos:**
+  - 🟢 **ccent-green (#10b981): Healthy / Online / SLA Óptimo** &bull; Servidor UP, SLA >= 99.9%, test HTTP 200, certificados válidos (>30d). Fondo: g-accent-green/10, Borde: order-accent-green/30.
+  - 🟢 **ccent-green-glow (#34d399): Halo de radar pulsante en vivo**.
+  - 🟡 **ccent-yellow (#F59E0B): Warning / Degraded / Atención** &bull; Latencia alta (>umbral), SSL por expirar (<=30d), flapping detectado, incidente en mitigación. Fondo: g-accent-yellow/10, Borde: order-accent-yellow/30.
+  - 🔴 **ccent-red (#EF4444): Critical / Down / Falla Activa** &bull; Servidor DOWN, HTTP 5xx, incidentes críticos abiertos, certificados inválidos o expirados. Fondo: g-accent-red/10, Borde: order-accent-red/30.
+  - 🔵 **ccent-cyan (#06B6D4 / #22D3EE): Información / Telemetría / Métricas** &bull; Latencia en ms, gráficos de telemetría, throughput de peticiones/seg, consultas DNS, telemetría WHOIS. Fondo: g-accent-cyan/10, Borde: order-accent-cyan/30.
+  - 🟣 **ccent-purple (#8B5CF6): Funcionalidades Especiales / Automatización / Cripto** &bull; Webhooks, integraciones (Slack, Discord, Telegram), reglas de auto-remediación, llaves API y autenticación 2FA. Fondo: g-accent-purple/10, Borde: order-accent-purple/30.
+  - ⚪ **	ext-dim / order-base (#64748B): Neutral / Pausado / Desactivado** &bull; Servicios en mantenimiento, pausados, UUIDs y metadatos secundarios.
 - **Reglas Estéticas Estrictas:**
-  - Cero emojis (usar exclusivamente iconos vectoriales de `lucide-react`).
-  - Cero mayúsculas sostenidas (`uppercase`).
-  - Contenedores `rounded-2xl`, modales `rounded-2xl`/`rounded-3xl` y badges en cápsula `rounded-full`.
-  - Tipografía `Outfit` para textos y `JetBrains Mono` solo para datos numéricos/técnicos.
+  - Cero emojis en componentes de interfaz (usar exclusivamente iconos vectoriales de lucide-react).
+  - Cero mayúsculas sostenidas (uppercase).
+  - Contenedores rounded-2xl, modales rounded-2xl/rounded-3xl y badges en cápsula rounded-full.
+  - Tipografía Outfit para textos y JetBrains Mono solo para datos numéricos/técnicos.
 
 ## 🧩 Arquitectura Frontend: Sentinel NOC Layout Toolkit (`frontend/src/components/common/noc/`)
 Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experiencia unificada en toda la plataforma, todas las vistas operativas deben implementar los siguientes componentes centrales:

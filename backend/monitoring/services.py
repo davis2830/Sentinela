@@ -453,20 +453,34 @@ class MonitoringService:
 
         start_epoch = int(since.timestamp() // slot_seconds * slot_seconds)
         end_epoch = int(now.timestamp())
+        # Evitar crear puntos en el futuro (<= end_epoch)
+        bucket_epochs = list(range(start_epoch, end_epoch + 1, slot_seconds))
+        if not bucket_epochs:
+            bucket_epochs = [start_epoch]
+        elif bucket_epochs[-1] < end_epoch - (slot_seconds // 3):
+            bucket_epochs.append(end_epoch)
+
         buckets = {
             ep: {"lats": [], "up": 0, "down": 0}
-            for ep in range(start_epoch, end_epoch + slot_seconds, slot_seconds)
+            for ep in bucket_epochs
         }
 
         for chk in checks_qs:
             ep = int(chk["checked_at"].timestamp() // slot_seconds * slot_seconds)
+            # Asignar al bucket más cercano si ep no está directamente
             if ep in buckets:
-                if chk["latency"] is not None:
-                    buckets[ep]["lats"].append(chk["latency"])
-                if chk["status"] in ("up",):
-                    buckets[ep]["up"] += 1
-                else:
-                    buckets[ep]["down"] += 1
+                target_ep = ep
+            else:
+                # Buscar bucket correspondiente
+                candidates = [b for b in bucket_epochs if b <= ep]
+                target_ep = candidates[-1] if candidates else bucket_epochs[0]
+            
+            if chk["latency"] is not None:
+                buckets[target_ep]["lats"].append(chk["latency"])
+            if chk["status"] in ("up",):
+                buckets[target_ep]["up"] += 1
+            else:
+                buckets[target_ep]["down"] += 1
 
         import datetime as dt_mod
         points = []
@@ -490,6 +504,7 @@ class MonitoringService:
 
             uptime = round((b["up"] / t) * 100, 2) if t > 0 else 100.0
             points.append({
+                "timestamp": ep * 1000,
                 "time": dt.strftime(label_fmt),
                 "uptime": uptime,
                 "latency": avg_l,
@@ -519,15 +534,15 @@ class MonitoringService:
         api_lats = [t.last_response_time_ms for t in api_targets if t.last_response_time_ms is not None]
         api_avg_lat = round(sum(api_lats) / len(api_lats)) if api_lats else 0
 
-        # 3. Database / TCP
-        db_targets = MonitoringTarget.objects.filter(
+        # 3. Network Sockets & Puertos TCP
+        tcp_targets = MonitoringTarget.objects.filter(
             organization_id=organization_id,
             target_type__in=["tcp", "db"]
         )
-        db_total = db_targets.count()
-        db_up = db_targets.filter(last_status="up").count()
-        db_lats = [t.last_latency for t in db_targets if t.last_latency is not None]
-        db_avg_lat = round(sum(db_lats) / len(db_lats)) if db_lats else 0
+        tcp_total = tcp_targets.count()
+        tcp_up = tcp_targets.filter(last_status="up").count()
+        tcp_lats = [t.last_latency for t in tcp_targets if t.last_latency is not None]
+        tcp_avg_lat = round(sum(tcp_lats) / len(tcp_lats)) if tcp_lats else 0
 
         # 4. SSL Certificates
         from ssl_monitor.models import SSLCertificate
@@ -559,7 +574,8 @@ class MonitoringService:
             "services": {
                 "web": {"count": web_up, "total": web_total, "avg_latency": web_avg_lat},
                 "api": {"count": api_up, "total": api_total, "avg_latency": api_avg_lat},
-                "db": {"count": db_up, "total": db_total, "avg_latency": db_avg_lat},
+                "tcp": {"count": tcp_up, "total": tcp_total, "avg_latency": tcp_avg_lat},
+                "db": {"count": tcp_up, "total": tcp_total, "avg_latency": tcp_avg_lat},
                 "ssl": {"count": ssl_valid, "total": ssl_total, "avg_latency": 0},
                 "dns": {"count": dns_valid, "total": dns_total, "avg_latency": dns_avg_lat},
             },

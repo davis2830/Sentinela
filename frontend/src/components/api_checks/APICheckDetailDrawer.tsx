@@ -138,7 +138,7 @@ export default function APICheckDetailDrawer({
       </div>
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
         <div className="text-[11px] text-text-dim">Frecuencia</div>
-        <div className="text-sm font-semibold font-mono text-accent-blue mt-0.5">
+        <div className="text-sm font-semibold font-mono text-accent-cyan mt-0.5">
           Cada {target.check_interval || 60}s
         </div>
       </div>
@@ -193,7 +193,7 @@ export default function APICheckDetailDrawer({
       title={target.name}
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-full text-[11px] font-bold font-mono">
+          <span className="px-2.5 py-0.5 bg-accent-purple/10 text-accent-purple border border-accent-purple/30 rounded-full text-[11px] font-bold font-mono">
             {target.method}
           </span>
           <span className="truncate">{target.url}</span>

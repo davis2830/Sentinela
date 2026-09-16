@@ -663,13 +663,13 @@ export default function AlertsPage() {
         {/* KPI 4: MTTR Promedio */}
         <NOCKpiCard
           title="MTTR Promedio"
-          icon={<Clock size={16} className="text-sky-400" />}
+          icon={<Clock size={16} className="text-accent-cyan" />}
           badge={{
             text: 'SLA Resolución',
             variant: 'info',
           }}
           value={stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '0m'}
-          valueColor="text-sky-400"
+          valueColor="text-accent-cyan"
           valueSuffix="tiempo medio"
           subtitle="Calculado desde disparo inicial a resolución"
           footer={

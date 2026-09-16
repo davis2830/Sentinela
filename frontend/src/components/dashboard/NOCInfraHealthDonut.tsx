@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sliders, ChevronRight } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 interface NOCInfraHealthDonutProps {
   total: number;
@@ -8,6 +9,13 @@ interface NOCInfraHealthDonutProps {
   degraded: number;
   down: number;
   healthScore: number;
+}
+
+interface DonutSlice {
+  name: string;
+  value: number;
+  color: string;
+  pct: number;
 }
 
 function NOCInfraHealthDonut({
@@ -19,26 +27,48 @@ function NOCInfraHealthDonut({
 }: NOCInfraHealthDonutProps) {
   const navigate = useNavigate();
 
-  // SVG Donut slice stroke calculations
-  const size = 160;
-  const strokeWidth = 18;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-
-  // Segment proportions
   const safeTotal = total > 0 ? total : 1;
-  const onlinePct = online / safeTotal;
-  const degradedPct = degraded / safeTotal;
-  const downPct = down / safeTotal;
 
-  const onlineLength = onlinePct * circumference;
-  const degradedLength = degradedPct * circumference;
-  const downLength = downPct * circumference;
+  // Prepare chart segments
+  const chartData = useMemo<DonutSlice[]>(() => {
+    const data: DonutSlice[] = [];
+    if (online > 0) {
+      data.push({
+        name: 'Online',
+        value: online,
+        color: '#10b981',
+        pct: Math.round((online / safeTotal) * 1000) / 10,
+      });
+    }
+    if (degraded > 0) {
+      data.push({
+        name: 'Degradados',
+        value: degraded,
+        color: '#f59e0b',
+        pct: Math.round((degraded / safeTotal) * 1000) / 10,
+      });
+    }
+    if (down > 0) {
+      data.push({
+        name: 'Caídos',
+        value: down,
+        color: '#ef4444',
+        pct: Math.round((down / safeTotal) * 1000) / 10,
+      });
+    }
+    // Fallback if no services registered
+    if (data.length === 0) {
+      data.push({
+        name: 'Sin datos',
+        value: 1,
+        color: '#1e293b',
+        pct: 100,
+      });
+    }
+    return data;
+  }, [online, degraded, down, safeTotal]);
 
-  // Stroke dash offsets
-  const onlineOffset = 0;
-  const degradedOffset = -onlineLength;
-  const downOffset = -(onlineLength + degradedLength);
+  const activeSlicesCount = chartData.filter((d) => d.name !== 'Sin datos').length;
 
   return (
     <div className="bg-bg-card border border-border-base rounded-2xl p-5 md:p-6 shadow-sm flex flex-col justify-between h-full">
@@ -62,71 +92,59 @@ function NOCInfraHealthDonut({
 
       {/* Donut Chart and Breakdown */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-6 my-auto flex-1 py-2">
-        {/* SVG Donut */}
-        <div className="relative shrink-0 flex items-center justify-center">
-          <svg className="w-36 h-36 -rotate-90" viewBox={`0 0 ${size} ${size}`}>
-            {/* Background empty track */}
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              stroke="#1e293b"
-              strokeWidth={strokeWidth}
-              fill="transparent"
-            />
-            {/* Online Segment */}
-            {online > 0 && (
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke="#10b981"
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${onlineLength} ${circumference}`}
-                strokeDashoffset={onlineOffset}
-                strokeLinecap="round"
-                fill="transparent"
-                className="transition-all duration-700"
+        {/* Recharts Pie Donut with Central Absolute Counter */}
+        <div className="relative shrink-0 w-36 h-36 flex items-center justify-center">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={46}
+                outerRadius={64}
+                paddingAngle={activeSlicesCount > 1 ? 4 : 0}
+                cornerRadius={activeSlicesCount > 1 ? 4 : 0}
+                dataKey="value"
+                stroke="#111720"
+                strokeWidth={activeSlicesCount > 1 ? 2 : 0}
+                isAnimationActive={true}
+                animationDuration={800}
+              >
+                {chartData.map((entry) => (
+                  <Cell key={`slice-${entry.name}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload as DonutSlice;
+                    if (data.name === 'Sin datos') return null;
+                    return (
+                      <div className="bg-bg-dark/95 backdrop-blur-md border border-border-base rounded-xl px-3 py-1.5 shadow-xl text-xs">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: data.color }}
+                          />
+                          <span className="font-semibold text-text-main">{data.name}:</span>
+                          <span className="font-mono font-bold text-text-main">{data.value}</span>
+                          <span className="text-[10px] text-text-dim">({data.pct}%)</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
-            )}
-            {/* Degraded Segment */}
-            {degraded > 0 && (
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke="#f59e0b"
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${degradedLength} ${circumference}`}
-                strokeDashoffset={degradedOffset}
-                strokeLinecap="round"
-                fill="transparent"
-                className="transition-all duration-700"
-              />
-            )}
-            {/* Down Segment */}
-            {down > 0 && (
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke="#ef4444"
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${downLength} ${circumference}`}
-                strokeDashoffset={downOffset}
-                strokeLinecap="round"
-                fill="transparent"
-                className="transition-all duration-700"
-              />
-            )}
-          </svg>
+            </PieChart>
+          </ResponsiveContainer>
 
-          {/* Center Info Text */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold font-mono text-text-main tracking-tight">
+          {/* Central Info Badge */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+            <span className="text-2xl font-bold font-mono text-text-main tracking-tight leading-none">
               {total}
             </span>
-            <span className="text-[10px] font-semibold text-text-dim tracking-wider uppercase">
+            <span className="text-[10px] font-semibold text-text-dim tracking-wider uppercase mt-1">
               Total
             </span>
           </div>

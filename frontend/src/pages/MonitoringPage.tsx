@@ -386,14 +386,14 @@ export default function MonitoringPage() {
         <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <Activity size={16} className="text-sky-400" /> Latencia Promedio
+              <Activity size={16} className="text-accent-cyan" /> Latencia Promedio
             </span>
-            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
               Red Global
             </span>
           </div>
           <div className="my-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold font-mono text-sky-400 tracking-tight">{avgLatency}ms</span>
+            <span className="text-3xl font-extrabold font-mono text-accent-cyan tracking-tight">{avgLatency}ms</span>
             <span className="text-xs text-text-dim">tiempo respuesta</span>
           </div>
           <p className="text-[11px] text-text-muted truncate">

@@ -12,7 +12,8 @@ export interface NOCServicesBarProps {
   services: {
     web: ServiceCategoryMetric;
     api: ServiceCategoryMetric;
-    db: ServiceCategoryMetric;
+    tcp?: ServiceCategoryMetric;
+    db?: ServiceCategoryMetric;
     ssl: ServiceCategoryMetric;
     dns: ServiceCategoryMetric;
   };
@@ -65,14 +66,14 @@ function NOCServicesBar({ services }: NOCServicesBarProps) {
       hint: 'Checks sintéticos de API',
     },
     {
-      id: 'db',
-      name: 'Base de Datos',
-      count: services.db.count,
-      total: services.db.total,
-      latency: services.db.avg_latency ? `${services.db.avg_latency}ms` : null,
-      icon: Database,
+      id: 'tcp',
+      name: 'Red / TCP',
+      count: services.tcp?.count ?? services.db?.count ?? 0,
+      total: services.tcp?.total ?? services.db?.total ?? 0,
+      latency: (services.tcp?.avg_latency || services.db?.avg_latency) ? `${services.tcp?.avg_latency || services.db?.avg_latency}ms` : null,
+      icon: Network,
       color: '#10b981',
-      iconBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      iconBg: 'bg-accent-green/10 text-accent-green border-accent-green/20',
       path: '/monitoring',
       hint: 'Sockets y puertos TCP',
     },
