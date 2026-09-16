@@ -3,47 +3,37 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
 } from 'recharts';
-import {
-  TrendingUp,
-  Globe,
-  Code2,
-  Database,
-  Lock,
-  Network,
-  ArrowUpRight,
-  ArrowDownRight,
-} from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 export interface TelemetryPoint {
   timestamp?: number;
   time: string;
-  uptime: number;
-  latency: number;
-  requests: number;
+  uptime: number | null;
+  latency: number | null;
+  checks: number;
+  checks_per_minute: number;
 }
 
 interface NOCPerformanceSectionProps {
   timeRange: '1h' | '6h' | '24h' | '7d';
-  onTimeRangeChange: (range: '1h' | '6h' | '24h' | '7d') => void;
-  avgUptime: number;
-  avgLatencyMs: number;
-  estimatedRps: string;
+  checksPerMinute: number | null;
   historicalData?: TelemetryPoint[];
   isLoading?: boolean;
+  isError?: boolean;
 }
 
 function NOCPerformanceSection({
   timeRange,
-  onTimeRangeChange,
-  avgUptime,
-  avgLatencyMs,
-  estimatedRps,
+  checksPerMinute,
   historicalData,
   isLoading,
+  isError,
 }: NOCPerformanceSectionProps) {
   const formattedData = useMemo(() => {
     return (historicalData || []).map((pt, idx) => {
@@ -82,6 +72,9 @@ function NOCPerformanceSection({
       };
     });
   }, [historicalData, timeRange]);
+  const hasChecks = formattedData.some((point) => point.checks > 0);
+  const measuredUptime = formattedData.map((point) => point.uptime).filter((value): value is number => value !== null);
+  const minUptime = measuredUptime.length ? Math.max(0, Math.floor(Math.min(...measuredUptime) - 1)) : 0;
 
   return (
     <div className="bg-bg-card border border-border-base rounded-2xl p-5 md:p-6 shadow-sm flex flex-col justify-between h-full">
@@ -108,29 +101,12 @@ function NOCPerformanceSection({
           </div>
         </div>
 
-        {/* Time Selector Pills */}
-        <div className="flex items-center bg-bg-dark border border-border-base rounded-xl p-1 gap-1 self-start sm:self-auto">
-          {(['1h', '6h', '24h', '7d'] as const).map((range) => (
-            <button
-              key={range}
-              type="button"
-              onClick={() => onTimeRangeChange(range)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                timeRange === range
-                  ? 'bg-accent-green/20 text-accent-green border border-accent-green/40 shadow-sm'
-                  : 'text-text-dim hover:text-text-main hover:bg-white/5'
-              }`}
-            >
-              {range}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Main Chart Area with Right Metric Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center flex-1">
-        {/* Recharts Area Chart */}
-        <div className="lg:col-span-3 h-56 sm:h-64 w-full relative">
+      {/* Main Chart Area */}
+      <div className="min-w-0 flex-1">
+        <div className="min-w-0">
+          <div className="h-56 sm:h-64 w-full relative">
           {isLoading && (
             <div className="absolute inset-0 bg-bg-card/70 backdrop-blur-xs flex items-center justify-center z-10 rounded-xl">
               <div className="flex items-center gap-2 text-xs text-accent-green font-mono">
@@ -139,6 +115,7 @@ function NOCPerformanceSection({
               </div>
             </div>
           )}
+          {!isLoading && (isError || !hasChecks) && <div className="absolute inset-0 flex items-center justify-center text-xs text-text-dim z-10">{isError ? 'No se pudo cargar la telemetría' : 'Sin checks en este período'}</div>}
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={formattedData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
               <defs>
@@ -160,12 +137,15 @@ function NOCPerformanceSection({
                 minTickGap={28}
               />
               <YAxis
+                yAxisId="uptime"
                 stroke="#64748b"
                 fontSize={11}
                 tickLine={false}
                 axisLine={{ stroke: '#1e293b' }}
-                domain={['dataMin - 5', 'auto']}
+                domain={[minUptime, 100]}
+                tickFormatter={(value) => `${value}%`}
               />
+              <YAxis yAxisId="latency" orientation="right" stroke="#06b6d4" fontSize={11} tickLine={false} axisLine={false} unit=" ms" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#111720',
@@ -187,6 +167,7 @@ function NOCPerformanceSection({
                 ]}
               />
               <Area
+                yAxisId="uptime"
                 type="monotone"
                 dataKey="uptime"
                 name="Disponibilidad (%)"
@@ -196,8 +177,10 @@ function NOCPerformanceSection({
                 fill="url(#colorUptime)"
                 activeDot={{ r: 5, fill: '#10b981', stroke: '#090D11', strokeWidth: 2 }}
                 isAnimationActive={false}
+                connectNulls={false}
               />
               <Area
+                yAxisId="latency"
                 type="monotone"
                 dataKey="latency"
                 name="Latencia (ms)"
@@ -207,47 +190,33 @@ function NOCPerformanceSection({
                 fill="url(#colorLatency)"
                 activeDot={{ r: 4, fill: '#06b6d4', stroke: '#090D11', strokeWidth: 2 }}
                 isAnimationActive={false}
+                connectNulls={false}
               />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
-
-        {/* Right Metric Summary Strip */}
-        <div className="lg:col-span-1 space-y-4 bg-bg-dark/50 border border-border-base/60 rounded-xl p-4">
-          <div>
-            <span className="text-[11px] text-text-dim block">Uptime</span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl font-bold font-mono text-text-main">
-                {avgUptime.toFixed(2)}%
-              </span>
-              <span className="text-[10px] font-semibold text-accent-green flex items-center">
-                <ArrowUpRight size={11} /> +0.02%
-              </span>
-            </div>
           </div>
-
-          <div className="pt-2 border-t border-border-base/40">
-            <span className="text-[11px] text-text-dim block">Latencia promedio</span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl font-bold font-mono text-text-main">
-                {avgLatencyMs} <span className="text-xs font-normal text-text-dim">ms</span>
-              </span>
-              <span className="text-[10px] font-semibold text-accent-green flex items-center">
-                <ArrowDownRight size={11} /> -18ms
-              </span>
+          <div className="mt-3 rounded-xl border border-border-base/60 bg-bg-dark/40 px-3 py-2">
+            <div className="flex items-center justify-between text-[11px] mb-1">
+              <span className="flex items-center gap-1.5 text-text-muted"><span className="h-2 w-2 rounded-full bg-accent-purple" />Checks por minuto</span>
+              <span className="font-mono text-accent-purple">{checksPerMinute === null ? 'Sin datos' : `${checksPerMinute} promedio`}</span>
             </div>
-          </div>
-
-          <div className="pt-2 border-t border-border-base/40">
-            <span className="text-[11px] text-text-dim block">Solicitudes</span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl font-bold font-mono text-text-main">{estimatedRps}</span>
-              <span className="text-[10px] font-semibold text-accent-green flex items-center">
-                <ArrowUpRight size={11} /> en vivo
-              </span>
+            <div className="h-16 w-full" role="img" aria-label="Historial de checks por minuto">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={formattedData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <YAxis domain={[0, 'dataMax + 1']} width={27} tickLine={false} axisLine={false} fontSize={10} stroke="#a78bfa" allowDecimals={false} />
+                  <Tooltip
+                    cursor={{ fill: '#8b5cf620' }}
+                    contentStyle={{ backgroundColor: '#111720', borderColor: '#263345', borderRadius: '0.75rem', color: '#f8fafc', fontSize: 11 }}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDateStr || ''}
+                    formatter={(value: any, _name: any, item: any) => [`${value} checks/min (${item.payload.checks} en el intervalo)`, 'Sondeos']}
+                  />
+                  <Bar dataKey="checks_per_minute" fill="#8b5cf6" radius={[2, 2, 0, 0]} maxBarSize={18} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

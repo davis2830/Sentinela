@@ -449,23 +449,22 @@ class MonitoringService:
         checks_qs = MonitoringCheck.objects.filter(
             target__organization_id=organization_id,
             checked_at__gte=since
-        ).values("checked_at", "latency", "status")
+        ).values("checked_at", "latency", "status").order_by()
 
         start_epoch = int(since.timestamp() // slot_seconds * slot_seconds)
         end_epoch = int(now.timestamp())
-        # Evitar crear puntos en el futuro (<= end_epoch)
+        # The last aligned bucket already covers "now"; an extra point at end_epoch
+        # would be empty and make the series appear to drop to zero.
         bucket_epochs = list(range(start_epoch, end_epoch + 1, slot_seconds))
         if not bucket_epochs:
             bucket_epochs = [start_epoch]
-        elif bucket_epochs[-1] < end_epoch - (slot_seconds // 3):
-            bucket_epochs.append(end_epoch)
 
         buckets = {
-            ep: {"lats": [], "up": 0, "down": 0}
+            ep: {"latency_sum": 0, "latency_count": 0, "up": 0, "down": 0}
             for ep in bucket_epochs
         }
 
-        for chk in checks_qs:
+        for chk in checks_qs.iterator(chunk_size=2000):
             ep = int(chk["checked_at"].timestamp() // slot_seconds * slot_seconds)
             # Asignar al bucket más cercano si ep no está directamente
             if ep in buckets:
@@ -476,7 +475,8 @@ class MonitoringService:
                 target_ep = candidates[-1] if candidates else bucket_epochs[0]
             
             if chk["latency"] is not None:
-                buckets[target_ep]["lats"].append(chk["latency"])
+                buckets[target_ep]["latency_sum"] += chk["latency"]
+                buckets[target_ep]["latency_count"] += 1
             if chk["status"] in ("up",):
                 buckets[target_ep]["up"] += 1
             else:
@@ -484,36 +484,33 @@ class MonitoringService:
 
         import datetime as dt_mod
         points = []
-        last_valid_latency = 0
-        all_latencies = []
+        total_latency = 0
+        latency_count = 0
         total_up = 0
         total_down = 0
 
         for ep, b in sorted(buckets.items()):
             dt = dt_mod.datetime.fromtimestamp(ep, tz=dt_mod.timezone.utc)
-            lats = b["lats"]
             t = b["up"] + b["down"]
             total_up += b["up"]
             total_down += b["down"]
-            if lats:
-                avg_l = round(sum(lats) / len(lats), 1)
-                last_valid_latency = avg_l
-                all_latencies.extend(lats)
-            else:
-                avg_l = last_valid_latency
-
-            uptime = round((b["up"] / t) * 100, 2) if t > 0 else 100.0
+            total_latency += b["latency_sum"]
+            latency_count += b["latency_count"]
+            avg_l = round(b["latency_sum"] / b["latency_count"], 1) if b["latency_count"] else None
+            uptime = round((b["up"] / t) * 100, 2) if t > 0 else None
+            observed_seconds = max(1, min(end_epoch, ep + slot_seconds) - max(int(since.timestamp()), ep))
             points.append({
                 "timestamp": ep * 1000,
                 "time": dt.strftime(label_fmt),
                 "uptime": uptime,
                 "latency": avg_l,
-                "requests": t,
+                "checks": t,
+                "checks_per_minute": round(t * 60 / observed_seconds, 1),
             })
 
         total_checks = total_up + total_down
-        global_avg_uptime = round((total_up / total_checks * 100), 2) if total_checks > 0 else 100.0
-        global_avg_latency = round(sum(all_latencies) / len(all_latencies)) if all_latencies else 0
+        global_avg_uptime = round((total_up / total_checks * 100), 2) if total_checks > 0 else None
+        global_avg_latency = round(total_latency / latency_count) if latency_count else None
 
         # Subservices real data
         # 1. Web targets (HTTP/HTTPS)
@@ -522,7 +519,7 @@ class MonitoringService:
             target_type__in=["http", "https"]
         )
         web_total = web_targets.count()
-        web_up = web_targets.filter(last_status="up").count()
+        web_up = web_targets.filter(enabled=True, last_status="up").count()
         web_lats = [t.last_latency for t in web_targets if t.last_latency is not None]
         web_avg_lat = round(sum(web_lats) / len(web_lats)) if web_lats else 0
 
@@ -530,7 +527,7 @@ class MonitoringService:
         from api_checks.models import APICheckTarget
         api_targets = APICheckTarget.objects.filter(organization_id=organization_id)
         api_total = api_targets.count()
-        api_up = api_targets.filter(last_status="pass").count()
+        api_up = api_targets.filter(enabled=True, last_status="pass").count()
         api_lats = [t.last_response_time_ms for t in api_targets if t.last_response_time_ms is not None]
         api_avg_lat = round(sum(api_lats) / len(api_lats)) if api_lats else 0
 
@@ -540,7 +537,7 @@ class MonitoringService:
             target_type__in=["tcp", "db"]
         )
         tcp_total = tcp_targets.count()
-        tcp_up = tcp_targets.filter(last_status="up").count()
+        tcp_up = tcp_targets.filter(enabled=True, last_status="up").count()
         tcp_lats = [t.last_latency for t in tcp_targets if t.last_latency is not None]
         tcp_avg_lat = round(sum(tcp_lats) / len(tcp_lats)) if tcp_lats else 0
 
@@ -559,23 +556,21 @@ class MonitoringService:
         dns_avg_lat = round(sum(dns_lats) / len(dns_lats)) if dns_lats else 0
 
         period_seconds = max(1, int((now - since).total_seconds()))
-        rps = round(total_checks / period_seconds, 2)
-        rps_str = f"{round(rps * 60)}/m" if rps < 1 else f"{rps:.1f} rps"
+        checks_per_minute = round(total_checks * 60 / period_seconds, 1)
 
         result = {
             "period": period,
             "summary": {
                 "avg_uptime": global_avg_uptime,
                 "avg_latency": global_avg_latency,
-                "total_requests": total_checks,
-                "estimated_rps": rps_str,
+                "total_checks": total_checks,
+                "checks_per_minute": checks_per_minute,
             },
             "points": points,
             "services": {
                 "web": {"count": web_up, "total": web_total, "avg_latency": web_avg_lat},
                 "api": {"count": api_up, "total": api_total, "avg_latency": api_avg_lat},
                 "tcp": {"count": tcp_up, "total": tcp_total, "avg_latency": tcp_avg_lat},
-                "db": {"count": tcp_up, "total": tcp_total, "avg_latency": tcp_avg_lat},
                 "ssl": {"count": ssl_valid, "total": ssl_total, "avg_latency": 0},
                 "dns": {"count": dns_valid, "total": dns_total, "avg_latency": dns_avg_lat},
             },

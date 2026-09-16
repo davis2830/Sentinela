@@ -17,6 +17,7 @@ interface UnifiedAlertItem {
   severity: 'critical' | 'warning' | 'info';
   status: 'open' | 'investigating' | 'mitigated' | 'resolved';
   timestamp: string;
+  occurredAt: number;
   rawIncident?: Incident;
   rawAlert?: Alert;
 }
@@ -25,17 +26,21 @@ interface NOCLiveAlertsListProps {
   incidents: Incident[];
   alerts: Alert[];
   onInspectItem: (item: { type: 'incident' | 'alert'; data: Incident | Alert }) => void;
+  isUnavailable?: boolean;
+  isLoading?: boolean;
 }
 
 function NOCLiveAlertsList({
   incidents,
   alerts,
   onInspectItem,
+  isUnavailable = false,
+  isLoading = false,
 }: NOCLiveAlertsListProps) {
   const navigate = useNavigate();
 
   // Unified items list combining active incidents and recent alerts
-  const items: UnifiedAlertItem[] = useMemo(() => [
+  const items: UnifiedAlertItem[] = useMemo(() => ([
     ...incidents.map((inc) => ({
       id: `inc-${inc.id}`,
       title: inc.title,
@@ -56,6 +61,7 @@ function NOCLiveAlertsList({
         hour: '2-digit',
         minute: '2-digit',
       }),
+      occurredAt: new Date(inc.opened_at || inc.created_at).getTime(),
       rawIncident: inc,
     })),
     ...alerts.map((al) => ({
@@ -72,13 +78,14 @@ function NOCLiveAlertsList({
         : al.status === 'acknowledged'
         ? 'investigating'
         : 'open') as UnifiedAlertItem['status'],
-      timestamp: new Date(al.created_at).toLocaleTimeString('es-ES', {
+      timestamp: new Date(al.triggered_at || al.created_at).toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit',
       }),
+      occurredAt: new Date(al.triggered_at || al.created_at).getTime(),
       rawAlert: al,
     })),
-  ], [incidents, alerts]);
+  ].sort((a, b) => b.occurredAt - a.occurredAt)), [incidents, alerts]);
 
   const totalActive = useMemo(() => items.filter((i) => i.status !== 'resolved').length, [items]);
 
@@ -137,31 +144,31 @@ function NOCLiveAlertsList({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/alerts')}
-          className="text-xs text-text-muted hover:text-accent-red flex items-center gap-1 transition-colors cursor-pointer"
-        >
-          <span>Ver todos</span>
-          <ChevronRight size={13} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => navigate('/incidents')} className="text-xs text-text-muted hover:text-accent-red">Incidentes</button>
+          <button type="button" onClick={() => navigate('/alerts')} className="text-xs text-text-muted hover:text-accent-red flex items-center gap-1">
+            Alertas <ChevronRight size={13} />
+          </button>
+        </div>
       </div>
 
       {/* List Feed */}
+      {isUnavailable && <p className="mb-3 rounded-lg border border-accent-red/30 bg-accent-red/10 px-3 py-2 text-xs text-accent-red">No se pudieron actualizar todas las alertas e incidentes.</p>}
       <div className="space-y-2.5">
         {items.length === 0 ? (
           <div className="py-8 text-center text-xs text-text-dim">
-            Sin alarmas ni incidentes registrados en el periodo.
+            {isLoading ? 'Cargando alertas e incidentes…' : isUnavailable ? 'Estado actual no disponible.' : 'Sin alertas ni incidentes activos.'}
           </div>
         ) : (
           items.slice(0, 5).map((item) => (
-            <div
+            <button
               key={item.id}
+              type="button"
               onClick={() => {
                 if (item.rawIncident) onInspectItem({ type: 'incident', data: item.rawIncident });
                 else if (item.rawAlert) onInspectItem({ type: 'alert', data: item.rawAlert });
               }}
-              className="flex items-center justify-between p-3 rounded-xl bg-bg-dark/50 hover:bg-bg-dark border border-border-base/50 hover:border-border-accent transition-colors gap-3 cursor-pointer group"
+              className="flex items-center justify-between p-3 rounded-xl bg-bg-dark/50 hover:bg-bg-dark border border-border-base/50 hover:border-border-accent transition-colors gap-3 cursor-pointer group w-full text-left"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
@@ -194,7 +201,7 @@ function NOCLiveAlertsList({
               </div>
 
               <div className="shrink-0">{getStatusBadge(item.status)}</div>
-            </div>
+            </button>
           ))
         )}
       </div>

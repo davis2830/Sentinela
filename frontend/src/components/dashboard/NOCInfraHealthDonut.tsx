@@ -8,7 +8,10 @@ interface NOCInfraHealthDonutProps {
   online: number;
   degraded: number;
   down: number;
-  healthScore: number;
+  unknown: number;
+  healthScore: number | null;
+  dataUnavailable: boolean;
+  isLoading: boolean;
 }
 
 interface DonutSlice {
@@ -23,7 +26,10 @@ function NOCInfraHealthDonut({
   online,
   degraded,
   down,
+  unknown,
   healthScore,
+  dataUnavailable,
+  isLoading,
 }: NOCInfraHealthDonutProps) {
   const navigate = useNavigate();
 
@@ -32,6 +38,7 @@ function NOCInfraHealthDonut({
   // Prepare chart segments
   const chartData = useMemo<DonutSlice[]>(() => {
     const data: DonutSlice[] = [];
+    if (dataUnavailable) return [{ name: 'Sin datos', value: 1, color: '#1e293b', pct: 100 }];
     if (online > 0) {
       data.push({
         name: 'Online',
@@ -56,6 +63,9 @@ function NOCInfraHealthDonut({
         pct: Math.round((down / safeTotal) * 1000) / 10,
       });
     }
+    if (unknown > 0) {
+      data.push({ name: 'Sin datos o pausados', value: unknown, color: '#64748b', pct: Math.round((unknown / safeTotal) * 1000) / 10 });
+    }
     // Fallback if no services registered
     if (data.length === 0) {
       data.push({
@@ -66,7 +76,7 @@ function NOCInfraHealthDonut({
       });
     }
     return data;
-  }, [online, degraded, down, safeTotal]);
+  }, [online, degraded, down, unknown, safeTotal, dataUnavailable]);
 
   const activeSlicesCount = chartData.filter((d) => d.name !== 'Sin datos').length;
 
@@ -142,9 +152,9 @@ function NOCInfraHealthDonut({
           {/* Central Info Badge */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
             <span className="text-2xl font-bold font-mono text-text-main tracking-tight leading-none">
-              {total}
+              {dataUnavailable ? '—' : total}
             </span>
-            <span className="text-[10px] font-semibold text-text-dim tracking-wider uppercase mt-1">
+            <span className="text-[10px] font-semibold text-text-dim tracking-wider mt-1">
               Total
             </span>
           </div>
@@ -157,7 +167,7 @@ function NOCInfraHealthDonut({
               <span className="h-2.5 w-2.5 rounded-full bg-accent-green shadow-sm shadow-accent-green/50" />
               <span>Online</span>
             </div>
-            <span className="font-mono font-bold text-xs text-text-main">{online}</span>
+            <span className="font-mono font-bold text-xs text-text-main">{dataUnavailable ? '—' : online}</span>
           </div>
 
           <div className="flex items-center justify-between sm:justify-start gap-4">
@@ -165,7 +175,7 @@ function NOCInfraHealthDonut({
               <span className="h-2.5 w-2.5 rounded-full bg-accent-yellow shadow-sm shadow-accent-yellow/50" />
               <span>Degradados</span>
             </div>
-            <span className="font-mono font-bold text-xs text-text-main">{degraded}</span>
+            <span className="font-mono font-bold text-xs text-text-main">{dataUnavailable ? '—' : degraded}</span>
           </div>
 
           <div className="flex items-center justify-between sm:justify-start gap-4">
@@ -173,8 +183,9 @@ function NOCInfraHealthDonut({
               <span className="h-2.5 w-2.5 rounded-full bg-accent-red shadow-sm shadow-accent-red/50" />
               <span>Caídos</span>
             </div>
-            <span className="font-mono font-bold text-xs text-text-main">{down}</span>
+            <span className="font-mono font-bold text-xs text-text-main">{dataUnavailable ? '—' : down}</span>
           </div>
+          {!dataUnavailable && unknown > 0 && <div className="flex items-center justify-between sm:justify-start gap-4 text-xs text-text-muted"><span>Sin datos o pausados</span><span className="font-mono font-bold text-text-main">{unknown}</span></div>}
         </div>
       </div>
 
@@ -182,12 +193,12 @@ function NOCInfraHealthDonut({
       <div className="mt-4 pt-3 border-t border-border-base/50">
         <div className="flex justify-between items-center text-xs mb-1.5">
           <span className="text-text-dim">Salud general</span>
-          <span className="font-mono font-bold text-accent-green">{healthScore}%</span>
+          <span className="font-mono font-bold text-accent-green">{isLoading ? 'Cargando' : dataUnavailable ? 'No disponible' : healthScore === null ? 'Sin datos' : `${healthScore}%`}</span>
         </div>
         <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden border border-border-base/60">
           <div
             className="h-full bg-gradient-to-r from-accent-green via-accent-green-glow to-accent-green transition-all duration-700"
-            style={{ width: `${healthScore}%` }}
+            style={{ width: `${dataUnavailable ? 0 : healthScore ?? 0}%` }}
           />
         </div>
       </div>

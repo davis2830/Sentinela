@@ -15,6 +15,8 @@ export interface ActivityEvent {
   id: string;
   serviceName: string;
   timestamp: string;
+  occurredAt: number;
+  path: string;
   statusText: string;
   type: 'success' | 'warning' | 'error' | 'info';
   category?: 'uptime' | 'api' | 'ssl' | 'dns' | 'alert';
@@ -67,10 +69,10 @@ function NOCRecentActivityFeed({ events }: NOCRecentActivityFeedProps) {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/reports')}
+          onClick={() => navigate('/monitoring')}
           className="text-xs text-text-muted hover:text-accent-blue flex items-center gap-1 transition-colors cursor-pointer"
         >
-          <span>Ver todas</span>
+          <span>Ver monitores</span>
           <ChevronRight size={13} />
         </button>
       </div>
@@ -83,9 +85,11 @@ function NOCRecentActivityFeed({ events }: NOCRecentActivityFeedProps) {
           </div>
         ) : (
           events.slice(0, 6).map((evt) => (
-            <div
+            <button
               key={evt.id}
-              className="flex items-center justify-between p-2.5 rounded-xl bg-bg-dark/50 hover:bg-bg-dark border border-border-base/50 hover:border-border-accent transition-colors gap-3"
+              type="button"
+              onClick={() => navigate(evt.path)}
+              className="flex items-center justify-between p-2.5 rounded-xl bg-bg-dark/50 hover:bg-bg-dark border border-border-base/50 hover:border-border-accent transition-colors gap-3 w-full text-left"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div
@@ -118,13 +122,13 @@ function NOCRecentActivityFeed({ events }: NOCRecentActivityFeedProps) {
                   ? 'Fallo'
                   : 'Info'}
               </span>
-            </div>
+            </button>
           ))
         )}
       </div>
 
       <div className="mt-4 pt-3 border-t border-border-base/50 flex items-center justify-between text-[11px] text-text-dim">
-        <span>Sondeo continuo cada 15s/60s</span>
+        <span>Últimos checks registrados</span>
         <span className="text-accent-green font-medium flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-accent-green animate-ping" />
           En vivo

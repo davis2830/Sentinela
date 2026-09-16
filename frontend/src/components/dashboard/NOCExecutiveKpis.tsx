@@ -1,18 +1,22 @@
 ﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Activity, Layers, AlertTriangle, ShieldCheck, ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
+import { Shield, Activity, Layers, AlertTriangle, ShieldCheck, ChevronRight } from 'lucide-react';
 
 interface NOCExecutiveKpisProps {
-  slaPercentage: number;
-  avgLatencyMs: number;
+  slaPercentage: number | null;
+  avgLatencyMs: number | null;
   totalTargets: number;
   onlineTargets: number;
   degradedTargets: number;
   downTargets: number;
-  activeIncidentsCount: number;
-  criticalIncidentsCount: number;
-  securityScore: number;
+  unknownTargets: number;
+  activeIncidentsCount: number | null;
+  criticalIncidentsCount: number | null;
+  securityScore: number | null;
   securityVulnerabilitiesCount: number;
+  telemetryPoints?: { uptime: number | null; latency: number | null }[];
+  targetsAvailable: boolean;
+  targetsLoading: boolean;
 }
 
 function NOCExecutiveKpis({
@@ -22,39 +26,45 @@ function NOCExecutiveKpis({
   onlineTargets,
   degradedTargets,
   downTargets,
+  unknownTargets,
   activeIncidentsCount,
   criticalIncidentsCount,
   securityScore,
   securityVulnerabilitiesCount,
+  telemetryPoints = [],
+  targetsAvailable,
+  targetsLoading,
 }: NOCExecutiveKpisProps) {
   const navigate = useNavigate();
 
-  // SVG mini sparkline path generator
-  const renderSparkline = (color: string, pathData: string, id: string) => (
-    <svg className="w-full h-6 overflow-visible" viewBox="0 0 100 20" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-        </linearGradient>
-      </defs>
-      <path d={`${pathData} L100,20 L0,20 Z`} fill={`url(#${id})`} />
-      <path d={pathData} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  const renderSparkline = (values: (number | null)[], color: string, label: string) => {
+    const measured = values.filter((value): value is number => value !== null);
+    if (measured.length < 2) return <span className="text-[10px] text-text-dim">Sin tendencia disponible</span>;
+    const min = Math.min(...measured);
+    const span = Math.max(1, Math.max(...measured) - min);
+    let drawing = false;
+    const path = values.map((value, index) => {
+      if (value === null) { drawing = false; return ''; }
+      const point = `${(index * 100 / Math.max(1, values.length - 1)).toFixed(1)},${(17 - (value - min) * 14 / span).toFixed(1)}`;
+      const command = `${drawing ? 'L' : 'M'}${point}`;
+      drawing = true;
+      return command;
+    }).join(' ');
+    return <svg className="w-full h-6" viewBox="0 0 100 20" preserveAspectRatio="none" role="img" aria-label={label}><path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  };
 
   // Circular gauge calculations for Security KPI
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (securityScore / 100) * circumference;
+  const strokeDashoffset = circumference - ((securityScore ?? 0) / 100) * circumference;
 
   const safeTotal = Math.max(1, totalTargets);
   const onlineBarPct = Math.round((onlineTargets / safeTotal) * 100);
   const degradedBarPct = Math.round((degradedTargets / safeTotal) * 100);
-  const downBarPct = Math.max(0, 100 - onlineBarPct - degradedBarPct);
+  const downBarPct = Math.round((downTargets / safeTotal) * 100);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
       {/* 1. Disponibilidad Global (SLA) */}
       <div className="relative bg-bg-card border border-border-base rounded-2xl p-4 sm:p-5 shadow-sm hover:border-border-accent transition-all flex flex-col justify-between overflow-hidden group">
         <div>
@@ -67,23 +77,12 @@ function NOCExecutiveKpis({
 
           <div className="flex items-baseline justify-between gap-1 mb-0.5">
             <span className="text-2xl lg:text-3xl font-bold font-mono text-text-main tracking-tight">
-              {slaPercentage.toFixed(2)}%
+              {slaPercentage === null ? 'Sin datos' : `${slaPercentage.toFixed(2)}%`}
             </span>
-            <div className="flex items-center text-xs font-semibold text-accent-green shrink-0">
-              <ArrowUpRight size={13} />
-              <span>+0.02%</span>
-            </div>
           </div>
-          <span className="text-[11px] text-text-dim block">vs. periodo anterior</span>
+          <span className="text-[11px] text-text-dim block">Histórico</span>
         </div>
-
-        <div className="mt-2 pt-1">
-          {renderSparkline(
-            '#10b981',
-            'M0,16 Q15,12 25,6 T50,8 T75,4 T100,3',
-            'sparkline-sla'
-          )}
-        </div>
+        <div className="mt-2">{renderSparkline(telemetryPoints.map((point) => point.uptime), '#10b981', 'Tendencia de disponibilidad')}</div>
       </div>
 
       {/* 2. Latencia Promedio */}
@@ -98,27 +97,16 @@ function NOCExecutiveKpis({
 
           <div className="flex items-baseline justify-between gap-1 mb-0.5">
             <span className="text-2xl lg:text-3xl font-bold font-mono text-text-main tracking-tight">
-              {avgLatencyMs} <span className="text-sm font-normal text-text-dim">ms</span>
+              {avgLatencyMs === null ? 'Sin datos' : <>{avgLatencyMs} <span className="text-sm font-normal text-text-dim">ms</span></>}
             </span>
-            <div className="flex items-center text-xs font-semibold text-accent-green shrink-0">
-              <ArrowDownRight size={13} />
-              <span>-18ms</span>
-            </div>
           </div>
-          <span className="text-[11px] text-text-dim block">vs. última hora</span>
+          <span className="text-[11px] text-text-dim block">Histórico</span>
         </div>
-
-        <div className="mt-2 pt-1">
-          {renderSparkline(
-            '#06b6d4',
-            'M0,14 Q20,17 40,8 T70,13 T100,5',
-            'sparkline-latency'
-          )}
-        </div>
+        <div className="mt-2">{renderSparkline(telemetryPoints.map((point) => point.latency), '#06b6d4', 'Tendencia de latencia')}</div>
       </div>
 
       {/* 3. Targets Totales (Rich & Filled) */}
-      <div className="bg-bg-card border border-border-base rounded-2xl p-4 sm:p-5 shadow-sm hover:border-border-accent transition-all flex flex-col justify-between">
+      <div className={`bg-bg-card border rounded-2xl p-4 sm:p-5 shadow-sm transition-all flex flex-col justify-between ${targetsAvailable && downTargets > 0 ? 'border-accent-red/50 shadow-accent-red/10' : targetsAvailable && degradedTargets > 0 ? 'border-accent-yellow/40' : 'border-border-base hover:border-border-accent'}`}>
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -127,17 +115,18 @@ function NOCExecutiveKpis({
               </div>
               <span className="text-xs font-semibold text-text-muted">Targets Totales</span>
             </div>
-            <span className="text-[11px] font-mono text-accent-green bg-accent-green/10 border border-accent-green/20 px-2 py-0.5 rounded-full">
-              {onlineTargets}/{safeTotal} activos
+            <span className={`text-[11px] font-mono border px-2 py-0.5 rounded-full ${targetsAvailable ? 'text-accent-green bg-accent-green/10 border-accent-green/20' : 'text-text-dim bg-bg-dark border-border-base'}`}>
+              {targetsAvailable ? `${onlineTargets}/${totalTargets} online` : targetsLoading ? 'Cargando' : 'Dato no disponible'}
             </span>
           </div>
 
           <div className="text-2xl lg:text-3xl font-bold font-mono text-text-main tracking-tight mb-1.5">
-            {totalTargets}
+            {targetsAvailable ? totalTargets : '—'}
           </div>
 
           {/* Proportional Segmented Health Bar */}
-          <div className="h-1.5 w-full bg-border-base/60 rounded-full overflow-hidden flex gap-0.5 my-2">
+          <div className="h-1.5 w-full bg-border-base/60 rounded-full overflow-hidden flex gap-0.5 my-2" aria-hidden={!targetsAvailable}>
+            {targetsAvailable && <>
             <div
               style={{ width: `${onlineBarPct}%` }}
               className="bg-accent-green h-full transition-all duration-700"
@@ -157,10 +146,13 @@ function NOCExecutiveKpis({
                 title={`Caídos: ${downTargets}`}
               />
             )}
+            </>}
           </div>
+          <span className="text-[11px] text-text-dim">Estado actual</span>
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-border-base/50 text-xs">
+          {!targetsAvailable ? <span className="text-text-dim">{targetsLoading ? 'Cargando estado actual' : 'No se pudo cargar el estado actual'}</span> : <>
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-accent-green shadow-xs shadow-accent-green/50" />
             <span className="font-mono font-bold text-text-main">{onlineTargets}</span>
@@ -176,11 +168,13 @@ function NOCExecutiveKpis({
             <span className="font-mono font-bold text-text-main">{downTargets}</span>
             <span className="text-[11px] text-text-dim">Down</span>
           </div>
+          {unknownTargets > 0 && <span className="text-[11px] text-text-dim font-mono" title="Sin check o pausados">{unknownTargets} sin datos</span>}
+          </>}
         </div>
       </div>
 
       {/* 4. Incidentes Activos (Rich & Filled) */}
-      <div className="bg-bg-card border border-border-base rounded-2xl p-4 sm:p-5 shadow-sm hover:border-border-accent transition-all flex flex-col justify-between">
+      <div className={`bg-bg-card border rounded-2xl p-4 sm:p-5 shadow-sm transition-all flex flex-col justify-between ${activeIncidentsCount !== null && activeIncidentsCount > 0 ? 'border-accent-red/50 shadow-accent-red/10' : 'border-border-base hover:border-border-accent'}`}>
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -191,40 +185,33 @@ function NOCExecutiveKpis({
             </div>
             <span
               className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                activeIncidentsCount > 0
+                activeIncidentsCount === null
+                  ? 'bg-bg-dark text-text-dim border-border-base'
+                  : activeIncidentsCount > 0
                   ? 'bg-accent-red/10 text-accent-red border-accent-red/30 animate-pulse'
                   : 'bg-accent-green/10 text-accent-green border-accent-green/30'
               }`}
             >
-              {activeIncidentsCount > 0 ? 'Requiere Atención' : 'SLA Óptimo'}
+              {activeIncidentsCount === null ? 'Sin datos' : activeIncidentsCount > 0 ? 'Requiere atención' : 'Sin incidentes activos'}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-1 mb-0.5">
             <span
               className={`text-2xl lg:text-3xl font-bold font-mono tracking-tight ${
-                activeIncidentsCount > 0 ? 'text-accent-red' : 'text-accent-green'
+                activeIncidentsCount === null ? 'text-text-dim' : activeIncidentsCount > 0 ? 'text-accent-red' : 'text-accent-green'
               }`}
             >
-              {activeIncidentsCount}
+              {activeIncidentsCount ?? '—'}
             </span>
             <span className="text-[11px] text-text-dim">
-              {criticalIncidentsCount > 0
+              {criticalIncidentsCount === null
+                ? 'Estado no disponible'
+                : criticalIncidentsCount > 0
                 ? `${criticalIncidentsCount} críticos`
                 : 'Sin incidentes críticos'}
             </span>
           </div>
-        </div>
-
-        {/* Dynamic Sparkline indicator for incident trends */}
-        <div className="my-1.5">
-          {renderSparkline(
-            activeIncidentsCount > 0 ? '#ef4444' : '#10b981',
-            activeIncidentsCount > 0
-              ? 'M0,15 Q30,6 50,14 T80,5 T100,12'
-              : 'M0,16 Q20,15 40,14 T70,15 T100,15',
-            'sparkline-incidents'
-          )}
         </div>
 
         <button
@@ -241,24 +228,29 @@ function NOCExecutiveKpis({
       <div className="bg-bg-card border border-border-base rounded-2xl p-4 sm:p-5 shadow-sm hover:border-border-accent transition-all flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-xl bg-accent-green/10 text-accent-green border border-accent-green/20">
+            <div className={`p-1.5 rounded-xl border ${securityScore === null ? 'bg-bg-dark text-text-dim border-border-base' : securityScore < 70 ? 'bg-accent-red/10 text-accent-red border-accent-red/20' : 'bg-accent-green/10 text-accent-green border-accent-green/20'}`}>
               <ShieldCheck size={16} />
             </div>
             <span className="text-xs font-semibold text-text-muted">Estado de Seguridad</span>
           </div>
           <div className="text-2xl lg:text-3xl font-bold font-mono text-text-main mb-0.5">
-            {securityScore}%
+            {securityScore === null ? 'Sin datos' : `${securityScore}%`}
           </div>
-          <p className="text-[11px] text-text-dim mb-1">Servicios protegidos</p>
+          <span className="text-[11px] text-text-dim">Estado actual</span>
+          <p className="text-[11px] text-text-dim mb-1">Certificados y cabeceras evaluados</p>
           <span
             className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-              securityVulnerabilitiesCount === 0
+              securityScore === null
+                ? 'bg-bg-dark text-text-dim border-border-base'
+                : securityVulnerabilitiesCount === 0
                 ? 'bg-accent-green/10 text-accent-green border-accent-green/30'
                 : 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30'
             }`}
           >
-            {securityVulnerabilitiesCount === 0
-              ? 'Sin vulnerabilidades'
+            {securityScore === null
+              ? 'Sin evaluaciones'
+              : securityVulnerabilitiesCount === 0
+              ? 'Sin observaciones detectadas'
               : `${securityVulnerabilitiesCount} observaciones`}
           </span>
         </div>
@@ -278,7 +270,7 @@ function NOCExecutiveKpis({
               cx="32"
               cy="32"
               r={radius}
-              stroke="#10b981"
+              stroke={securityScore === null ? '#64748b' : securityScore < 70 ? '#ef4444' : '#10b981'}
               strokeWidth="6"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
@@ -288,7 +280,7 @@ function NOCExecutiveKpis({
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <ShieldCheck size={18} className="text-accent-green" />
+            <ShieldCheck size={18} className={securityScore === null ? 'text-text-dim' : securityScore < 70 ? 'text-accent-red' : 'text-accent-green'} />
           </div>
         </div>
       </div>
