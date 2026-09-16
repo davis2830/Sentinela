@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly
 
 from .serializers import (
     AgentProbeCreateSerializer,
@@ -24,7 +25,7 @@ class MonitoringTargetListView(APIView):
     POST /api/v1/monitoring-targets/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -98,7 +99,7 @@ class MonitoringTargetDetailView(APIView):
     DELETE /api/v1/monitoring-targets/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def get(self, request, target_id):
         org_id = request.user.organization_id
@@ -625,7 +626,7 @@ class TestConnectionView(APIView):
 
 class BulkActionView(APIView):
     """Execute bulk operations on multiple targets."""
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAdminOrReadOnly,)
 
     def post(self, request):
         action = request.data.get("action")

@@ -1,6 +1,8 @@
 from .base import *  # noqa: F401,F403
 
 DEBUG = True
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 # Allow browsable API in dev
 REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = (  # noqa: F405

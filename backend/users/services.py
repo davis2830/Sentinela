@@ -75,7 +75,7 @@ class UserService:
 
     @staticmethod
     @transaction.atomic
-    def assign_role(user_id, role_id):
+    def assign_role(user_id, role_id, organization_id):
         """Assign a role to a user.
 
         Args:
@@ -85,8 +85,8 @@ class UserService:
         Returns:
             The created UserRole instance.
         """
-        user = User.objects.get(id=user_id)
-        role = Role.objects.get(id=role_id)
+        user = User.objects.get(id=user_id, organization_id=organization_id)
+        role = Role.objects.get(id=role_id, organization_id=organization_id)
         user_role, created = UserRole.objects.get_or_create(
             user=user, role=role
         )
@@ -94,9 +94,11 @@ class UserService:
 
     @staticmethod
     @transaction.atomic
-    def remove_role(user_id, role_id):
+    def remove_role(user_id, role_id, organization_id):
         """Remove a role from a user."""
-        UserRole.objects.filter(user_id=user_id, role_id=role_id).delete()
+        user = User.objects.get(id=user_id, organization_id=organization_id)
+        role = Role.objects.get(id=role_id, organization_id=organization_id)
+        UserRole.objects.filter(user=user, role=role).delete()
 
     @staticmethod
     def get_user_permissions(user):
