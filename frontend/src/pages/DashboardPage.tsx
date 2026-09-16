@@ -7,6 +7,7 @@ import type { SSLCertificate } from '../types/ssl';
 import type { DomainInfo } from '../types/domain';
 import type { APICheckTarget } from '../types/api_checks';
 import type { SecurityHeaderTarget } from '../types/security_headers';
+import type { DNSRecord } from '../types/dns';
 import type { Alert } from '../types/alerts';
 import type { Incident } from '../types/incidents';
 import StatusBadge from '../components/common/StatusBadge';
@@ -16,6 +17,8 @@ import QuickStartWizardModal from '../components/onboarding/QuickStartWizardModa
 import TrialStatusBanner from '../components/common/TrialStatusBanner';
 import { NOCDrawer } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { latestTimestamp, scannedFreshness, scheduledFreshness } from '../utils/dashboardFreshness';
+import { useAuthStore } from '../store/authStore';
 
 // High-Density Modular Dashboard Components
 import NOCDashboardHeader from '../components/dashboard/NOCDashboardHeader';
@@ -49,6 +52,8 @@ type InspectableItem =
 export default function DashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const canManageTargets = Boolean(user?.is_staff);
 
   // Dashboard time range filter
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('24h');
@@ -67,7 +72,7 @@ export default function DashboardPage() {
   const autoRefresh = useAutoRefresh({ intervalSeconds: 30 });
 
   // 1. Telemetry Data Queries
-  const { data: monitoringTargets, isLoading: isLoadingMon, refetch: refetchMon } = useQuery<
+  const { data: monitoringTargets, isLoading: isLoadingMon, isError: isErrorMon, refetch: refetchMon } = useQuery<
     MonitoringTarget[]
   >({
     queryKey: ['dash-monitoring'],
@@ -78,7 +83,7 @@ export default function DashboardPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: sslCerts, isLoading: isLoadingSSL, refetch: refetchSSL } = useQuery<
+  const { data: sslCerts, isError: isErrorSSL, refetch: refetchSSL } = useQuery<
     SSLCertificate[]
   >({
     queryKey: ['dash-ssl'],
@@ -89,7 +94,7 @@ export default function DashboardPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: domains, isLoading: isLoadingDomains, refetch: refetchDomains } = useQuery<
+  const { data: domains, isError: isErrorDomains, refetch: refetchDomains } = useQuery<
     DomainInfo[]
   >({
     queryKey: ['dash-domains'],
@@ -100,7 +105,7 @@ export default function DashboardPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: apiChecks, isLoading: isLoadingAPI, refetch: refetchAPI } = useQuery<
+  const { data: apiChecks, isError: isErrorAPI, refetch: refetchAPI } = useQuery<
     APICheckTarget[]
   >({
     queryKey: ['dash-api-checks'],
@@ -111,7 +116,7 @@ export default function DashboardPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: securityHeaders, isLoading: isLoadingSec, refetch: refetchSec } = useQuery<
+  const { data: securityHeaders, isError: isErrorSec, refetch: refetchSec } = useQuery<
     SecurityHeaderTarget[]
   >({
     queryKey: ['dash-sec-headers'],
@@ -122,16 +127,16 @@ export default function DashboardPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: dnsRecords, isLoading: isLoadingDNS, refetch: refetchDNS } = useQuery<any[]>({
+  const { data: dnsRecords, isError: isErrorDNS, refetch: refetchDNS } = useQuery<DNSRecord[]>({
     queryKey: ['dash-dns-records'],
     queryFn: async () => {
       const res = await api.get('dns-records/');
-      return (res.data?.data || []) as any[];
+      return (res.data?.data || []) as DNSRecord[];
     },
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: activeAlerts, isLoading: isLoadingAlerts, refetch: refetchAlerts } = useQuery<
+  const { data: activeAlerts, isError: isErrorAlerts, refetch: refetchAlerts } = useQuery<
     Alert[]
   >({
     queryKey: ['dash-active-alerts'],
@@ -142,7 +147,7 @@ export default function DashboardPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: openIncidents, isLoading: isLoadingIncidents, refetch: refetchIncidents } = useQuery<
+  const { data: openIncidents, isError: isErrorIncidents, refetch: refetchIncidents } = useQuery<
     Incident[]
   >({
     queryKey: ['dash-open-incidents'],
@@ -158,16 +163,17 @@ export default function DashboardPage() {
   const {
     data: globalPerfData,
     isLoading: isLoadingPerf,
+    isError: isErrorPerf,
     refetch: refetchPerf,
   } = useQuery<{
     period: string;
     summary: {
-      avg_uptime: number;
-      avg_latency: number;
-      total_requests: number;
-      estimated_rps: string;
+      avg_uptime: number | null;
+      avg_latency: number | null;
+      total_checks: number;
+      checks_per_minute: number;
     };
-    points: { time: string; uptime: number; latency: number; requests: number }[];
+    points: { timestamp: number; time: string; uptime: number | null; latency: number | null; checks: number; checks_per_minute: number }[];
     services: {
       web: { count: number; total: number; avg_latency: number };
       api: { count: number; total: number; avg_latency: number };
@@ -190,7 +196,7 @@ export default function DashboardPage() {
   const handleRefetchAll = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
+      const results = await Promise.all([
         refetchMon(),
         refetchSSL(),
         refetchDomains(),
@@ -201,6 +207,9 @@ export default function DashboardPage() {
         refetchIncidents(),
         refetchPerf(),
       ]);
+      if (results.some((result) => result.isError)) {
+        throw new Error('Al menos un módulo no respondió.');
+      }
       setActionNotification({
         message: 'Telemetría actualizada correctamente en vivo para todos los módulos.',
         type: 'success',
@@ -237,6 +246,7 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
       queryClient.invalidateQueries({ queryKey: ['dash-active-alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-global-perf'] });
       setActionNotification({
         message: 'Escaneo ejecutado exitosamente.',
         type: 'success',
@@ -262,39 +272,51 @@ export default function DashboardPage() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
+      queryClient.invalidateQueries({ queryKey: ['dash-global-perf'] });
       setActionNotification({
         message: `Monitoreo ${!variables.enabled ? 'activado' : 'pausado'} correctamente.`,
         type: 'info',
       });
       setTimeout(() => setActionNotification(null), 4000);
     },
+    onError: () => {
+      setActionNotification({ message: 'No se pudo cambiar el estado del monitor.', type: 'error' });
+      setTimeout(() => setActionNotification(null), 4000);
+    },
   });
+  const hasTelemetryError = isErrorMon || isErrorSSL || isErrorDomains || isErrorAPI || isErrorSec || isErrorDNS || isErrorAlerts || isErrorIncidents || isErrorPerf;
 
   // 4. Metric Calculations (Strictly Mutually Exclusive)
   const totalMon = monitoringTargets?.length || 0;
-  const downMon = monitoringTargets?.filter((t) => t.last_status === 'down').length || 0;
+  const downMon = monitoringTargets?.filter((t) => t.enabled && (t.last_status === 'down' || t.last_status === 'error')).length || 0;
   const degradedMon = monitoringTargets?.filter(
-    (t) => t.last_status === 'degraded' || (t.last_status === 'up' && t.last_latency && t.last_latency > 500)
+    (t) => t.enabled && (t.last_status === 'degraded' || t.last_status === 'slow' || (t.last_status === 'up' && t.last_latency !== null && t.last_latency > 500))
   ).length || 0;
   const upMon = monitoringTargets?.filter(
-    (t) => t.last_status !== 'down' && t.last_status !== 'degraded' && (!t.last_latency || t.last_latency <= 500)
+    (t) => t.enabled && t.last_status === 'up' && (t.last_latency === null || t.last_latency <= 500)
   ).length || 0;
 
   const totalAPIChecks = apiChecks?.length || 0;
   const failingAPIChecks = apiChecks?.filter(
-    (a) => a.last_status === 'fail' || a.last_status === 'error'
+    (a) => a.enabled && (a.last_status === 'fail' || a.last_status === 'error')
   ).length || 0;
   const degradedAPIChecks = apiChecks?.filter(
-    (a) => a.last_status === 'degraded' || (a.last_status === 'pass' && a.last_response_time_ms && a.last_response_time_ms > 1000)
+    (a) => a.enabled && (a.last_status === 'degraded' || a.last_status === 'slow' || (a.last_status === 'pass' && a.last_response_time_ms != null && a.last_response_time_ms > 1000))
   ).length || 0;
   const passingAPIChecks = apiChecks?.filter(
-    (a) => a.last_status !== 'fail' && a.last_status !== 'error' && a.last_status !== 'degraded' && (!a.last_response_time_ms || a.last_response_time_ms <= 1000)
+    (a) => a.enabled && a.last_status === 'pass' && (a.last_response_time_ms == null || a.last_response_time_ms <= 1000)
   ).length || 0;
 
   const totalServices = totalMon + totalAPIChecks;
   const healthyServices = upMon + passingAPIChecks;
   const degradedServices = degradedMon + degradedAPIChecks;
   const downServices = downMon + failingAPIChecks;
+  const visibleDownServices = (isErrorMon ? 0 : downMon) + (isErrorAPI ? 0 : failingAPIChecks);
+  const visibleDegradedServices = (isErrorMon ? 0 : degradedMon) + (isErrorAPI ? 0 : degradedAPIChecks);
+  const unknownServices = totalServices - healthyServices - degradedServices - downServices;
+  const currentHealth = !isErrorMon && !isErrorAPI && totalServices > 0 ? Math.round((healthyServices / totalServices) * 100) : null;
+  const targetsLoading = !isErrorMon && !isErrorAPI && (!monitoringTargets || !apiChecks);
+  const targetsAvailable = !isErrorMon && !isErrorAPI && !targetsLoading;
 
   const alertsCount = activeAlerts?.length || 0;
   const incidentsCount = openIncidents?.length || 0;
@@ -302,33 +324,22 @@ export default function DashboardPage() {
     (i) => i.priority === 'critical'
   ).length;
 
-  // Latency calculation
-  const monitoredWithLatency = (monitoringTargets || []).filter(
-    (t) => t.last_latency !== null && t.last_status === 'up'
-  );
-  const avgLatency =
-    monitoredWithLatency.length > 0
-      ? Math.round(
-          monitoredWithLatency.reduce((acc, curr) => acc + (curr.last_latency || 0), 0) /
-            monitoredWithLatency.length
-        )
-      : 293;
+  // Period availability comes from checks; current health remains a separate measure.
+  const avgLatency = globalPerfData?.summary.avg_latency ?? null;
+  const slaPercentage = globalPerfData?.summary.avg_uptime ?? null;
 
-  // Availability SLA calculation
-  const rawHealth =
-    totalServices > 0 ? Math.round((healthyServices / totalServices) * 1000) / 10 : 99.98;
-  const globalHealthScore = incidentsCount > 0 ? Math.min(rawHealth, 94.0) : rawHealth;
-
-  // Security score calculation (weighted from SSL grades + Security Headers)
+  // Only evaluated SSL certificates and security headers contribute to the score.
   const totalSSL = sslCerts?.length || 0;
-  const validSSL = (sslCerts || []).filter((c) => c.is_valid).length;
-  const securityVulnerabilitiesCount = (securityHeaders || []).filter(
+  const evaluatedSSL = (sslCerts || []).filter((c) => c.last_scanned_at);
+  const validSSL = evaluatedSSL.filter((c) => c.is_valid).length;
+  const evaluatedHeaders = (securityHeaders || []).filter((s) => s.last_score !== null);
+  const securityVulnerabilitiesCount = evaluatedSSL.filter((c) => !c.is_valid).length + evaluatedHeaders.filter(
     (s) => s.info_leak_detected || (s.last_score !== null && s.last_score < 70)
   ).length;
-  const securityScore =
-    totalSSL + (securityHeaders?.length || 0) === 0
-      ? 100
-      : Math.max(70, Math.round(100 - securityVulnerabilitiesCount * 10));
+  const securitySampleCount = evaluatedSSL.length + evaluatedHeaders.length;
+  const securityScore = !isErrorSSL && !isErrorSec && securitySampleCount > 0
+    ? Math.round((validSSL * 100 + evaluatedHeaders.reduce((sum, item) => sum + (item.last_score ?? 0), 0)) / securitySampleCount)
+    : null;
 
   // Service Sub-Metric Chips for Performance Section
   const webTargets = (monitoringTargets || []).filter(
@@ -337,6 +348,21 @@ export default function DashboardPage() {
   const dbTargets = (monitoringTargets || []).filter(
     (t) => t.target_type === 'tcp'
   );
+  const serviceFreshness = {
+    web: scheduledFreshness(webTargets.map((t) => ({ enabled: t.enabled, last_checked_at: t.last_checked_at, intervalSeconds: t.interval })), isErrorMon),
+    api: scheduledFreshness(apiChecks?.map((a) => ({ enabled: a.enabled, last_checked_at: a.last_checked_at, intervalSeconds: a.check_interval })), isErrorAPI),
+    tcp: scheduledFreshness(dbTargets.map((t) => ({ enabled: t.enabled, last_checked_at: t.last_checked_at, intervalSeconds: t.interval })), isErrorMon),
+    ssl: scannedFreshness(sslCerts?.map((c) => c.last_scanned_at), isErrorSSL),
+    dns: scannedFreshness(dnsRecords?.map((r) => r.last_scanned_at), isErrorDNS),
+  };
+  const lastSampleAt = latestTimestamp([
+    ...(monitoringTargets || []).map((target) => target.last_checked_at),
+    ...(apiChecks || []).map((target) => target.last_checked_at),
+  ]);
+  const activeFreshness = scheduledFreshness([
+    ...(monitoringTargets || []).map((target) => ({ enabled: target.enabled, last_checked_at: target.last_checked_at, intervalSeconds: target.interval })),
+    ...(apiChecks || []).map((target) => ({ enabled: target.enabled, last_checked_at: target.last_checked_at, intervalSeconds: target.check_interval })),
+  ], isErrorMon || isErrorAPI);
 
   // Memoized handlers for child components
   const handleScanTarget = useCallback((id: string) => {
@@ -368,15 +394,15 @@ export default function DashboardPage() {
 
   const subServices = useMemo(
     () => ({
-      webCount: webTargets.filter((t) => t.last_status === 'up').length,
+      webCount: webTargets.filter((t) => t.enabled && t.last_status === 'up').length,
       webTotal: Math.max(0, webTargets.length),
       apiCount: passingAPIChecks,
       apiTotal: Math.max(0, totalAPIChecks),
-      tcpCount: dbTargets.filter((t) => t.last_status === 'up').length,
+      tcpCount: dbTargets.filter((t) => t.enabled && t.last_status === 'up').length,
       tcpTotal: Math.max(0, dbTargets.length),
       sslCount: validSSL,
       sslTotal: Math.max(0, totalSSL),
-      dnsCount: (dnsRecords || []).length,
+      dnsCount: (dnsRecords || []).filter((r) => r.last_scanned_at).length,
       dnsTotal: Math.max(0, (dnsRecords || []).length),
     }),
     [webTargets, passingAPIChecks, totalAPIChecks, dbTargets, validSSL, totalSSL, dnsRecords]
@@ -386,34 +412,37 @@ export default function DashboardPage() {
   const recentEvents: ActivityEvent[] = useMemo(() => {
     const events: ActivityEvent[] = [];
 
-    (apiChecks || []).slice(0, 3).forEach((a) => {
+    (apiChecks || []).filter((a) => a.last_checked_at).forEach((a) => {
       events.push({
         id: `act-api-${a.id}`,
+        occurredAt: new Date(a.last_checked_at!).getTime(),
         serviceName: a.name,
         timestamp: a.last_checked_at
           ? new Date(a.last_checked_at).toLocaleTimeString('es-ES', {
               hour: '2-digit',
               minute: '2-digit',
             })
-          : '09:29',
-        statusText: a.last_status === 'pass' ? 'Respuesta OK' : 'Fallo de Verificación',
-        type: a.last_status === 'pass' ? 'success' : 'error',
+          : '',
+        statusText: a.last_status === 'pass' ? 'Respuesta OK' : a.last_status === 'slow' ? 'Latencia elevada' : 'Fallo de verificación',
+        type: a.last_status === 'pass' ? 'success' : a.last_status === 'slow' ? 'warning' : 'error',
         category: 'api',
+        path: '/api-checks',
       });
     });
 
-    (monitoringTargets || []).slice(0, 4).forEach((m) => {
-      const isDegraded = m.last_latency && m.last_latency > 450;
-      const isDown = m.last_status === 'down';
+    (monitoringTargets || []).filter((m) => m.last_checked_at).forEach((m) => {
+      const isDegraded = m.last_status === 'slow' || m.last_status === 'degraded' || (m.last_latency != null && m.last_latency > 500);
+      const isDown = m.last_status === 'down' || m.last_status === 'error';
       events.push({
         id: `act-mon-${m.id}`,
+        occurredAt: new Date(m.last_checked_at!).getTime(),
         serviceName: m.name,
         timestamp: m.last_checked_at
           ? new Date(m.last_checked_at).toLocaleTimeString('es-ES', {
               hour: '2-digit',
               minute: '2-digit',
             })
-          : '09:25',
+          : '',
         statusText: isDown
           ? 'Caído / Inaccesible'
           : isDegraded
@@ -421,42 +450,47 @@ export default function DashboardPage() {
           : 'Respuesta OK',
         type: isDown ? 'error' : isDegraded ? 'warning' : 'success',
         category: 'uptime',
+        path: '/monitoring',
       });
     });
 
-    (sslCerts || []).slice(0, 2).forEach((s) => {
+    (sslCerts || []).filter((s) => s.last_scanned_at).forEach((s) => {
       events.push({
         id: `act-ssl-${s.id}`,
+        occurredAt: new Date(s.last_scanned_at!).getTime(),
         serviceName: s.domain,
         timestamp: s.last_scanned_at
           ? new Date(s.last_scanned_at).toLocaleTimeString('es-ES', {
               hour: '2-digit',
               minute: '2-digit',
             })
-          : '09:22',
+          : '',
         statusText: s.is_valid ? 'SSL Válido' : 'Certificado Inválido',
         type: s.is_valid ? 'success' : 'error',
         category: 'ssl',
+        path: '/ssl',
       });
     });
 
-    return events;
-  }, [apiChecks, monitoringTargets, sslCerts]);
+    const windowMs = { '1h': 3600000, '6h': 21600000, '24h': 86400000, '7d': 604800000 }[timeRange];
+    return events.filter((event) => Number.isFinite(event.occurredAt) && event.occurredAt >= Date.now() - windowMs)
+      .sort((a, b) => b.occurredAt - a.occurredAt);
+  }, [apiChecks, monitoringTargets, sslCerts, timeRange]);
 
   const servicesBarData = useMemo(() => {
     return (
       globalPerfData?.services || {
-        web: { count: subServices.webCount, total: subServices.webTotal, avg_latency: avgLatency },
-        api: { count: subServices.apiCount, total: subServices.apiTotal, avg_latency: 300 },
-        db: { count: subServices.tcpCount, total: subServices.tcpTotal, avg_latency: 0 },
+        web: { count: subServices.webCount, total: subServices.webTotal },
+        api: { count: subServices.apiCount, total: subServices.apiTotal },
+        tcp: { count: subServices.tcpCount, total: subServices.tcpTotal },
         ssl: { count: subServices.sslCount, total: subServices.sslTotal },
-        dns: { count: subServices.dnsCount, total: subServices.dnsTotal, avg_latency: 10 },
+        dns: { count: subServices.dnsCount, total: subServices.dnsTotal },
       }
     );
-  }, [globalPerfData?.services, subServices, avgLatency]);
+  }, [globalPerfData?.services, subServices]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 pb-12 font-sans">
+    <div className="space-y-4 animate-in fade-in duration-300 pb-12 font-sans">
       {/* 1. TOP HEADER (NOC Operations Center, Live Digital Clock & Controls) */}
       <NOCDashboardHeader
         onRefreshAll={handleRefetchAll}
@@ -464,7 +498,12 @@ export default function DashboardPage() {
         activeAlertsCount={alertsCount + incidentsCount}
         timeRange={timeRange}
         onTimeRangeChange={handleTimeRangeChange}
+        lastSampleAt={lastSampleAt}
+        freshnessState={activeFreshness.state}
+        hasTelemetryError={hasTelemetryError}
       />
+
+      {hasTelemetryError && <div role="alert" className="rounded-2xl border border-accent-yellow/40 bg-accent-yellow/10 px-4 py-3 text-xs text-accent-yellow">Parte de la telemetría no está disponible. Los datos visibles pueden estar incompletos. Usa «Reintentar telemetría» para actualizar.</div>}
 
       {/* Action Notification Banner */}
       {actionNotification && (
@@ -500,8 +539,23 @@ export default function DashboardPage() {
       {/* SaaS Trial Status / Expiration Warning Banner */}
       <TrialStatusBanner />
 
+      {(visibleDownServices > 0 || visibleDegradedServices > 0 || (!isErrorIncidents && incidentsCount > 0)) && (
+        <div role="status" className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 text-xs ${visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'border-accent-red/40 bg-accent-red/10' : 'border-accent-yellow/40 bg-accent-yellow/10'}`}>
+          <AlertTriangle size={18} className={visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'text-accent-red' : 'text-accent-yellow'} />
+          <div className="min-w-0 flex-1">
+            <strong className="block text-sm text-text-main">{visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'Atención inmediata' : 'Revisión operativa'}</strong>
+            <span className="text-text-muted">{[visibleDownServices > 0 && `${visibleDownServices} caídos`, visibleDegradedServices > 0 && `${visibleDegradedServices} degradados`, !isErrorIncidents && incidentsCount > 0 && `${incidentsCount} incidentes activos`, (isErrorMon || isErrorAPI || isErrorIncidents) && 'Datos parciales'].filter(Boolean).join(' · ')}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!isErrorMon && downMon + degradedMon > 0 && <button type="button" onClick={() => navigate('/monitoring')} className="rounded-full border border-border-accent px-3 py-1.5 text-text-main hover:bg-white/5">Ver monitores</button>}
+            {!isErrorAPI && failingAPIChecks + degradedAPIChecks > 0 && <button type="button" onClick={() => navigate('/api-checks')} className="rounded-full border border-border-accent px-3 py-1.5 text-text-main hover:bg-white/5">Ver APIs</button>}
+            {!isErrorIncidents && incidentsCount > 0 && <button type="button" onClick={() => navigate('/incidents')} className="rounded-full border border-border-accent px-3 py-1.5 text-text-main hover:bg-white/5">Ver incidentes</button>}
+          </div>
+        </div>
+      )}
+
       {/* Onboarding Hero Banner (If 0 monitoring targets) */}
-      {!isLoadingMon && (!monitoringTargets || monitoringTargets.length === 0) && (
+      {!isLoadingMon && !isErrorMon && monitoringTargets?.length === 0 && (
         <div className="bg-gradient-to-r from-accent-green/10 via-bg-card to-accent-purple/10 border border-accent-green/30 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-3 duration-300">
           <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-accent-green/20 text-accent-green border border-accent-green/40">
@@ -530,72 +584,82 @@ export default function DashboardPage() {
 
       {/* 2. TOP 5 EXECUTIVE KPI METRIC CARDS */}
       <NOCExecutiveKpis
-        slaPercentage={globalHealthScore}
+        slaPercentage={slaPercentage}
         avgLatencyMs={avgLatency}
         totalTargets={totalServices}
         onlineTargets={healthyServices}
         degradedTargets={degradedServices}
         downTargets={downServices}
-        activeIncidentsCount={incidentsCount}
-        criticalIncidentsCount={criticalIncidentsCount}
+        unknownTargets={unknownServices}
+        activeIncidentsCount={isErrorIncidents ? null : incidentsCount}
+        criticalIncidentsCount={isErrorIncidents ? null : criticalIncidentsCount}
         securityScore={securityScore}
         securityVulnerabilitiesCount={securityVulnerabilitiesCount}
+        telemetryPoints={globalPerfData?.points}
+        targetsAvailable={targetsAvailable}
+        targetsLoading={targetsLoading}
       />
 
       {/* 3. MIDDLE SECTION (Global Performance Area Chart, Infra Donut, Activity Feed) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-4 items-stretch">
         {/* Left Column: Rendimiento Global (Span 6) */}
-        <div className="lg:col-span-6 flex flex-col">
+        <div className="lg:col-span-2 xl:col-span-6 flex flex-col">
           <NOCPerformanceSection
             timeRange={timeRange}
-            onTimeRangeChange={handleTimeRangeChange}
-            avgUptime={globalPerfData?.summary?.avg_uptime ?? globalHealthScore}
-            avgLatencyMs={globalPerfData?.summary?.avg_latency ?? avgLatency}
-            estimatedRps={globalPerfData?.summary?.estimated_rps ?? '1.2k'}
+            checksPerMinute={globalPerfData?.summary?.total_checks ? globalPerfData.summary.checks_per_minute : null}
             historicalData={globalPerfData?.points}
             isLoading={isLoadingPerf}
+            isError={isErrorPerf}
           />
         </div>
 
         {/* Center Column: Estado de Infraestructura Donut (Span 3) */}
-        <div className="lg:col-span-3 flex flex-col">
+        <div className="lg:col-span-1 xl:col-span-3 flex flex-col">
           <NOCInfraHealthDonut
             total={totalServices}
             online={healthyServices}
             degraded={degradedServices}
             down={downServices}
-            healthScore={Math.round(globalHealthScore)}
+            unknown={unknownServices}
+            healthScore={currentHealth}
+            dataUnavailable={!targetsAvailable}
+            isLoading={targetsLoading}
           />
         </div>
 
         {/* Right Column: Actividad Reciente Feed (Span 3) */}
-        <div className="lg:col-span-3 flex flex-col">
+        <div className="lg:col-span-1 xl:col-span-3 flex flex-col">
           <NOCRecentActivityFeed events={recentEvents} />
         </div>
       </div>
 
       {/* 3.1 DEDICATED 5-SERVICE BAR (Web, APIs, Base de Datos, SSL, DNS - Outside of Container with Real Data) */}
-      <NOCServicesBar services={servicesBarData} />
+      <NOCServicesBar services={servicesBarData} freshness={serviceFreshness} />
 
       {/* 4. BOTTOM SECTION (Critical Targets Table & Live Incidents/Alerts) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 min-[1850px]:grid-cols-12 gap-4">
         {/* Left Table: Targets Críticos (Span 7) */}
-        <div className="lg:col-span-7">
+        <div className="min-w-0 min-[1850px]:col-span-7">
           <NOCCriticalTargetsTable
             targets={monitoringTargets || []}
             onScanTarget={handleScanTarget}
             onToggleActive={handleToggleActive}
             onInspectTarget={handleInspectTarget}
             isScanningId={scanningTargetId}
+            canManageTargets={canManageTargets}
+            isUnavailable={isErrorMon}
+            isLoading={isLoadingMon}
           />
         </div>
 
         {/* Right Table: Incidentes y Alertas (Span 5) */}
-        <div className="lg:col-span-5">
+        <div className="min-w-0 min-[1850px]:col-span-5">
           <NOCLiveAlertsList
             incidents={openIncidents || []}
             alerts={activeAlerts || []}
             onInspectItem={handleInspectAlertItem}
+            isUnavailable={isErrorAlerts || isErrorIncidents}
+            isLoading={!isErrorAlerts && !isErrorIncidents && (!activeAlerts || !openIncidents)}
           />
         </div>
       </div>

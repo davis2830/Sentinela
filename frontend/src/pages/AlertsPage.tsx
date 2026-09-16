@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import type {
@@ -70,6 +70,9 @@ interface SnoozeTarget {
 
 export default function AlertsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetIdFilter = searchParams.get('target_id');
+  const targetTypeFilter = searchParams.get('target_type');
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<MainTab>('alerts');
@@ -403,6 +406,8 @@ export default function AlertsPage() {
   // Filtered alerts by search term (Memoized)
   const filteredAlerts = useMemo(() => {
     return (alerts || []).filter((alert: Alert) => {
+      if (targetIdFilter && alert.target_id !== targetIdFilter) return false;
+      if (targetTypeFilter && alert.target_type !== targetTypeFilter) return false;
       if (!searchTerm.trim()) return true;
       const term = searchTerm.toLowerCase();
       return (
@@ -411,7 +416,7 @@ export default function AlertsPage() {
         (alert.target_type && alert.target_type.toLowerCase().includes(term))
       );
     });
-  }, [alerts, searchTerm]);
+  }, [alerts, searchTerm, targetIdFilter, targetTypeFilter]);
 
   // Filtered rules by search term (Memoized)
   const filteredRules = useMemo(() => {
@@ -727,6 +732,14 @@ export default function AlertsPage() {
         selectedStatus={statusFilter}
         onStatusChange={(st) => setStatusFilter(st as FilterStatus)}
       />
+
+      {targetIdFilter && activeTab === 'alerts' && (
+        <div className="flex items-center gap-2 text-xs text-text-muted rounded-xl border border-border-accent bg-bg-card px-3 py-2">
+          <Bell size={14} className="text-accent-yellow" />
+          <span>Alertas del target seleccionado</span>
+          <button type="button" onClick={() => setSearchParams({})} className="ml-auto text-accent-cyan hover:text-text-main">Quitar filtro</button>
+        </div>
+      )}
 
       {/* 4. SUB-ACTIONS BAR FOR ALERTS */}
       {activeTab === 'alerts' && (

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, Clock, RefreshCw, Calendar, Bell, ChevronDown } from 'lucide-react';
 
 import { formatTime } from '../../utils/date';
+import type { FreshnessState } from '../../utils/dashboardFreshness';
 
 interface NOCDashboardHeaderProps {
   onRefreshAll: () => void;
@@ -10,6 +11,9 @@ interface NOCDashboardHeaderProps {
   activeAlertsCount: number;
   timeRange: '1h' | '6h' | '24h' | '7d';
   onTimeRangeChange: (range: '1h' | '6h' | '24h' | '7d') => void;
+  hasTelemetryError: boolean;
+  lastSampleAt: string | null;
+  freshnessState: FreshnessState;
 }
 
 function NOCDashboardHeader({
@@ -18,6 +22,9 @@ function NOCDashboardHeader({
   activeAlertsCount,
   timeRange,
   onTimeRangeChange,
+  hasTelemetryError,
+  lastSampleAt,
+  freshnessState,
 }: NOCDashboardHeaderProps) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState<string>(() => formatTime(new Date()));
@@ -30,15 +37,26 @@ function NOCDashboardHeader({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDropdownOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isDropdownOpen]);
+
   const timeRangeLabels: Record<'1h' | '6h' | '24h' | '7d', string> = {
     '1h': 'Última hora',
     '6h': 'Últimas 6 horas',
     '24h': 'Últimas 24 horas',
     '7d': 'Últimos 7 días',
   };
+  const statusLabel = hasTelemetryError ? 'Error parcial' : ({ current: 'Al día', stale: 'Dato atrasado', pending: 'Sin checks', paused: 'Pausado', error: 'Error de carga' } as Record<FreshnessState, string>)[freshnessState];
+  const statusColor = hasTelemetryError || freshnessState === 'error' ? 'text-accent-red border-accent-red/30 bg-accent-red/10' : freshnessState === 'stale' ? 'text-accent-yellow border-accent-yellow/30 bg-accent-yellow/10' : freshnessState === 'current' ? 'text-accent-green border-accent-green/30 bg-accent-green/10' : 'text-text-dim border-border-base bg-bg-dark';
 
   return (
-    <header className="relative w-full rounded-2xl bg-gradient-to-r from-bg-card via-bg-card-hover/80 to-bg-card border border-border-base p-5 md:p-6 shadow-xl mb-6 z-20">
+    <header className="relative w-full rounded-2xl bg-gradient-to-r from-bg-card via-bg-card-hover/80 to-bg-card border border-border-base p-5 md:p-6 shadow-xl z-20">
       {/* Background Holographic Network Map Texture */}
       <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden rounded-2xl">
         <svg
@@ -91,19 +109,19 @@ function NOCDashboardHeader({
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
         {/* Title and Subtitle */}
         <div className="space-y-1.5">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="p-2 rounded-xl bg-accent-green/10 border border-accent-green/30 text-accent-green shadow-sm shadow-accent-green/20">
               <Activity size={22} className="animate-pulse" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-text-main">
+            <h1 className="text-xl font-bold tracking-tight text-text-main sm:text-2xl">
               Centro de Operaciones
             </h1>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase bg-accent-green/15 text-accent-green border border-accent-green/40 shadow-sm">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider bg-accent-green/15 text-accent-green border border-accent-green/40 shadow-sm">
               Observabilidad
             </span>
           </div>
           <p className="text-xs text-text-muted max-w-xl">
-            Vista general del estado de tu infraestructura, servicios y seguridad en tiempo real.
+            Salud operativa y actividad de tu infraestructura y servicios.
           </p>
         </div>
 
@@ -112,11 +130,8 @@ function NOCDashboardHeader({
           {/* Live Digital Clock */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-bg-dark/80 border border-border-base text-xs shadow-inner">
             <Clock size={14} className="text-accent-green" />
-            <span className="text-[11px] text-text-dim">Hora NOC</span>
+            <span className="text-[11px] text-text-dim">Hora local</span>
             <span className="font-mono font-bold text-text-main tracking-wider">{currentTime}</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-green/15 text-accent-green border border-accent-green/30 font-semibold">
-              GTM
-            </span>
           </div>
 
           {/* Telemetría en Vivo Button */}
@@ -132,7 +147,7 @@ function NOCDashboardHeader({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-green"></span>
             </span>
             <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-            <span>Telemetría en vivo</span>
+            <span>{hasTelemetryError ? 'Reintentar telemetría' : 'Actualizar telemetría'}</span>
           </button>
 
           {/* Time Range Selector */}
@@ -140,6 +155,9 @@ function NOCDashboardHeader({
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              aria-expanded={isDropdownOpen}
+              aria-label={`Período de telemetría: ${timeRangeLabels[timeRange]}`}
+              title="Período para disponibilidad, latencia, checks y actividad reciente. El estado de recursos es actual."
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-bg-dark/80 hover:bg-bg-dark border border-border-base hover:border-border-accent text-xs font-medium text-text-main transition-all cursor-pointer shadow-sm"
             >
               <Calendar size={13} className="text-accent-green" />
@@ -153,14 +171,15 @@ function NOCDashboardHeader({
                   className="fixed inset-0 z-40"
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-bg-card border border-border-base shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3.5 py-1 text-[10px] font-semibold tracking-wider uppercase text-text-dim border-b border-border-base/50 mb-1">
+                <div aria-label="Período de telemetría" className="absolute right-0 mt-2 w-48 rounded-xl bg-bg-card border border-border-base shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3.5 py-1 text-[10px] font-semibold tracking-wider text-text-dim border-b border-border-base/50 mb-1">
                     Ventana de Telemetría
                   </div>
                   {(['1h', '6h', '24h', '7d'] as const).map((r) => (
                     <button
                       key={r}
                       type="button"
+                      aria-current={timeRange === r ? 'true' : undefined}
                       onClick={() => {
                         onTimeRangeChange(r);
                         setIsDropdownOpen(false);
@@ -175,7 +194,7 @@ function NOCDashboardHeader({
                         <span className={`h-1.5 w-1.5 rounded-full ${timeRange === r ? 'bg-accent-green' : 'bg-transparent'}`} />
                         <span>{timeRangeLabels[r]}</span>
                       </div>
-                      <span className="font-mono text-[10px] text-text-dim uppercase">{r}</span>
+                      <span className="font-mono text-[10px] text-text-dim">{r}</span>
                     </button>
                   ))}
                 </div>
@@ -198,6 +217,10 @@ function NOCDashboardHeader({
             )}
           </button>
         </div>
+      </div>
+      <div className="relative z-10 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-dim">
+        <span className="font-mono">{lastSampleAt ? `Último check red/API: ${new Date(lastSampleAt).toLocaleString('es-ES')}` : 'Check red/API pendiente'}</span>
+        <span role="status" className={`rounded-full border px-2 py-0.5 font-semibold ${statusColor}`}>{statusLabel}</span>
       </div>
     </header>
   );
