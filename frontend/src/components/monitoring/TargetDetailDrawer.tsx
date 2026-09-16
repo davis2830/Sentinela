@@ -213,7 +213,15 @@ export default function TargetDetailDrawer({
           </div>
           <div className="bg-bg-card border border-border-base rounded-xl p-3">
             <div className="text-[11px] font-medium text-text-muted">Latencia Actual</div>
-            <div className="text-base font-bold font-mono text-accent-green mt-1">
+            <div className={`text-base font-bold font-mono mt-1 ${
+              target.last_latency === null
+                ? 'text-text-dim'
+                : target.last_latency < 400
+                ? 'text-accent-green'
+                : target.last_latency < 1000
+                ? 'text-accent-yellow'
+                : 'text-accent-red'
+            }`}>
               {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : '-'}
             </div>
           </div>

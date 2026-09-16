@@ -55,10 +55,9 @@ export default function TargetCard({
   // Latency styling
   const getLatencyColor = (ms: number | null) => {
     if (ms === null) return 'text-text-dim';
-    if (ms < 100) return 'text-emerald-400';
-    if (ms < 400) return 'text-sky-300';
-    if (ms < 1000) return 'text-amber-400';
-    return 'text-rose-400';
+    if (ms < 400) return 'text-accent-green';
+    if (ms < 1000) return 'text-accent-yellow';
+    return 'text-accent-red';
   };
 
   // Status badge with pulsing dot

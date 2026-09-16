@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 export interface TelemetryPoint {
+  timestamp?: number;
   time: string;
   uptime: number;
   latency: number;
@@ -44,7 +45,43 @@ function NOCPerformanceSection({
   historicalData,
   isLoading,
 }: NOCPerformanceSectionProps) {
-  const data: TelemetryPoint[] = historicalData || [];
+  const formattedData = useMemo(() => {
+    return (historicalData || []).map((pt, idx) => {
+      const ts = pt.timestamp;
+      let displayTime = pt.time;
+      let fullDateStr = pt.time;
+
+      if (ts) {
+        const d = new Date(ts);
+        if (timeRange === '7d') {
+          displayTime = `${d.getDate()}/${d.getMonth() + 1} ${d.getHours().toString().padStart(2, '0')}h`;
+          fullDateStr = d.toLocaleString('es-ES', {
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } else {
+          displayTime = d.toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          fullDateStr = d.toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
+        }
+      }
+
+      return {
+        ...pt,
+        pointKey: ts ? `${ts}-${idx}` : `pt-${idx}`,
+        displayTime,
+        fullDateStr,
+      };
+    });
+  }, [historicalData, timeRange]);
 
   return (
     <div className="bg-bg-card border border-border-base rounded-2xl p-5 md:p-6 shadow-sm flex flex-col justify-between h-full">
@@ -65,7 +102,7 @@ function NOCPerformanceSection({
               <span className="text-text-muted">Disponibilidad</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-sky-400" />
+              <span className="h-2 w-2 rounded-full bg-accent-cyan" />
               <span className="text-text-muted">Latencia</span>
             </div>
           </div>
@@ -103,23 +140,24 @@ function NOCPerformanceSection({
             </div>
           )}
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={formattedData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorUptime" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <XAxis
-                dataKey="time"
+                dataKey="displayTime"
                 stroke="#64748b"
                 fontSize={11}
                 tickLine={false}
                 axisLine={{ stroke: '#1e293b' }}
+                minTickGap={28}
               />
               <YAxis
                 stroke="#64748b"
@@ -135,9 +173,16 @@ function NOCPerformanceSection({
                   borderRadius: '0.75rem',
                   fontSize: '11px',
                   color: '#f8fafc',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                }}
+                labelFormatter={(_, payload) => {
+                  if (payload && payload.length > 0 && payload[0].payload) {
+                    return payload[0].payload.fullDateStr || payload[0].payload.displayTime || '';
+                  }
+                  return '';
                 }}
                 formatter={(value: any, name: any) => [
-                  name.includes('Disponibilidad') ? `${value}%` : `${value} ms`,
+                  name.includes('Disponibilidad') ? `${Number(value).toFixed(2)}%` : `${Math.round(value)} ms`,
                   name,
                 ]}
               />
@@ -149,15 +194,19 @@ function NOCPerformanceSection({
                 strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#colorUptime)"
+                activeDot={{ r: 5, fill: '#10b981', stroke: '#090D11', strokeWidth: 2 }}
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"
                 dataKey="latency"
                 name="Latencia (ms)"
-                stroke="#38bdf8"
+                stroke="#06b6d4"
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorLatency)"
+                activeDot={{ r: 4, fill: '#06b6d4', stroke: '#090D11', strokeWidth: 2 }}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

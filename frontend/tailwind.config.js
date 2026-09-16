@@ -1,4 +1,4 @@
-/** @type {import('tailwindcss').Config} */
+﻿/** @type {import('tailwindcss').Config} */
 export default {
   content: [
     "./index.html",
@@ -24,6 +24,8 @@ export default {
         // Accent colors
         'accent-green': '#10b981',
         'accent-green-glow': '#34d399',
+        'accent-cyan': '#06B6D4',
+        'accent-cyan-glow': '#22D3EE',
         'accent-purple': '#8B5CF6',
         'accent-blue': '#3B82F6',
         'accent-red': '#EF4444',

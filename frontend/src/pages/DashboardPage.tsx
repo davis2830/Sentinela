@@ -270,21 +270,30 @@ export default function DashboardPage() {
     },
   });
 
-  // 4. Metric Calculations
+  // 4. Metric Calculations (Strictly Mutually Exclusive)
   const totalMon = monitoringTargets?.length || 0;
-  const upMon = monitoringTargets?.filter((t) => t.last_status === 'up').length || 0;
-  const degradedMon = monitoringTargets?.filter(
-    (t) => t.last_status === 'degraded' || (t.last_latency && t.last_latency > 500)
-  ).length || 0;
   const downMon = monitoringTargets?.filter((t) => t.last_status === 'down').length || 0;
+  const degradedMon = monitoringTargets?.filter(
+    (t) => t.last_status === 'degraded' || (t.last_status === 'up' && t.last_latency && t.last_latency > 500)
+  ).length || 0;
+  const upMon = monitoringTargets?.filter(
+    (t) => t.last_status !== 'down' && t.last_status !== 'degraded' && (!t.last_latency || t.last_latency <= 500)
+  ).length || 0;
 
   const totalAPIChecks = apiChecks?.length || 0;
-  const passingAPIChecks = apiChecks?.filter((a) => a.last_status === 'pass').length || 0;
-  const failingAPIChecks = totalAPIChecks - passingAPIChecks;
+  const failingAPIChecks = apiChecks?.filter(
+    (a) => a.last_status === 'fail' || a.last_status === 'error'
+  ).length || 0;
+  const degradedAPIChecks = apiChecks?.filter(
+    (a) => a.last_status === 'degraded' || (a.last_status === 'pass' && a.last_response_time_ms && a.last_response_time_ms > 1000)
+  ).length || 0;
+  const passingAPIChecks = apiChecks?.filter(
+    (a) => a.last_status !== 'fail' && a.last_status !== 'error' && a.last_status !== 'degraded' && (!a.last_response_time_ms || a.last_response_time_ms <= 1000)
+  ).length || 0;
 
   const totalServices = totalMon + totalAPIChecks;
   const healthyServices = upMon + passingAPIChecks;
-  const degradedServices = degradedMon;
+  const degradedServices = degradedMon + degradedAPIChecks;
   const downServices = downMon + failingAPIChecks;
 
   const alertsCount = activeAlerts?.length || 0;
@@ -360,15 +369,15 @@ export default function DashboardPage() {
   const subServices = useMemo(
     () => ({
       webCount: webTargets.filter((t) => t.last_status === 'up').length,
-      webTotal: Math.max(1, webTargets.length),
+      webTotal: Math.max(0, webTargets.length),
       apiCount: passingAPIChecks,
-      apiTotal: Math.max(1, totalAPIChecks),
-      dbCount: dbTargets.filter((t) => t.last_status === 'up').length || 1,
-      dbTotal: Math.max(1, dbTargets.length),
-      sslCount: validSSL || Math.max(1, totalSSL),
-      sslTotal: Math.max(1, totalSSL),
-      dnsCount: (dnsRecords || []).length || 1,
-      dnsTotal: Math.max(1, (dnsRecords || []).length),
+      apiTotal: Math.max(0, totalAPIChecks),
+      tcpCount: dbTargets.filter((t) => t.last_status === 'up').length,
+      tcpTotal: Math.max(0, dbTargets.length),
+      sslCount: validSSL,
+      sslTotal: Math.max(0, totalSSL),
+      dnsCount: (dnsRecords || []).length,
+      dnsTotal: Math.max(0, (dnsRecords || []).length),
     }),
     [webTargets, passingAPIChecks, totalAPIChecks, dbTargets, validSSL, totalSSL, dnsRecords]
   );
@@ -439,7 +448,7 @@ export default function DashboardPage() {
       globalPerfData?.services || {
         web: { count: subServices.webCount, total: subServices.webTotal, avg_latency: avgLatency },
         api: { count: subServices.apiCount, total: subServices.apiTotal, avg_latency: 300 },
-        db: { count: subServices.dbCount, total: subServices.dbTotal, avg_latency: 0 },
+        db: { count: subServices.tcpCount, total: subServices.tcpTotal, avg_latency: 0 },
         ssl: { count: subServices.sslCount, total: subServices.sslTotal },
         dns: { count: subServices.dnsCount, total: subServices.dnsTotal, avg_latency: 10 },
       }

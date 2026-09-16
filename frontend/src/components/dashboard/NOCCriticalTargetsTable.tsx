@@ -144,11 +144,11 @@ function NOCCriticalTargetsTable({
                     {t.last_latency !== null && t.last_latency !== undefined ? (
                       <span
                         className={
-                          t.last_latency > 400
+                          t.last_latency < 400
+                            ? 'text-accent-green'
+                            : t.last_latency < 1000
                             ? 'text-accent-yellow'
-                            : t.last_latency > 800
-                            ? 'text-accent-red'
-                            : 'text-text-main'
+                            : 'text-accent-red'
                         }
                       >
                         {Math.round(t.last_latency)} ms

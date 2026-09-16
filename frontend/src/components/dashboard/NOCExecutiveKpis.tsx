@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Activity, Layers, AlertTriangle, ShieldCheck, ArrowUpRight, ArrowDownRight, ChevronRight } from 'lucide-react';
 
@@ -90,7 +90,7 @@ function NOCExecutiveKpis({
       <div className="relative bg-bg-card border border-border-base rounded-2xl p-4 sm:p-5 shadow-sm hover:border-border-accent transition-all flex flex-col justify-between overflow-hidden group">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-xl bg-accent-blue/10 text-accent-blue border border-accent-blue/20">
+            <div className="p-1.5 rounded-xl bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
               <Activity size={16} />
             </div>
             <span className="text-xs font-semibold text-text-muted">Latencia Promedio</span>
@@ -110,7 +110,7 @@ function NOCExecutiveKpis({
 
         <div className="mt-2 pt-1">
           {renderSparkline(
-            '#38bdf8',
+            '#06b6d4',
             'M0,14 Q20,17 40,8 T70,13 T100,5',
             'sparkline-latency'
           )}

@@ -198,11 +198,11 @@ export default function SecurityHeaderTableView({
                     {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined ? (
                       <span
                         className={`flex items-center gap-1 font-semibold ${
-                          target.last_response_time_ms < 150
-                            ? 'text-emerald-400'
-                            : target.last_response_time_ms < 400
-                            ? 'text-sky-400'
-                            : 'text-amber-400'
+                          target.last_response_time_ms < 400
+                            ? 'text-accent-green'
+                            : target.last_response_time_ms < 1000
+                            ? 'text-accent-yellow'
+                            : 'text-accent-red'
                         }`}
                       >
                         <Zap size={11} />

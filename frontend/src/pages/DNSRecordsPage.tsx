@@ -486,13 +486,13 @@ export default function DNSRecordsPage() {
         {/* KPI 2: Latencia Media de Consulta */}
         <NOCKpiCard
           title="Latencia DNS Media"
-          icon={<Zap size={16} className="text-accent-blue" />}
+          icon={<Zap size={16} className="text-accent-cyan" />}
           badge={{
             text: `${stats?.avg_latency_ms || 24}ms`,
             variant: 'info',
           }}
           value={`${stats?.avg_latency_ms || 24} ms`}
-          valueColor="text-accent-blue"
+          valueColor="text-accent-cyan"
           subtitle="Tiempo medio de respuesta del servidor DNS"
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
@@ -742,11 +742,11 @@ export default function DNSRecordsPage() {
                           {record.response_time_ms ? (
                             <span
                               className={`font-semibold ${
-                                record.response_time_ms < 50
+                                record.response_time_ms < 400
                                   ? 'text-accent-green'
-                                  : record.response_time_ms < 150
-                                  ? 'text-accent-blue'
-                                  : 'text-accent-yellow'
+                                  : record.response_time_ms < 1000
+                                  ? 'text-accent-yellow'
+                                  : 'text-accent-red'
                               }`}
                             >
                               {record.response_time_ms}ms
@@ -892,7 +892,7 @@ export default function DNSRecordsPage() {
                       <div className="text-[11px] text-text-dim flex justify-between font-sans">
                         <span>Valor Resuelto:</span>
                         {record.response_time_ms && (
-                          <span className="text-accent-blue font-mono font-bold">
+                          <span className="text-accent-cyan font-mono font-bold">
                             {record.response_time_ms} ms
                           </span>
                         )}
@@ -1025,7 +1025,7 @@ export default function DNSRecordsPage() {
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
                 <div className="text-[11px] text-text-dim font-sans">Latencia Consulta</div>
-                <div className="text-xs font-bold text-accent-blue mt-0.5">
+                <div className="text-xs font-bold text-accent-cyan mt-0.5">
                   {selectedRecord.response_time_ms ? `${selectedRecord.response_time_ms} ms` : '-'}
                 </div>
               </div>
@@ -1170,7 +1170,7 @@ export default function DNSRecordsPage() {
               </div>
               <div className="flex justify-between border-b border-border-base/40 pb-2">
                 <span className="text-text-dim font-sans font-medium">Latencia de Consulta:</span>
-                <span className="font-bold text-accent-blue">{selectedRecord.response_time_ms ? `${selectedRecord.response_time_ms} ms` : '-'}</span>
+                <span className="font-bold text-accent-cyan">{selectedRecord.response_time_ms ? `${selectedRecord.response_time_ms} ms` : '-'}</span>
               </div>
               <div className="flex justify-between border-b border-border-base/40 pb-2">
                 <span className="text-text-dim font-sans font-medium">Última Comprobación:</span>

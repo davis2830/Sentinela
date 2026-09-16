@@ -640,19 +640,19 @@ header {
         {/* KPI 2: Puntuación Promedio */}
         <NOCKpiCard
           title="Puntuación Media"
-          icon={<Activity size={16} className="text-sky-400" />}
+          icon={<Activity size={16} className="text-accent-cyan" />}
           badge={{
             text: 'Benchmark OWASP',
             variant: 'info',
           }}
           value={stats?.avg_score ? `${Math.round(stats.avg_score)}` : '0'}
-          valueColor="text-sky-400"
+          valueColor="text-accent-cyan"
           valueSuffix="/ 100 pts"
           subtitle="Basado en presencia y configuración de cabeceras"
           footer={
             <div className="flex justify-between text-[11px] text-text-dim">
               <span>Nivel Recomendado</span>
-              <span className="text-sky-400 font-semibold">&ge; 80 puntos</span>
+              <span className="text-accent-cyan font-semibold">&ge; 80 puntos</span>
             </div>
           }
         />
@@ -886,7 +886,15 @@ header {
                       </div>
                       <div className="flex justify-between font-sans">
                         <span className="text-text-dim font-medium">Latencia:</span>
-                        <span className="text-text-main font-mono font-semibold">
+                        <span className={`font-mono font-semibold ${
+                          target.last_response_time_ms === null || target.last_response_time_ms === undefined
+                            ? 'text-text-dim'
+                            : target.last_response_time_ms < 400
+                            ? 'text-accent-green'
+                            : target.last_response_time_ms < 1000
+                            ? 'text-accent-yellow'
+                            : 'text-accent-red'
+                        }`}>
                           {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined
                             ? `${target.last_response_time_ms} ms`
                             : '-'}
