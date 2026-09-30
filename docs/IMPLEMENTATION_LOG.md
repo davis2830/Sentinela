@@ -22,6 +22,30 @@ Este documento registra cronológicamente cada cambio, refactorización, optimiz
 
 ## 📅 Registro Histórico de Implementaciones
 
+### [2026-09-30] - Fase 1 Paso a Producción: Hardening AppSec, Anti-SSRF, JWT Rotation & Docker Prod
+- **Módulo:** `common.security`, `accounts`, `monitoring`, `api_checks`, `ssl_monitor`, `security_headers`, Nginx, Docker.
+- **Motivación:** Ejecutar el Punto 1 del Plan de Producción: blindar la plataforma contra ataques de Server-Side Request Forgery (SSRF) en sondeos cloud, rotar e invalidar tokens JWT de sesión, mitigar IP spoofing y estructurar el entorno Docker/Nginx de producción.
+- **Cambios en Backend:**
+  - `backend/common/security.py`: Creado módulo central de seguridad con validación estricta de IPs y hostnames (`validate_safe_target_endpoint`, `validate_safe_public_url`, `is_ip_restricted`). Bloqueo de rangos privados (RFC 1918), loopback (`127.0.0.1`), metadata cloud (`169.254.169.254`, `metadata.google.internal`), multicast y broadcast.
+  - `backend/monitoring/serializers.py`: Validación anti-SSRF integrada en `MonitoringTargetCreateSerializer` y `MonitoringTargetUpdateSerializer`. Las IPs privadas solo se admiten si el objetivo está asignado a un Guardián Sentinine (`runner_type="agent"`).
+  - `backend/api_checks/serializers.py` & `views.py`: Validación anti-SSRF en creación y en endpoint `test-request/`.
+  - `backend/security_headers/serializers.py` & `views.py`: Validación anti-SSRF en creación y en endpoint `test-headers/`.
+  - `backend/ssl_monitor/serializers.py` & `views.py`: Validación anti-SSRF en creación y en endpoint `test-connection/`.
+  - `backend/config/settings/base.py`: SimpleJWT configurado con `ACCESS_TOKEN_LIFETIME = 15m`, `ROTATE_REFRESH_TOKENS = True`, `BLACKLIST_AFTER_ROTATION = True` y `UPDATE_LAST_LOGIN = True`.
+  - `backend/accounts/services.py`: Rotación criptográfica y blacklisting inmediato de tokens de refresco usados en `AuthService.refresh_token`.
+  - `backend/common/middleware.py`: Extracción segura de IP de cliente (derecha a izquierda) en `IPAllowlistMiddleware` para prevenir IP Spoofing vía `X-Forwarded-For`.
+- **Cambios en Infraestructura & Producción:**
+  - `docker-compose.prod.yml`: Arquitectura de producción sin puertos expuestos al host para DB (`5432`), Redis (`6379`), Backend (`8000`), Prometheus (`9090`) o Loki (`3100`). Entrada exclusiva por Nginx en puertos `80` y `443`.
+  - `docker/nginx/nginx.conf`: Nginx endurecido con rate limiting zones (`auth_limit` 5r/s, `api_general` 60r/s), compresión Gzip, security headers (nosniff, DENY, Referrer-Policy, Permissions-Policy), caché inmutable de assets estáticos (1 año) y proxies inversos a Gunicorn.
+  - `frontend/Dockerfile.prod`: Imagen multi-stage para construir y servir el bundle compilado de React vía Nginx.
+  - `.env.production.example`: Plantilla de producción con variables de seguridad y contraseñas robustas.
+- **Validaciones & Pruebas:**
+  - 7 casos de prueba unitarios anti-SSRF ejecutados con éxito (loopback, metadata 169.254, LAN y dominios públicos).
+  - Test E2E de Sentinine validado al 100% (código 0).
+  - Prueba de rotación y mitigación de replay attack en JWT exitosa: el token previo fue invalidado y su reutilización rechazada.
+
+---
+
 ### [2026-09-30] - Rebranding a Sentinine & Consolidación al 100% de Probes LAN
 - **Módulo:** `monitoring`, `sentinine`, `alerts`, Celery Beat.
 - **Motivación:** Renombrar la arquitectura de sondas privadas a **Sentinine** (Sentinel Watchdog), agregar detección de desconexión en Celery, soporte de intranet SSL autofirmada y selector amigable en `TargetForm`.

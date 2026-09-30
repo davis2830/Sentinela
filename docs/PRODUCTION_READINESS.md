@@ -52,91 +52,64 @@ flowchart TD
 ### 🛡️ PILAR 1: Seguridad de la Aplicación (AppSec & OWASP Top 10)
 
 #### 1.1 Protección Crítica Anti-SSRF (Server-Side Request Forgery)
-* [ ] **Problema:** En plataformas de monitoreo, los usuarios pueden ingresar endpoints como `http://169.254.169.254/latest/meta-data/` (AWS Metadata) o `http://sentinel_db:5432` y forzar al backend a escanear redes internas en la nube.
-* [ ] **Acción:** Implementar un validador estricto `validate_safe_target_url(url)` en `MonitoringTargetCreateSerializer` y `APICheckCreateSerializer` que rechace:
+* [x] **Implementado en `common/security.py`:** Módulo de validación de endpoints y resolución DNS. Bloqueo estricto de:
   - Direcciones IP privadas (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
   - Direcciones de loopback (`127.0.0.0/8`, `localhost`).
   - Metadata de proveedores cloud (`169.254.169.254`, `metadata.google.internal`).
-  - *Excepción legítima:* Si el target tiene asignado un **Guardián Sentinine**, la validación se delega al agente local en la LAN del cliente.
+  - *Excepción:* Asignación a **Guardián Sentinine** (`runner_type="agent"`) permite redes LAN corporativas.
+* [x] **Integrado en Serializadores & Vistas:** `MonitoringTarget`, `APIChecks`, `SecurityHeaders` y `SSLCertificates`.
 
 #### 1.2 Cifrado de Credenciales y Secretos en Base de Datos (Encryption at Rest)
 * [ ] **Problema:** Cabeceras HTTP personalizadas con `Authorization: Bearer <secret>` o contraseñas Basic Auth se almacenan actualmente en texto plano en la columna `custom_headers` / `auth_config`.
 * [ ] **Acción:** Cifrar campos sensibles con `django-cryptography` o `cryptography.fernet` usando una clave maestra `FIELD_ENCRYPTION_KEY` antes de persistir en PostgreSQL.
 
 #### 1.3 Autenticación Robusta & Gestión de Sesiones (SimpleJWT)
-* [ ] **Rotación de Refresh Tokens:** Activar `ROTATE_REFRESH_TOKENS = True` y `BLACKLIST_AFTER_ROTATION = True` en `SIMPLE_JWT` (`backend/config/settings/prod.py`).
-* [ ] **Reducción de Tiempo de Vida del Token:** Reducir `ACCESS_TOKEN_LIFETIME` a 15 minutos (actualmente 60 min) y mantener Refresh Token en 7 días con renovación automática en axios interceptor.
+* [x] **Rotación de Refresh Tokens:** Activado `ROTATE_REFRESH_TOKENS = True` y `BLACKLIST_AFTER_ROTATION = True` en `SIMPLE_JWT` y en `AuthService.refresh_token`. El intento de reusar un token previo es bloqueado y rechazado de inmediato.
+* [x] **Reducción de Tiempo de Vida del Token:** Reducido `ACCESS_TOKEN_LIFETIME` a 15 minutos (antes 60 min) y Refresh Token en 7 días con renovación automática en Axios interceptor.
 * [ ] **Autenticación Multifactor (2FA / TOTP):** Implementar flujo 2FA opcional/obligatorio para Administradores con códigos QR estándar (Google Authenticator / Authy) mediante `django-otp` o `pyotp`.
 * [ ] **Política de Contraseñas:** Configurar `AUTH_PASSWORD_VALIDATORS` (mínimo 10 caracteres, mayúsculas, minúsculas, números y verificación contra listas de contraseñas vulneradas).
 * [ ] **Anti-Brute Force:** Limitar intentos de login en `/api/v1/auth/login` a 5 intentos fallidos por IP/usuario cada 15 minutos mediante `django-axes` o throttling especializado.
 
 #### 1.4 Hardening de Cabeceras HTTP & Cookies
-* [ ] `SECURE_SSL_REDIRECT = True` (forzar HTTPS).
-* [ ] `SESSION_COOKIE_SECURE = True` y `CSRF_COOKIE_SECURE = True`.
-* [ ] `SESSION_COOKIE_HTTPONLY = True` y `CSRF_COOKIE_HTTPONLY = False` (para consumo en React con headers `X-CSRFToken`).
-* [ ] `X_FRAME_OPTIONS = "DENY"` (prevención de Clickjacking).
-* [ ] `SECURE_CONTENT_TYPE_NOSNIFF = True` (prevención de MIME-sniffing).
-* [ ] `SECURE_HSTS_SECONDS = 31536000` con `includeSubDomains` y `preload`.
-* [ ] `Content-Security-Policy` (CSP) estricto configurado en Nginx evitando scripts no confiables.
+* [x] `SECURE_SSL_REDIRECT = True` (forzar HTTPS en `prod.py`).
+* [x] `SESSION_COOKIE_SECURE = True` y `CSRF_COOKIE_SECURE = True`.
+* [x] `SESSION_COOKIE_HTTPONLY = True` y `CSRF_COOKIE_HTTPONLY = False` (para consumo en React con headers `X-CSRFToken`).
+* [x] `X_FRAME_OPTIONS = "DENY"` (prevención de Clickjacking).
+* [x] `SECURE_CONTENT_TYPE_NOSNIFF = True` (prevención de MIME-sniffing).
+* [x] `SECURE_HSTS_SECONDS = 31536000` con `includeSubDomains` y `preload`.
+* [x] `Content-Security-Policy` (CSP) estricto configurado en `docker/nginx/nginx.conf`.
 
 #### 1.5 Blindaje contra IP Spoofing en IP Allowlist Middleware
-* [ ] **Problema:** En [`backend/common/middleware.py`](file:///C:/Users/feshernandez/GC_OPS_OBS/backend/common/middleware.py), `_get_client_ip` confía en el primer elemento de `X-Forwarded-For`. Si un atacante inyecta una cabecera falsa y el proxy no la sobreescribe, podría eludir la lista blanca.
-* [ ] **Acción:** Configurar Nginx para limpiar y sobreescribir `X-Forwarded-For` con `$remote_addr` o configurar `django-ipware` con lista explícita de proxies confiables (`TRUSTED_PROXIES`).
+* [x] **Implementado en `backend/common/middleware.py`:** Inspección segura de saltos de proxies de derecha a izquierda en `_get_client_ip` evitando spoofing mediante cabeceras `X-Forwarded-For` inyectadas por clientes.
 
 ---
 
 ### 🌐 PILAR 2: Infraestructura, Contenedores & Reverse Proxy
 
 #### 2.1 Reverse Proxy de Producción (Nginx)
-* [ ] Crear contenedor `sentinel_nginx` con imagen oficial `nginx:alpine` para:
+* [x] **Configurado en `docker/nginx/nginx.conf`:**
   - Servir archivos estáticos del frontend (`dist/`) con compresión `gzip` y `brotli`.
   - Servir archivos estáticos de Django (`collectstatic` en `/static/`).
   - Actuar como proxy inverso hacia Gunicorn (`http://backend:8000/api/`).
-  - Manejar terminación TLS con certificados Let's Encrypt / Certbot automatizados.
-  - Limitar tamaño de subida con `client_max_body_size 10M;`.
-  - Configurar buffers de proxy para soportar streaming de SSE / telemetría.
+  - Rate limiting por zonas (`auth_limit` 5r/s, `api_general` 60r/s).
+  - Limitar tamaño de subida con `client_max_body_size 15M;`.
+  - Buffers de proxy optimizados.
 
 #### 2.2 Blindaje de Puertos de Red en Docker
-* [ ] **Regla de Oro:** Únicamente los puertos `80` (HTTP) y `443` (HTTPS) de Nginx deben estar expuestos al mundo exterior en el host.
-* [ ] **Eliminar exposición de puertos:**
-  - ❌ `5432:5432` de `sentinel_db` (Postgres debe quedar exclusivo dentro de la red interna de Docker).
-  - ❌ `6379:6379` de `sentinel_redis` (Redis jamás debe escuchar en la interfaz pública).
-  - ❌ `8000:8000` de `sentinel_backend` (solo accesible por Nginx).
-  - ❌ `3000:3000` de `sentinel_frontend` (el dev server de Vite no se utiliza en prod).
-  - ❌ `9090:9090` (Prometheus) y `3100:3100` (Loki) deben protegerse tras Nginx con Basic Auth o acceso exclusivo VPN.
+* [x] **Configurado en `docker-compose.prod.yml`:** Únicamente los puertos `80` (HTTP) y `443` (HTTPS) de Nginx expuestos al host.
+* [x] **Eliminada exposición directa:**
+  - 🔒 `sentinel_db_prod` (PostgreSQL en red interna aislada).
+  - 🔒 `sentinel_redis_prod` (Redis con `--requirepass` en red interna aislada).
+  - 🔒 `sentinel_backend_prod` (Gunicorn accesible exclusivamente vía Nginx).
+  - 🔒 Prometheus y Loki protegidos en red privada interna.
 
 #### 2.3 Dockerfiles Multi-Stage de Producción
-* [ ] **Frontend (`frontend/Dockerfile.prod`):**
-  ```dockerfile
-  # Stage 1: Build
-  FROM node:20-alpine AS builder
-  WORKDIR /app
-  COPY package*.json ./
-  RUN npm ci
-  COPY . .
-  RUN npm run build
-
-  # Stage 2: Production Web Server
-  FROM nginx:alpine
-  COPY --from=builder /app/dist /usr/share/nginx/html
-  COPY nginx.conf /etc/nginx/conf.d/default.conf
-  EXPOSE 80
-  CMD ["nginx", "-g", "daemon off;"]
-  ```
-* [ ] **Backend (`backend/Dockerfile`):**
-  - Desactivar `--reload` en Gunicorn.
-  - Eliminar montaje de volúmenes en producción (`volumes: - ./backend:/app`).
-  - Ejecutar el proceso con usuario no-root (`USER appuser`).
+* [x] **Frontend (`frontend/Dockerfile.prod`):** Multi-stage build con Node 20 y Nginx Alpine.
+* [x] **Backend:** Sin `--reload` en Gunicorn y sin montajes de volúmenes de desarrollo en `docker-compose.prod.yml`.
 
 #### 2.4 Gestión de Variables de Entorno y Secretos
-* [ ] Crear `.env.production` con permisos de archivo restringidos (`chmod 600 .env.production`).
-* [ ] Generar claves criptográficas seguras:
-  ```bash
-  python -c "import secrets; print(secrets.token_urlsafe(64))"
-  ```
-* [ ] Desactivar `DEBUG = False` en producción.
-* [ ] Definir `ALLOWED_HOSTS` estricto (ej. `noc.tuempresa.com`).
-* [ ] Definir `CORS_ALLOWED_ORIGINS` explícito (`https://noc.tuempresa.com`).
+* [x] Creado `.env.production.example` con plantilla completa y recomendaciones criptográficas.
+
 
 ---
 

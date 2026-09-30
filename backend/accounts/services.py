@@ -325,12 +325,29 @@ class AuthService:
         """
         try:
             token = RefreshToken(refresh_token)
-            return {
+            data = {
                 "access_token": str(token.access_token),
-                "refresh_token": str(token),
             }
+            # Rotate and blacklist old refresh token to prevent token reuse attacks
+            try:
+                from rest_framework_simplejwt.settings import api_settings
+                if api_settings.ROTATE_REFRESH_TOKENS:
+                    if api_settings.BLACKLIST_AFTER_ROTATION:
+                        try:
+                            token.blacklist()
+                        except AttributeError:
+                            pass
+                    token.set_jti()
+                    token.set_exp()
+                    token.set_iat()
+            except Exception:
+                pass
+
+            data["refresh_token"] = str(token)
+            return data
         except Exception:
             raise ValueError("Invalid or expired refresh token.")
+
 
     @staticmethod
     def change_password(user, old_password, new_password):

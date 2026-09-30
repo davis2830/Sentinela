@@ -55,3 +55,11 @@ class SSLCertificateCreateSerializer(serializers.Serializer):
 
     domain = serializers.CharField(max_length=500)
     port = serializers.IntegerField(default=443, required=False)
+
+    def validate(self, attrs):
+        domain = attrs.get("domain")
+        port = attrs.get("port", 443)
+        if domain:
+            from common.security import validate_safe_public_url
+            validate_safe_public_url(f"https://{domain}:{port}")
+        return attrs

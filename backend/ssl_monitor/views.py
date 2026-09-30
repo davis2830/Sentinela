@@ -220,6 +220,13 @@ class SSLTestConnectionView(APIView):
                 "El dominio es requerido para la prueba.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+
+        from common.security import validate_safe_public_url, SSRFSecurityException
+        try:
+            validate_safe_public_url(f"https://{domain}:{port}")
+        except SSRFSecurityException as s_exc:
+            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
+
         result = SSLMonitorService.test_connection(domain, port=port)
         return success_response(result)
 
