@@ -247,6 +247,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "organizations.check_expired_trials",
         "schedule": 900.0,
     },
+    "check-sentinine-heartbeats-every-60s": {
+        "task": "monitoring.check_sentinine_heartbeats",
+        "schedule": 60.0,
+    },
 }
 
 # CORS

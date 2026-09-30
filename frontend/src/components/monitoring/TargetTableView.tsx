@@ -221,11 +221,22 @@ export default function TargetTableView({
                           )}
                           {target.runner_type === 'agent' && (
                             <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-purple/10 text-accent-purple border border-accent-purple/30 shrink-0"
-                              title={`Ejecutado por agente satélite: ${target.agent_probe_name || 'Agente LAN'}`}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${
+                                target.agent_probe_online === false || target.agent_probe_status === 'offline'
+                                  ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
+                                  : 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
+                              }`}
+                              title={
+                                target.agent_probe_online === false || target.agent_probe_status === 'offline'
+                                  ? `Atención: Guardián Sentinine (${target.agent_probe_name || 'LAN'}) desconectado`
+                                  : `Sondeado por Guardián Sentinine: ${target.agent_probe_name || 'LAN'}`
+                              }
                             >
                               <Server size={9} className="shrink-0" />
-                              <span className="truncate max-w-[85px]">{target.agent_probe_name || 'Agente LAN'}</span>
+                              <span className="truncate max-w-[85px]">Sentinine: {target.agent_probe_name || 'LAN'}</span>
+                              {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
+                                <span className="text-[8px] text-accent-red font-mono">(Offline)</span>
+                              )}
                             </span>
                           )}
                         </div>

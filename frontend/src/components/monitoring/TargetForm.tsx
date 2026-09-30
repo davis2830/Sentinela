@@ -196,6 +196,19 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [tcpHost, setTcpHost] = useState('');
   const [tcpPort, setTcpPort] = useState('80');
 
+  // Auto-detect private LAN IPs and automatically select Sentinine runner
+  useEffect(() => {
+    const raw = targetType === 'tcp' ? tcpHost : endpoint;
+    const clean = raw.replace(/^https?:\/\//, '').split(':')[0].trim();
+    const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost|127\.)/.test(clean);
+    if (isPrivate && runnerType === 'cloud' && probes.length > 0 && !target) {
+      setRunnerType('agent');
+      if (!agentProbeId && probes[0]) {
+        setAgentProbeId(probes[0].id);
+      }
+    }
+  }, [endpoint, tcpHost, targetType, probes]);
+
   // Tag chip management
   const [tags, setTags] = useState<string[]>(target?.tags || []);
   const [tagInputText, setTagInputText] = useState('');
@@ -695,6 +708,91 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     {enabled ? 'Activo (Sondeando)' : 'Pausado'}
                   </button>
                 </div>
+              </div>
+
+              {/* Execution Runner: Sentinel Cloud vs Sentinine LAN */}
+              <div className="bg-bg-dark/40 border border-border-base/80 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+                    <Server size={14} className="text-accent-purple" />
+                    <span>Ejecutor del Sondeo</span>
+                  </label>
+                  <span className="text-[11px] text-text-dim">
+                    {runnerType === 'agent' ? 'Auditoría en red privada / LAN' : 'Sondeo desde la nube / Internet'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRunnerType('cloud');
+                      setAgentProbeId('');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
+                      runnerType === 'cloud'
+                        ? 'bg-accent-green/10 border-accent-green/40 text-accent-green ring-1 ring-accent-green/30'
+                        : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:border-border-base'
+                    }`}
+                  >
+                    <Globe size={18} className={runnerType === 'cloud' ? 'text-accent-green' : 'text-text-dim'} />
+                    <div>
+                      <div className="font-semibold text-xs text-text-main">🌐 Nube Sentinel (Público)</div>
+                      <div className="text-[10px] text-text-dim mt-0.5">Sondeo desde internet / multi-región</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRunnerType('agent');
+                      if (probes.length > 0 && !agentProbeId) {
+                        setAgentProbeId(probes[0].id);
+                      }
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
+                      runnerType === 'agent'
+                        ? 'bg-accent-purple/10 border-accent-purple/40 text-accent-purple ring-1 ring-accent-purple/30'
+                        : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:border-border-base'
+                    }`}
+                  >
+                    <Server size={18} className={runnerType === 'agent' ? 'text-accent-purple' : 'text-text-dim'} />
+                    <div>
+                      <div className="font-semibold text-xs text-text-main">🐕 Guardián Sentinine (Privado)</div>
+                      <div className="text-[10px] text-text-dim mt-0.5">Sondeo dentro de tu red LAN o VPC</div>
+                    </div>
+                  </button>
+                </div>
+
+                {runnerType === 'agent' && (
+                  <div className="pt-2 animate-in fade-in space-y-2">
+                    <label className="block text-xs font-medium text-accent-purple flex items-center justify-between">
+                      <span>Selecciona el Guardián Sentinine Responsable *</span>
+                      <span className="text-[10px] text-text-dim">
+                        {probes.filter((p) => p.is_online).length} online de {probes.length}
+                      </span>
+                    </label>
+                    {probes.length === 0 ? (
+                      <div className="p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-xl text-accent-yellow text-xs flex items-center justify-between">
+                        <span>No tienes guardianes Sentinine registrados en tu organización.</span>
+                      </div>
+                    ) : (
+                      <select
+                        value={agentProbeId}
+                        onChange={(e) => setAgentProbeId(e.target.value)}
+                        required={runnerType === 'agent'}
+                        className="w-full bg-bg-dark/90 border border-accent-purple/40 rounded-xl px-3 py-2 text-xs text-text-main font-mono focus:outline-none focus:ring-1 focus:ring-accent-purple"
+                      >
+                        <option value="">-- Seleccionar Guardián Sentinine --</option>
+                        {probes.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.is_online ? '● Online' : '○ Offline'}) — {p.hostname || p.ip_address || 'LAN'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Dynamic Target Endpoint Input */}

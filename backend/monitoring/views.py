@@ -705,10 +705,10 @@ class AgentProbeListView(APIView):
         scheme = request.scheme
         base_url = f"{scheme}://{host}"
         docker_cmd = (
-            f"docker run -d --name sentinel-probe --restart unless-stopped "
-            f"-e SENTINEL_TOKEN=\"{raw_token}\" "
-            f"-e SENTINEL_SERVER=\"{base_url}\" "
-            f"sentinel/probe:latest"
+            f"docker run -d --name sentinine --restart unless-stopped "
+            f"-e SENTININE_TOKEN=\"{raw_token}\" "
+            f"-e SENTININE_SERVER=\"{base_url}\" "
+            f"sentinel/sentinine:latest"
         )
 
         probe_data = AgentProbeSerializer(probe).data
@@ -722,7 +722,7 @@ class AgentProbeListView(APIView):
                 request,
                 action="create",
                 module="monitoring",
-                description=f"Se registró un nuevo Agente Satélite Privado: {probe.name}",
+                description=f"Se registró un nuevo Guardián Sentinine: {probe.name}",
             )
         except Exception:
             pass

@@ -31,6 +31,10 @@ def run_monitoring_check(self, target_id):
         logger.info("Target %s is disabled, skipping.", target.name)
         return
 
+    if getattr(target, "runner_type", "cloud") == "agent":
+        logger.info("Target %s is assigned to private agent probe, skipping cloud runner.", target.name)
+        return
+
     logger.info("Running check for target: %s (%s)", target.name, target.target_type)
 
     try:
@@ -257,6 +261,8 @@ def schedule_all_checks():
             enabled=True,
             organization__status="active",
             organization__subscription_status__in=["active", "trialing"],
+        ).exclude(
+            runner_type="agent",
         ).values_list("id", flat=True)
     )
     for tid in target_ids:
@@ -349,3 +355,57 @@ def purge_old_checks_by_retention():
                 )
 
     return f"Purged {total_deleted} old monitoring checks."
+
+
+@shared_task(name="monitoring.check_sentinine_heartbeats")
+def check_sentinine_heartbeats():
+    """Watchdog task: Checks for inactive Sentinine probe agents and marks them offline.
+
+    Runs periodically via Celery Beat (every 60s). If an AgentProbe has had no heartbeat
+    for > 45 seconds and is currently marked 'online', its status transitions to 'offline'.
+    Dispatches a critical operational alert notifying operators of the disconnected probe.
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+    from .models import AgentProbe
+
+    cutoff = timezone.now() - timedelta(seconds=45)
+    stale_probes = AgentProbe.objects.filter(
+        status=AgentProbe.ProbeStatus.ONLINE,
+        last_heartbeat__lt=cutoff,
+    )
+    count = 0
+    for probe in stale_probes:
+        probe.status = AgentProbe.ProbeStatus.OFFLINE
+        probe.save(update_fields=["status"])
+        count += 1
+        logger.warning(
+            "Sentinine Agent '%s' (%s) marked OFFLINE (last heartbeat: %s).",
+            probe.name,
+            probe.id,
+            probe.last_heartbeat,
+        )
+
+        try:
+            from alerts.services import AlertService
+            AlertService.create_alert(
+                organization_id=probe.organization_id,
+                rule_id=None,
+                title=f"Guardián Sentinine desconectado: {probe.name}",
+                message=(
+                    f"El agente Sentinine '{probe.name}' en la red local ha dejado de emitir latidos (heartbeat). "
+                    f"Los objetivos de infraestructura asignados a esta sonda no están siendo auditados."
+                ),
+                severity="critical",
+                target_type="agent_probe",
+                target_id=probe.id,
+                metadata={
+                    "probe_id": str(probe.id),
+                    "probe_name": probe.name,
+                    "last_heartbeat": probe.last_heartbeat.isoformat() if probe.last_heartbeat else None,
+                },
+            )
+        except Exception as alert_exc:
+            logger.debug("Could not dispatch offline alert for probe %s: %s", probe.name, alert_exc)
+
+    return f"Checked Sentinine probes: {count} transitioned to OFFLINE."

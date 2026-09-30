@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Settings,
   List,
+  AlertCircle,
 } from 'lucide-react';
 import type { MonitoringTarget, TimeseriesData, TimeseriesSummary } from '../../types/monitoring';
 import LatencyChart from './LatencyChart';
@@ -144,11 +145,26 @@ export default function TargetDetailDrawer({
               <Icon className="text-accent-green" size={20} />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-bold text-lg text-text-main truncate" title={target.name}>
                   {target.name}
                 </h2>
                 {getStatusBadge()}
+                {target.runner_type === 'agent' && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                      target.agent_probe_online === false || target.agent_probe_status === 'offline'
+                        ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
+                        : 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
+                    }`}
+                  >
+                    <Server size={11} />
+                    <span>Sentinine: {target.agent_probe_name || 'Guardián LAN'}</span>
+                    {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
+                      <span className="text-[10px] ml-1 text-accent-red font-mono">(Offline)</span>
+                    )}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-text-dim font-mono truncate max-w-sm">{target.endpoint}</p>
             </div>
@@ -238,6 +254,32 @@ export default function TargetDetailDrawer({
             </div>
           </div>
         </div>
+
+        {/* Sentinine Probe Indicator Banner */}
+        {target.runner_type === 'agent' && (
+          target.agent_probe_online === false || target.agent_probe_status === 'offline' ? (
+            <div className="px-6 py-2.5 bg-accent-red/10 border-b border-accent-red/30 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-accent-red font-medium">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>Atención: El Guardián Sentinine ({target.agent_probe_name || 'LAN'}) está DESCONECTADO.</span>
+              </div>
+              <span className="text-[11px] text-accent-red bg-accent-red/20 px-2 py-0.5 rounded font-mono font-bold">
+                SIN TELEMETRÍA RECIENTE
+              </span>
+            </div>
+          ) : (
+            <div className="px-6 py-2.5 bg-accent-purple/5 border-b border-accent-purple/20 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-accent-purple font-medium">
+                <Server size={14} className="shrink-0" />
+                <span>Sondeo ejecutado por Guardián Sentinine:</span>
+                <span className="font-bold text-text-main font-mono">{target.agent_probe_name || 'Sentinine LAN'}</span>
+              </div>
+              <span className="text-[11px] text-accent-purple/80 bg-accent-purple/10 px-2 py-0.5 rounded border border-accent-purple/30 font-mono">
+                Red Interna / LAN
+              </span>
+            </div>
+          )
+        )}
 
         {/* Drawer Tabs */}
         <div className="flex border-b border-border-base px-6 bg-bg-dark/40">
