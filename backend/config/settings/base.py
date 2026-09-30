@@ -95,19 +95,29 @@ DATABASES = {
     }
 }
 
-# Caches (Distributed Redis DB 2)
+# Caches (Distributed Redis DB 2 with Authentication Support)
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "").strip()
+
+if REDIS_PASSWORD:
+    _redis_auth = f":{REDIS_PASSWORD}@"
+else:
+    _redis_auth = ""
+
+REDIS_BASE_URL = f"redis://{_redis_auth}{REDIS_HOST}:{REDIS_PORT}"
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.environ.get(
-            "REDIS_CACHE_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/2"
+            "REDIS_CACHE_URL", f"{REDIS_BASE_URL}/2"
         ),
         "TIMEOUT": 300,
         "KEY_PREFIX": "sentinel",
     }
 }
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -180,10 +190,11 @@ SIMPLE_JWT = {
 
 
 # Celery
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", f"{REDIS_BASE_URL}/0")
 CELERY_RESULT_BACKEND = os.environ.get(
-    "CELERY_RESULT_BACKEND", "redis://localhost:6379/1"
+    "CELERY_RESULT_BACKEND", f"{REDIS_BASE_URL}/1"
 )
+
 CELERY_IMPORTS = (
     "monitoring.tasks",
     "ssl_monitor.tasks",
@@ -255,7 +266,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "monitoring.check_sentinine_heartbeats",
         "schedule": 60.0,
     },
+    "purge-telemetry-every-sunday": {
+        "task": "monitoring.purge_old_telemetry",
+        "schedule": 86400.0 * 7,  # Every 7 days
+    },
 }
+
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = False

@@ -408,4 +408,21 @@ def check_sentinine_heartbeats():
         except Exception as alert_exc:
             logger.debug("Could not dispatch offline alert for probe %s: %s", probe.name, alert_exc)
 
-    return f"Checked Sentinine probes: {count} transitioned to OFFLINE."
+    return f"Checked Sentinine probes: {count} transitioned to OFFLINE."
+
+
+@shared_task(name="monitoring.purge_old_telemetry")
+def purge_old_telemetry(days=90):
+    """
+    Periodic task running weekly (via Celery Beat) to enforce data retention
+    and prevent unbounded table growth in PostgreSQL / TimescaleDB.
+    """
+    from django.core.management import call_command
+    logger.info("Executing periodic telemetry purge task (retention: %d days)...", days)
+    try:
+        call_command("setup_retention", days=days, purge=True)
+        return f"Successfully purged telemetry older than {days} days."
+    except Exception as exc:
+        logger.error("Failed to execute telemetry purge: %s", exc)
+        return f"Error during telemetry purge: {str(exc)}"
+
