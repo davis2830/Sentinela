@@ -340,10 +340,10 @@ export default function MonitoringPage() {
           <button
             onClick={() => setShowProbeDrawer(true)}
             className="flex items-center gap-2 bg-accent-purple/10 border border-accent-purple/40 text-accent-purple font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-purple/20 transition-all shadow-sm"
-            title="Administrar agentes satélite para monitorear redes privadas y On-Premise"
+            title="Administrar guardianes Sentinine para auditar redes privadas y On-Premise"
           >
             <Server size={15} />
-            <span>Agentes Satélite ({probes?.length || 0})</span>
+            <span>Sentinine ({probes?.length || 0})</span>
           </button>
 
           <button

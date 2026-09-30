@@ -50,7 +50,7 @@ class AgentProbe(OrganizationOwnedModel):
 
     @classmethod
     def generate_token(cls):
-        raw_token = f"prb_live_{secrets.token_urlsafe(32)}"
+        raw_token = f"snt_live_{secrets.token_urlsafe(32)}"
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         return raw_token, token_hash
 

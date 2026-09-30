@@ -1,7 +1,8 @@
 # 🛡️ Sentinel (GC_OPS_OBS) - Tracker de Tareas y Roadmap Pendiente
 
 > **Ubicación del Proyecto:** `C:\Users\feshernandez\GC_OPS_OBS`  
-> **Última actualización:** 16 de Septiembre de 2026  
+> **Última actualización:** 30 de Septiembre de 2026  
+> **Tracker Principal Unificado:** [docs/ROADMAP_TRACKER.md](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/ROADMAP_TRACKER.md)  
 > **Estado:** Documento vivo de seguimiento y avance continuo.
 
 ---
@@ -10,29 +11,25 @@
 
 | Módulo / Iniciativa | Estado | Prioridad | Progreso |
 | :--- | :---: | :---: | :---: |
-| **1. Agentes Satélite (Private Probes)** | 🟡 En Progreso (90%) | Alta | Falta prueba de despliegue Docker y validación de ciclo completo |
-| **2. Planes, Suscripciones y Cuotas** | 🟡 En Progreso (80%) | Alta | Falta enforcement estricto multi-módulo y flujo de upgrade |
+| **1. Guardianes Sentinine (LAN & Private Probes)** | 🟢 Completado (100%) | Alta | Rebranding a Sentinine, Celery watchdog, bypass SSL y TargetForm integrados |
+| **2. Planes, Suscripciones y Cuotas** | 🟢 Completado (100%) | Alta | Enforcement en 10 módulos (HTTP 403 `QUOTA_EXCEEDED`) y Celery Beat trials |
 | **3. Automatización de Pruebas (Pytest / Playwright)** | 🟡 En Progreso (50%) | Alta | k6 al 100%; falta Pytest (Lógica de negocio) y Playwright (E2E) |
-| **4. Visor de Logs con Loki (`sentinel_loki`)** | ⚪ Pendiente | Media | Infraestructura en Docker lista; falta UI Log Stream Viewer |
-| **5. Telemetría de Host (`scripts_alloy`)** | ⚪ Pendiente | Media | Scripts listos; falta visualización en targets |
+| **4. Visor de Logs con Loki (`sentinel_loki`)** | ⚪ Pendiente (Fase 2) | Media | Infraestructura en Docker lista; falta UI Log Stream Viewer |
+| **5. Telemetría de Host (`scripts_alloy`)** | ⚪ Pendiente (Fase 2) | Media | Scripts listos; falta visualización en targets |
 | **6. Runbooks Operativos (SOPs)** | ⚪ Pendiente (Fase 2) | Media | Definido en Roadmap; por diseñar e implementar |
-| **7. Ventanas de Mantenimiento Programadas** | ⚪ Pendiente (Fase 2) | Media | Definido en Roadmap; por diseñar e implementar |
+| **7. Ventanas de Mantenimiento Programadas** | 🟢 Completado (100%) | Alta | Implementado al 100% en backend y frontend con auto-sync a Status Page |
 
 ---
 
-## 🛰️ 1. Agentes Satélite (Sentinel Satellite / Private Probes)
+## 🐕 1. Guardianes Sentinine (Sentinel Watchdogs & Private Probes)
 
-Permite a Sentinel monitorear infraestructura privada, bases de datos locales y servicios en redes internas (on-premise o VPCs) sin abrir puertos hacia internet.
+Permite a Sentinel auditar infraestructura privada, bases de datos locales y servicios en redes internas (on-premise o VPCs) sin abrir puertos hacia internet.
 
-### Componentes Actuales:
-- **Agente Ligero:** `sentinel_probe/agent.py` (Script Python autónomo con cero dependencias externas) y su `Dockerfile`.
+### Componentes Oficiales:
+- **Agente Ligero:** `sentinine/agent.py` (Script Python autónomo con soporte SSL autofirmado, DNS y TCP), `sentinine/Dockerfile`, `sentinine/docker-compose.yml`, `sentinine/install.sh` y `sentinine/install.ps1`.
 - **Backend API:** `backend/monitoring/views.py` (`AgentProbeListView`, `AgentProbeDetailView`, `AgentProbeHeartbeatView`, `AgentProbeSubmitResultsView`).
-- **Frontend:** `frontend/src/components/monitoring/ProbeDirectoryDrawer.tsx` y `CreateProbeModal.tsx` con generador del comando Docker con token `prb_live_...`.
-
-### 📋 Tareas por Realizar:
-- [ ] **Despliegue y Validación en Vivo:** Construir la imagen Docker local (`docker build -t sentinel/probe:latest ./sentinel_probe`) y levantar un agente de prueba con su token.
-- [ ] **Ciclo de Tareas en Red Privada:** Validar que el agente solicite tareas a `/heartbeat/`, sondee un objetivo local o intranet y reporte a `/submit-results/`.
-- [ ] **Badge y Visualización en NOC:** Verificar que en la lista de objetivos se visualice el badge pulsante *"Ejecutado por Agente Satélite"* con latencia real.
+- **Watchdog Celery:** Tarea periódica `check_sentinine_heartbeats` en Celery Beat para detección de desconexión y alerta crítica.
+- **Frontend:** `frontend/src/components/monitoring/CreateProbeModal.tsx` con comando docker `sentinel/sentinine:latest`, `ProbeDirectoryDrawer.tsx` con telemetría en vivo, `TargetForm.tsx` con auto-detección de IPs privadas, y badges reactivos en `TargetCard.tsx` y `TargetDetailDrawer.tsx`.
 
 ---
 

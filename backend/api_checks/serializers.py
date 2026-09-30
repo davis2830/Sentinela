@@ -58,6 +58,13 @@ class APICheckTargetCreateSerializer(serializers.Serializer):
     check_interval = serializers.IntegerField(required=False, default=60)
     enabled = serializers.BooleanField(default=True)
 
+    def validate(self, attrs):
+        url = attrs.get("url")
+        if url:
+            from common.security import validate_safe_public_url
+            validate_safe_public_url(url)
+        return attrs
+
 
 class APICheckTargetUpdateSerializer(serializers.Serializer):
     """Serializer for API check target updates."""
@@ -75,6 +82,13 @@ class APICheckTargetUpdateSerializer(serializers.Serializer):
     request_body = serializers.DictField(required=False)
     check_interval = serializers.IntegerField(required=False)
     enabled = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        url = attrs.get("url")
+        if url:
+            from common.security import validate_safe_public_url
+            validate_safe_public_url(url)
+        return attrs
 
 
 class APICheckResultSerializer(serializers.ModelSerializer):

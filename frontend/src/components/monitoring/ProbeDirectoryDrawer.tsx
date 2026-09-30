@@ -66,18 +66,18 @@ export default function ProbeDirectoryDrawer({
         {/* Header */}
         <div className="p-6 border-b border-border-base flex items-start justify-between bg-gradient-to-r from-bg-card via-bg-card-hover to-bg-card">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-accent-green/10 text-accent-green border border-accent-green/30">
+            <div className="p-2.5 rounded-2xl bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
               <Server size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-text-main">Agentes Satélite (On-Premise)</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-blue/10 text-accent-blue border border-accent-blue/30">
-                  {probes?.length || 0} RUNNERS
+                <h3 className="text-xl font-bold text-text-main">Guardianes Sentinine (LAN & On-Premise)</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
+                  {probes?.length || 0} GUARDIANES
                 </span>
               </div>
               <p className="text-xs text-text-muted mt-0.5">
-                Infraestructura distribuida para monitorear redes locales, bases de datos y VPCs.
+                Vigilantes distribuidos para auditar redes locales, bases de datos y VPCs sin abrir puertos.
               </p>
             </div>
           </div>
@@ -93,16 +93,16 @@ export default function ProbeDirectoryDrawer({
         {/* Action bar */}
         <div className="p-4 px-6 border-b border-border-base/60 bg-bg-dark/40 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-text-dim">
-            <span className="w-2 h-2 rounded-full bg-accent-green animate-ping inline-block" />
+            <span className="w-2 h-2 rounded-full bg-accent-purple animate-ping inline-block" />
             <span>Telemetría en vivo cada 10s</span>
           </div>
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-accent-green text-black hover:bg-accent-green-glow transition-all shadow-md shadow-accent-green/10"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-accent-purple text-white hover:bg-accent-purple/90 transition-all shadow-md shadow-accent-purple/10"
           >
             <Plus size={14} />
-            <span>Conectar Agente</span>
+            <span>Nuevo Sentinine</span>
           </button>
         </div>
 
@@ -110,22 +110,22 @@ export default function ProbeDirectoryDrawer({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-text-muted">
-              <Loader2 size={28} className="animate-spin text-accent-green mb-3" />
-              <p className="text-xs">Consultando estado de los agentes...</p>
+              <Loader2 size={28} className="animate-spin text-accent-purple mb-3" />
+              <p className="text-xs">Consultando estado de los guardianes Sentinine...</p>
             </div>
           ) : probes?.length === 0 ? (
             <div className="text-center py-16 px-4 rounded-3xl border border-dashed border-border-base bg-bg-dark/30">
               <Server size={36} className="mx-auto text-text-dim mb-3" />
-              <h4 className="text-sm font-bold text-text-main">No hay agentes satélite conectados</h4>
+              <h4 className="text-sm font-bold text-text-main">No hay guardianes Sentinine conectados</h4>
               <p className="text-xs text-text-muted max-w-sm mx-auto mt-1 mb-5">
-                Conecta un runner privado para comenzar a monitorear bases de datos internas, switches y microservicios locales sin abrir puertos.
+                Despliega un guardián Sentinine en tu red local para comenzar a monitorear bases de datos internas, switches y microservicios sin abrir puertos.
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-accent-green text-black hover:bg-accent-green-glow transition-all"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-accent-purple text-white hover:bg-accent-purple/90 transition-all"
               >
                 <Plus size={14} />
-                <span>Conectar Primer Agente</span>
+                <span>Conectar Primer Sentinine</span>
               </button>
             </div>
           ) : (
@@ -187,14 +187,14 @@ export default function ProbeDirectoryDrawer({
                       onClick={() => {
                         if (
                           confirm(
-                            `¿Estás seguro de desconectar y revocar el agente "${probe.name}"? Los objetivos asignados a este agente dejarán de monitorearse.`
+                            `¿Estás seguro de desconectar y revocar el guardián Sentinine "${probe.name}"? Los objetivos asignados a este guardián dejarán de auditarse.`
                           )
                         ) {
                           deleteMutation.mutate(probe.id);
                         }
                       }}
                       className="p-1.5 text-text-dim hover:text-accent-red rounded-lg hover:bg-accent-red/10 transition-colors"
-                      title="Revocar y eliminar agente"
+                      title="Revocar y eliminar guardián"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -202,7 +202,7 @@ export default function ProbeDirectoryDrawer({
 
                   <div className="pt-3 border-t border-border-base/60 flex items-center justify-between text-[11px] text-text-muted">
                     <div className="flex items-center gap-1.5">
-                      <Activity size={13} className="text-accent-blue" />
+                      <Activity size={13} className="text-accent-purple" />
                       <span>
                         <strong className="text-text-main font-mono">
                           {probe.assigned_targets_count}
@@ -228,7 +228,7 @@ export default function ProbeDirectoryDrawer({
 
         {/* Footer */}
         <div className="p-4 px-6 border-t border-border-base bg-bg-dark/40 flex items-center justify-between text-xs text-text-dim">
-          <span>Los agentes satélite envían telemetría únicamente mediante peticiones salientes.</span>
+          <span>Los guardianes Sentinine emiten telemetría segura mediante peticiones salientes (Outbound HTTPS).</span>
           <button
             onClick={onClose}
             className="px-4 py-2 text-text-muted hover:text-text-main rounded-xl border border-border-base hover:bg-white/5 transition-colors"

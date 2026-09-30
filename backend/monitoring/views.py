@@ -704,12 +704,22 @@ class AgentProbeListView(APIView):
         host = request.get_host()
         scheme = request.scheme
         base_url = f"{scheme}://{host}"
-        docker_cmd = (
-            f"docker run -d --name sentinel-probe --restart unless-stopped "
-            f"-e SENTINEL_TOKEN=\"{raw_token}\" "
-            f"-e SENTINEL_SERVER=\"{base_url}\" "
-            f"sentinel/probe:latest"
-        )
+
+        # In local development (localhost / 127.0.0.1), connect to Docker Compose network
+        if "localhost" in host or "127.0.0.1" in host:
+            docker_cmd = (
+                f"docker run -d --name sentinine --network gc_ops_obs_default --restart unless-stopped "
+                f"-e SENTININE_TOKEN=\"{raw_token}\" "
+                f"-e SENTININE_SERVER=\"http://backend:8000\" "
+                f"sentinel/sentinine:latest"
+            )
+        else:
+            docker_cmd = (
+                f"docker run -d --name sentinine --restart unless-stopped "
+                f"-e SENTININE_TOKEN=\"{raw_token}\" "
+                f"-e SENTININE_SERVER=\"{base_url}\" "
+                f"sentinel/sentinine:latest"
+            )
 
         probe_data = AgentProbeSerializer(probe).data
         probe_data["raw_token"] = raw_token
@@ -722,7 +732,7 @@ class AgentProbeListView(APIView):
                 request,
                 action="create",
                 module="monitoring",
-                description=f"Se registró un nuevo Agente Satélite Privado: {probe.name}",
+                description=f"Se registró un nuevo Guardián Sentinine: {probe.name}",
             )
         except Exception:
             pass

@@ -1,0 +1,11 @@
+services:
+  sentinine:
+    image: sentinel/sentinine:latest
+    container_name: sentinine_agent
+    restart: always
+    environment:
+      - SENTININE_SERVER=${SENTININE_SERVER:-http://localhost:8000}
+      - SENTININE_TOKEN=${SENTININE_TOKEN}
+      - POLL_INTERVAL=10
+      - SENTININE_INSECURE_SKIP_VERIFY=${SENTININE_INSECURE_SKIP_VERIFY:-false}
+    network_mode: host

@@ -8,11 +8,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Security
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend").split(",") if h.strip()]
-if "[::1]" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("[::1]")
-if "::1" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("::1")
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend,sentinel_backend,host.docker.internal").split(",") if h.strip()]
+for h in ["[::1]", "::1", "host.docker.internal", "sentinel_backend"]:
+    if h not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(h)
+
 
 # Applications
 INSTALLED_APPS = [
@@ -164,16 +164,20 @@ REST_FRAMEWORK = {
     },
 }
 
-# SimpleJWT
+# SimpleJWT (Production Hardened: Token Rotation & Blacklisting)
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=int(os.environ.get("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "60"))
+        minutes=int(os.environ.get("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "15"))
     ),
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=int(os.environ.get("JWT_REFRESH_TOKEN_LIFETIME_DAYS", "7"))
     ),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
 
 # Celery
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
@@ -246,6 +250,10 @@ CELERY_BEAT_SCHEDULE = {
     "check-expired-trials-every-15m": {
         "task": "organizations.check_expired_trials",
         "schedule": 900.0,
+    },
+    "check-sentinine-heartbeats-every-60s": {
+        "task": "monitoring.check_sentinine_heartbeats",
+        "schedule": 60.0,
     },
 }
 

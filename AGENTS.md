@@ -11,16 +11,23 @@
 - **Frontend:** React + TypeScript con Vite, componentes de UI para dashboards de monitorización de infraestructura.
 - **Contenedores:** Docker & Docker Compose (`docker-compose.yml`).
 
-## 📁 Reglas del Proyecto
-Este proyecto contiene especificaciones y estándares detallados en la carpeta [`.clinerules/`](file:///.clinerules/):
-- `00-sentinel-master.md`: Reglas maestras del proyecto.
-- `01-architecture.md`: Arquitectura del sistema.
-- `02-tech-stack.md`: Stack tecnológico y dependencias.
-- `03-backend.md`: Estándares de backend y endpoints.
-- `04-frontend.md`: Estándares de frontend y componentes.
-- `05-database.md`: Modelado y base de datos TimescaleDB.
-- `06-coding-standards.md`: Estándares de código y buenas prácticas.
-- `07-roadmap.md`: Fases y roadmap de producto.
+## 📁 Reglas y Documentación Viva del Proyecto
+Este proyecto contiene especificaciones técnicas y estándares detallados en:
+- **Centro de Documentación Viva (`docs/`):**
+  - [`docs/README.md`](file:///docs/README.md): Índice principal de documentación técnica.
+  - [`docs/ROADMAP_TRACKER.md`](file:///docs/ROADMAP_TRACKER.md): Estado de avance por fases (Fase 1, 2 y 3) y tareas pendientes.
+  - [`docs/IMPLEMENTATION_LOG.md`](file:///docs/IMPLEMENTATION_LOG.md): Bitácora cronológica de implementaciones y decisiones técnicas.
+  - [`docs/MODULE_INVENTORY.md`](file:///docs/MODULE_INVENTORY.md): Catálogo de módulos, vistas, endpoints y modelos.
+  - [`docs/DEV_WORKFLOW.md`](file:///docs/DEV_WORKFLOW.md): Convenciones, sincronización con Docker y diseño UI.
+- **Especificaciones Base (`.clinerules/`):**
+  - `00-sentinel-master.md`: Reglas maestras del proyecto.
+  - `01-architecture.md`: Arquitectura del sistema.
+  - `02-tech-stack.md`: Stack tecnológico y dependencias.
+  - `03-backend.md`: Estándares de backend y endpoints.
+  - `04-frontend.md`: Estándares de frontend y componentes.
+  - `05-database.md`: Modelado y base de datos TimescaleDB.
+  - `06-coding-standards.md`: Estándares de código y buenas prácticas.
+  - `07-roadmap.md`: Fases y roadmap de producto.
 
 ## 🚀 Estado de Avances Realizados
 - **Auditoría y Erradicación Total de Consultas N+1 (ORM & TimescaleDB):**
@@ -108,6 +115,15 @@ Este proyecto contiene especificaciones y estándares detallados en la carpeta [
   - **Micro-Badges y Telemetría en Vistas:** Indicadores rápidos de protección (`HSTS`, `CSP`, `XFO`), badge pulsante de *"Fuga de Stack"* y latencia de respuesta en ms en tarjetas y tabla.
   - **Acciones en Lote Atómicas & Exportación CSV:** Endpoint `POST /api/v1/security-headers/bulk-action/` para escanear, pausar, reanudar o eliminar en masa, más exportación a CSV con codificación UTF-8 BOM.
 - **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
+- **Guardianes Sentinine (LAN & On-Premise Satellite Monitoring):**
+  - **Rebranding Completo:** De Satellite/Probe a **Guardián Sentinine** (Sentinel Watchdog) en Backend, Frontend y Agente.
+  - **Agente Autónomo de Monitoreo (`sentinine/`):** v1.1.0 con soporte para `SENTININE_INSECURE_SKIP_VERIFY` (omisión de validación SSL para intranets corporativas con certificados autofirmados), resolución DNS interna, sondeo de puertos TCP a bases de datos y User-Agent oficial `Sentinine/1.1.0`.
+  - **Artefactos de Despliegue:** Imagen de contenedor `sentinel/sentinine:latest`, `Dockerfile`, `docker-compose.yml`, y scripts de instalación de 1 comando (`install.sh` y `install.ps1`).
+  - **Tokens Seguros con Prefijo `snt_live_`:** Generación y validación de tokens de probe con retrocompatibilidad para prefijos legados.
+  - **Celery Beat Watchdog (`check_sentinine_heartbeats`):** Tarea programada cada 60s que detecta agentes inactivos (>45s sin heartbeat), transiciona su estado a `offline` y genera alertas críticas de desconexión en el NOC.
+  - **Frontend UI & Detección de Red:** Selector interactivo en `TargetForm.tsx` entre *"Nube Sentinel (SaaS Público)"* y *"Guardián Sentinine (LAN & On-Prem)"* con auto-detección de IPs privadas (`192.168.`, `10.`, `172.16-31.`). Badges semánticos morados (`accent-purple`) y alerta roja de agente desconectado en `TargetCard`, `TargetTableView` y `TargetDetailDrawer`.
+  - **Suite E2E Verificada:** `test_probe_e2e.py` validando ciclo completo de heartbeat, ingesta de métricas y disparo del watchdog con 0 errores.
+
 
 ## 🎨 Paleta Oficial de Colores y Semántica Estricta (Design System Tokens)
 El sistema implementa un marco semántico estricto de observabilidad (NOC / SRE) para eliminar ambigüedades operativas:

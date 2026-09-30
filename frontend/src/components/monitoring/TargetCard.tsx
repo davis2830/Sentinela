@@ -173,11 +173,22 @@ export default function TargetCard({
               {renderStatusIndicator()}
               {target.runner_type === 'agent' && (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-purple/10 text-accent-purple border border-accent-purple/30"
-                  title={`Ejecutado localmente por agente: ${target.agent_probe_name || 'LAN'}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                    target.agent_probe_online === false || target.agent_probe_status === 'offline'
+                      ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
+                      : 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
+                  }`}
+                  title={
+                    target.agent_probe_online === false || target.agent_probe_status === 'offline'
+                      ? `Atención: Guardián Sentinine (${target.agent_probe_name || 'LAN'}) desconectado`
+                      : `Sondeado localmente por Guardián Sentinine: ${target.agent_probe_name || 'LAN'}`
+                  }
                 >
                   <Server size={10} />
-                  <span>{target.agent_probe_name || 'Agente LAN'}</span>
+                  <span>Sentinine: {target.agent_probe_name || 'LAN'}</span>
+                  {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
+                    <span className="text-[9px] text-accent-red font-mono">(Offline)</span>
+                  )}
                 </span>
               )}
             </div>

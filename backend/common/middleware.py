@@ -69,10 +69,19 @@ class IPAllowlistMiddleware:
     def _get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0].strip()
-        else:
-            ip = request.META.get("REMOTE_ADDR", "127.0.0.1")
-        return ip
+            # Anti-Spoofing: inspect hops from right to left (trusted proxy hops)
+            # preventing untrusted clients from prepending fake IP headers
+            parts = [p.strip() for p in x_forwarded_for.split(",") if p.strip()]
+            for candidate in reversed(parts):
+                try:
+                    ip_obj = ipaddress.ip_address(candidate)
+                    if not (ip_obj.is_loopback or ip_obj.is_private):
+                        return candidate
+                except ValueError:
+                    continue
+            return parts[0]
+        return request.META.get("REMOTE_ADDR", "127.0.0.1")
+
 
     def _is_ip_allowed(self, client_ip_str, raw_ranges_str):
         try:

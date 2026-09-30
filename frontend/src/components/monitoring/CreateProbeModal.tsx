@@ -81,20 +81,20 @@ export default function CreateProbeModal({
         {/* Header */}
         <div className="p-6 border-b border-border-base bg-gradient-to-r from-bg-card via-bg-card-hover to-bg-card flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-accent-green/10 text-accent-green border border-accent-green/30">
+            <div className="p-2.5 rounded-2xl bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
               <Server size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-bold text-text-main">
-                  {createdProbe ? 'Agente Satélite Registrado' : 'Conectar Nuevo Agente Satélite'}
+                  {createdProbe ? 'Guardián Sentinine Registrado' : 'Conectar Nuevo Guardián Sentinine'}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
-                  ON-PREMISE
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
+                  LAN / ON-PREMISE
                 </span>
               </div>
               <p className="text-xs text-text-muted mt-0.5">
-                Monitorea redes privadas locales, bases de datos y VPCs sin abrir puertos de firewall.
+                Vigila redes privadas locales, bases de datos y VPCs sin abrir puertos de firewall.
               </p>
             </div>
           </div>
@@ -125,28 +125,28 @@ export default function CreateProbeModal({
           >
             <div>
               <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Nombre Descriptivo del Agente / Datacenter *
+                Nombre Descriptivo del Sentinine / Datacenter *
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Datacenter Principal Santiago / VPC AWS Privada"
-                className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green"
+                placeholder="Ej. Datacenter Santiago / VPC AWS Privada / LAN Oficina"
+                className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-purple"
               />
               <p className="text-[11px] text-text-dim mt-1.5">
-                Identifica la ubicación física o red donde correrá este runner satélite.
+                Identifica la ubicación física o red interna donde correrá este guardián Sentinine.
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-bg-dark/60 border border-border-base/80 space-y-2 text-xs text-text-muted">
               <div className="flex items-center gap-2 text-text-main font-semibold">
-                <ShieldCheck size={16} className="text-accent-green" />
+                <ShieldCheck size={16} className="text-accent-purple" />
                 <span>Seguridad Saliente Exclusiva (Outbound Only)</span>
               </div>
               <p className="leading-relaxed text-text-dim text-[11px]">
-                El agente satélite no requiere abrir puertos entrantes en tu firewall. Se conecta a Sentinel mediante HTTPS saliente para consultar tareas y reportar los chequeos locales de tu red.
+                El agente Sentinine no requiere abrir puertos entrantes en tu firewall. Se conecta a Sentinel mediante HTTPS saliente para solicitar tareas y reportar los chequeos locales de tu red privada.
               </p>
             </div>
 
@@ -175,11 +175,11 @@ export default function CreateProbeModal({
         ) : (
           /* Step 2: Show Token & Docker Command */
           <div className="p-6 space-y-5">
-            <div className="p-4 rounded-2xl bg-accent-green/10 border border-accent-green/30 text-accent-green flex items-center gap-3 text-xs">
+            <div className="p-4 rounded-2xl bg-accent-purple/10 border border-accent-purple/30 text-accent-purple flex items-center gap-3 text-xs">
               <CheckCircle2 size={18} className="shrink-0" />
               <div>
-                <div className="font-bold">¡Agente {createdProbe.name} listo para iniciar!</div>
-                <div className="text-[11px] text-accent-green/80 mt-0.5">
+                <div className="font-bold">¡Guardián Sentinine {createdProbe.name} listo para iniciar!</div>
+                <div className="text-[11px] text-accent-purple/80 mt-0.5">
                   Ejecuta el siguiente comando en tu servidor local para iniciar la telemetría.
                 </div>
               </div>
@@ -189,12 +189,12 @@ export default function CreateProbeModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                  <Terminal size={14} className="text-accent-blue" />
-                  Comando Docker (1-Clic)
+                  <Terminal size={14} className="text-accent-cyan" />
+                  Comando Docker Oficial (1-Clic)
                 </label>
                 <button
                   onClick={() => handleCopy(createdProbe.docker_command || '', false)}
-                  className="flex items-center gap-1.5 text-xs text-accent-green hover:underline font-mono"
+                  className="flex items-center gap-1.5 text-xs text-accent-purple hover:underline font-mono"
                 >
                   {copiedCommand ? (
                     <>
@@ -209,7 +209,7 @@ export default function CreateProbeModal({
               </div>
 
               <div className="relative group">
-                <pre className="p-4 rounded-2xl bg-bg-dark border border-border-base text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                <pre className="p-4 rounded-2xl bg-bg-dark border border-border-base text-xs font-mono text-purple-300 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
                   {createdProbe.docker_command}
                 </pre>
               </div>
@@ -219,7 +219,7 @@ export default function CreateProbeModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                  Token Secreto del Agente (X-Probe-Token)
+                  Token Secreto de Sentinine (X-Probe-Token)
                 </label>
                 <button
                   onClick={() => handleCopy(createdProbe.raw_token || '', true)}
@@ -248,9 +248,9 @@ export default function CreateProbeModal({
             <div className="p-4 rounded-2xl bg-white/5 border border-border-base text-xs space-y-2">
               <div className="font-semibold text-text-main">¿Qué ocurre a continuación?</div>
               <ol className="list-decimal list-inside space-y-1 text-text-dim text-[11px] leading-relaxed">
-                <li>El contenedor satélite se iniciará en segundo plano en tu servidor.</li>
-                <li>Hará ping saliente a Sentinel y cambiará su estado a <strong className="text-accent-green">Online</strong>.</li>
-                <li>Ahora podrás seleccionar este agente al crear o editar cualquier objetivo de monitoreo.</li>
+                <li>El contenedor Sentinine se iniciará en segundo plano en tu servidor o red local.</li>
+                <li>Emitirá latidos (heartbeat) salientes a Sentinel y cambiará su estado a <strong className="text-accent-green">Online</strong>.</li>
+                <li>Ahora podrás seleccionar este Sentinine al crear o editar cualquier objetivo de monitoreo LAN.</li>
               </ol>
             </div>
 

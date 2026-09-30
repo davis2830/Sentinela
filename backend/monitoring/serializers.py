@@ -77,6 +77,8 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "runner_type",
             "agent_probe",
             "agent_probe_name",
+            "agent_probe_status",
+            "agent_probe_online",
             "recent_checks",
             "created_at",
             "updated_at",
@@ -90,6 +92,8 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
             "owner_team_name",
             "owner_team_color",
             "agent_probe_name",
+            "agent_probe_status",
+            "agent_probe_online",
             "recent_checks",
             "created_at",
             "updated_at",
@@ -99,6 +103,8 @@ class MonitoringTargetSerializer(serializers.ModelSerializer):
     owner_team_name = serializers.CharField(source="owner_team.name", read_only=True, allow_null=True)
     owner_team_color = serializers.CharField(source="owner_team.color", read_only=True, allow_null=True)
     agent_probe_name = serializers.CharField(source="agent_probe.name", read_only=True, allow_null=True)
+    agent_probe_status = serializers.CharField(source="agent_probe.status", read_only=True, allow_null=True)
+    agent_probe_online = serializers.BooleanField(source="agent_probe.is_online", read_only=True, allow_null=True)
 
     def get_recent_checks(self, obj):
         if hasattr(obj, "prefetched_recent_checks"):
@@ -135,6 +141,20 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     runner_type = serializers.ChoiceField(choices=["cloud", "agent"], required=False, default="cloud")
     agent_probe = serializers.UUIDField(required=False, allow_null=True)
 
+    def validate(self, attrs):
+        endpoint = attrs.get("endpoint")
+        runner_type = attrs.get("runner_type", "cloud")
+        agent_probe = attrs.get("agent_probe")
+
+        # Allow private IP ranges only if executed via an on-premise Sentinine agent probe
+        allow_private = (runner_type == "agent" or bool(agent_probe))
+
+        if endpoint:
+            from common.security import validate_safe_target_endpoint
+            validate_safe_target_endpoint(endpoint, allow_private=allow_private)
+
+        return attrs
+
 
 class MonitoringTargetUpdateSerializer(serializers.Serializer):
     """Serializer for target updates."""
@@ -155,6 +175,20 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
     owner_team = serializers.UUIDField(required=False, allow_null=True)
     runner_type = serializers.ChoiceField(choices=["cloud", "agent"], required=False)
     agent_probe = serializers.UUIDField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        endpoint = attrs.get("endpoint")
+        runner_type = attrs.get("runner_type")
+        agent_probe = attrs.get("agent_probe")
+
+        # Check if target update allows private IPs based on runner or probe
+        allow_private = (runner_type == "agent" or bool(agent_probe))
+
+        if endpoint:
+            from common.security import validate_safe_target_endpoint
+            validate_safe_target_endpoint(endpoint, allow_private=allow_private)
+
+        return attrs
 
 
 class MonitoringCheckSerializer(serializers.ModelSerializer):

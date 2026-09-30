@@ -52,6 +52,13 @@ class SecurityHeaderTargetCreateSerializer(serializers.Serializer):
     url = serializers.CharField(max_length=500)
     enabled = serializers.BooleanField(default=True)
 
+    def validate(self, attrs):
+        url = attrs.get("url")
+        if url:
+            from common.security import validate_safe_public_url
+            validate_safe_public_url(url)
+        return attrs
+
 
 class SecurityHeaderResultSerializer(serializers.ModelSerializer):
     """Serializer for SecurityHeaderResult model."""
