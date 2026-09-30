@@ -22,6 +22,26 @@ Este documento registra cronológicamente cada cambio, refactorización, optimiz
 
 ## 📅 Registro Histórico de Implementaciones
 
+### [2026-09-30] - Fase 2 Paso a Producción: Resiliencia de Datos, Cifrado en Reposo & Backups
+- **Módulo:** `common.crypto`, `monitoring` (setup_retention & Celery Beat), Redis, PostgreSQL, Scripts de Backup.
+- **Motivación:** Ejecutar la Fase 2 del Plan de Producción: proteger credenciales y tokens mediante cifrado en reposo, prevenir crecimiento desmedido de tablas de telemetría con retención automática y establecer procedimientos de Disaster Recovery automatizados.
+- **Cambios en Backend:**
+  - `backend/common/crypto.py`: Módulo de cifrado autenticado Fernet (AES-128-CBC + HMAC-SHA256) con derivación criptográfica de clave maestra desde `SECRET_KEY`. Cifrado transparente (`encrypt_secrets_dict`), desencriptado para ejecución de sondeos (`decrypt_secrets_dict`) y enmascaramiento (`mask_secrets_dict`) para serializadores y API.
+  - `backend/requirements/base.txt`: Incorporada dependencia `cryptography>=42.0.0` e instalada en contenedores backend y worker.
+  - `backend/monitoring/management/commands/setup_retention.py`: Comando Django para configurar políticas nativas de retención (`add_retention_policy`) y compresión (`add_compression_policy`) en TimescaleDB, o purga por lotes en PostgreSQL estándar.
+  - `backend/monitoring/tasks.py`: Tarea programada `purge_old_telemetry(days=90)` y registrada en `CELERY_BEAT_SCHEDULE` (`purge-telemetry-every-sunday`) para ejecución automática semanal.
+  - `backend/config/settings/base.py`: Soporte nativo para `REDIS_PASSWORD` en `CACHES` y broker/backend de Celery (`redis://[:password@]host:port/X`).
+- **Cambios en Scripts de Disaster Recovery (`scripts/`):**
+  - `scripts/backup_db.sh` & `scripts/backup_db.ps1`: Generación de respaldos binarios comprimidos (`pg_dump -Fc`), verificación de integridad con `pg_restore --list`, cálculo de hash SHA-256, purga automática de respaldos >14 días y soporte para subida off-site S3.
+  - `scripts/restore_db.sh`: Procedimiento seguro de restauración con validación de archivo dump y desconexión controlada de sesiones activas.
+- **Validaciones & Pruebas:**
+  - Test unitario de cifrado/desencriptado/enmascaramiento ejecutado con éxito en backend.
+  - Comando `setup_retention --days 90` ejecutado exitosamente en `sentinel_backend` (código 0).
+  - Respaldo completo en vivo ejecutado vía `backup_db.ps1` generando volcado de **53.86 MB** con checksum SHA-256 verificado.
+  - Contenedores sincronizados y reiniciados (`sentinel_backend`, `sentinel_celery_worker`, `sentinel_celery_beat`).
+
+---
+
 ### [2026-09-30] - Fase 1 Paso a Producción: Hardening AppSec, Anti-SSRF, JWT Rotation & Docker Prod
 - **Módulo:** `common.security`, `accounts`, `monitoring`, `api_checks`, `ssl_monitor`, `security_headers`, Nginx, Docker.
 - **Motivación:** Ejecutar el Punto 1 del Plan de Producción: blindar la plataforma contra ataques de Server-Side Request Forgery (SSRF) en sondeos cloud, rotar e invalidar tokens JWT de sesión, mitigar IP spoofing y estructurar el entorno Docker/Nginx de producción.
