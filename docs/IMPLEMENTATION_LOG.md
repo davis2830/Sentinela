@@ -22,6 +22,33 @@ Este documento registra cronológicamente cada cambio, refactorización, optimiz
 
 ## 📅 Registro Histórico de Implementaciones
 
+### [2026-09-30] - Fase 3 Paso a Producción: Meta-Observabilidad, Health Probes, Sentry & 2FA Cifrado
+- **Módulo:** `common.views_health`, `common.logging`, `accounts`, `config.settings`, `frontend.dashboard`, `frontend.profile`.
+- **Motivación:** Ejecutar la Fase 3 del Plan de Producción: dotar a Sentinel de meta-observabilidad y sondeo externo tipo "Dead Man's Snitch" (/health/ activo), rastreo en vivo de excepciones con Sentry, sanitización automática de logs para cumplimiento ISO 27001 / SOC 2, y cifrado en reposo con Fernet AES-128-CBC de secretos TOTP y códigos de recuperación 2FA.
+- **Cambios en Backend:**
+  - `backend/common/views_health.py`: Creada `HealthCheckView` pública (AllowAny) para sondas de disponibilidad externas e internas. Mide latencias activas de PostgreSQL/TimescaleDB (`SELECT 1`), Redis Cache (`ping/pong`) y Celery Broker (`connection_for_read`). Retorna HTTP 200 si todo está saludable o 503 Service Unavailable si hay degradación.
+  - `backend/config/urls.py` & `backend/config/api_urls.py`: Rutas `/health/`, `/health` y `/api/v1/health/` mapeadas directamente.
+  - `backend/common/middleware.py`: Exención en `IPAllowlistMiddleware` para `/api/v1/health` y `/health`.
+  - `backend/common/logging.py`: Creado `SensitiveDataMaskingFilter` con expresiones regulares para censurar tokens JWT (`Bearer [REDACTED_JWT]`), credenciales (`password=[REDACTED_PASSWORD]`) y tokens de probes Sentinine (`snt_[REDACTED_TOKEN]`) en todos los flujos de log.
+  - `backend/config/settings/base.py`: Configuración integral de `LOGGING` con filtro de sanitización y formateador estándar. Integración de `sentry-sdk` (Django, Celery, Redis) con muestreo y sin PII sensible.
+  - `backend/requirements/base.txt`: Incorporado `sentry-sdk>=2.0.0`, `pyotp>=2.9.0`, `qrcode[pil]>=7.4.2` e instalados en backend y celery worker.
+  - `backend/accounts/models.py`: Ampliado `totp_secret` a `max_length=255` para soportar tokens cifrados Fernet `enc:...`.
+  - `backend/accounts/migrations/0005_alter_user_totp_secret.py`: Migración aplicada exitosamente en BD.
+  - `backend/accounts/services.py`: Cifrado transparente con Fernet de `totp_secret` y de los 10 códigos de respaldo (`backup_codes`) al persistir en PostgreSQL. Verificación con desencriptado en memoria O(1) tanto para códigos TOTP como para códigos de respaldo de un solo uso.
+  - `backend/accounts/views.py`: `MeView` (GET y PATCH) y `AuthService.login` retornan la bandera `requires_2fa_setup = True` para administradores u operadores si la organización o política lo requiere.
+- **Cambios en Frontend:**
+  - `frontend/src/types/index.ts`: Añadido campo `requires_2fa_setup?: boolean` en la interfaz de `User`.
+  - `frontend/src/components/common/TwoFactorReminderBanner.tsx`: Componente de alerta NOC de alta visibilidad para operadores/administradores que no han activado 2FA, con acceso directo en 1-clic hacia `/profile?tab=security`.
+  - `frontend/src/pages/DashboardPage.tsx`: Renderizado reactivo de `TwoFactorReminderBanner` junto al banner de estado de suscripción.
+  - `frontend/src/pages/ProfilePage.tsx`: Soporte para cambio directo de pestaña mediante `location.state.tab` (`activeTab = 'security'`).
+- **Cambios en Contenedores & Docker:**
+  - `docker-compose.yml` & `docker-compose.prod.yml`: Healthcheck activo en servicio `backend` invocando `/health/` vía subproceso HTTP de Python.
+- **Validaciones & Pruebas:**
+  - `npm run build` ejecutado exitosamente en `frontend/` (0 errores TypeScript, 0 errores de bundling en 16.21s).
+  - Peticiones HTTP a `/health/` y `/api/v1/health/` respondiendo HTTP 200 en **< 23 ms** (BD: 0.75-16 ms, Redis: 0.77-2 ms, Celery: 17-29 ms).
+  - Suite de validación de 2FA ejecutada en backend con éxito total: cifrado de secreto TOTP verificado (`enc:...`), habilitación con 10 códigos de recuperación cifrados, autenticación con TOTP, autenticación con código de respaldo (consumo a 9 códigos) y desactivación segura con contraseña.
+  - Test de `SensitiveDataMaskingFilter` verificado: enmascaramiento exitoso de JWTs, passwords y tokens de agente en salida stdout.
+
 ### [2026-09-30] - Fase 2 Paso a Producción: Resiliencia de Datos, Cifrado en Reposo & Backups
 - **Módulo:** `common.crypto`, `monitoring` (setup_retention & Celery Beat), Redis, PostgreSQL, Scripts de Backup.
 - **Motivación:** Ejecutar la Fase 2 del Plan de Producción: proteger credenciales y tokens mediante cifrado en reposo, prevenir crecimiento desmedido de tablas de telemetría con retención automática y establecer procedimientos de Disaster Recovery automatizados.

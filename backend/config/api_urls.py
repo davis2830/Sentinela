@@ -1,4 +1,5 @@
 from django.urls import include, path
+from common.views_health import HealthCheckView
 
 urlpatterns = [
     # Accounts (Auth)
@@ -52,4 +53,7 @@ urlpatterns = [
 
     # Maintenance Windows
     path("maintenance/", include("maintenance.urls")),
+
+    # Meta-Monitoring & Health Check
+    path("health/", HealthCheckView.as_view(), name="health"),
 ]

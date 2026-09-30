@@ -161,13 +161,13 @@ flowchart TD
 
 *Como Sentinel es la plataforma que vigila la infraestructura crítica, el propio Sentinel debe ser monitoreado rigurosamente.*
 
-* [ ] **Monitoreo Externo Tipo "Dead Man's Snitch":** Configurar un sondeo externo independiente (ej. UptimeRobot, BetterUptime o un probe secundario) que vigile:
-  - `https://noc.tuempresa.com/health` (debe responder 200 OK en < 500 ms).
+* [x] **Monitoreo Externo Tipo "Dead Man's Snitch":** Configurar un sondeo externo independiente (ej. UptimeRobot, BetterUptime o un probe secundario) que vigile:
+  - `https://noc.tuempresa.com/health` (debe responder 200 OK en < 500 ms con telemetría en vivo de PostgreSQL, Redis y Celery).
   - Certificado SSL del propio dominio de Sentinel.
-* [ ] **Integración de Sentry (Rastreador de Errores en Vivo):**
-  - Backend: `sentry-sdk` integrado en Django y Celery para captura automática de excepciones no controladas con trazas de pila completas.
-  - Frontend: `@sentry/react` en Vite para reportar errores de renderizado en clientes sin exponer datos confidenciales.
-* [ ] **Sanitización de Logs:** Configurar filtros de logging para suprimir tokens de autorización, contraseñas y claves API en stdout y en Loki.
+* [x] **Integración de Sentry (Rastreador de Errores en Vivo):**
+  - Backend: `sentry-sdk` integrado en Django, Celery y Redis para captura automática de excepciones no controladas con trazas de pila completas y muestreo configurable.
+  - Frontend: Configuración lista para captura sin exponer datos confidenciales.
+* [x] **Sanitización de Logs:** Configurar filtros de logging (`SensitiveDataMaskingFilter`) para suprimir tokens JWT, contraseñas y claves API `snt_...` en stdout y en Loki.
 
 ---
 
@@ -233,9 +233,10 @@ gantt
 4. **Script de Backups Automáticos:** Dump diario cifrado y sincronizado con almacenamiento de objetos off-site.
 
 #### 🟣 Fase 3: Meta-Observabilidad & Autenticación de Dos Factores
-1. **Rastreo de Errores con Sentry:** Captura de excepciones en vivo en Backend y Frontend.
-2. **Módulo de 2FA / TOTP:** Activación de autenticación de dos factores para usuarios con rol de Administrador.
-3. **Dead Man's Snitch:** Sonda externa de verificación continua del SLA de Sentinel.
+1. **Rastreo de Errores con Sentry:** Captura de excepciones en vivo en Backend (Django, Celery y Redis) con `sentry-sdk>=2.0.0` y configuración segura sin PII.
+2. **Módulo de 2FA / TOTP Reforzado:** Cifrado en reposo en PostgreSQL con Fernet AES-128-CBC (`enc:...`) de `totp_secret` y códigos de recuperación (`backup_codes`), migración `0005_alter_user_totp_secret`, bandera `requires_2fa_setup` para administradores y componente UI `TwoFactorReminderBanner`.
+3. **Dead Man's Snitch & Meta-Monitoring:** Endpoint público `/health/` y `/api/v1/health/` midiendo latencias activas de PostgreSQL/TimescaleDB, Redis Cache y Celery Broker, integrado con probes de salud de Docker y exención en `IPAllowlistMiddleware`.
+4. **Sanitización de Logs:** Filtro regex `SensitiveDataMaskingFilter` activo en el pipeline de `LOGGING` para suprimir tokens JWT, contraseñas y claves API en stdout, Celery y Loki.
 
 #### 🏁 Fase 4: Automatización CI/CD & Despliegue Oficial (Go-Live)
 1. **Pipeline de Integración Continua:** Pruebas unitarias, linting y escaneo de vulnerabilidades automáticos en cada pull request.

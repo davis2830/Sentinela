@@ -54,7 +54,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     timezone = models.CharField(max_length=50, blank=True, default="")
     notification_preferences = models.JSONField(default=dict, blank=True)
     is_2fa_enabled = models.BooleanField(default=False)
-    totp_secret = models.CharField(max_length=64, blank=True, default="")
+    totp_secret = models.CharField(max_length=255, blank=True, default="")
     backup_codes = models.JSONField(default=list, blank=True)
     last_login = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

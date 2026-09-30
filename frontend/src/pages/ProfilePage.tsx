@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -55,10 +56,17 @@ const TIMEZONES = [
 ];
 
 export default function ProfilePage() {
+  const location = useLocation();
   const queryClient = useQueryClient();
   const updateUser = useAuthStore((state) => state.updateUser);
   const logout = useAuthStore((state) => state.logout);
-  const [activeTab, setActiveTab] = useState<ProfileTab>('personal');
+  const [activeTab, setActiveTab] = useState<ProfileTab>((location.state?.tab as ProfileTab) || 'personal');
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab as ProfileTab);
+    }
+  }, [location.state?.tab]);
 
   // Personal Info form
   const [firstName, setFirstName] = useState('');
@@ -258,10 +266,10 @@ export default function ProfilePage() {
   });
 
   // 2FA Handlers
-  const handleInitiate2FA = async () => {
+  const handleInitiate2FA = async (reset = false) => {
     setIsSettingUp2FA(true);
     try {
-      const res = await api.post('auth/2fa/setup/');
+      const res = await api.post('auth/2fa/setup/', { reset });
       setTotpSetupData(res.data?.data);
       setShow2FAModal(true);
     } catch (err: any) {
@@ -810,7 +818,7 @@ export default function ProfilePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleInitiate2FA}
+                      onClick={() => handleInitiate2FA(true)}
                       disabled={isSettingUp2FA}
                       className="px-4 py-2 rounded-xl text-xs font-semibold text-text-main bg-white/5 border border-border-base hover:bg-white/10 transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -821,7 +829,7 @@ export default function ProfilePage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={handleInitiate2FA}
+                    onClick={() => handleInitiate2FA(false)}
                     disabled={isSettingUp2FA}
                     className="flex items-center gap-2 px-5 py-2.5 bg-accent-green text-black font-bold rounded-xl text-xs hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer disabled:opacity-50"
                   >
@@ -1335,7 +1343,11 @@ export default function ProfilePage() {
         onVerify={async (code) => {
           return await verify2FAMutation.mutateAsync(code);
         }}
+        onRegenerate={async () => {
+          await handleInitiate2FA(true);
+        }}
         isVerifying={verify2FAMutation.isPending}
+        isRegenerating={isSettingUp2FA}
       />
 
       <Disable2FAModal
