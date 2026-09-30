@@ -15,6 +15,7 @@ import PriorityBadge from '../components/common/PriorityBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import QuickStartWizardModal from '../components/onboarding/QuickStartWizardModal';
 import TrialStatusBanner from '../components/common/TrialStatusBanner';
+import TwoFactorReminderBanner from '../components/common/TwoFactorReminderBanner';
 import { NOCDrawer } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { latestTimestamp, scannedFreshness, scheduledFreshness } from '../utils/dashboardFreshness';
@@ -538,6 +539,9 @@ export default function DashboardPage() {
 
       {/* SaaS Trial Status / Expiration Warning Banner */}
       <TrialStatusBanner />
+
+      {/* 2FA Policy Compliance Reminder Banner */}
+      <TwoFactorReminderBanner />
 
       {(visibleDownServices > 0 || visibleDegradedServices > 0 || (!isErrorIncidents && incidentsCount > 0)) && (
         <div role="status" className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 text-xs ${visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'border-accent-red/40 bg-accent-red/10' : 'border-accent-yellow/40 bg-accent-yellow/10'}`}>

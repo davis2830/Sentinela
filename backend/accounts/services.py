@@ -81,6 +81,9 @@ class AuthService:
         )
 
         org_requires_2fa = bool(user.organization and getattr(user.organization, "require_2fa", False))
+        admin_requires_2fa = bool(user.is_staff or user.is_superuser)
+        must_setup_2fa = (org_requires_2fa or admin_requires_2fa) and not user.is_2fa_enabled
+
         refresh = RefreshToken.for_user(user)
         return {
             "access_token": str(refresh.access_token),
@@ -93,7 +96,7 @@ class AuthService:
                 "is_staff": user.is_staff,
                 "is_superuser": user.is_superuser,
                 "is_2fa_enabled": user.is_2fa_enabled,
-                "requires_2fa_setup": org_requires_2fa and not user.is_2fa_enabled,
+                "requires_2fa_setup": must_setup_2fa,
             },
         }
 
@@ -102,6 +105,7 @@ class AuthService:
         """Verify 2FA TOTP code or backup code and issue JWT tokens."""
         from django.core import signing
         import pyotp
+        from common.crypto import decrypt_string
 
         try:
             payload = signing.loads(
@@ -120,18 +124,24 @@ class AuthService:
         clean_code = str(code).strip().replace(" ", "").replace("-", "")
         is_valid = False
 
-        # 1. Try TOTP code
+        # 1. Try TOTP code (transparent Fernet decryption)
         if user.totp_secret:
-            totp = pyotp.TOTP(user.totp_secret)
+            raw_secret = decrypt_string(user.totp_secret)
+            totp = pyotp.TOTP(raw_secret)
             if totp.verify(clean_code, valid_window=1):
                 is_valid = True
 
         # 2. Try single-use backup code
         if not is_valid and user.backup_codes:
             upper_code = clean_code.upper()
-            if upper_code in user.backup_codes:
-                is_valid = True
-                user.backup_codes.remove(upper_code)
+            found_code = None
+            for stored_code in (user.backup_codes or []):
+                if decrypt_string(stored_code) == upper_code:
+                    is_valid = True
+                    found_code = stored_code
+                    break
+            if found_code:
+                user.backup_codes.remove(found_code)
                 user.save(update_fields=["backup_codes"])
 
         if not is_valid:
@@ -168,24 +178,34 @@ class AuthService:
         }
 
     @staticmethod
-    def setup_2fa(user):
-        """Generate a new TOTP secret and QR code Data URL for user."""
+    def setup_2fa(user, reset=False):
+        """Generate or retrieve a TOTP secret and QR code Data URL for user.
+
+        Stores secret encrypted with Fernet AES-128-CBC at rest.
+        Reuses provisional secret if user is currently configuring 2FA to prevent
+        invalidating already scanned QR codes on component re-render or modal reopen.
+        """
         import base64
         import io
+        import os
         import pyotp
         import qrcode
+        from PIL import Image
+        from common.crypto import encrypt_string, decrypt_string
 
-        secret = pyotp.random_base32()
-        user.totp_secret = secret
-        user.save(update_fields=["totp_secret"])
+        # Reuse provisional secret if user is currently configuring 2FA, unless reset requested
+        if user.totp_secret and not user.is_2fa_enabled and not reset:
+            secret = decrypt_string(user.totp_secret)
+        else:
+            secret = pyotp.random_base32()
+            user.totp_secret = encrypt_string(secret)
+            user.save(update_fields=["totp_secret"])
 
         totp = pyotp.TOTP(secret)
         provisioning_uri = totp.provisioning_uri(
             name=user.email,
             issuer_name="Sentinel",
         )
-        # Append image parameter for authenticators that support custom icons (2FAS, Aegis, 1Password)
-        provisioning_uri_with_icon = f"{provisioning_uri}&image=http://localhost:3000/logo.png"
 
         qr = qrcode.QRCode(
             version=1,
@@ -193,34 +213,45 @@ class AuthService:
             box_size=10,
             border=2,
         )
-        qr.add_data(provisioning_uri_with_icon)
+        qr.add_data(provisioning_uri)
         qr.make(fit=True)
         img = qr.make_image(fill_color="#090D11", back_color="#FFFFFF").convert("RGBA")
 
-        # Embed Sentinel logo in the center of the QR code if available
-        import os
-        from PIL import Image
+        # Embed Sentinel shield icon cleanly within a high-tech circular emblem
         logo_path = "/app/logo.png"
         if os.path.exists(logo_path):
             try:
+                from PIL import ImageDraw
                 logo = Image.open(logo_path).convert("RGBA")
                 qr_w, qr_h = img.size
-                logo_max_size = int(qr_w * 0.24)
-                logo.thumbnail((logo_max_size, logo_max_size), Image.Resampling.LANCZOS)
+                badge_radius = int(qr_w * 0.125)
+                cx, cy = qr_w // 2, qr_h // 2
 
-                # Clean white contrast box behind the logo
-                pad = 6
-                box_w = logo.size[0] + pad * 2
-                box_h = logo.size[1] + pad * 2
-                bg_box = Image.new("RGBA", (box_w, box_h), (255, 255, 255, 255))
+                badge = Image.new("RGBA", (badge_radius * 2 + 8, badge_radius * 2 + 8), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(badge)
+                bcx, bcy = badge.width // 2, badge.height // 2
 
-                pos_x = (qr_w - box_w) // 2
-                pos_y = (qr_h - box_h) // 2
-                img.paste(bg_box, (pos_x, pos_y))
+                # Outer subtle emerald glow
+                draw.ellipse(
+                    [bcx - badge_radius - 2, bcy - badge_radius - 2, bcx + badge_radius + 2, bcy + badge_radius + 2],
+                    fill=(16, 185, 129, 60),
+                )
+                # Inner dark surface (#111720 Sentinel NOC card) with emerald ring (#10B981)
+                draw.ellipse(
+                    [bcx - badge_radius, bcy - badge_radius, bcx + badge_radius, bcy + badge_radius],
+                    fill=(17, 23, 32, 255),
+                    outline=(16, 185, 129, 255),
+                    width=2,
+                )
 
-                logo_pos_x = (qr_w - logo.size[0]) // 2
-                logo_pos_y = (qr_h - logo.size[1]) // 2
-                img.paste(logo, (logo_pos_x, logo_pos_y), mask=logo)
+                # Fit logo inside badge with breathing room
+                logo_target = int(badge_radius * 1.30)
+                logo.thumbnail((logo_target, logo_target), Image.Resampling.LANCZOS)
+                lx = bcx - logo.width // 2
+                ly = bcy - logo.height // 2
+                badge.paste(logo, (lx, ly), mask=logo)
+
+                img.paste(badge, (cx - bcx, cy - bcy), mask=badge)
             except Exception:
                 pass
 
@@ -232,27 +263,31 @@ class AuthService:
         return {
             "secret": secret,
             "qr_code": qr_data_url,
-            "provisioning_uri": provisioning_uri_with_icon,
+            "provisioning_uri": provisioning_uri,
         }
 
     @staticmethod
     def verify_and_enable_2fa(user, code):
-        """Verify code against provisional secret, enable 2FA and generate 10 backup codes."""
+        """Verify code against provisional secret, enable 2FA and generate 10 encrypted backup codes."""
         import secrets
         import pyotp
+        from common.crypto import decrypt_string, encrypt_string
 
         if not user.totp_secret:
             raise ValueError("No se ha iniciado el proceso de configuración 2FA.")
 
         clean_code = str(code).strip().replace(" ", "").replace("-", "")
-        totp = pyotp.TOTP(user.totp_secret)
-        if not totp.verify(clean_code, valid_window=1):
-            raise ValueError("Código de verificación incorrecto. Revisa que la hora de tu dispositivo esté sincronizada.")
+        raw_secret = decrypt_string(user.totp_secret)
+        totp = pyotp.TOTP(raw_secret)
+        # valid_window=3 accommodates device clock drift (+/- 90s)
+        if not totp.verify(clean_code, valid_window=3):
+            raise ValueError("Código de verificación incorrecto. Asegúrate de escanear el código QR actual y que la hora de tu dispositivo esté sincronizada.")
 
-        # 10 single-use 8-character backup codes
-        backup_codes = [secrets.token_hex(4).upper() for _ in range(10)]
+        # 10 single-use 8-character backup codes stored encrypted in PostgreSQL
+        plain_backup_codes = [secrets.token_hex(4).upper() for _ in range(10)]
+        encrypted_backup_codes = [encrypt_string(c) for c in plain_backup_codes]
         user.is_2fa_enabled = True
-        user.backup_codes = backup_codes
+        user.backup_codes = encrypted_backup_codes
         user.save(update_fields=["is_2fa_enabled", "backup_codes"])
 
         from audit.services import AuditService
@@ -267,7 +302,7 @@ class AuthService:
 
         return {
             "is_2fa_enabled": True,
-            "backup_codes": backup_codes,
+            "backup_codes": plain_backup_codes,
             "detail": "Autenticación en dos pasos activada exitosamente.",
         }
 

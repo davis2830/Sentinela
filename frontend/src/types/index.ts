@@ -16,6 +16,7 @@ export interface User {
   is_superuser?: boolean;
   is_active: boolean;
   is_2fa_enabled?: boolean;
+  requires_2fa_setup?: boolean;
   backup_codes_remaining?: number;
   last_login?: string | null;
   created_at?: string;

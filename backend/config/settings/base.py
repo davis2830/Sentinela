@@ -279,3 +279,71 @@ CORS_ALLOW_CREDENTIALS = False
 
 # Blackbox Exporter
 BLACKBOX_EXPORTER_URL = os.environ.get("BLACKBOX_EXPORTER_URL", "http://blackbox_exporter:9115")
+
+# Sentry Error Tracking & Performance Monitoring (AppSec & Meta-Observability)
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[
+                DjangoIntegration(),
+                CeleryIntegration(),
+                RedisIntegration(),
+            ],
+            traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+            profiles_sample_rate=float(os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.05")),
+            send_default_pii=False,
+            environment=os.environ.get("SENTINEL_ENV", "production" if not DEBUG else "development"),
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Unable to initialize Sentry SDK: %s", exc)
+
+
+# Logging Configuration & Log Sanitization (ISO 27001 / SOC 2 Compliance)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "mask_sensitive_data": {
+            "()": "common.logging.SensitiveDataMaskingFilter",
+        },
+    },
+    "formatters": {
+        "standard": {
+            "format": "[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)s]: %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["mask_sensitive_data"],
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.environ.get("LOG_LEVEL", "INFO"),
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "sentinel": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+

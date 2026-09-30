@@ -10,6 +10,7 @@ import {
   AlertCircle,
   KeyRound,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface TwoFactorModalProps {
@@ -21,7 +22,9 @@ interface TwoFactorModalProps {
     provisioning_uri: string;
   } | null;
   onVerify: (code: string) => Promise<string[] | null>;
+  onRegenerate?: () => Promise<void>;
   isVerifying: boolean;
+  isRegenerating?: boolean;
 }
 
 export default function TwoFactorModal({
@@ -29,7 +32,9 @@ export default function TwoFactorModal({
   onClose,
   setupData,
   onVerify,
+  onRegenerate,
   isVerifying,
+  isRegenerating,
 }: TwoFactorModalProps) {
   const [code, setCode] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -79,7 +84,12 @@ export default function TwoFactorModal({
         setBackupCodes(generatedBackupCodes);
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Código incorrecto. Inténtalo nuevamente.');
+      const backendMsg =
+        err?.response?.data?.message ||
+        err?.response?.data?.errors?.detail ||
+        err?.message ||
+        'Código incorrecto. Inténtalo nuevamente.';
+      setErrorMsg(backendMsg);
     }
   };
 
@@ -163,6 +173,24 @@ export default function TwoFactorModal({
                 <div className="p-2.5 rounded-xl bg-bg-dark border border-border-base text-xs font-mono text-center text-accent-blue tracking-wider select-all">
                   {setupData?.secret || '••••••••••••••••'}
                 </div>
+
+                {onRegenerate && (
+                  <div className="pt-1.5 flex justify-center">
+                    <button
+                      type="button"
+                      disabled={isRegenerating}
+                      onClick={async () => {
+                        setErrorMsg(null);
+                        setCode('');
+                        await onRegenerate();
+                      }}
+                      className="text-[11px] text-text-dim hover:text-accent-green flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
+                      <span>{isRegenerating ? 'Generando nuevo código...' : '¿Problemas para vincular? Generar un nuevo código QR'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Verification Code Input */}

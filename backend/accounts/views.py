@@ -224,6 +224,11 @@ class MeView(APIView):
                 "is_superuser": user.is_superuser,
                 "is_active": user.is_active,
                 "is_2fa_enabled": getattr(user, "is_2fa_enabled", False),
+                "requires_2fa_setup": bool(
+                    (getattr(user.organization, "require_2fa", False) if user.organization else False)
+                    or user.is_staff
+                    or user.is_superuser
+                ) and not getattr(user, "is_2fa_enabled", False),
                 "backup_codes_remaining": len(getattr(user, "backup_codes", []) or []),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -306,6 +311,11 @@ class MeView(APIView):
                 "is_superuser": user.is_superuser,
                 "is_active": user.is_active,
                 "is_2fa_enabled": getattr(user, "is_2fa_enabled", False),
+                "requires_2fa_setup": bool(
+                    (getattr(user.organization, "require_2fa", False) if user.organization else False)
+                    or user.is_staff
+                    or user.is_superuser
+                ) and not getattr(user, "is_2fa_enabled", False),
                 "backup_codes_remaining": len(getattr(user, "backup_codes", []) or []),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -460,7 +470,8 @@ class TwoFactorSetupView(APIView):
 
     def post(self, request):
         try:
-            result = AuthService.setup_2fa(request.user)
+            reset = bool(request.data.get("reset", False)) if hasattr(request, "data") and isinstance(request.data, dict) else False
+            result = AuthService.setup_2fa(request.user, reset=reset)
             return success_response(result)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

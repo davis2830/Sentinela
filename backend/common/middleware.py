@@ -16,6 +16,7 @@ class IPAllowlistMiddleware:
         "/api/v1/status-page/public",
         "/api/v1/monitoring/probe",
         "/health",
+        "/api/v1/health",
     ]
 
     def __init__(self, get_response):
