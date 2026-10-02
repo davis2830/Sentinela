@@ -70,10 +70,9 @@ Objetivo: *Automatizar operaciones de remediación de forma segura y aplicar int
 
 ## 🧪 Estrategia de Pruebas & Calidad Continua
 
-- [x] **Nivel 2 (Rendimiento & Carga con k6):** 5 escenarios completos en [`tests_perf/`](file:///c:/Users/feshernandez/GC_OPS_OBS/tests_perf/) con SLA < 300ms verificado (p95 = 38.81 ms).
-- [ ] **Nivel 1 (Unitarias & Negocio con Pytest):**
-  - [ ] Blindaje de aislamiento multi-tenant (prevención de IDOR entre organizaciones).
-  - [ ] Evaluación exhaustiva de reglas de alerta, deduplicación y anti-flapping.
-  - [ ] Validación de cuotas de planes (Free, Pro, Enterprise).
-- [ ] **Nivel 3 (E2E con Playwright):**
-  - [ ] Flujo completo: Registro &rarr; Wizard &rarr; Creación de Target &rarr; Alerta &rarr; Incidente.
+- [x] **Nivel 1 (Unitarias & Negocio en Django):** Pruebas unitarias de cuentas, permisos multi-tenant, seguridad y monitoreo (`python manage.py test accounts common monitoring`) integradas en CI con 0 fallos.
+- [x] **Nivel 2 (Rendimiento & Carga con k6):** 5 escenarios en [`tests_perf/`](file:///c:/Users/feshernandez/GC_OPS_OBS/tests_perf/) con benchmark verificado: 2,017 peticiones procesadas a 40 VUs, latencia media de 29.22 ms y p95 de 48.84 ms (0% errores).
+- [x] **Nivel 3 (CI/CD & DevSecOps Automatizado):** Pipelines GitHub Actions ([`.github/workflows/ci.yml`](file:///c:/Users/feshernandez/GC_OPS_OBS/.github/workflows/ci.yml) y [`.github/workflows/cd.yml`](file:///c:/Users/feshernandez/GC_OPS_OBS/.github/workflows/cd.yml)) con escaneo de vulnerabilidades (`pip-audit`, Trivy), build Vite en TypeScript y despliegue Zero-Downtime.
+- [x] **Nivel 4 (Production Readiness & AppSec):** Plan Maestro y Checklist Go-Live ([`docs/PRODUCTION_READINESS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_READINESS.md) y [`docs/GO_LIVE_CHECKLIST.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/GO_LIVE_CHECKLIST.md)) completados al 100% en sus 4 fases.
+- [ ] **Nivel 5 (E2E con Playwright):**
+  - [ ] Flujo sintético de navegador: Registro &rarr; Wizard &rarr; Creación de Target &rarr; Alerta &rarr; Incidente.

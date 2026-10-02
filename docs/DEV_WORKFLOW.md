@@ -4,23 +4,9 @@ Este documento establece las reglas obligatorias de desarrollo, sincronización 
 
 ---
 
-## 💻 1. Convenciones de Entorno y Sincronización Docker
-
-Debido a la estructura del entorno de desarrollo local en Windows:
-
-- **Directorio de Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`
-- **Workspace de Edición Principal:** `C:\Users\feshernandez\GC_OPS_OBS\`
-
-### ⚠️ Regla de Sincronización Obligatoria
-Tras realizar cambios en el frontend, backend o archivos de configuración, sincronizar siempre hacia el repositorio clonado con PowerShell:
-
-```powershell
-# Sincronización de Frontend
-Copy-Item -Path "c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\frontend\src\*" -Destination "C:\Users\feshernandez\GC_OPS_OBS\frontend\src\" -Recurse -Force
-
-# Sincronización de Documentación y Reglas
-Copy-Item -Path "c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\AGENTS.md" -Destination "C:\Users\feshernandez\GC_OPS_OBS\AGENTS.md" -Force
-```
+## 💻 1. Convenciones de Entorno y Directorio Único
+- **Directorio Raíz Único del Proyecto:** `C:\Users\feshernandez\GC_OPS_OBS\`
+- **Regla Estricta:** Todo el código, configuración de Docker Compose, frontend, backend y documentación reside y se ejecuta EXCLUSIVAMENTE en `C:\Users\feshernandez\GC_OPS_OBS\`. No se utiliza ninguna carpeta espejo ni de descargas.
 
 ### 🔄 Comandos de Reinicio de Contenedores
 ```powershell

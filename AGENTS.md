@@ -283,18 +283,15 @@ Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experien
   - *Cuotas Multi-Módulo (10 Recursos):* Control y bloqueo HTTP 403 `QUOTA_EXCEEDED` en creación de recursos (Monitores de Uptime, Certificados SSL, API Checks, Registros DNS, Dominios WHOIS, Cabeceras de Seguridad, Canales de Notificación, Miembros de Equipo, Status Pages y Agentes Satélite).
   - *Banner Proactivo & Reactivación:* Componente `TrialStatusBanner.tsx` en el Dashboard (alerta ámbar `<=3d` y alerta roja `past_due`) con flujo de actualización y reactivación en 1-clic vía `UpgradePlanModal.tsx`.
 
-## 💻 Convenciones de Entorno y Sincronización Docker
-- **Directorio de Trabajo / Código Montado en Docker:** `c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\`
-- **Workspace Clonado en Perfil:** `C:\Users\feshernandez\GC_OPS_OBS\`
-- **Regla de Sincronización Obligatoria:** Tras realizar cambios en el frontend o backend, sincronizar siempre hacia el repositorio clonado con:
-  ```powershell
-  Copy-Item -Path "c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\frontend\src\*" -Destination "C:\Users\feshernandez\GC_OPS_OBS\frontend\src\" -Recurse -Force
-  Copy-Item -Path "c:\Users\feshernandez\Downloads\GC_OPS-master\GC_OPS_OBS\AGENTS.md" -Destination "C:\Users\feshernandez\GC_OPS_OBS\AGENTS.md" -Force
-  ```
+## 💻 Convenciones de Entorno y Directorio Único
+- **Directorio Raíz Único del Proyecto:** `C:\Users\feshernandez\GC_OPS_OBS\`
+- **Regla Estricta:** Todo el código, configuración de Docker, frontend, backend y documentación reside y se ejecuta EXCLUSIVAMENTE en `C:\Users\feshernandez\GC_OPS_OBS\`. No se debe consultar ni sincronizar con ninguna otra carpeta externa (como descargas o temporales).
 - **Reinicio de Contenedores:**
   ```powershell
-  docker restart sentinel_frontend
   docker restart sentinel_backend
+  docker restart sentinel_frontend
+  docker restart sentinel_celery_worker
   ```
+
 
 

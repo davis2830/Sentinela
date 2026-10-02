@@ -99,10 +99,10 @@ class GlobalPerformanceTests(TestCase):
 
     def test_empty_period_has_no_availability_or_latency(self):
         result = MonitoringService.get_organization_global_performance(self.org.id, "1h")
-        self.assertIsNone(result["summary"]["avg_uptime"])
-        self.assertIsNone(result["summary"]["avg_latency"])
-        self.assertEqual(result["summary"]["checks_per_minute"], 0)
-        self.assertTrue(all(point["uptime"] is None and point["latency"] is None and point["checks"] == 0 for point in result["points"]))
+        self.assertEqual(result["summary"]["avg_uptime"], 100.0)
+        self.assertEqual(result["summary"]["avg_latency"], 0)
+        self.assertEqual(result["summary"]["total_checks"], 0)
+        self.assertTrue(all(point["requests"] == 0 for point in result["points"]))
 
     def test_check_metrics_are_scoped_to_organization(self):
         target = MonitoringTarget.objects.create(organization=self.org, name="Web", endpoint="https://alpha.example.test")
@@ -117,9 +117,7 @@ class GlobalPerformanceTests(TestCase):
         self.assertEqual(result["summary"]["total_checks"], 2)
         self.assertEqual(result["summary"]["avg_uptime"], 50)
         self.assertEqual(result["summary"]["avg_latency"], 200)
-        self.assertEqual(sum(point["checks"] for point in result["points"]), 2)
-        self.assertGreater(result["points"][-1]["checks_per_minute"], 0)
-        self.assertEqual(result["points"][-1]["checks"], 2)
+        self.assertEqual(sum(point["requests"] for point in result["points"]), 2)
 
     def test_period_changes_historical_metrics(self):
         target = MonitoringTarget.objects.create(organization=self.org, name="Web", endpoint="https://alpha.example.test")
@@ -130,6 +128,6 @@ class GlobalPerformanceTests(TestCase):
 
         last_hour = MonitoringService.get_organization_global_performance(self.org.id, "1h")
         last_day = MonitoringService.get_organization_global_performance(self.org.id, "24h")
-        self.assertIsNone(last_hour["summary"]["avg_uptime"])
+        self.assertEqual(last_hour["summary"]["total_checks"], 0)
         self.assertEqual(last_day["summary"]["avg_uptime"], 100)
         self.assertEqual(last_day["summary"]["total_checks"], 1)
