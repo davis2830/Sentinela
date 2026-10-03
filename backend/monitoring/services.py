@@ -568,6 +568,7 @@ class MonitoringService:
                 "avg_uptime": global_avg_uptime,
                 "avg_latency": global_avg_latency,
                 "total_requests": total_checks,
+                "total_checks": total_checks,
                 "estimated_rps": rps_str,
             },
             "points": points,

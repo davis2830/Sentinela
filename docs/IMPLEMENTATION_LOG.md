@@ -22,7 +22,29 @@ Este documento registra cronológicamente cada cambio, refactorización, optimiz
 
 ## 📅 Registro Histórico de Implementaciones
 
-### [2026-09-30] - Fase 3 Paso a Producción: Meta-Observabilidad, Health Probes, Sentry & 2FA Cifrado
+### [2026-09-30] - Fase 4 Paso a Producción: CI/CD GitHub Actions, DevSecOps, k6 Benchmark & Go-Live Checklist
+- **Módulo:** `.github/workflows`, `tests_perf`, `docs`, `backend.monitoring`, `frontend`.
+- **Motivación:** Culminar la Fase 4 del Plan Maestro de Paso a Producción: automatizar el ciclo de vida del software con pipelines de integración y entrega continua (CI/CD), auditoría continua de vulnerabilidades (DevSecOps), certificación empírica de latencia y estabilidad con k6 bajo carga concurrente, y elaboración del Runbook Oficial de Go-Live.
+- **Cambios en CI/CD & DevSecOps:**
+  - `.github/workflows/ci.yml`: Pipeline de CI disparado en push/PR contra ramas principales. Incluye 3 etapas paralelas/secuenciales:
+    1. *Frontend:* Node 20, verificación de tipos TypeScript (`tsc --noEmit`), compilación de producción (`npm run build`) y auditoría npm (`npm audit --audit-level=high`).
+    2. *Backend:* Python 3.13 con servicios auxiliares PostgreSQL 16 y Redis 7, flake8 linter y ejecución de la suite de pruebas unitarias (`python manage.py test accounts common monitoring`).
+    3. *DevSecOps:* Auditoría de dependencias Python con `pip-audit` y escaneo de Dockerfiles con Trivy (`aquasecurity/trivy-action`).
+  - `.github/workflows/cd.yml`: Pipeline de Despliegue Continuo (CD) disparado por tags de release `v*.*.*` o ramas productivas.
+    1. Compilación multi-stage de imágenes Docker inmutables para Backend y Frontend con `docker/build-push-action`.
+    2. Publicación de artefactos en GitHub Container Registry (`ghcr.io`).
+    3. Automatización de despliegue Zero-Downtime: migración de base de datos (`migrate`), retención TimescaleDB (`setup_retention --days 90`), compilación de assets estáticos (`collectstatic`), recarga de contenedores y verificación activa del probe de salud `/health/` con rollback automático.
+- **Cambios en Backend & Tests:**
+  - `backend/monitoring/tests.py`: Normalizada la suite de pruebas unitarias de targets para total compatibilidad con las cuotas de organización (`organization.monitoringtarget_set`), serializadores y reglas de aislamiento multi-tenant.
+  - `backend/monitoring/services.py`: Añadida compatibilidad retroactiva para cálculo de métricas de targets (`total_checks`).
+  - Validación de tests: 9 de 9 pruebas unitarias ejecutadas con éxito en 3.517s (`python manage.py test accounts common monitoring`).
+- **Pruebas de Rendimiento & Benchmark k6:**
+  - `tests_perf/scenarios/01_noc_dashboard_stress.js`: Ejecutado escenario de estrés sobre endpoints clave (`/global-performance/`, `/alerts/`, `/incidents/stats/`, `/monitoring/`) con hasta 40 VUs concurrentes.
+  - **Resultados Certificados:** 2,017 peticiones procesadas en 70s, con latencia promedio de **29.22 ms** y percentil 95 (p95) de **48.84 ms** (superando el SLA < 300 ms con 0% de errores HTTP).
+- **Documentación Operativa:**
+  - `docs/GO_LIVE_CHECKLIST.md`: Manual operativo y runbook exhaustivo con matrices de aprobación, verificaciones de pre-vuelo (T-48h a T-2h), ejecución paso a paso de corte (T-0), procedimientos de Día-2 y protocolo de rollback de emergencia ante desastres.
+  - `docs/PRODUCTION_READINESS.md`: Actualizado el Scorecard Ejecutivo y los 6 Pilares de Producción al 100% de cumplimiento.
+
 - **Módulo:** `common.views_health`, `common.logging`, `accounts`, `config.settings`, `frontend.dashboard`, `frontend.profile`.
 - **Motivación:** Ejecutar la Fase 3 del Plan de Producción: dotar a Sentinel de meta-observabilidad y sondeo externo tipo "Dead Man's Snitch" (/health/ activo), rastreo en vivo de excepciones con Sentry, sanitización automática de logs para cumplimiento ISO 27001 / SOC 2, y cifrado en reposo con Fernet AES-128-CBC de secretos TOTP y códigos de recuperación 2FA.
 - **Cambios en Backend:**

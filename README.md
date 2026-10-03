@@ -16,11 +16,12 @@
 
 Para mantener el contexto técnico vivo y el seguimiento de lo que se implementa sesión a sesión:
 
+- 📘 **[Guía Maestra y Reglas para Agentes (`AGENTS.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/AGENTS.md):** Contexto central, estado del proyecto, estándares de ORM y diseño NOC.
 - 🗺️ **[Roadmap y Tracker de Tareas (`docs/ROADMAP_TRACKER.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/ROADMAP_TRACKER.md):** Estado de avance de Fase 1 (100% completada), Fase 2 (En curso) y Fase 3.
 - 📝 **[Bitácora Técnica / Changelog (`docs/IMPLEMENTATION_LOG.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/IMPLEMENTATION_LOG.md):** Registro cronológico de implementaciones, decisiones de arquitectura y archivos modificados.
 - 📦 **[Inventario Técnico de Módulos (`docs/MODULE_INVENTORY.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/MODULE_INVENTORY.md):** Mapeo de vistas frontend, apps de backend, endpoints REST y tareas de Celery.
 - 🛠️ **[Guía de Desarrollo y Convenciones (`docs/DEV_WORKFLOW.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/DEV_WORKFLOW.md):** Convenciones de entorno, sincronización con Docker y sistema de diseño NOC.
-- 📂 **[Índice Completo de Documentación (`docs/README.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/README.md):** Acceso a todas las especificaciones y manuales.
+- 📂 **[Índice Completo de Documentación (`docs/README.md`)](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/README.md):** Acceso a todas las especificaciones y manuales operativos.
 
 ---
 
