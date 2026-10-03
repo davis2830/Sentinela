@@ -299,15 +299,26 @@ class OrganizationService:
 
     @staticmethod
     @transaction.atomic
-    def change_plan(organization_id, new_tier):
+    def change_plan(organization_id, new_tier, is_superuser=False, verified_payment=False):
         """Change the subscription plan of an organization."""
         organization = Organization.objects.get(id=organization_id)
         if new_tier not in OrganizationPlanTier.values:
             raise ValueError(f"Nivel de plan no válido: {new_tier}")
 
+        # Paid tiers (business, enterprise) require verified payment or superuser privilege
+        if new_tier in [OrganizationPlanTier.BUSINESS, OrganizationPlanTier.ENTERPRISE]:
+            if not (is_superuser or verified_payment):
+                raise ValueError(
+                    f"Para actualizar al plan {new_tier.upper()} se requiere confirmación de método de pago o autorización administrativa."
+                )
+
         organization.plan_tier = new_tier
-        if organization.subscription_status == OrganizationSubscriptionStatus.TRIALING and new_tier in ["business", "enterprise"]:
-            organization.subscription_status = OrganizationSubscriptionStatus.ACTIVE
+        if verified_payment or is_superuser:
+            if organization.subscription_status in [
+                OrganizationSubscriptionStatus.TRIALING,
+                OrganizationSubscriptionStatus.PAST_DUE,
+            ]:
+                organization.subscription_status = OrganizationSubscriptionStatus.ACTIVE
         organization.save()
         return organization
 

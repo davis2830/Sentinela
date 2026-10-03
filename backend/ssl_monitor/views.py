@@ -134,10 +134,9 @@ class SSLCertificateScanView(APIView):
         try:
             cert = SSLMonitorService.get_certificate(certificate_id, org_id)
             from .tasks import scan_ssl_certificate
-            scan_ssl_certificate(str(cert.id))
-            updated_cert = SSLMonitorService.get_certificate(certificate_id, org_id)
-            serializer = SSLCertificateSerializer(updated_cert)
-            return success_response(serializer.data)
+            scan_ssl_certificate.delay(str(cert.id))
+            serializer = SSLCertificateSerializer(cert)
+            return success_response(serializer.data, message="Escaneo de certificado programado exitosamente.")
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 

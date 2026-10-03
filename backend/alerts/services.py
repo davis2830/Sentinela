@@ -120,7 +120,7 @@ class AlertRuleService:
                     })
                 elif condition == "uptime_below":
                     since = now - timedelta(hours=24)
-                    results = t.results.filter(checked_at__gte=since)
+                    results = t.checks.filter(checked_at__gte=since)
                     tot = results.count()
                     if tot > 0:
                         up_cnt = results.filter(status="up").count()
@@ -921,8 +921,38 @@ class AlertEvaluatorService:
         return triggered
 
     @staticmethod
+    def _is_target_in_maintenance(target):
+        """Check if target is currently within an active or in-progress maintenance window."""
+        now_time = timezone.now()
+        try:
+            from maintenance.models import MaintenanceWindowTarget
+            if MaintenanceWindowTarget.objects.filter(
+                target_id=target.id,
+                window__status="in_progress",
+                window__scheduled_start__lte=now_time,
+                window__scheduled_end__gte=now_time,
+            ).exists():
+                return True
+        except Exception:
+            pass
+
+        try:
+            from monitoring.models import MaintenanceWindow
+            if MaintenanceWindow.objects.filter(
+                target=target,
+                start_time__lte=now_time,
+                end_time__gte=now_time,
+                active=True,
+            ).exists():
+                return True
+        except Exception:
+            pass
+
+        return False
+
+    @staticmethod
     def _check_status_down(rule):
-        """Check if any monitoring targets are currently down. Auto-resolves if recovered."""
+        """Check if any monitoring targets are currently down. Auto-resolves if recovered or in maintenance."""
         from monitoring.models import MonitoringTarget
 
         all_targets = MonitoringTarget.objects.filter(organization_id=rule.organization_id, enabled=True)
@@ -932,9 +962,7 @@ class AlertEvaluatorService:
         triggered = False
 
         for target in all_targets:
-            from monitoring.models import MaintenanceWindow
-            now_time = timezone.now()
-            if MaintenanceWindow.objects.filter(target=target, start_time__lte=now_time, end_time__gte=now_time, active=True).exists():
+            if AlertEvaluatorService._is_target_in_maintenance(target):
                 AlertService.auto_resolve_alert(
                     organization_id=rule.organization_id,
                     rule_id=rule.id,
@@ -965,7 +993,7 @@ class AlertEvaluatorService:
 
     @staticmethod
     def _check_response_time(rule, threshold):
-        """Check if any monitoring targets have response time above threshold. Auto-resolves if normal."""
+        """Check if any monitoring targets have response time above threshold. Auto-resolves if normal or in maintenance."""
         from monitoring.models import MonitoringTarget
 
         targets = MonitoringTarget.objects.filter(organization_id=rule.organization_id, enabled=True)
@@ -975,9 +1003,7 @@ class AlertEvaluatorService:
         triggered = False
 
         for target in targets:
-            from monitoring.models import MaintenanceWindow
-            now_time = timezone.now()
-            if MaintenanceWindow.objects.filter(target=target, start_time__lte=now_time, end_time__gte=now_time, active=True).exists():
+            if AlertEvaluatorService._is_target_in_maintenance(target):
                 AlertService.auto_resolve_alert(
                     organization_id=rule.organization_id,
                     rule_id=rule.id,
@@ -1019,7 +1045,15 @@ class AlertEvaluatorService:
         triggered = False
 
         for target in targets:
-            results = target.results.filter(checked_at__gte=since)
+            if AlertEvaluatorService._is_target_in_maintenance(target):
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+                continue
+
+            results = target.checks.filter(checked_at__gte=since)
             tot = results.count()
             if tot > 0:
                 up_cnt = results.filter(status="up").count()

@@ -3,6 +3,7 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 from celery import shared_task
+from celery.exceptions import Retry
 from django.utils import timezone
 
 from .models import MonitoringTarget
@@ -61,7 +62,7 @@ def run_monitoring_check(self, target_id):
             latency=latency,
             details=details,
         )
-    except self.retry_class as retry_exc:
+    except Retry as retry_exc:
         raise retry_exc
     except Exception as exc:
         logger.exception("Error checking target %s: %s", target.name, exc)

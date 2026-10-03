@@ -278,10 +278,9 @@ class MonitoringTargetScanView(APIView):
         try:
             target = MonitoringService.get_target(target_id, org_id)
             from .tasks import run_monitoring_check
-            run_monitoring_check(str(target.id))
-            target.refresh_from_db()
+            run_monitoring_check.delay(str(target.id))
             serializer = MonitoringTargetSerializer(target)
-            return success_response(serializer.data)
+            return success_response(serializer.data, message="Escaneo programado exitosamente.")
         except Exception as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
@@ -576,6 +575,7 @@ class TestConnectionView(APIView):
                     data=request_body if request_body else None,
                     timeout=5,
                     verify=False,
+                    allow_redirects=False,
                 )
                 latency = round((time.perf_counter() - start) * 1000, 2)
                 code_match = resp.status_code == expected_status

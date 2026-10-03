@@ -32,7 +32,17 @@ class IPAllowlistMiddleware:
         user = getattr(request, "user", None)
         if not (user and user.is_authenticated):
             auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-            if auth_header.startswith("Bearer "):
+            if auth_header.startswith("Bearer snt_") or auth_header.startswith("Token snt_"):
+                token_str = auth_header.split(" ", 1)[1].strip()
+                try:
+                    from accounts.models import APIToken
+                    api_tok = APIToken.objects.select_related("user", "user__organization").filter(token=token_str).first()
+                    if api_tok and not api_tok.is_expired and api_tok.user.is_active:
+                        user = api_tok.user
+                        request.user = user
+                except Exception:
+                    pass
+            elif auth_header.startswith("Bearer "):
                 token_str = auth_header.split(" ", 1)[1].strip()
                 try:
                     from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -49,7 +59,7 @@ class IPAllowlistMiddleware:
                 raw_ranges = org.allowed_ip_ranges.strip()
                 if raw_ranges:
                     client_ip = self._get_client_ip(request)
-                    if not self._is_ip_allowed(client_ip, raw_ranges):
+                    if not self._is_ip_allowed(client_ip, raw_ranges, request=request):
                         return JsonResponse(
                             {
                                 "success": False,
@@ -69,6 +79,7 @@ class IPAllowlistMiddleware:
 
     def _get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        remote_addr = request.META.get("REMOTE_ADDR", "127.0.0.1")
         if x_forwarded_for:
             # Anti-Spoofing: inspect hops from right to left (trusted proxy hops)
             # preventing untrusted clients from prepending fake IP headers
@@ -80,19 +91,23 @@ class IPAllowlistMiddleware:
                         return candidate
                 except ValueError:
                     continue
-            return parts[0]
-        return request.META.get("REMOTE_ADDR", "127.0.0.1")
+            # If all candidates are private/loopback, fall back to remote_addr rather than forged parts[0]
+            return remote_addr
+        return remote_addr
 
 
-    def _is_ip_allowed(self, client_ip_str, raw_ranges_str):
+    def _is_ip_allowed(self, client_ip_str, raw_ranges_str, request=None):
         try:
             client_obj = ipaddress.ip_address(client_ip_str)
         except ValueError:
             return False
 
-        # Allow localhost / internal loopback during local development
-        if client_obj.is_loopback or client_ip_str in ("127.0.0.1", "::1"):
-            return True
+        # Allow localhost / internal loopback during local development only if REMOTE_ADDR is also loopback
+        from django.conf import settings
+        real_remote = request.META.get("REMOTE_ADDR", "") if request else client_ip_str
+        if (client_obj.is_loopback or client_ip_str in ("127.0.0.1", "::1")) and settings.DEBUG:
+            if real_remote in ("127.0.0.1", "::1", "localhost"):
+                return True
 
         ranges = [r.strip() for r in raw_ranges_str.replace("\n", ",").split(",") if r.strip()]
         for r in ranges:

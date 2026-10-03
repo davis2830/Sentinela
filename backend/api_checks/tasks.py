@@ -37,30 +37,8 @@ def run_api_check(self, target_id):
         target_url = target.url
         headers = dict(target.request_headers or {})
 
-        if "localhost:8000" in target_url or "127.0.0.1:8000" in target_url:
-            target_url = target_url.replace("localhost:8000", "backend:8000").replace("127.0.0.1:8000", "backend:8000")
-            headers["Host"] = "localhost"
-
-        auth_key = None
-        auth_header = ""
-        for k, v in headers.items():
-            if k.lower() == "authorization":
-                auth_header = str(v)
-                auth_key = k
-                break
-
-        if auth_header.startswith("Basic "):
-            try:
-                import base64
-                raw_auth = base64.b64decode(auth_header.replace("Basic ", "")).decode("utf-8")
-                if ":" in raw_auth:
-                    u_email, u_pass = raw_auth.split(":", 1)
-                    if ("backend:8000" in target_url or "localhost:8000" in target_url or "127.0.0.1:8000" in target_url or "/api/v1/" in target_url) and "@" in u_email:
-                        from accounts.services import AuthService
-                        auth_res = AuthService.login(u_email.strip(), u_pass.strip())
-                        headers[auth_key or "Authorization"] = f"Bearer {auth_res['access_token']}"
-            except Exception as auth_err:
-                logger.warning("Auto-JWT login from Basic Auth failed: %s", auth_err)
+        from common.security import validate_safe_public_url
+        validate_safe_public_url(target_url)
 
         start = timezone.now()
         response = requests.request(
@@ -69,6 +47,7 @@ def run_api_check(self, target_id):
             headers=headers,
             json=target.request_body or None,
             timeout=15,
+            allow_redirects=False,
         )
         elapsed = (timezone.now() - start).total_seconds() * 1000
 

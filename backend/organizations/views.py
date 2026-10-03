@@ -836,8 +836,17 @@ class OrganizationChangePlanView(APIView):
         old_tier = org.plan_tier
         new_tier = serializer.validated_data["plan_tier"]
 
+        is_superuser = bool(request.user.is_superuser)
+        if not is_superuser and new_tier in ["business", "enterprise"]:
+            return error_response(
+                "La actualización a los planes Business o Enterprise requiere confirmación de método de pago o contacto con ventas corporativas.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
-            updated_org = OrganizationService.change_plan(org.id, new_tier)
+            updated_org = OrganizationService.change_plan(
+                org.id, new_tier, is_superuser=is_superuser
+            )
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 

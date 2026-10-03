@@ -22,6 +22,41 @@ Este documento registra cronológicamente cada cambio, refactorización, optimiz
 
 ## 📅 Registro Histórico de Implementaciones
 
+### [2026-10-03] - Auditoría Integral de Seguridad, Blindaje DoS & Parches Críticos de Negocio
+- **Módulos:** `alerts`, `maintenance`, `monitoring`, `ssl_monitor`, `domain`, `security_headers`, `dns_monitor`, `api_checks`, `organizations`, `accounts`, `common`.
+- **Motivación & Objetivos:**
+  1. **Estabilidad del Motor de Alertas:** Corregir caída en tiempo de ejecución en Celery Beat y en el simulador de reglas SLA Uptime (`target.results` vs `target.checks`).
+  2. **Unificación de Mantenimientos:** Conectar la supresión de alertas con el modelo real de ventanas programadas (`maintenance.MaintenanceWindowTarget`), evitando alertas espurias durante mantenimientos.
+  3. **Protección Anti-DoS en Servidor Web:** Migrar todos los escaneos manuales de red (`/scan/`) ejecutados en hilos Gunicorn síncronos a tareas Celery en background con `.delay()`, previniendo saturación de los 3 workers del backend ante sitios lentos o tarpits.
+  4. **Blindaje Anti-SSRF:** Bloquear evasiones mediante redirecciones HTTP (301/302) configurando `allow_redirects=False` en `TestConnectionView` y `run_api_check`, y erradicar backdoor de auto-login y reescritura de hosts en API checks.
+  5. **Anti-Spoofing en IP Allowlist:** Corregir fallo en `IPAllowlistMiddleware` donde un atacante podía enviar `X-Forwarded-For: 127.0.0.1` para evadir el control de acceso corporativo.
+  6. **Integridad de Suscripciones & Pagos:** Proteger el endpoint `POST /api/v1/organizations/current/change-plan/` contra escalamiento de privilegios, impidiendo que usuarios en periodo de prueba obtengan planes Business/Enterprise gratuitos e inmunidad perpetua sin pasarela de pago o superusuario.
+  7. **Autenticación Nativa de API Tokens:** Implementar `SentinelAPITokenAuthentication` para procesar tokens `snt_...` con soporte de expiración, validación de estado activo y restricción de métodos mutantes según el scope (`read` vs `full`).
+  8. **Revocación Efectiva de Sesiones:** Dotar a `RevokeSessionsView` de invalidación criptográfica real mediante `BlacklistedToken` sobre todos los `OutstandingToken` del usuario.
+- **Cambios en Backend:**
+  - `backend/alerts/services.py`: Corregido acceso al reverse relation de comprobaciones (`target.checks`). Implementado helper `_is_target_in_maintenance(target)` consultando `maintenance.models.MaintenanceWindowTarget` y `monitoring.models.MaintenanceWindow`.
+  - `backend/monitoring/views.py`: Escaneo manual `MonitoringTargetScanView` convertido a `run_monitoring_check.delay()`. Añadido `allow_redirects=False` en `TestConnectionView`.
+  - `backend/ssl_monitor/views.py`: `SSLCertificateScanView` convertido a `scan_ssl_certificate.delay()`.
+  - `backend/domain/views.py`: `DomainScanView` convertido a `scan_whois.delay()`.
+  - `backend/security_headers/views.py`: `SecurityHeadersScanView` convertido a `scan_security_headers.delay()`.
+  - `backend/dns_monitor/views.py`: `DNSRecordScanView` convertido a `scan_dns_records.delay()`.
+  - `backend/api_checks/views.py`: `APICheckScanView` convertido a `run_api_check.delay()`.
+  - `backend/api_checks/tasks.py`: Removida reescritura de `localhost:8000` y auto-login con credenciales Basic Auth. Añadida validación previa `validate_safe_public_url(target_url)` y `allow_redirects=False`.
+  - `backend/common/middleware.py`: Corregido fallback de `_get_client_ip` para no aceptar cabeceras falsificadas hacia loopback, restricción de bypass local solo a entornos con `settings.DEBUG` real, y soporte de extracción de usuario desde `APIToken` (`snt_...`).
+  - `backend/organizations/services.py`: Modificado `change_plan` para recibir `is_superuser` y `verified_payment`. Bloqueada la promoción automática de estado `TRIALING` a `ACTIVE` sin pago verificado.
+  - `backend/organizations/views.py`: En `OrganizationChangePlanView`, se restringe la selección de planes `business` y `enterprise` únicamente a superusuarios o flujos con pago verificado (retornando HTTP 400 descriptivo a usuarios estándar).
+  - `backend/accounts/authentication.py`: Creada clase `SentinelAPITokenAuthentication(BaseAuthentication)` con inspección de `snt_...`, validación de validez/expiración, actualización atómica de `last_used_at` y enforcement de permisos de solo lectura para métodos POST/PUT/PATCH/DELETE.
+  - `backend/config/settings/base.py`: Registrado `accounts.authentication.SentinelAPITokenAuthentication` en `REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]`.
+  - `backend/accounts/views.py`: Implementado blacklisting masivo de tokens en `RevokeSessionsView` usando `BlacklistedToken.objects.get_or_create(token=t)`.
+  - `backend/accounts/tests.py`: Creada suite de pruebas unitarias (`SecurityAndAuthTests`) cubriendo autenticación de tokens, scopes de solo lectura, tokens expirados, gating de planes empresariales y anti-spoofing IP.
+- **Validaciones & Pruebas:**
+  - `docker exec sentinel_backend python manage.py check`: 0 incidencias.
+  - `docker exec sentinel_backend python manage.py test accounts common monitoring organizations alerts`: 11 tests ejecutados con éxito (0 fallos).
+  - `docker exec sentinel_backend python manage.py test accounts`: 5 tests de seguridad ejecutados con éxito en 0.864s.
+  - Verificación de salud y estabilidad en los 9 contenedores del stack Docker (`sentinel_backend`, `sentinel_frontend`, `sentinel_db`, `sentinel_redis`, `sentinel_celery_worker`, `sentinel_celery_beat`, `sentinel_prometheus`, `sentinel_blackbox`, `sentinel_loki`).
+
+---
+
 ### [2026-09-30] - Fase 4 Paso a Producción: CI/CD GitHub Actions, DevSecOps, k6 Benchmark & Go-Live Checklist
 - **Módulo:** `.github/workflows`, `tests_perf`, `docs`, `backend.monitoring`, `frontend`.
 - **Motivación:** Culminar la Fase 4 del Plan Maestro de Paso a Producción: automatizar el ciclo de vida del software con pipelines de integración y entrega continua (CI/CD), auditoría continua de vulnerabilidades (DevSecOps), certificación empírica de latencia y estabilidad con k6 bajo carga concurrente, y elaboración del Runbook Oficial de Go-Live.

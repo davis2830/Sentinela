@@ -141,10 +141,9 @@ class SecurityHeaderTargetScanView(APIView):
         try:
             target = SecurityHeadersService.get_target(target_id, org_id)
             from .tasks import scan_security_headers
-            scan_security_headers(str(target.id))
-            updated_target = SecurityHeadersService.get_target(target_id, org_id)
-            serializer = SecurityHeaderTargetSerializer(updated_target)
-            return success_response(serializer.data)
+            scan_security_headers.delay(str(target.id))
+            serializer = SecurityHeaderTargetSerializer(target)
+            return success_response(serializer.data, message="Escaneo de cabeceras de seguridad programado exitosamente.")
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
