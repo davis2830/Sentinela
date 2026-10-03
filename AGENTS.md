@@ -1,297 +1,200 @@
-# Project: Sentinel (GC_OPS_OBS)
+# Project: Sentinel (GC_OPS_OBS) — Master Agent Context & Rules
 
-## 📌 Contexto General del Proyecto
-**Sentinel** es una plataforma de observabilidad y operaciones (NOC / Observabilidad operativa) orientada a la monitorización y automatización de infraestructura y servicios críticos.
+> **Ubicación Física Exclusiva:** `C:\Users\feshernandez\GC_OPS_OBS\`  
+> **Tipo de Plataforma:** SaaS Enterprise de Observabilidad y Operaciones NOC / SRE  
+> **Última Actualización:** Octubre 2026 | **Versión:** 1.0.0-RELEASE  
+> **Centro de Documentación Viva:** [`docs/`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/README.md)
 
-## 🛠️ Stack Tecnológico
-- **Backend:** Python 3.13 / Django REST Framework, Celery para tareas asíncronas / background workers.
-- **Base de Datos:** PostgreSQL con extensión TimescaleDB para métricas de series de tiempo.
-- **Cache / Message Broker:** Redis.
-- **Observabilidad / Agentes:** Grafana Alloy, Prometheus relabeling / exporters.
-- **Frontend:** React + TypeScript con Vite, componentes de UI para dashboards de monitorización de infraestructura.
-- **Contenedores:** Docker & Docker Compose (`docker-compose.yml`).
+---
 
-## 📁 Reglas y Documentación Viva del Proyecto
-Este proyecto contiene especificaciones técnicas y estándares detallados en:
-- **Centro de Documentación Viva (`docs/`):**
-  - [`docs/README.md`](file:///docs/README.md): Índice principal de documentación técnica.
-  - [`docs/ROADMAP_TRACKER.md`](file:///docs/ROADMAP_TRACKER.md): Estado de avance por fases (Fase 1, 2 y 3) y tareas pendientes.
-  - [`docs/IMPLEMENTATION_LOG.md`](file:///docs/IMPLEMENTATION_LOG.md): Bitácora cronológica de implementaciones y decisiones técnicas.
-  - [`docs/MODULE_INVENTORY.md`](file:///docs/MODULE_INVENTORY.md): Catálogo de módulos, vistas, endpoints y modelos.
-  - [`docs/DEV_WORKFLOW.md`](file:///docs/DEV_WORKFLOW.md): Convenciones, sincronización con Docker y diseño UI.
-- **Especificaciones Base (`.clinerules/`):**
-  - `00-sentinel-master.md`: Reglas maestras del proyecto.
-  - `01-architecture.md`: Arquitectura del sistema.
-  - `02-tech-stack.md`: Stack tecnológico y dependencias.
-  - `03-backend.md`: Estándares de backend y endpoints.
-  - `04-frontend.md`: Estándares de frontend y componentes.
-  - `05-database.md`: Modelado y base de datos TimescaleDB.
-  - `06-coding-standards.md`: Estándares de código y buenas prácticas.
-  - `07-roadmap.md`: Fases y roadmap de producto.
+## 📌 1. Visión General del Proyecto
+**Sentinel** es una plataforma de observabilidad operativa y centro de operaciones de red (NOC / SRE) orientada a la monitorización continua, diagnóstico en tiempo real y automatización de infraestructura y servicios críticos. 
 
-## 🚀 Estado de Avances Realizados
-- **Auditoría y Erradicación Total de Consultas N+1 (ORM & TimescaleDB):**
-  - **Diagnóstico Integral:** Se detectaron cuellos de botella severos de consultas recurrentes en serializadores clave: MonitoringTargetSerializer (1 query por cada target barriendo casi 400,000 checks en TimescaleDB), AlertSerializer (40 queries para 20 alertas por resolución de incidentes) e IncidentSerializer (queries COUNT(*) por cada fila).
-  - **Resolución en Monitoring Targets:** Prefetch optimizado con ventana de tiempo de 1 hora (checked_at__gte=since_1h) más select_related('owner_team', 'agent_probe'), reduciendo de 11 queries a **0 queries en serialización** en solo 3.8 ms.
-  - **Resolución en Alertas (DRF list_serializer_class):** Implementación de AlertListSerializer con precarga en lote (lert_id IN (...)) y resolución en memoria O(1), reduciendo de 40 queries a **1 sola query** en 13.1 ms.
-  - **Resolución en Incidentes (nnotate):** Implementación de .annotate(alerts_count_annotated=Count('incident_alerts')) y select_related('assigned_team'), reduciendo a **0 queries en serialización** en 2.2 ms.
-  - **Indexación B-Tree en PostgreSQL:** Creado índice incidents_incidentalert_alert_id_idx sobre lert_id en incidents_incident_alert para búsquedas en O(log N).
-  - **Nuevo Récord de Benchmark k6:** Latencia promedio reducida a **22.36 ms** y **p95 a 38.81 ms** (reducción acumulada del 40.7% frente a la base original de 37.69 ms / 55.88 ms) con 0% de errores bajo 40 VUs concurrentes.
-- **Optimización Integral del Backend (Redis, Celery, PostgreSQL & Caching):**
-  - **Connection Pooling en PostgreSQL:** Activado `CONN_MAX_AGE=60` y `CONN_HEALTH_CHECKS=True` en [`backend/config/settings/base.py`](file:///backend/config/settings/base.py) para reutilización de sockets TCP entre peticiones HTTP eliminando coste de handshake en BD.
-  - **Caché Distribuido en Redis (DB 2):** Implementación de `django.core.cache.backends.redis.RedisCache` con TTL de 15 segundos en telemetría global NOC (`/monitoring/global-performance/`) y estadísticas de incidentes/MTTR (`/incidents/stats/`), absorbiendo concurrencia masiva de operadores en < 2ms.
-  - **Task Routing y Despacho Equitativo en Celery:** 3 colas dedicadas (`high_priority` para alertas/notificaciones, `monitoring` para sondeos periódicos, `background` para WHOIS/SSL/reportes). Activación de `CELERY_TASK_ACKS_LATE=True`, `CELERY_WORKER_PREFETCH_MULTIPLIER=1`, `-O fair` y `--concurrency=4`.
-  - **Limpieza y Expiración en Redis DB 1:** `CELERY_TASK_IGNORE_RESULT=True` en tareas periódicas y `CELERY_RESULT_EXPIRES=1800` para evitar saturación de memoria.
-  - **Blindaje y Evicción en Redis:** Límite `--maxmemory 256mb` con política `--maxmemory-policy allkeys-lru` en [`docker-compose.yml`](file:///docker-compose.yml).
-  - **Optimización de Queries en Scheduler:** Migración de `schedule_all_checks` a `.values_list("id", flat=True)` y conteo en memoria suprimiendo hidratación de modelos y `COUNT(*)` redundante.
-- **Suite Integral de Pruebas de Rendimiento, Carga & Estrés con Grafana k6 (`tests_perf/`):**
-  - **Ubicación en el Workspace:** Carpeta [`tests_perf/`](file:///tests_perf/) con configuración, runners y 5 escenarios especializados.
-  - **5 Escenarios de Prueba:**
-    1. *Dashboard NOC Telemetría (`01_noc_dashboard_stress.js`):* Monitoreo concurrente de operadores sobre endpoints en vivo (`/global-performance/`, `/alerts/`, `/incidents/stats/`, `/monitoring/`).
-    2. *Lectura Multi-Módulo (`02_full_platform_read_heavy.js`):* Tráfico concurrente (15 a 50 VUs) a través de los 8 módulos de la plataforma.
-    3. *CRUD Transaccional (`03_monitoring_crud_stress.js`):* Pre-flight checks de red, creación y eliminación limpia de targets.
-    4. *Spike Test (`04_spike_stress_test.js`):* Ráfagas repentinas de 2 a 70 VUs en 10s para validar elasticidad.
-    5. *Soak Test (`05_soak_endurance_test.js`):* Resistencia prolongada para detección de fugas de memoria.
-  - **Runners Automatizados:** [`run_perf.ps1`](file:///tests_perf/run_perf.ps1) y [`run_perf.bat`](file:///tests_perf/run_perf.bat) para ejecución con 1 comando.
-  - **Reportes Visuales:** Generación automática de dashboards HTML interactivos en [`tests_perf/reports/`](file:///tests_perf/reports/) con paleta oficial Dark Mode de Sentinel NOC.
-  - **Benchmark Verificado:** 1,965 peticiones procesadas en 1m con latencia promedio de **37.69 ms** y **p95 de 55.88 ms** (SLA < 300 ms superado) con 0% de errores.
-- **Modernización Visual y Operativa del Dashboard NOC (Mockup de Alta Densidad):**
-  - **Arquitectura Modular de 7 Componentes (`frontend/src/components/dashboard/`):**
-    - [`NOCDashboardHeader.tsx`](file:///frontend/src/components/dashboard/NOCDashboardHeader.tsx): Cabecera NOC con textura de red global, reloj digital con segundero en vivo, botón de telemetría pulsante, selector de ventana temporal (`1h`, `6h`, `24h`, `7d`) y contador de alertas dinámico.
-    - [`NOCExecutiveKpis.tsx`](file:///frontend/src/components/dashboard/NOCExecutiveKpis.tsx): 5 KPI cards ejecutivas (Disponibilidad SLA con sparkline SVG verde, Latencia Promedio con sparkline cyan, Targets Totales con desglose Online/Degradado/Caído, Incidentes Activos y Estado de Seguridad con Donut Gauge circular).
-    - [`NOCPerformanceSection.tsx`](file:///frontend/src/components/dashboard/NOCPerformanceSection.tsx): Gráfica de área multieje suavizada (`recharts`) para Disponibilidad, Latencia y Solicitudes/seg, más barra de flujo de micro-servicios (Web, APIs, Base de Datos, SSL, DNS).
-    - [`NOCInfraHealthDonut.tsx`](file:///frontend/src/components/dashboard/NOCInfraHealthDonut.tsx): Donut chart SVG proporcional de salud de infraestructura con contador central y barra reactiva de salud general.
-    - [`NOCRecentActivityFeed.tsx`](file:///frontend/src/components/dashboard/NOCRecentActivityFeed.tsx): Feed cronológico multievento con badges semánticos por estado para sondeos y validaciones en vivo.
-    - [`NOCCriticalTargetsTable.tsx`](file:///frontend/src/components/dashboard/NOCCriticalTargetsTable.tsx): Tabla densa de servicios críticos con orden prioritario (Caídos -> Degradados -> Online), switch toggle interactivo on/off, re-sondeo manual inmediato, alertas e inspección en drawer.
-    - [`NOCLiveAlertsList.tsx`](file:///frontend/src/components/dashboard/NOCLiveAlertsList.tsx): Lista unificada de alarmas e incidentes con badges de severidad y enlace directo al drawer ITIL/RCA.
-  - **Ensamble y Compatibilidad Total:** Integrado en [`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx) preservando `NOCDrawer`, `TrialStatusBanner` y `QuickStartWizardModal`. Compilación limpia de TypeScript (0 errores) y replicación al mirror.
-- **Slice 4 (SSL + DNS + Domain / Uptime & Latencia):** Implementado al 100% (6 fases completadas):
-  1. *Fase 1:* Escaneo Manual bajo Demanda (`POST /api/v1/monitoring/{id}/scan/`).
-  2. *Fase 2:* Gráfica Histórica de Latencia ([`LatencyChart.tsx`](file:///frontend/src/components/monitoring/LatencyChart.tsx)).
-  3. *Fase 3:* Nivel de Servicio SLA & Disponibilidad ([`SLACard.tsx`](file:///frontend/src/components/monitoring/SLACard.tsx)).
-  4. *Fase 4:* Buscador & Filtros Rápidos por Estado.
-  5. *Fase 5:* Configuración HTTP Avanzada & Encabezados Custom ([`TargetForm.tsx`](file:///frontend/src/components/monitoring/TargetForm.tsx)).
-  6. *Fase 6:* Botón directo "Vincular Alerta" (1-Clic hacia `/alerts`).
-- **Modernización NOC Uptime & Latencia (UI, UX & Funcionalidades):**
-  - KPI Cards de Nivel Superior (Disponibilidad Global SLA, Latencia Promedio, Salud y Auto-refresco en vivo).
-  - Rediseño de [`TargetCard.tsx`](file:///frontend/src/components/monitoring/TargetCard.tsx) con radar pulsante y micro-bloques de disponibilidad (sparklines).
-  - Vista de Tabla Compacta ([`TargetTableView.tsx`](file:///frontend/src/components/monitoring/TargetTableView.tsx)) con selector de vista (Grid vs Tabla).
-  - Slide-Over Drawer lateral ([`TargetDetailDrawer.tsx`](file:///frontend/src/components/monitoring/TargetDetailDrawer.tsx)) para inspección de métricas sin salir de la lista.
-  - Test de Conexión en Vivo en [`TargetForm.tsx`](file:///frontend/src/components/monitoring/TargetForm.tsx) con endpoint `POST /api/v1/monitoring/test-connection/`.
-  - Acciones en Lote (Bulk Actions) para escanear, pausar, reanudar o eliminar targets en masa (`POST /api/v1/monitoring/bulk-action/`).
-  - Suavizado integral de geometría: Contenedores `rounded-2xl` y modales `rounded-3xl`, badges y filtros en cápsula `rounded-full`, y scrollbars sutiles.
-- **Persistencia Global de Vistas (Listado vs Cuadros):**
-  - Creado [`usePersistentViewMode.ts`](file:///frontend/src/hooks/usePersistentViewMode.ts) con almacenamiento en `localStorage` por módulo.
-  - Implementado en los 10 módulos principales (`MonitoringPage`, `SSLCertificatesPage`, `DNSRecordsPage`, `DomainsPage`, `APIChecksPage`, `SecurityHeadersPage`, `IncidentsPage`, `DashboardPage`, `ReportsPage`, `AlertsPage`). La vista seleccionada (tabla/lista vs grid) se preserva permanentemente tras actualizar con F5, auto-refresco o navegación entre rutas. Con vistas dedicadas [`AlertRuleTableView.tsx`](file:///frontend/src/components/alerts/AlertRuleTableView.tsx) y [`AlertTableView.tsx`](file:///frontend/src/components/alerts/AlertTableView.tsx).
-- **Robustecimiento del Módulo de Monitoreo SSL (`SSLCertificatesPage.tsx` & `backend/ssl_monitor/`):**
-  - **Soporte Multi-Puerto y Servicios Especiales:** Soporte para puertos personalizados (`:443`, `:8443`, `:636` LDAPS, `:993` IMAP).
-  - **Grado de Seguridad Criptográfica:** Evaluación automática de seguridad TLS (`A+`, `A`, `B`, `F`) basada en versión TLS (1.3 / 1.2), vigencia y certificados válidos.
-  - **Timeline Visual de Vida Útil:** Micro-barra de progreso con porcentaje de vida del certificado transcurrido desde fecha de emisión hasta vencimiento.
-  - **Test de Conexión en Vivo:** Endpoint `POST /api/v1/ssl-certificates/test-connection/` y botón interactivo en el modal para probar la conexión TLS antes de registrar el certificado.
-  - **Acciones en Lote:** Endpoint `POST /api/v1/ssl-certificates/bulk-action/` para re-escanear o eliminar certificados en masa.
-  - **Exportación de Inventario SSL:** Descarga de reporte completo en formato CSV con vigencia, emisor, grado y SANs para auditorías ISO 27001.
-- **Robustecimiento del Módulo de Registros DNS (`DNSRecordsPage.tsx` & `backend/dns_monitor/`):**
-  - **Soporte de Tipos Extendidos:** Soporte para `A`, `AAAA`, `CNAME`, `MX`, `TXT`, `NS`, `SOA` (Start of Authority), `PTR` (Reverse DNS) y `CAA` (Certification Authority Authorization).
-  - **Medición de Latencia de Consulta (`response_time_ms`):** Medición de tiempo de respuesta de resolución en milisegundos con badge por colores (`<50ms` verde, `<150ms` azul, `>150ms` ámbar).
-  - **Detección de Políticas SPF / DMARC:** Análisis automático de registros `TXT` con identificación de políticas anti-spoofing (`v=spf1`, `v=DMARC1`).
-  - **Test de Resolución DNS en Vivo:** Endpoint `POST /api/v1/dns-records/test-resolution/` y botón interactivo en el modal para validar respuestas, TTL y latencia antes de guardar.
-  - **Historial de Mutaciones con Diff Visual:** Pestaña de historial con desglose de valores agregados (`+` verde) y removidos (`-` rojo), más badge pulsante *"Mutación 24h"* en la tabla.
-- **Robustecimiento del Módulo de Dominios & WHOIS (`DomainsPage.tsx` & `backend/domain/`):**
-  - **Detección de Candado Anti-Robo EPP (Domain Lock):** Verificación automática de `clientTransferProhibited` / `serverTransferProhibited` para alertar si un dominio corporativo está desprotegido frente a Domain Hijacking.
-  - **Timeline Visual de Vida Útil:** Micro-barra de progreso con porcentaje de vigencia transcurrido y semáforo de días restantes (`>60d` verde, `30-60d` azul, `15-30d` amarillo, `<15d` rojo).
-  - **Test WHOIS en Vivo:** Endpoint `POST /api/v1/domains/test-whois/` y botón interactivo en el modal para previsualizar registrador oficial, fechas y nameservers antes de registrar.
-  - **Vigilancia de Nameservers Autorizados:** Desglose y auditoría de servidores de nombres delegados en el TLD.
-- **Robustecimiento del Módulo de API Endpoints Check (`APIChecksPage.tsx` & `backend/api_checks/`):**
-  - **Test en Vivo Interactivo (Estilo Postman Integrado):** Endpoint `POST /api/v1/api-checks/test-request/` y botón interactivo *"Probar en Vivo"* en el formulario modal para ejecutar la petición HTTP con métodos `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, autenticación (Bearer, Basic, API-Key) y body, previsualizando el status HTTP, latencia en ms y payload de respuesta.
-  - **Auto-Generador Inteligente de Schema JSON (1-Clic):** Detección automática de campos y tipos de datos del JSON de respuesta (`string`, `integer`, `float`, `boolean`, `list`, `dict`) con ajuste automático de umbrales.
-  - **Métricas de Latencia en Tiempo Real:** Campos `last_response_time_ms` y `last_http_status` en BD y serializador para mostrar en tarjetas y tabla la latencia real vs el umbral máximo (`155ms / < 2000ms`).
-  - **Drawer Técnico con "Copiar cURL":** Botón con 1-clic para copiar la petición en formato cURL reproducible y pestaña de *"Test en Vivo"* para lanzar peticiones inmediatas.
-- **Robustecimiento del Módulo de Cabeceras de Seguridad (`SecurityHeadersPage.tsx` & `backend/security_headers/`):**
-  - **Análisis Profundo de Directivas Criptográficas y de Calidad:** Evaluación rigurosa de directivas HSTS (`max-age >= 31536000`, `includeSubDomains`, `preload`), CSP (detección de riesgos `'unsafe-inline'`, `'unsafe-eval'`, `*`), XFO (`DENY`, `SAMEORIGIN`), MIME Sniffing (`nosniff`), Referrer Policy y Permissions Policy.
-  - **Detección Automática de Fugas de Información de Servidor (Server Leaks):** Detección de cabeceras que divulgan software y versiones (`Server: Apache/2.4`, `X-Powered-By: PHP`, `X-AspNet-Version`) con alertas visuales de vulnerabilidad CWE-200 / ISO 27001.
-  - **Test de Auditoría en Vivo en Modal:** Endpoint `POST /api/v1/security-headers/test-headers/` y botón interactivo *"Probar en Vivo"* en el formulario modal para previsualizar status HTTP, nota proyectada (A+ a F), puntaje numérico, latencia en ms, cabeceras detectadas y alertas de fugas antes de registrar.
-  - **Generador de Snippets de Remediación (1-Clic):** Pestaña interactiva en el Drawer con selector de servidor web (**Nginx**, **Apache .htaccess**, **Caddy**, **Cloudflare**, **IIS web.config**) y botón para copiar en 1-clic el bloque de configuración exacto listo para producción.
-  - **Slide-Over Drawer con 4 Pestañas Especializadas:** Auditoría de Cabeceras, Remediación & Snippets, Fugas de Stack & Cabeceras Raw (con buscador de headers), e Historial de Escaneos.
-  - **Micro-Badges y Telemetría en Vistas:** Indicadores rápidos de protección (`HSTS`, `CSP`, `XFO`), badge pulsante de *"Fuga de Stack"* y latencia de respuesta en ms en tarjetas y tabla.
-  - **Acciones en Lote Atómicas & Exportación CSV:** Endpoint `POST /api/v1/security-headers/bulk-action/` para escanear, pausar, reanudar o eliminar en masa, más exportación a CSV con codificación UTF-8 BOM.
-- **Scripts de Alloy:** `extract_metrics.py` en `scripts_alloy/` para parseo de métricas de Windows y generación de regex relabeling para Grafana Alloy.
-- **Guardianes Sentinine (LAN & On-Premise Satellite Monitoring):**
-  - **Rebranding Completo:** De Satellite/Probe a **Guardián Sentinine** (Sentinel Watchdog) en Backend, Frontend y Agente.
-  - **Agente Autónomo de Monitoreo (`sentinine/`):** v1.1.0 con soporte para `SENTININE_INSECURE_SKIP_VERIFY` (omisión de validación SSL para intranets corporativas con certificados autofirmados), resolución DNS interna, sondeo de puertos TCP a bases de datos y User-Agent oficial `Sentinine/1.1.0`.
-  - **Artefactos de Despliegue:** Imagen de contenedor `sentinel/sentinine:latest`, `Dockerfile`, `docker-compose.yml`, y scripts de instalación de 1 comando (`install.sh` y `install.ps1`).
-  - **Tokens Seguros con Prefijo `snt_live_`:** Generación y validación de tokens de probe con retrocompatibilidad para prefijos legados.
-  - **Celery Beat Watchdog (`check_sentinine_heartbeats`):** Tarea programada cada 60s que detecta agentes inactivos (>45s sin heartbeat), transiciona su estado a `offline` y genera alertas críticas de desconexión en el NOC.
-  - **Frontend UI & Detección de Red:** Selector interactivo en `TargetForm.tsx` entre *"Nube Sentinel (SaaS Público)"* y *"Guardián Sentinine (LAN & On-Prem)"* con auto-detección de IPs privadas (`192.168.`, `10.`, `172.16-31.`). Badges semánticos morados (`accent-purple`) y alerta roja de agente desconectado en `TargetCard`, `TargetTableView` y `TargetDetailDrawer`.
-  - **Suite E2E Verificada:** `test_probe_e2e.py` validando ciclo completo de heartbeat, ingesta de métricas y disparo del watchdog con 0 errores.
+Permite vigilar servicios web públicos, APIs sintéticas, certificados SSL, resoluciones DNS, dominios WHOIS e infraestructura privada (on-premise / LAN) mediante agentes autónomos satélites (**Guardianes Sentinine**).
 
+---
 
-## 🎨 Paleta Oficial de Colores y Semántica Estricta (Design System Tokens)
-El sistema implementa un marco semántico estricto de observabilidad (NOC / SRE) para eliminar ambigüedades operativas:
+## 🛠️ 2. Stack Tecnológico Real y Activo
+- **Backend:** Python 3.13 / Django 5.x / Django REST Framework.
+- **Asincronía & Background Jobs:** Celery 5.x con Celery Beat para tareas periódicas y 3 colas de prioridad (`high_priority`, `monitoring`, `background`).
+- **Base de Datos & Time-Series:** PostgreSQL 16 con extensión **TimescaleDB** (hypertables con compresión y retención automática de 90 días).
+- **Caché & Message Broker:** Redis 7 (DB 0: Celery Broker, DB 1: Celery Results con TTL, DB 2: Caché distribuido de telemetría NOC en < 2ms).
+- **Frontend:** React 18 + TypeScript + Vite, TailwindCSS (design system NOC estricto), Recharts para telemetría multieje, Lucide React para iconografía vectorial.
+- **Agentes LAN / On-Premise:** **Guardián Sentinine** (`sentinine/`) — Agente autónomo Python v1.1.0 en Docker con soporte para certificados autofirmados, DNS y TCP.
+- **Observabilidad / Logs:** Grafana Loki 3.0 (`sentinel_loki:3100`) y Promtail integrados en `docker-compose.yml`.
+- **Rendimiento & Calidad:** Grafana k6 (`tests_perf/`), Pytest DRF (`backend/tests/`), GitHub Actions CI/CD (`.github/workflows/`).
+- **Contenedores:** Docker & Docker Compose (`docker-compose.yml` y `docker-compose.prod.yml`).
 
-- **Fondos y Superficies:**
-  - g-dark / g-main: #090D11 (Fondo base global ultra oscuro).
-  - g-card: #111720 (Contenedores elevados, tarjetas KPI, drawers y modales).
-  - g-card-hover: #17202C (Hover sobre filas interactivas y botones secundarios).
-- **Bordes y Delimitadores:**
-  - order-base: #1E293B (Borde sutil estándar).
-  - order-accent: #263345 (Borde de contraste / elementos en foco).
-- **Tipografía y Textos:**
-  - 	ext-main: #F8FAFC (Blanco primario para títulos y métricas).
-  - 	ext-muted: #94A3B8 (Gris intermedio para descripciones y labels).
-  - 	ext-dim: #64748B (Gris terciario para timestamps, metadatos y placeholders).
-- **Acentos Semánticos Estrictos:**
-  - 🟢 **ccent-green (#10b981): Healthy / Online / SLA Óptimo** &bull; Servidor UP, SLA >= 99.9%, test HTTP 200, certificados válidos (>30d). Fondo: g-accent-green/10, Borde: order-accent-green/30.
-  - 🟢 **ccent-green-glow (#34d399): Halo de radar pulsante en vivo**.
-  - 🟡 **ccent-yellow (#F59E0B): Warning / Degraded / Atención** &bull; Latencia alta (>umbral), SSL por expirar (<=30d), flapping detectado, incidente en mitigación. Fondo: g-accent-yellow/10, Borde: order-accent-yellow/30.
-  - 🔴 **ccent-red (#EF4444): Critical / Down / Falla Activa** &bull; Servidor DOWN, HTTP 5xx, incidentes críticos abiertos, certificados inválidos o expirados. Fondo: g-accent-red/10, Borde: order-accent-red/30.
-  - 🔵 **ccent-cyan (#06B6D4 / #22D3EE): Información / Telemetría / Métricas** &bull; Latencia en ms, gráficos de telemetría, throughput de peticiones/seg, consultas DNS, telemetría WHOIS. Fondo: g-accent-cyan/10, Borde: order-accent-cyan/30.
-  - 🟣 **ccent-purple (#8B5CF6): Funcionalidades Especiales / Automatización / Cripto** &bull; Webhooks, integraciones (Slack, Discord, Telegram), reglas de auto-remediación, llaves API y autenticación 2FA. Fondo: g-accent-purple/10, Borde: order-accent-purple/30.
-  - ⚪ **	ext-dim / order-base (#64748B): Neutral / Pausado / Desactivado** &bull; Servicios en mantenimiento, pausados, UUIDs y metadatos secundarios.
-- **Reglas Estéticas Estrictas:**
-  - Cero emojis en componentes de interfaz (usar exclusivamente iconos vectoriales de lucide-react).
-  - Cero mayúsculas sostenidas (uppercase).
-  - Contenedores rounded-2xl, modales rounded-2xl/rounded-3xl y badges en cápsula rounded-full.
-  - Tipografía Outfit para textos y JetBrains Mono solo para datos numéricos/técnicos.
+---
 
-## 🧩 Arquitectura Frontend: Sentinel NOC Layout Toolkit (`frontend/src/components/common/noc/`)
-Para mantener el principio DRY (Don't Repeat Yourself) y garantizar una experiencia unificada en toda la plataforma, todas las vistas operativas deben implementar los siguientes componentes centrales:
-- **`NOCPageHeader`:** Encabezado unificado con badge temático del módulo, radar pulsante de auto-refresco en vivo y ranura de botones de acción rápida.
-- **`useAutoRefresh` (`frontend/src/hooks/useAutoRefresh.ts`):** Hook estándar de cuenta regresiva (15s/30s) en vivo, pausa/reanudación interactiva y compatibilidad nativa con `refetchInterval` de TanStack Query.
-- **`NOCKpiGrid` y `NOCKpiCard`:** Rejilla y tarjetas KPI de nivel superior con barras de progreso visuales (gauges), micro-bloques de salud por estado y pie de métrica descriptivo.
-- **`NOCToolbar`:** Barra de control con buscador Omnibar en tiempo real, selector de vista (Grid interactivo vs Tabla compacta) y chips/pills de filtrado con conteo de registros en vivo.
-- **`NOCBulkActionBar`:** Barra flotante adhesiva inferior con desenfoque (`backdrop-blur-md`) para acciones masivas (escaneo por lote, eliminación o cierre masivo).
-- **`NOCDrawer`:** Slide-Over lateral desplegable por la derecha con soporte para atajo de teclado `ESC`, navegación por pestañas e inspección técnica profunda sin pérdida de contexto ni reseteo de filtros.
+## 📁 3. Centro de Documentación Viva (`docs/`)
+Toda la documentación técnica del proyecto se encuentra centralizada y clasificada en [`docs/`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/README.md):
 
-## ⚡ Motor de Reglas y Alertas Inteligentes (Smart Alerts Engine - `backend/alerts/`)
-- **Aprovisionamiento Automático:** Si una organización no tiene reglas configuradas, el sistema auto-aprovisiona automáticamente 6 reglas estándar del NOC mediante `AlertRuleService.ensure_default_rules(organization_id)`:
-  1. *Objetivo de Monitoreo Caído* (`status_down` &rarr; Severidad Crítica)
-  2. *Latencia Alta de Respuesta* (`response_time_above > 1000ms` &rarr; Advertencia)
-  3. *Certificado SSL por Expirar* (`ssl_expiring <= 30d` &rarr; Advertencia)
-  4. *Fallo en API Check Sintético* (`api_check_failed` &rarr; Severidad Crítica)
-  5. *Dominio WHOIS por Expirar* (`domain_expiring <= 30d` &rarr; Advertencia)
-  6. *Puntuación de Seguridad Baja* (`security_score_below < 70` &rarr; Advertencia)
-- **14 Condiciones de Alerta Soportadas:**
-  - *Uptime & Red:* `status_down`, `uptime_below`, `response_time_above`.
-  - *Certificados SSL:* `ssl_expiring`, `ssl_grade_below`, `ssl_invalid`.
-  - *Registros DNS:* `dns_changed`, `dns_latency_above`.
-  - *Dominios WHOIS:* `domain_expiring`, `domain_unlocked` (alerta de secuestro / domain hijacking).
-  - *Cabeceras de Seguridad:* `security_score_below`, `security_leak_detected` (fuga de stack / versión en servidor).
-  - *API Checks Sintéticos:* `api_check_failed`, `api_latency_above`.
-- **Deduplicación Inteligente & Trazabilidad MTTR:** Los escaneos recurrentes no resetean `triggered_at` (preservando el cálculo de MTTR real). En su lugar actualizan `last_seen_at` e incrementan `occurrence_count` (ej. `x14`) agrupando alertas continuas en un único hilo de incidente.
-- **Detección Anti-Flapping:** Detección automática de servicios inestables ($\ge 3$ transiciones en 15 minutos). Escala automáticamente la severidad a Crítica y añade telemetría de oscilaciones para evitar fatiga de alertas.
-- **Smart Snooze / Mute:** Capacidad de silenciar alertas o reglas por periodos de 30m, 1h, 4h o 24h (`POST /api/v1/alerts/{id}/snooze/` y `POST /api/v1/alert-rules/{id}/snooze/`), suprimiendo notificaciones externas durante ventanas de mantenimiento sin perder visibilidad en el NOC.
-- **Simulador de Impacto en Vivo (Dry-Run):** Endpoint `POST /api/v1/alert-rules/simulate/` y tarjeta reactiva en el modal `AlertRuleForm.tsx` para previsualizar antes de guardar qué objetivos activos dispararían la regla con su valor actual y umbral.
-- **Slide-Over NOCDrawer de Alertas:** Panel lateral con 3 pestañas especializadas:
-  1. *Causa Raíz (RCA):* Enlace de 1-clic al módulo origen (`/monitoring`, `/ssl`, `/dns`, `/domains`, `/api-checks`, `/security-headers`), diagnóstico de flapping y metadatos de telemetría.
-  2. *Cronología & MTTR:* Stepper vertical con disparo inicial, última detección, vigencia de snooze y tiempo total de duración o mitigación.
-  3. *Acciones Rápidas:* Elevación formal a incidente, silenciado configurable (30m, 1h, 4h, 24h) y cambio de estado.
-- **Acciones en Lote & Exportación CSV:** Endpoint `POST /api/v1/alerts/bulk-action/` para reconocer, resolver, silenciar o eliminar alertas en masa mediante `NOCBulkActionBar`, más exportación completa a CSV con codificación UTF-8 BOM.
+| Documento | Propósito | Enlace Directo |
+| :--- | :--- | :--- |
+| **`ROADMAP_TRACKER.md`** | **Única fuente de verdad del Roadmap:** Fases 1 (100%), Fase 2 (30%), Fase 3 y backlog priorizado. | [`docs/ROADMAP_TRACKER.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/ROADMAP_TRACKER.md) |
+| **`MODULE_INVENTORY.md`** | **Catálogo de los 18 Módulos:** Mapeo de rutas frontend, apps backend, modelos, endpoints REST y Celery. | [`docs/MODULE_INVENTORY.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/MODULE_INVENTORY.md) |
+| **`IMPLEMENTATION_LOG.md`** | **Bitácora Cronológica de Ingeniería:** Histórico de cambios técnicos, decisiones de arquitectura y archivos. | [`docs/IMPLEMENTATION_LOG.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/IMPLEMENTATION_LOG.md) |
+| **`DEV_WORKFLOW.md`** | **Convenciones & Diseño NOC:** Comandos Docker, tokens semánticos de color, normas de ORM N+1 y pre-commit. | [`docs/DEV_WORKFLOW.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/DEV_WORKFLOW.md) |
+| **`TESTING_STRATEGY.md`** | **Estrategia Integral de Pruebas:** Pirámide de automatización (Pytest DRF, k6 rendimiento y Playwright E2E). | [`docs/TESTING_STRATEGY.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/TESTING_STRATEGY.md) |
+| **`PRODUCTION_READINESS.md`** | **Plan Maestro de Producción:** Scorecard ejecutivo 100%, 6 pilares de seguridad AppSec y hardening. | [`docs/PRODUCTION_READINESS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_READINESS.md) |
+| **`PRODUCTION_SECURITY.md`** | **Hardening de Variables & TLS:** Directrices de configuración segura de producción (`settings.prod`). | [`docs/PRODUCTION_SECURITY.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_SECURITY.md) |
+| **`GO_LIVE_CHECKLIST.md`** | **Manual Operativo & Runbook Go-Live:** Verificaciones pre-vuelo (T-48h a T-0), Día-2 y protocolo rollback. | [`docs/GO_LIVE_CHECKLIST.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/GO_LIVE_CHECKLIST.md) |
+| **`tests_perf/README.md`** | **Suite k6 de Rendimiento:** 5 escenarios de carga, runners interactivos y reportes HTML. | [`tests_perf/README.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/tests_perf/README.md) |
 
-## 🛡️ Centro de Escalación y Gestión de Incidentes (Incident Management Hub - `IncidentsPage.tsx` & `backend/incidents/`)
-- **Asignación de Ingenieros y Operadores:** Soporte para asignar formalmente un responsable (`assigned_to`, `assigned_to_name`) desde la interfaz o modal, con endpoint dedicado `POST /api/v1/incidents/{id}/assign/`.
-- **Correlación de Activo y Servicio Afectado:** Campos `impacted_service`, `target_type` y `target_id` para vincular el incidente directamente con el componente monitoreado, con botón de salto de 1-clic al módulo origen (`/monitoring`, `/ssl`, `/dns`, `/domains`, `/api-checks`, `/security-headers`).
-- **Análisis de Causa Raíz (RCA) y Post-Mortem Estructurado:** Registro de causa raíz técnica (`root_cause`), resumen de resolución (`resolution_summary`) y acciones preventivas (`preventive_actions`) mediante `POST /api/v1/incidents/{id}/rca/`, con pestaña especializada en el Drawer y feedback visual de RCA registrado.
-- **Trazabilidad de Hitos ITIL/SRE y MTTA / MTTR:** Registro automático de marcas de tiempo clave (`opened_at`, `acknowledged_at` para MTTA, `mitigated_at`, `resolved_at` para MTTR y `closed_at`), calculando la duración operativa exacta del incidente.
-- **Telemetría Operativa en Tiempo Real:** Endpoint `GET /api/v1/incidents/stats/` que calcula en tiempo real incidentes críticos, activos en mitigación, tiempo medio de reparación (MTTR), tiempo medio de reconocimiento (MTTA) y tasa de cumplimiento de SLA (<= 60m).
-- **Acciones en Lote Atómicas:** Endpoint `POST /api/v1/incidents/bulk-action/` para resolver, mitigar, cerrar o eliminar incidentes en masa atómicamente, reemplazando bucles iterativos en el cliente.
-- **Bitácora Colaborativa con Trazabilidad de Autor:** Corrección del endpoint de publicación de notas a `POST /api/v1/incidents/{id}/timeline/` con captura de usuario (`actor_name`) y nuevos tipos de eventos (`ASSIGNED`, `RCA_UPDATED`, `MITIGATED`).
-- **Vistas Duales Persistentes (Grid vs Tabla):** Selector de vista interactivo entre tarjetas [`IncidentCard.tsx`](file:///frontend/src/components/incidents/IncidentCard.tsx) y tabla compacta [`IncidentTableView.tsx`](file:///frontend/src/components/incidents/IncidentTableView.tsx) con persistencia en `localStorage` (`usePersistentViewMode`).
-- **Slide-Over NOCDrawer de 4 Pestañas:**
-  1. *Ciclo & Bitácora:* Stepper de ciclo de vida con 6 etapas (`open`, `investigating`, `identified`, `mitigated`, `resolved`, `closed`), formulario de avances y timeline colaborativo.
-  2. *Causa Raíz (RCA):* Formulario para documentar root cause, plan de contingencia y compromisos futuros.
-  3. *Alertas:* Feed de alertas del sistema vinculadas al incidente.
-  4. *Asignación & SLA:* Selector de operador con botón de reasignación rápida, acceso directo al módulo del servicio y cronograma de hitos.
-- **Exportación de Incidentes a CSV:** Descarga con 1-clic con codificación UTF-8 BOM para auditorías y comités de post-mortem.
+---
 
-## 📢 Portal de Transparencia y Status Page (Status Page Hub - `StatusPageAdmin.tsx`, `PublicStatusPage.tsx` & `backend/status_page/`)
-- **Arquitectura Multi-Status Pages (Multi-Empresa / Multi-Tenant):** Capacidad de crear múltiples páginas de estado públicas o privadas dentro de una misma organización para atender clientes corporativos independientes (*ej. `/status/banco-industrial`*, *`/status/coopeuch`*, *`/status/global`*).
-  - **Selector de Empresa / Switcher:** Dropdown interactivo en cabecera y barra de estado activo para alternar instantáneamente entre portales de clientes.
-  - **Directorio de Status Pages (`StatusPageDirectoryModal.tsx`):** Panel modal con inventario de todas las Status Pages, estado público/privado, badge de "Principal", conteo de componentes asignados, suscriptores y accesos directos.
-  - **Creador Rápido de Portales (`CreateStatusPageModal.tsx`):** Modal para crear nuevas Status Pages con generación de slug en tiempo real, sanitizado de URL y opción de clonar componentes base de otra página.
-  - **Aislamiento Granular de Incidentes & Mantenimientos:** Las páginas públicas filtran estrictamente los incidentes y mantenimientos según los componentes publicados en dicha página. Los incidentes de una empresa nunca se filtran a las demás.
-  - **Suscriptores Segregados:** Suscripción independiente por página de estado (`StatusPageSubscriber.status_page`), asegurando que cada cliente reciba alertas solo de sus servicios.
-- **Selector Interactivo de Componentes (Component Picker):** Capacidad de seleccionar granularmente qué targets de monitoreo (Uptime y API Checks) son públicos mediante [`ComponentPickerModal.tsx`](file:///frontend/src/components/status_page/ComponentPickerModal.tsx), personalizando el nombre visible para clientes y la categoría de negocio (*ej. "Pasarela de Pagos", "Plataforma Web", "APIs de Clientes"*).
-- **Sistema de Suscriptores por Correo Electrónico:** Modelo `StatusPageSubscriber` con endpoint público `POST /api/v1/status-page/public/{slug}/subscribe/` y modal reactivo [`SubscribeModal.tsx`](file:///frontend/src/components/status_page/SubscribeModal.tsx) para que clientes y usuarios finales reciban alertas de incidentes y mantenimientos, más exportación a CSV en panel admin.
-- **Banner de Comunicados Globales (Broadcast Banner):** Publicación de anuncios destacados en cabecera con selector de severidad (`info`, `warning`, `critical`) y switch de activación en vivo para contingencias u operaciones especiales.
-- **Bitácora de Actualizaciones en Mantenimientos:** Modelo `MaintenanceUpdate` para documentar la progresión secuencial en tiempo real de mantenimientos planificados mediante [`MaintenanceUpdateModal.tsx`](file:///frontend/src/components/status_page/MaintenanceUpdateModal.tsx), visualizado en el feed público con badges de fase.
-- **Telemetría de Latencia en 24 Horas:** Cálculo de tiempo de respuesta promedio (`avg_latency_24h_ms`) renderizado junto a la barra histórica de 90 días ([`UptimeBar90Days.tsx`](file:///frontend/src/components/status_page/UptimeBar90Days.tsx)) con tooltips enriquecidos.
-- **Panel Administrativo NOC con 4 Pestañas Scoped:** Rediseño completo de [`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) con `NOCPageHeader`, 4 KPI Cards (Salud Proyectada, Componentes Publicados, Mantenimientos, Suscriptores), tabla compacta [`MaintenanceTableView.tsx`](file:///frontend/src/components/status_page/MaintenanceTableView.tsx) y `NOCBulkActionBar` para acciones masivas.
-- **Página Pública de Alto Impacto:** Rediseño de [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx) con radar pulsante de estado en vivo, acordeones por categoría, feed de incidentes activos e histórico de incidentes resueltos en los últimos 30 días para auditorías y comités de SLA.
-- **Robustecimiento del Módulo de Canales de Notificación (`NotificationsPage.tsx` & `backend/notifications/`):**
-  - **Enrutamiento Inteligente & Anti-Fatiga:** Soporte para severidad mínima requerida (`info`, `warning`, `critical`), filtrado por eventos suscritos (`alert_triggered`, `alert_resolved`, `incident_opened`, `incident_resolved`, `maintenance`) y límite de tasa por hora (`rate_limit_per_hour`) para proteger cuotas de API de webhooks.
-  - **Horarios de Silencio (Quiet Hours):** Configuración de ventanas de silencio por canal (ej. `22:00` a `08:00`) con interruptor de bypass de emergencia para que las alertas de severidad crítica no se desatiendan.
-  - **Pre-flight Live Connection Test:** Endpoint `POST /api/v1/notifications/test-connection/` y botón interactivo *"Probar Conexión en Vivo"* en el modal para validar credenciales, bot tokens, webhooks o servidores SMTP en tiempo real antes de guardar el canal.
-  - **Auditoría con Latencia, Código HTTP y 1-Click Retry:** Telemetría de tiempo de respuesta en ms (`duration_ms`), captura de códigos de estado (`http_status`) y endpoint `POST /api/v1/notifications/{id}/retry/` para re-despachar entregas fallidas en 1-clic.
-  - **Slide-Over NOCDrawer de 4 Pestañas:** Resumen & Telemetría (con credenciales sanitizadas), Enrutamiento & Filtros, Simulador de Payload en Vivo y feed de Historial de Envíos del Canal con botón de reintento.
-  - **Vistas Duales Persistentes (Grid vs Tabla):** Selector de vista persistente en `localStorage` con cuadrícula de tarjetas y tabla compacta [`ChannelTableView.tsx`](file:///frontend/src/components/notifications/ChannelTableView.tsx).
-  - **Acciones en Lote Atómicas & Exportación CSV:** Endpoint `POST /api/v1/notifications/channels/bulk-action/` para activar, pausar, probar o eliminar en masa vía `NOCBulkActionBar`, más descarga de auditoría a CSV con UTF-8 BOM (`GET /api/v1/notifications/export-csv/`).
-- **Robustecimiento del Módulo de Reportes Ejecutivos, SLA & Error Budget (`ReportsPage.tsx` & `backend/reports/`):**
-  - **Motor de SLA en Vivo & Presupuesto de Error SRE (Error Budget):** Endpoint `GET /api/v1/reports/sla-live/` y componente reactivo [`LiveSLADashboard.tsx`](file:///frontend/src/components/reports/LiveSLADashboard.tsx) que calcula en tiempo real para períodos de 7D, 30D y 90D el SLA observado, presupuesto de error total permitido en minutos ($T_{\text{periodo}} \times [1 - \text{SLA}/100]$), minutos consumidos por downtime, minutos restantes y tasa de consumo (Burn Rate: Inmune, Normal, Acelerado, Agotado).
-  - **Selector Granular de Objetivos (Target Scope Picker):** Capacidad en el modal generador [`CreateReportModal.tsx`](file:///frontend/src/components/reports/CreateReportModal.tsx) de auditar todos los objetivos de la organización o acotar el informe a una selección específica de servicios con buscador instantáneo, filtrando en los generadores de SLA, disponibilidad y tendencias.
-  - **Meta Contractual Configurable:** Selector interactivo de umbral SLA (`99.0%`, `99.5%`, `99.9%`, `99.99%`) almacenado en los parámetros del informe para evaluar automáticamente dictámenes de cumplimiento ("CUMPLE" / "INCUMPLE") por objetivo.
-  - **Exportador Oficial a CSV con UTF-8 BOM:** Inclusión de la marca de orden de bytes `\ufeff` en `ReportExporter.export_csv(report)` para apertura perfecta en Microsoft Excel en Windows sin caracteres corrompidos, soportando los 6 tipos de reportes (`sla`, `availability`, `incidents`, `trends`, `ssl`, `summary`).
-  - **Exportador PDF / HTML Ejecutivo:** Generador de documentos imprimibles con formato A4, tipografía ejecutiva, tarjetas de métricas SLA/Error Budget/MTTR/MTTD y tabla de cumplimiento por servicio para auditorías ISO 27001 / SOC 2.
-  - **Arquitectura Modular Frontend:** Descomposición completa del archivo monolítico de 1018 líneas en componentes especializados bajo `frontend/src/components/reports/`: [`LiveSLADashboard.tsx`](file:///frontend/src/components/reports/LiveSLADashboard.tsx), [`ReportTableView.tsx`](file:///frontend/src/components/reports/ReportTableView.tsx), [`ReportCard.tsx`](file:///frontend/src/components/reports/ReportCard.tsx), [`ReportDetailDrawer.tsx`](file:///frontend/src/components/reports/ReportDetailDrawer.tsx), [`CreateReportModal.tsx`](file:///frontend/src/components/reports/CreateReportModal.tsx).
-  - **Acciones en Lote Atómicas:** Endpoint `POST /api/v1/reports/bulk-action/` para eliminación masiva en una única transacción de base de datos a través de `NOCBulkActionBar`.
+## 🚀 4. Estado de Implementación: Qué Llevamos vs Qué Falta
 
-- **Robustecimiento de Usuarios y Equipos (`UsersPage.tsx`, `backend/users/` & `backend/organizations/`):**
-  - **Eliminación Total del Término "Módulo":** Estandarización oficial de la sección bajo el nombre exclusivo de **"Usuarios y Equipos"** en rutas, encabezados, toolbars, modales y navegación lateral (`Sidebar.tsx`).
-  - **Gestión Completa de Equipos y Squads (`Team` Model):** Nuevo modelo `Team` con clave foránea a `Organization`, nombre, descripción, color identificador HSL/HEX y relación Many-to-Many con `User`. Endpoints dedicados para crear, listar, editar, eliminar equipos y asociar integrantes (`/api/v1/users/teams/`).
-  - **Reenvío en 1-Clic de Invitaciones:** Endpoint `POST /api/v1/organizations/members/{id}/resend/` para re-despachar de inmediato por correo SMTP el enlace magic link con token temporal a usuarios en estado pendiente.
-  - **Acciones en Lote Atómicas:** Endpoint `POST /api/v1/organizations/members/bulk-action/` para activar cuentas, suspender accesos o eliminar/revocar invitaciones y usuarios en masa mediante `NOCBulkActionBar`.
-  - **Exportación Oficial a CSV:** Endpoint `GET /api/v1/organizations/members/export-csv/` con UTF-8 BOM (`\ufeff`) para descarga instantánea de inventario compatible con Microsoft Excel en Windows.
-  - **Slide-Over NOCDrawer de 4 Pestañas:** Inspección lateral [`UserDetailDrawer.tsx`](file:///frontend/src/components/users/UserDetailDrawer.tsx) con:
-    1. *Perfil & Cuenta:* Avatar con gradiente según rol, metadatos, antigüedad y estado.
-    2. *Equipos & Rol:* Selector de privilegios RBAC y asignación interactiva a equipos de trabajo.
-    3. *Actividad & Auditoría:* Feed en tiempo real de registros de auditoría filtrados para el operador.
-    4. *Seguridad & Acciones:* Alternancia de cuenta activa/suspendida, reenvío de invitación y zona de peligro.
-  - **Vistas Duales Persistentes (Grid vs Tabla):** Selector de vista interactivo entre [`UserCard.tsx`](file:///frontend/src/components/users/UserCard.tsx) y [`UserTableView.tsx`](file:///frontend/src/components/users/UserTableView.tsx) con persistencia en `localStorage` (`usePersistentViewMode`).
+### ✅ A. Implementado al 100% (Producción Ready)
 
-## 🌐 Módulos Homologados (100% Cobertura de Plataforma)
-1. **Dashboard Principal** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Centro de comando con matriz de servicios unificada, franja de early warning, feed de alertas y drawer inspector.
-2. **Uptime & Latencia** ([`MonitoringPage.tsx`](file:///frontend/src/pages/MonitoringPage.tsx)): Monitoreo HTTP/S, TCP, Ping, gráfica de latencia histórica y prueba de conexión en vivo.
-3. **API Checks** ([`APIChecksPage.tsx`](file:///frontend/src/pages/APIChecksPage.tsx)): Pruebas sintéticas con verificación de headers y códigos de respuesta.
-4. **Certificados SSL** ([`SSLCertificatesPage.tsx`](file:///frontend/src/pages/SSLCertificatesPage.tsx)): Vigencia de certificados, emisores CA y dominios SANs.
-5. **Dominios WHOIS** ([`DomainsPage.tsx`](file:///frontend/src/pages/DomainsPage.tsx)): Vencimiento de registros ICANN y nameservers.
-6. **Registros DNS** ([`DNSRecordsPage.tsx`](file:///frontend/src/pages/DNSRecordsPage.tsx)): Resolución de zonas y detección de mutaciones en registros.
-7. **Cabeceras de Seguridad** ([`SecurityHeadersPage.tsx`](file:///frontend/src/pages/SecurityHeadersPage.tsx)): Auditoría HSTS, CSP, Anti-Clickjacking y calificaciones Mozilla Observatory.
-8. **Gestión de Incidentes** ([`IncidentsPage.tsx`](file:///frontend/src/pages/IncidentsPage.tsx)): Hub de escalación ITIL/SRE, asignación de ingenieros, RCA estructurado y control MTTR/MTTA.
-9. **Centro de Alertas** ([`AlertsPage.tsx`](file:///frontend/src/pages/AlertsPage.tsx)): Gestión de reglas de umbral, elevación a incidentes y resolución masiva.
-10. **Reportes Ejecutivos & SLA** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Informes de disponibilidad con telemetría de Error Budget en vivo, desglose por servicio, exportación UTF-8 BOM CSV y PDF ejecutivo.
-11. **Status Page & Transparencia** ([`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) & [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx)): Portal público con 90 días de uptime, suscriptores, comunicados broadcast y control granular de componentes.
-12. **Canales de Notificación** ([`NotificationsPage.tsx`](file:///frontend/src/pages/NotificationsPage.tsx)): Enrutamiento inteligente multicanal (Telegram, Slack, Teams, Discord, Email, Webhook), quiet hours, simulador en vivo, 1-click retry y telemetría de latencia ms.
-13. **Usuarios y Equipos** ([`UsersPage.tsx`](file:///frontend/src/pages/UsersPage.tsx)): Directorio unificado de operadores, cuadrillas operativas y squads de ingeniería (`Team`), designación de Líder de Equipo (Team Lead), asignación directa de incidentes a cuadrillas (`assigned_team`), propiedad delegada de servicios de monitoreo (`owner_team`), panel lateral `TeamDetailDrawer` de 4 pestañas (*Resumen & Salud*, *Integrantes del Squad con nombramiento de Lead*, *Servicios a Cargo*, *Incidentes Asignados*), auto-aprovisionamiento de 4 cuadrillas sugeridas (*SRE & Infraestructura*, *NOC Nivel 1*, *SecOps*, *Backend Core*), control RBAC, invitaciones SMTP con reenvío 1-clic y exportación CSV.
-14. **Perfil de Usuario & Seguridad Operativa** ([`ProfilePage.tsx`](file:///frontend/src/pages/ProfilePage.tsx)): Centro de identidad, seguridad y preferencias del operador. Layout estandarizado NOC con `NOCPageHeader`, banner horizontal compacto de identidad del operador (avatar, rol, cuadrillas, huso horario y estado) y 5 pestañas operativas:
-  - *Datos Personales & Cuadrillas:* Edición de perfil, teléfono/pager de guardia para emergencias P1, desglose de squads asignados con distintivo de Team Lead y matriz descriptiva de permisos RBAC.
-  - *Seguridad & Sesiones:* Cambio de clave con medidor interactivo de entropía ([`PasswordStrengthMeter.tsx`](file:///frontend/src/components/profile/PasswordStrengthMeter.tsx)), fecha de último login y cierre remoto de sesiones en otros dispositivos (`POST /api/v1/auth/revoke-sessions/`).
-  - *Preferencias Operativas:* Alerta acústica del NOC con sintetizador Web Audio API dual-tone en vivo (587Hz + 880Hz) con botón para probar muestra sonora y selector de huso horario personal con reloj digital reactivo en tiempo real.
-  - *API Tokens Programáticos:* Gestor con enmascaramiento (`••••••••`), botón para revelar, copiado en 1-clic, scopes (Full Access vs Solo Lectura), vigencia temporal configurable (30d, 90d, 1 año, permanente) mediante [`CreateTokenModal.tsx`](file:///frontend/src/components/profile/CreateTokenModal.tsx) y revocación con `ConfirmDelete`.
-  - *Bitácora de Actividad Personal:* Pestaña de auditoría individual ([`UserActivityTab.tsx`](file:///frontend/src/components/profile/UserActivityTab.tsx)) con buscador y feed de operaciones ejecutadas en la plataforma.
-15. **Centro de Ventanas de Mantenimiento Programadas** ([`MaintenancePage.tsx`](file:///frontend/src/pages/MaintenancePage.tsx) & `backend/maintenance/`): Módulo de asistencia operativa (Fase 2 del Roadmap) para planificación de trabajos de infraestructura con:
-  - *Sincronización Automática con Status Page:* Fuente única de la verdad. Al activar `[x] Publicar en Status Page de Clientes`, se crea y mantiene sincronizado automáticamente el aviso en `ScheduledMaintenance`, replicando en vivo notas de avance y cambios de estado hacia clientes y suscriptores.
-  - *Supresión Inteligente de Alertas:* Detección automática en `AlertService.create_alert` para silenciar notificaciones externas (Slack, Teams, Telegram, Email) durante mantenimientos activos y evitar falsos positivos o falsos incidentes.
-  - *Exclusión de Penalización de SLA:* Protección del porcentaje de disponibilidad mensual en reportes ITIL/SRE.
-  - *Control de Recurrencia:* Soporte para ventanas únicas (*One-time*), semanales, quincenales o mensuales con días y horas configurables.
-  - *Cobertura Granular o Global:* Opción de mantenimiento en toda la organización o selección granular de targets (Uptime, SSL, API Checks, DNS).
-  - *UI Sentinel NOC Toolkit:* `NOCPageHeader` con auto-refresco en vivo, 4 `NOCKpiCard` (Mantenimientos En Curso con halo pulsante, Próximas Ventanas 7d, Targets Protegidos, Horas Planificadas), `NOCToolbar` con buscador Omnibar y selector persistente (Cards vs Tabla compacta), modal moderno [`MaintenanceWindowModal.tsx`](file:///frontend/src/components/maintenance/MaintenanceWindowModal.tsx) con selector de Status Page y cálculo automático de duración, slide-over lateral [`MaintenanceDetailDrawer.tsx`](file:///frontend/src/components/maintenance/MaintenanceDetailDrawer.tsx) de 3 pestañas (*Detalles & Targets con enlace a la Status Page pública*, *Bitácora en Vivo con publicación de notas*, *Controles Operativos de Inicio/Finalización Rápida*), acciones en lote `NOCBulkActionBar` y exportación CSV con codificación UTF-8 BOM.
-16. **Separación Estricta Superadmin Global (SaaS Owner) vs Admin de Organización (Tenant Admin):**
-  - *Aislamiento Estricto:* Diferenciación formal entre `user.is_superuser` (dueño de plataforma) y `role="admin"` (administrador del cliente). Los administradores de organización no tienen visibilidad ni acceso a la consola global `/admin/platform`.
-  - *Guard de Ruta & Backend Security:* Protección frontend con `<SuperAdminRoute>` y protección en serializers (`is_superuser` en `read_only_fields`) para impedir escalada de privilegios.
-17. **Ciclo de Vida SaaS, Cuotas y Expiración Automatizada de Suscripciones:**
-  - *Celery Beat Scheduler:* Tarea periódica cada 15 minutos (`organizations.check_expired_trials`) que transiciona tenants con trial vencido a estado `past_due` con auditoría en `AuditLog`.
-  - *Protección de Infraestructura:* Suspensión selectiva a nivel de queries en los 6 motores de chequeo periódico (Uptime, SSL, DNS, WHOIS, Security Headers, API checks) para tenants inactivos o vencidos.
-  - *Cuotas Multi-Módulo (10 Recursos):* Control y bloqueo HTTP 403 `QUOTA_EXCEEDED` en creación de recursos (Monitores de Uptime, Certificados SSL, API Checks, Registros DNS, Dominios WHOIS, Cabeceras de Seguridad, Canales de Notificación, Miembros de Equipo, Status Pages y Agentes Satélite).
-  - *Banner Proactivo & Reactivación:* Componente `TrialStatusBanner.tsx` en el Dashboard (alerta ámbar `<=3d` y alerta roja `past_due`) con flujo de actualización y reactivación en 1-clic vía `UpgradePlanModal.tsx`.
+1. **Erradicación Total de Consultas N+1 & Benchmark k6:**
+   - Optimización de serializadores con `Prefetch()` acotado por ventana temporal (`checked_at__gte=since_1h`).
+   - DRF `AlertListSerializer` con precarga en lote en memoria O(1) (`alert_id IN (...)`).
+   - Conteo anotado `.annotate(alerts_count_annotated=Count('incident_alerts'))`.
+   - Connection Pooling en PostgreSQL (`CONN_MAX_AGE=60`, `CONN_HEALTH_CHECKS=True`).
+   - Caché Redis DB 2 con TTL de 15s en telemetría global NOC y estadísticas de incidentes/MTTR (< 2ms).
+   - **Récord Benchmark k6:** Latencia promedio reducida a **22.36 ms** y **p95 a 38.81 ms** bajo 40 VUs concurrentes con 0% de errores.
+2. **Los 18 Módulos de la Plataforma (Backend + Frontend Completados):**
+   - **1. NOC Executive Dashboard** ([`DashboardPage.tsx`](file:///frontend/src/pages/DashboardPage.tsx)): Matriz multieje Recharts, dona SVG de salud, feed cronológico, KPIs ejecutivas y selector temporal (1h, 6h, 24h, 7d).
+   - **2. Uptime & Latencia** ([`MonitoringPage.tsx`](file:///frontend/src/pages/MonitoringPage.tsx)): Sondeos HTTP/S, TCP, Ping, DNS, gráfica histórica de latencia, radar pulsante, cálculo de SLA y test de conexión en vivo.
+   - **3. Guardianes Sentinine (Private Probes)** (`sentinine/` & [`ProbeDirectoryDrawer.tsx`](file:///frontend/src/components/monitoring/ProbeDirectoryDrawer.tsx)): Agente autónomo v1.1.0 para LAN/on-premise, bypass SSL autofirmado, watchdog Celery Beat (`check_sentinine_heartbeats`) cada 60s y auto-detección de IPs privadas en formulario.
+   - **4. Certificados SSL** ([`SSLCertificatesPage.tsx`](file:///frontend/src/pages/SSLCertificatesPage.tsx)): Soporte multi-puerto (:443, :8443, :636, :993), evaluación criptográfica A+ a F, barra de vida útil, test TLS en vivo y exportación ISO 27001 CSV.
+   - **5. Registros DNS** ([`DNSRecordsPage.tsx`](file:///frontend/src/pages/DNSRecordsPage.tsx)): 9 tipos de registros (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, CAA), medición de latencia en ms, detección SPF/DMARC y diff visual (+/-) de mutaciones.
+   - **6. Dominios & WHOIS** ([`DomainsPage.tsx`](file:///frontend/src/pages/DomainsPage.tsx)): Detección de candado anti-secuestro EPP (`clientTransferProhibited`), semáforo de expiración y auditoría de nameservers delegados.
+   - **7. API Checks Sintéticos** ([`APIChecksPage.tsx`](file:///frontend/src/pages/APIChecksPage.tsx)): Métodos HTTP completos, auth, test interactivo en vivo, auto-generador de JSON Schema en 1-clic y exportación cURL.
+   - **8. Cabeceras de Seguridad** ([`SecurityHeadersPage.tsx`](file:///frontend/src/pages/SecurityHeadersPage.tsx)): Auditoría HSTS/CSP, detección de fugas de stack de servidor CWE-200 y generador de snippets (Nginx, Apache, Caddy, Cloudflare, IIS).
+   - **9. Smart Alerts Engine** ([`AlertsPage.tsx`](file:///frontend/src/pages/AlertsPage.tsx)): 14 condiciones soportadas, 6 reglas auto-aprovisionadas por defecto, deduplicación `xN`, anti-flapping ($\ge 3$ en 15m), Smart Snooze y simulador dry-run.
+   - **10. Hub de Incidentes (ITIL/SRE)** ([`IncidentsPage.tsx`](file:///frontend/src/pages/IncidentsPage.tsx)): Trazabilidad de hitos MTTA/MTTR, asignación de operador y squad (`assigned_team`), RCA post-mortem estructurado y timeline colaborativo.
+   - **11. Reportes & Presupuesto de Error SRE** ([`ReportsPage.tsx`](file:///frontend/src/pages/ReportsPage.tsx)): Telemetría de Error Budget en vivo con tasa de consumo (burn rate), selector granular de targets, exportación PDF y CSV con UTF-8 BOM.
+   - **12. Status Pages Multi-Empresa** ([`StatusPageAdmin.tsx`](file:///frontend/src/pages/StatusPageAdmin.tsx) & [`PublicStatusPage.tsx`](file:///frontend/src/pages/PublicStatusPage.tsx)): Aislamiento multi-tenant por empresa (`/status/:slug`), selector granular de componentes, suscriptores por email y barra histórica de 90 días con latencia 24h.
+   - **13. Canales de Notificación** ([`NotificationsPage.tsx`](file:///frontend/src/pages/NotificationsPage.tsx)): Slack, Teams, Telegram, Discord, Email y Webhooks. Ventanas de silencio (*Quiet Hours*), bypass crítico, rate limit y reintento en 1-clic.
+   - **14. Usuarios y Equipos** ([`UsersPage.tsx`](file:///frontend/src/pages/UsersPage.tsx)): Gestión de cuadrillas operativas (`Team`), Team Leads, RBAC, invitaciones SMTP con reenvío en 1-clic y exportación CSV.
+   - **15. Perfil & Seguridad Operativa** ([`ProfilePage.tsx`](file:///frontend/src/pages/ProfilePage.tsx)): Alarma acústica del NOC mediante Web Audio API dual-tone (587Hz + 880Hz), tokens de API personales revocables y cierre remoto de sesiones.
+   - **16. Ventanas de Mantenimiento Programadas** ([`MaintenancePage.tsx`](file:///frontend/src/pages/MaintenancePage.tsx)): Sincronización automática en vivo con Status Page pública, supresión inteligente de alertas externas y exclusión de penalización de SLA mensual.
+   - **17. Auditoría Global** (`backend/audit/`): Registro inmutable en cada mutación de recurso (`AuditLog`).
+   - **18. Plataforma SaaS & Cuotas** (`backend/organizations/`): Separación Superadmin (`/admin/platform`) vs Tenant Admin, enforcement de cuotas en 10 recursos con HTTP 403 `QUOTA_EXCEEDED`, y tarea Celery Beat (`check_expired_trials`) cada 15 min.
+3. **Hardening AppSec & Producción Certificada:**
+   - Módulo Anti-SSRF (`backend/common/security.py`) bloqueando rangos privados, loopback y metadata cloud.
+   - Cifrado en reposo Fernet AES-128 (`backend/common/crypto.py`) para cabeceras y secretos TOTP.
+   - SimpleJWT con rotación obligatoria de refresh tokens, invalidación y expiración a 15 min.
+   - MFA / 2FA TOTP reforzado con códigos de respaldo cifrados.
+   - Healthcheck activo `/health/` sondeando BD, Redis y Celery con latencias en tiempo real.
+   - Filtro de sanitización automática de logs enmascarando credenciales, JWTs y tokens.
+   - CI/CD completo en `.github/workflows/ci.yml` y `cd.yml` con escaneo DevSecOps (pip-audit, Trivy).
 
-## 💻 Convenciones de Entorno y Directorio Único
+---
+
+### ⏳ B. Backlog Activo: Lo que Falta por Implementar
+
+#### 🟡 Fase 2: Asistencia Operativa (En Curso - 30%)
+1. **Visor de Logs Centralizado con Loki (`sentinel_loki`):**
+   - *Infraestructura:* Contenedores `sentinel_loki:3100` y `promtail` listos en Docker.
+   - *Falta Backend:* Endpoint autenticado tipo proxy para consultas LogQL filtradas por organización y objetivo (`/api/v1/monitoring/{id}/logs/`).
+   - *Falta Frontend:* Componente **Log Stream Viewer** (consola con auto-scroll, filtros de severidad `INFO`, `WARN`, `ERROR` y buscador en tiempo real) dentro del drawer de objetivos e incidentes.
+2. **Telemetría de Host con Grafana Alloy:**
+   - *Infraestructura:* Script de relabeling `scripts_alloy/extract_metrics.py` listo.
+   - *Falta Backend:* Ingesta periódica de métricas de CPU, Memoria y Disco de servidores en Sentinel.
+   - *Falta Frontend:* Micro-gauges visuales de consumo de hardware en el drawer técnico de objetivos.
+3. **Runbooks Operativos (SOPs):**
+   - *Falta Backend:* Modelos `Runbook` y `RunbookStep` vinculados a reglas de alerta e incidentes.
+   - *Falta Frontend:* Editor interactivo de pasos tipo checklist (markdown) y botón *"Abrir Runbook de Mitigación"* en el Drawer con trazabilidad de ejecución por operador.
+4. **Acciones Sugeridas & Aprobaciones:**
+   - *Falta:* Motor determinístico de recomendaciones ante fallas y flujo de aprobación de 4 ojos para cambios críticos.
+
+#### 🧪 Calidad & Pruebas
+5. **Pruebas End-to-End con Playwright (Nivel 5):**
+   - *Falta:* Flujo sintético en navegador real: Registro &rarr; Wizard &rarr; Creación de Target &rarr; Alerta disparada &rarr; Elevación a Incidente &rarr; Resolución.
+
+#### 🟣 Fase 3: Automatización y AI Ops (Planificada)
+6. **Integración con AWX / Ansible:** Despacho automatizado de playbooks de remediación.
+7. **Grafo de Dependencias & Blast Radius:** Mapa topológico de dependencias entre microservicios.
+8. **ChatOps Bidireccional:** Bots interactivos en Slack, Teams y Telegram con comandos de reconocimiento y mitigación.
+9. **AI Ops & Generador de RCA:** Asistente LLM para redacción automática del Post-Mortem y análisis causal.
+10. **Módulo de Compliance Continuo:** Recolección automatizada de evidencias para ISO 27001 y SOC 2.
+
+---
+
+## 🎨 5. Sentinel NOC Design System & Reglas Estéticas Estrictas
+
+Para mantener la rigurosidad operativa de un centro de control (NOC/SRE), todo componente frontend DEBE cumplir estas reglas inmutables:
+
+### Superficies y Fondos
+- `bg-dark` / `bg-main`: `#090D11` — Fondo base global ultra oscuro.
+- `bg-card`: `#111720` — Tarjetas KPI, contenedores elevados, drawers y modales.
+- `bg-card-hover`: `#17202C` — Estado hover sobre filas y botones secundarios.
+- `border-base`: `#1E293B` — Delimitador sutil estándar.
+- `border-accent`: `#263345` — Borde de contraste / elementos en foco.
+
+### Acentos Semánticos Estrictos
+| Color Token | Código Hex | Semántica Operativa | Uso en Interfaz |
+| :--- | :---: | :--- | :--- |
+| `accent-green` | `#10B981` | **Healthy / Online / SLA Óptimo** | Servidor UP, SLA >= 99.9%, HTTP 200, SSL > 30d. |
+| `accent-green-glow`| `#34D399` | **Pulsante en Vivo** | Halos de radar activos y auto-refresco en tiempo real. |
+| `accent-yellow` | `#F59E0B` | **Warning / Degraded / Atención** | Latencia alta, SSL <= 30d, flapping, mitigación en curso. |
+| `accent-red` | `#EF4444` | **Critical / Down / Falla Activa** | Servidor DOWN, HTTP 5xx, incidentes abiertos, certificados expirados. |
+| `accent-cyan` | `#06B6D4` | **Telemetría / Métricas** | Latencia en ms, gráficos, throughput req/s, consultas DNS. |
+| `accent-purple` | `#8B5CF6` | **Automatización / Agentes / Privado** | Guardianes Sentinine LAN, webhooks, llaves API y 2FA. |
+| `text-dim` | `#64748B` | **Neutral / Pausado** | Servicios en mantenimiento o desactivados. |
+
+### Reglas de Diseño Obligatorias:
+1. **CERO Emojis en Componentes de Interfaz:** Usar exclusivamente iconos vectoriales de `lucide-react`.
+2. **CERO Mayúsculas Sostenidas (Uppercase):** Mantener capitalización natural tipo oración (Sentence case).
+3. **Geometría Suavizada:** Contenedores `rounded-2xl`, modales `rounded-2xl` o `rounded-3xl` y badges en cápsula `rounded-full`.
+4. **Tipografía Dual:** Fuente `Outfit` para textos, títulos y navegación; `JetBrains Mono` exclusivamente para datos técnicos (IPs, latencias ms, timestamps, códigos HTTP, hashes).
+
+---
+
+## 🧩 6. Arquitectura Frontend: Sentinel NOC Layout Toolkit (`frontend/src/components/common/noc/`)
+
+Para mantener el principio DRY y consistencia estética, todas las vistas operativas reutilizan este toolkit:
+- **`NOCPageHeader`:** Encabezado unificado con título, badge de módulo, radar pulsante de auto-refresco y slot de botones de acción rápida.
+- **`useAutoRefresh` (`hooks/useAutoRefresh.ts`):** Hook estándar de cuenta regresiva (15s/30s), pausa/reanudación interactiva y compatibilidad nativa con React Query.
+- **`NOCKpiGrid` y `NOCKpiCard`:** Rejilla y tarjetas KPI de nivel superior con barras visuales de salud (gauges) y micro-bloques de estado.
+- **`NOCToolbar`:** Barra de control con buscador Omnibar en tiempo real, selector de vista (Cards vs Tabla compacta) y chips de filtrado reactivo con conteo en vivo.
+- **`NOCBulkActionBar`:** Barra inferior flotante adhesiva (`backdrop-blur-md`) para acciones por lote (escaneo, pausa o eliminación masiva).
+- **`NOCDrawer`:** Slide-Over lateral desplegable por la derecha con soporte para atajo de teclado `ESC`, navegación por pestañas e inspección técnica profunda.
+- **`usePersistentViewMode` (`hooks/usePersistentViewMode.ts`):** Hook que almacena en `localStorage` la preferencia de vista (tabla vs cuadrícula) de forma individual por módulo.
+
+---
+
+## ⚡ 7. Estándares de Backend, ORM y Rendimiento de Base de Datos
+
+1. **Erradicación Total de Consultas N+1:**
+   - **`select_related` obligatorio** para claves foráneas directas (`ForeignKey`, `OneToOne`).
+   - **`prefetch_related` obligatorio** con `Prefetch()` acotado por condiciones o ventana temporal para relaciones Many-to-Many o consultas inversas a TimescaleDB.
+   - **Serialización en Lote:** Si un serializador requiere datos relacionados complejos, implementar `list_serializer_class` para precargar en lote en memoria O(1) en lugar de consultar dentro de `to_representation`.
+2. **Caché Distribuido en Redis (DB 2):**
+   - Endpoints de alta concurrencia que alimentan dashboards globales deben usar `cache.get()` con TTL de 15 segundos para soportar decenas de operadores concurrentes en < 2ms sin saturar PostgreSQL.
+3. **Task Routing y Despacho en Celery:**
+   - Colas dedicadas: `high_priority` (alertas y notificaciones), `monitoring` (sondeos periódicos), `background` (WHOIS, SSL, reportes pesados).
+   - Siempre activar `CELERY_TASK_ACKS_LATE=True`, `CELERY_WORKER_PREFETCH_MULTIPLIER=1`, `-O fair`.
+   - Limpieza en Redis DB 1: `CELERY_TASK_IGNORE_RESULT=True` en tareas periódicas y `CELERY_RESULT_EXPIRES=1800`.
+4. **Connection Pooling:**
+   - Mantener `CONN_MAX_AGE=60` y `CONN_HEALTH_CHECKS=True` en `settings/base.py` para reutilización de sockets TCP.
+
+---
+
+## 💻 8. Convenciones de Entorno y Directorio Único
+
 - **Directorio Raíz Único del Proyecto:** `C:\Users\feshernandez\GC_OPS_OBS\`
-- **Regla Estricta:** Todo el código, configuración de Docker, frontend, backend y documentación reside y se ejecuta EXCLUSIVAMENTE en `C:\Users\feshernandez\GC_OPS_OBS\`. No se debe consultar ni sincronizar con ninguna otra carpeta externa (como descargas o temporales).
-- **Reinicio de Contenedores:**
+- **Regla Estricta:** Todo el código, configuración de Docker, frontend, backend y documentación reside y se ejecuta EXCLUSIVAMENTE en `C:\Users\feshernandez\GC_OPS_OBS\`. No se debe consultar ni sincronizar con ninguna otra carpeta externa.
+- **Comandos de Reinicio de Contenedores:**
   ```powershell
+  # Backend y Workers
   docker restart sentinel_backend
-  docker restart sentinel_frontend
   docker restart sentinel_celery_worker
+  docker restart sentinel_celery_beat
+
+  # Frontend
+  docker restart sentinel_frontend
   ```
+- **Verificaciones Previas al Commit:**
+  ```powershell
+  # 1. Frontend: TypeScript debe compilar con 0 errores
+  cd frontend; npm run build; cd ..
 
-
-
+  # 2. Backend: Pruebas unitarias y migraciones
+  docker exec -it sentinel_backend python manage.py check
+  docker exec -it sentinel_backend python manage.py test accounts common monitoring
+  ```

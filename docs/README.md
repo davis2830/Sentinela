@@ -1,30 +1,32 @@
-# 🧭 Índice de Documentación y Contexto de Sentinel
+# 🧭 Índice del Centro de Documentación de Sentinel
 
 > **Ubicación del Proyecto:** `C:\Users\feshernandez\GC_OPS_OBS`  
 > **Plataforma:** Sentinel NOC / Observabilidad Operativa SaaS  
-> **Stack:** Django REST Framework, PostgreSQL + TimescaleDB, Celery, Redis, React + Vite + TypeScript, Docker.
+> **Stack:** Python 3.13, Django REST Framework, TimescaleDB (PostgreSQL 16), Celery, Redis, React 18, Vite, TypeScript, Docker.  
+> **Documento Maestro Central:** [`AGENTS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/AGENTS.md)
 
-Este directorio contiene la documentación viva del proyecto Sentinel para mantener el contexto operativo, técnico y funcional de todo lo desarrollado y lo proyectado a futuro.
+Este directorio constituye la **documentación viva y técnica** de Sentinel. Los agentes y desarrolladores deben apoyarse en estos documentos para profundizar en cualquier área técnica o de arquitectura.
 
 ---
 
-## 📚 Estructura de Documentación
+## 📚 Catálogo de Documentación Viva (`docs/`)
 
 | Documento | Propósito | Enlace |
 | :--- | :--- | :--- |
-| **`ROADMAP_TRACKER.md`** | Estado de avance por fases (Fase 1, 2 y 3), tareas en curso y backlog priorizado. | [Ver Roadmap](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/ROADMAP_TRACKER.md) |
-| **`IMPLEMENTATION_LOG.md`** | Bitácora cronológica de cambios técnicos, decisiones de arquitectura, endpoints y componentes. | [Ver Bitácora](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/IMPLEMENTATION_LOG.md) |
-| **`MODULE_INVENTORY.md`** | Catálogo técnico de todos los módulos: modelos, endpoints, vistas frontend y tareas Celery. | [Ver Inventario](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/MODULE_INVENTORY.md) |
-| **`PRODUCTION_READINESS.md`** | Plan maestro, scorecard y checklist de paso a producción con hardening AppSec y DevOps. | [Ver Plan a Producción](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_READINESS.md) |
-| **`DEV_WORKFLOW.md`** | Convenciones de desarrollo, sincronización con Docker, diseño UI/UX NOC y reglas de performance. | [Ver Flujo de Trabajo](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/DEV_WORKFLOW.md) |
-
+| **`ROADMAP_TRACKER.md`** | **Única fuente de verdad del Roadmap:** Fases 1 (100%), Fase 2 (30%), Fase 3 y backlog priorizado. | [Ver Roadmap](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/ROADMAP_TRACKER.md) |
+| **`MODULE_INVENTORY.md`** | **Catálogo de los 18 Módulos:** Mapeo de rutas frontend, apps backend, modelos, endpoints REST y Celery. | [Ver Inventario](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/MODULE_INVENTORY.md) |
+| **`IMPLEMENTATION_LOG.md`** | **Bitácora Cronológica de Ingeniería:** Registro detallado de cambios, decisiones técnicas y validaciones. | [Ver Bitácora](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/IMPLEMENTATION_LOG.md) |
+| **`DEV_WORKFLOW.md`** | **Convenciones & Diseño NOC:** Comandos Docker, tokens semánticos de color, normas de ORM N+1 y pre-commit. | [Ver Flujo de Trabajo](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/DEV_WORKFLOW.md) |
+| **`TESTING_STRATEGY.md`** | **Estrategia Integral de Pruebas:** Pirámide de automatización (Pytest DRF, k6 rendimiento y Playwright E2E). | [Ver Estrategia de Pruebas](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/TESTING_STRATEGY.md) |
+| **`PRODUCTION_READINESS.md`** | **Plan Maestro de Producción:** Scorecard ejecutivo 100%, 6 pilares de seguridad AppSec y hardening. | [Ver Plan a Producción](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_READINESS.md) |
+| **`PRODUCTION_SECURITY.md`** | **Hardening de Variables & TLS:** Directrices de configuración segura de producción (`settings.prod`). | [Ver Seguridad en Prod](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_SECURITY.md) |
+| **`GO_LIVE_CHECKLIST.md`** | **Manual Operativo & Runbook Go-Live:** Verificaciones pre-vuelo (T-48h a T-0), Día-2 y protocolo rollback. | [Ver Runbook Go-Live](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/GO_LIVE_CHECKLIST.md) |
 
 ---
 
 ## 🔗 Referencias Cruzadas del Repositorio
 
-- **Reglas Maestras y Estándares:** [`.clinerules/00-sentinel-master.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/.clinerules/00-sentinel-master.md)
-- **Especificaciones de Módulos (Dominio):** [`.clinerules/docs/MODULE_SPECIFICATIONS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/.clinerules/docs/MODULE_SPECIFICATIONS.md)
-- **Esquema de Base de Datos:** [`.clinerules/docs/DATABASE_SCHEMA.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/.clinerules/docs/DATABASE_SCHEMA.md)
-- **Estrategia de Automatización y Pruebas:** [`TESTING_AUTOMATION_STRATEGY.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/TESTING_AUTOMATION_STRATEGY.md)
-- **Políticas de Seguridad en Producción:** [`PRODUCTION_SECURITY.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/PRODUCTION_SECURITY.md)
+- **Documento Maestro Central para Agentes:** [`AGENTS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/AGENTS.md)
+- **Suite de Rendimiento y Estrés:** [`tests_perf/README.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/tests_perf/README.md)
+- **Agentes Satélite Privados:** [`sentinine/agent.py`](file:///c:/Users/feshernandez/GC_OPS_OBS/sentinine/agent.py) y [`sentinine/Dockerfile`](file:///c:/Users/feshernandez/GC_OPS_OBS/sentinine/Dockerfile)
+- **Repositorio General:** [`README.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/README.md)

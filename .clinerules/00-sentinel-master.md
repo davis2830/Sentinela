@@ -1,4 +1,10 @@
-# Sentinel Master Rules
+# Sentinel Master Rules (Legacy Blueprint)
+
+> ⚠️ **AVISO PARA AGENTES / DESARROLLADORES:**  
+> Este directorio contiene especificaciones históricas iniciales (blueprint MVP).  
+> **La Única Fuente de Verdad y Contexto Activo del Proyecto reside en:**
+> - 📘 **[`AGENTS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/AGENTS.md):** Documento central con arquitectura real, 18 módulos activos, reglas de diseño y backlog.
+> - 📂 **[`docs/`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/README.md):** Centro de documentación viva (Roadmap, Inventario, Bitácora, Dev Workflow).
 
 ## Project
 
