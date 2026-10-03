@@ -1,8 +1,12 @@
+import logging
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+
+logger = logging.getLogger(__name__)
 
 from .serializers import (
     ChangePasswordSerializer,
@@ -335,6 +339,17 @@ class RevokeSessionsView(APIView):
 
     def post(self, request):
         user = request.user
+        revoked_count = 0
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            tokens = OutstandingToken.objects.filter(user=user)
+            for t in tokens:
+                _, created = BlacklistedToken.objects.get_or_create(token=t)
+                if created:
+                    revoked_count += 1
+        except Exception as exc:
+            logger.warning("Error blacklisting tokens for user %s: %s", user.email, exc)
+
         from audit.services import AuditService
         AuditService.log(
             action="logout",
@@ -342,10 +357,13 @@ class RevokeSessionsView(APIView):
             organization_id=user.organization_id,
             user_id=user.id,
             user_email=user.email,
-            description=f"El usuario {user.email} revocó todas sus sesiones activas.",
+            description=f"El usuario {user.email} revocó todas sus sesiones activas ({revoked_count} tokens invalidados).",
         )
 
-        return success_response({"detail": "Todas las demás sesiones remotas han sido revocadas exitosamente."})
+        return success_response({
+            "detail": "Todas las demás sesiones remotas han sido revocadas exitosamente.",
+            "revoked_count": revoked_count,
+        })
 
 
 class APITokenListView(APIView):

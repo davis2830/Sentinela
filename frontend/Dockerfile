@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps && npm install react-is@^18.3.1 --legacy-peer-deps
 
 COPY . .
 

@@ -131,10 +131,9 @@ class DomainScanView(APIView):
         try:
             domain_info = DomainService.get_domain(domain_id, org_id)
             from .tasks import scan_whois
-            scan_whois(str(domain_info.id))
-            updated_domain = DomainService.get_domain(domain_id, org_id)
-            serializer = DomainInfoSerializer(updated_domain)
-            return success_response(serializer.data)
+            scan_whois.delay(str(domain_info.id))
+            serializer = DomainInfoSerializer(domain_info)
+            return success_response(serializer.data, message="Escaneo WHOIS programado exitosamente.")
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 

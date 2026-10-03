@@ -151,10 +151,9 @@ class APICheckTargetScanView(APIView):
         try:
             target = APICheckService.get_target(target_id, org_id)
             from .tasks import run_api_check
-            run_api_check(str(target.id))
-            updated_target = APICheckService.get_target(target_id, org_id)
-            serializer = APICheckTargetSerializer(updated_target)
-            return success_response(serializer.data)
+            run_api_check.delay(str(target.id))
+            serializer = APICheckTargetSerializer(target)
+            return success_response(serializer.data, message="Chequeo sintético de API programado exitosamente.")
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 

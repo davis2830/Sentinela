@@ -1,14 +1,14 @@
 # 🗺️ Sentinel Roadmap & Tracker de Tareas
 
 > **Estado:** Documento vivo de seguimiento del proyecto Sentinel.  
-> **Última actualización:** 30 de Septiembre de 2026.
+> **Última actualización:** 3 de Octubre de 2026.
 
 ---
 
 ## 📊 Resumen General del Progreso
 
 ```
-[████████████████████] Fase 1: Plataforma de Observabilidad (100% Completada)
+[████████████████████] Fase 1: Plataforma de Observabilidad & Hardening (100% Completada)
 [██████░░░░░░░░░░░░░░] Fase 2: Asistencia Operativa (30% En Progreso)
 [░░░░░░░░░░░░░░░░░░░░] Fase 3: Automatización y AI Ops (Planificada)
 ```
@@ -28,14 +28,15 @@ Objetivo: *Construir una plataforma enterprise de observabilidad, monitorizació
 | **Dominios & WHOIS** | ✅ Completado | Alerta de candado anti-secuestro EPP (`clientTransferProhibited`), semáforo de expiración ICANN y auditoría de nameservers. |
 | **API Checks Sintéticos** | ✅ Completado | Pruebas HTTP avanzadas (POST, PUT, DELETE, etc.), headers, auth, inferencia de Schema JSON en 1-clic y exportación cURL. |
 | **Cabeceras de Seguridad** | ✅ Completado | Análisis HSTS, CSP, XFO, detección de fugas CWE-200 (Server banner leaks) y generador de snippets (Nginx, Apache, Caddy, Cloudflare, IIS). |
-| **Smart Alerts Engine** | ✅ Completado | 14 condiciones, 6 reglas auto-aprovisionadas, deduplicación `xN`, anti-flapping ($\ge 3$ en 15m), Smart Snooze y dry-run simulador. |
+| **Smart Alerts Engine** | ✅ Completado | 14 condiciones, 6 reglas auto-aprovisionadas, deduplicación `xN`, anti-flapping ($\ge 3$ en 15m), Smart Snooze, dry-run simulador y supresión activa de ventanas de mantenimiento. |
 | **Gestión de Incidentes (ITIL)** | ✅ Completado | Hitos SRE (MTTA/MTTR), asignación de operador y squad (`assigned_team`), RCA post-mortem estructurado y bitácora en vivo. |
 | **Reportes & Error Budget** | ✅ Completado | Presupuesto de error SRE en vivo con burn rate, selector granular de servicios, exportación PDF ejecutivo y CSV con UTF-8 BOM. |
 | **Status Pages Multi-Empresa** | ✅ Completado | Aislamiento multi-tenant para portales de clientes, componente picker con nombres amigables, suscriptores email y barra de 90 días con latencia 24h. |
 | **Canales de Notificación** | ✅ Completado | Email, Slack, Teams, Telegram, Discord, Webhook. Quiet hours, bypass crítico, límite de tasa, test en vivo y retry en 1-clic. |
-| **Usuarios, Equipos & Perfil** | ✅ Completado | Squads (`Team`) con Team Lead, RBAC, API tokens personales con revocación, alarma acústica dual-tone y logs individuales. |
-| **Arquitectura Multi-Tenant & SaaS** | ✅ Completado | Separación Superadmin vs Tenant Admin, cuotas en 10 recursos (HTTP 403 `QUOTA_EXCEEDED`) y Celery Beat para trials vencidos. |
+| **Usuarios, Equipos & Perfil** | ✅ Completado | Squads (`Team`) con Team Lead, RBAC, API tokens personales con autenticación nativa y revocación masiva, alarma acústica dual-tone y logs individuales. |
+| **Arquitectura Multi-Tenant & SaaS** | ✅ Completado | Separación Superadmin vs Tenant Admin, cuotas en 10 recursos (HTTP 403 `QUOTA_EXCEEDED`), gating seguro de planes sin bypass de pago y Celery Beat para trials vencidos. |
 | **Rendimiento & Erradicación N+1** | ✅ Completado | TimescaleDB hypertable query slicing, DRF ListSerializer batching, Redis DB 2 caching (latencia k6 reducida a 22.36 ms). |
+| **Blindaje DoS & Hardening AppSec** | ✅ Completado | Asincronía Celery en todos los escaneos manuales `/scan/`, bloqueo SSRF con `allow_redirects=False`, anti-spoofing en `IPAllowlistMiddleware` y suite de seguridad unitaria. |
 
 ---
 
@@ -70,7 +71,7 @@ Objetivo: *Automatizar operaciones de remediación de forma segura y aplicar int
 
 ## 🧪 Estrategia de Pruebas & Calidad Continua
 
-- [x] **Nivel 1 (Unitarias & Negocio en Django):** Pruebas unitarias de cuentas, permisos multi-tenant, seguridad y monitoreo (`python manage.py test accounts common monitoring`) integradas en CI con 0 fallos.
+- [x] **Nivel 1 (Unitarias, Negocio & AppSec en Django):** Pruebas unitarias de cuentas, tokens de API, scopes de autorización, gating de planes, anti-spoofing IP, permisos multi-tenant y monitoreo (`python manage.py test accounts common monitoring organizations alerts`) integradas con 0 fallos.
 - [x] **Nivel 2 (Rendimiento & Carga con k6):** 5 escenarios en [`tests_perf/`](file:///c:/Users/feshernandez/GC_OPS_OBS/tests_perf/) con benchmark verificado: 2,017 peticiones procesadas a 40 VUs, latencia media de 29.22 ms y p95 de 48.84 ms (0% errores).
 - [x] **Nivel 3 (CI/CD & DevSecOps Automatizado):** Pipelines GitHub Actions ([`.github/workflows/ci.yml`](file:///c:/Users/feshernandez/GC_OPS_OBS/.github/workflows/ci.yml) y [`.github/workflows/cd.yml`](file:///c:/Users/feshernandez/GC_OPS_OBS/.github/workflows/cd.yml)) con escaneo de vulnerabilidades (`pip-audit`, Trivy), build Vite en TypeScript y despliegue Zero-Downtime.
 - [x] **Nivel 4 (Production Readiness & AppSec):** Plan Maestro y Checklist Go-Live ([`docs/PRODUCTION_READINESS.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/PRODUCTION_READINESS.md) y [`docs/GO_LIVE_CHECKLIST.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/GO_LIVE_CHECKLIST.md)) completados al 100% en sus 4 fases.

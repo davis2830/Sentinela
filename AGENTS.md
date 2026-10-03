@@ -74,8 +74,14 @@ Toda la documentación técnica del proyecto se encuentra centralizada y clasifi
    - **16. Ventanas de Mantenimiento Programadas** ([`MaintenancePage.tsx`](file:///frontend/src/pages/MaintenancePage.tsx)): Sincronización automática en vivo con Status Page pública, supresión inteligente de alertas externas y exclusión de penalización de SLA mensual.
    - **17. Auditoría Global** (`backend/audit/`): Registro inmutable en cada mutación de recurso (`AuditLog`).
    - **18. Plataforma SaaS & Cuotas** (`backend/organizations/`): Separación Superadmin (`/admin/platform`) vs Tenant Admin, enforcement de cuotas en 10 recursos con HTTP 403 `QUOTA_EXCEEDED`, y tarea Celery Beat (`check_expired_trials`) cada 15 min.
-3. **Hardening AppSec & Producción Certificada:**
-   - Módulo Anti-SSRF (`backend/common/security.py`) bloqueando rangos privados, loopback y metadata cloud.
+3. **Hardening AppSec & Blindaje DoS Certificado (Octubre 2026):**
+   - **Prevención DoS en Gunicorn:** Todos los escaneos manuales de red (`/scan/` en targets, SSL, DNS, WHOIS, Security Headers y API checks) operan de forma asíncrona mediante Celery (`.delay()`), previniendo el congelamiento de workers web ante tarpits o caídas de red.
+   - **Blindaje Anti-SSRF:** Validación estricta con `validate_safe_public_url()` y bloqueo obligatorio de redirecciones HTTP (`allow_redirects=False`) en `TestConnectionView` y tareas sintéticas Celery.
+   - **Anti-Spoofing en IP Allowlist:** Detección confiable de IP cliente en `IPAllowlistMiddleware` con inspección inversa de saltos proxy sin aceptación de cabeceras loopback falsificadas.
+   - **Autenticación Nativa de API Tokens:** Clase `SentinelAPITokenAuthentication` en `accounts` que valida tokens `snt_...`, vigila su expiración y aplica enforcement estricto de solo lectura para el scope `read`.
+   - **Revocación Efectiva de Sesiones:** Invalidación masiva criptográfica en `RevokeSessionsView` registrando todos los `OutstandingToken` del usuario en `BlacklistedToken`.
+   - **Integridad de Facturación & Suscripciones:** Gating estricto en `OrganizationChangePlanView` y `OrganizationService.change_plan` para impedir escalamientos no autorizados a planes de pago (`business`, `enterprise`) y evitar activaciones de cuenta sin pago verificado.
+   - **Estabilidad Celery Beat & Alertas:** Resuelto el bug ORM de evaluación de SLA (`target.checks`) y sincronizada la supresión activa de alertas con el modelo real `MaintenanceWindowTarget`.
    - Cifrado en reposo Fernet AES-128 (`backend/common/crypto.py`) para cabeceras y secretos TOTP.
    - SimpleJWT con rotación obligatoria de refresh tokens, invalidación y expiración a 15 min.
    - MFA / 2FA TOTP reforzado con códigos de respaldo cifrados.

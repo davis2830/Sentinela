@@ -131,10 +131,9 @@ class DNSRecordScanView(APIView):
         try:
             record = DNSMonitorService.get_record(record_id, org_id)
             from .tasks import scan_dns_records
-            scan_dns_records(str(record.id))
-            updated_record = DNSMonitorService.get_record(record_id, org_id)
-            serializer = DNSRecordSerializer(updated_record)
-            return success_response(serializer.data)
+            scan_dns_records.delay(str(record.id))
+            serializer = DNSRecordSerializer(record)
+            return success_response(serializer.data, message="Escaneo de registro DNS programado exitosamente.")
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
