@@ -1,14 +1,17 @@
 from rest_framework import serializers
+from common.scan_serializers import ScanAvailabilitySerializer, AvailabilityListSerializer
 
 from .models import SSLCertificate
 
 
-class SSLCertificateSerializer(serializers.ModelSerializer):
+class SSLCertificateSerializer(ScanAvailabilitySerializer):
     """Serializer for SSLCertificate model."""
 
     class Meta:
+        list_serializer_class = AvailabilityListSerializer
         model = SSLCertificate
         fields = (
+            "scan_availability",
             "id",
             "organization",
             "domain",
@@ -62,4 +65,4 @@ class SSLCertificateCreateSerializer(serializers.Serializer):
         if domain:
             from common.security import validate_safe_public_url
             validate_safe_public_url(f"https://{domain}:{port}")
-        return attrs
+        return attrs

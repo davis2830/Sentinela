@@ -94,6 +94,9 @@ class UserUpdateSerializer(serializers.Serializer):
     role = serializers.CharField(max_length=20, required=False)
     is_active = serializers.BooleanField(required=False)
 
+    def validate_email(self, value):
+        raise serializers.ValidationError("Utiliza el cambio de correo verificado desde el perfil.")
+
 
 class AssignRoleSerializer(serializers.Serializer):
     """Serializer for assigning a role to a user."""

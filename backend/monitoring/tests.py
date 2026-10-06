@@ -3,6 +3,8 @@ from django.core.cache import cache
 from django.utils import timezone
 from datetime import timedelta
 from unittest.mock import patch
+from io import StringIO
+from django.core.management import call_command
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -10,6 +12,8 @@ from organizations.models import Organization, OrganizationPlanTier
 
 from .models import MonitoringCheck, MonitoringTarget
 from .services import MonitoringService
+from api_checks.models import APICheckTarget, APICheckResult
+from audit.models import AuditLog
 
 
 class MonitoringAccessTests(TestCase):
@@ -24,6 +28,22 @@ class MonitoringAccessTests(TestCase):
         )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
+
+    @patch('common.security.validate_safe_public_url')
+    @patch('common.safe_http.request')
+    def test_diagnostic_reports_redirect_without_visiting_location(self, request_mock, validate_mock):
+        request_mock.return_value.status_code = 308
+        request_mock.return_value.is_redirect = True
+        request_mock.return_value.headers = {'Location': 'http://127.0.0.1/private'}
+        response = self.client.post('/api/v1/monitoring/test-connection/', {
+            'endpoint': 'https://example.com', 'target_type': 'https',
+        }, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data']['status_code'], 308)
+        self.assertEqual(response.data['data']['redirect_location'], 'http://127.0.0.1/private')
+        self.assertEqual(response.data['data']['status'], 'down')
+        request_mock.assert_called_once()
+        self.assertEqual(request_mock.call_args.kwargs['url'], 'https://example.com')
 
     def test_other_organization_target_is_hidden_and_cannot_be_changed(self):
         foreign = MonitoringTarget.objects.create(
@@ -54,7 +74,7 @@ class MonitoringAccessTests(TestCase):
 
         response = self.client.post(
             "/api/v1/monitoring-targets/",
-            {"name": "Sixth", "target_type": "https", "endpoint": "https://sixth.example.test", "interval": 300},
+            {"name": "Sixth", "target_type": "https", "endpoint": "https://8.8.8.8", "interval": 300},
             format="json",
         )
         self.assertEqual(response.status_code, 403)
@@ -64,7 +84,7 @@ class MonitoringAccessTests(TestCase):
     def test_free_plan_rejects_interval_below_five_minutes(self):
         response = self.client.post(
             "/api/v1/monitoring-targets/",
-            {"name": "Fast", "target_type": "https", "endpoint": "https://fast.example.test", "interval": 60},
+            {"name": "Fast", "target_type": "https", "endpoint": "https://8.8.8.8", "interval": 60},
             format="json",
         )
         self.assertEqual(response.status_code, 403)
@@ -89,6 +109,26 @@ class MonitoringAccessTests(TestCase):
         self.assertEqual(bulk.status_code, 403)
         target.refresh_from_db()
         self.assertTrue(target.enabled)
+
+    @patch("monitoring.tasks.run_monitoring_check.delay")
+    def test_individual_scan_returns_queued_contract_without_stale_resource(self, delay):
+        delay.return_value.id = "task-123"
+        target = MonitoringTarget.objects.create(
+            organization=self.org,
+            name="Queued",
+            endpoint="https://example.com",
+            last_status="down",
+            last_checked_at=timezone.now() - timedelta(hours=1),
+        )
+        response = self.client.post(f"/api/v1/monitoring-targets/{target.id}/scan/")
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(
+            set(response.data["data"]),
+            {"task_id", "resource_id", "status", "submitted_at"},
+        )
+        self.assertEqual(response.data["data"]["task_id"], "task-123")
+        self.assertEqual(response.data["data"]["resource_id"], str(target.id))
+        self.assertEqual(response.data["data"]["status"], "queued")
 
 
 class GlobalPerformanceTests(TestCase):
@@ -131,3 +171,62 @@ class GlobalPerformanceTests(TestCase):
         self.assertEqual(last_hour["summary"]["total_checks"], 0)
         self.assertEqual(last_day["summary"]["avg_uptime"], 100)
         self.assertEqual(last_day["summary"]["total_checks"], 1)
+
+
+class HardeningCommandTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(
+            name="Retention",
+            slug="retention",
+            metrics_retention_days=30,
+        )
+
+    def test_quarantine_is_dry_run_by_default_and_idempotent_on_apply(self):
+        unsafe = APICheckTarget.objects.create(
+            organization=self.org,
+            name="Internal API",
+            url="http://127.0.0.1:8000/health/",
+        )
+        output = StringIO()
+        call_command("quarantine_unsafe_targets", stdout=output)
+        unsafe.refresh_from_db()
+        self.assertTrue(unsafe.enabled)
+        self.assertEqual(AuditLog.objects.count(), 0)
+
+        call_command("quarantine_unsafe_targets", apply=True, operator="security@example.test")
+        unsafe.refresh_from_db()
+        self.assertFalse(unsafe.enabled)
+        self.assertEqual(AuditLog.objects.filter(module="api_check").count(), 1)
+
+        call_command("quarantine_unsafe_targets", apply=True, operator="security@example.test")
+        self.assertEqual(AuditLog.objects.filter(module="api_check").count(), 1)
+
+    def test_retention_deletes_history_but_preserves_configuration(self):
+        target = MonitoringTarget.objects.create(
+            organization=self.org,
+            name="Web",
+            endpoint="https://example.com",
+        )
+        old = timezone.now() - timedelta(days=31)
+        check = MonitoringCheck.objects.create(target=target, status="up", checked_at=old)
+        api_target = APICheckTarget.objects.create(
+            organization=self.org,
+            name="API",
+            url="https://example.com/api",
+        )
+        result = APICheckResult.objects.create(
+            target=api_target,
+            status="pass",
+            http_status=200,
+            response_time_ms=10,
+            json_valid=True,
+            schema_valid=True,
+            headers_valid=True,
+            checked_at=old,
+        )
+
+        call_command("purge_telemetry")
+        self.assertFalse(MonitoringCheck.objects.filter(id=check.id).exists())
+        self.assertFalse(APICheckResult.objects.filter(id=result.id).exists())
+        self.assertTrue(MonitoringTarget.objects.filter(id=target.id).exists())
+        self.assertTrue(APICheckTarget.objects.filter(id=api_target.id).exists())

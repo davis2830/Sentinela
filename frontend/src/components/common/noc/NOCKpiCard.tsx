@@ -93,7 +93,7 @@ export default function NOCKpiCard({
 
   return (
     <div
-      className={`bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[148px] hover:border-border-base transition-colors ${className}`}
+      className={`metric-panel transition-colors ${className}`}
     >
       {/* Top row: Title + Icon and optional Badge */}
       <div className="flex items-center justify-between gap-2">
@@ -120,7 +120,7 @@ export default function NOCKpiCard({
           {value !== undefined && (
             <div className="my-2 flex items-baseline gap-2">
               <span
-                className={`text-3xl font-extrabold font-mono tracking-tight ${valueColor}`}
+                className={`text-2xl metric-value ${valueColor}`}
               >
                 {value}
               </span>
@@ -134,7 +134,7 @@ export default function NOCKpiCard({
 
           {/* Optional Progress / Gauge Bar */}
           {progress && (
-            <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden mt-1 mb-2">
+            <div className="w-full bg-bg-dark h-1 rounded-full overflow-hidden mt-1 mb-2">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   progress.color ||

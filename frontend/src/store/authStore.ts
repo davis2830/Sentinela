@@ -13,7 +13,7 @@ interface AuthState {
   requires2FA: boolean;
   preAuthToken: string | null;
   loginEmail: string | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; requires2FA?: boolean; requiresEmailVerification?: boolean }>;
   login2FA: (code: string) => Promise<boolean>;
   cancel2FA: () => void;
   register: (
@@ -21,7 +21,9 @@ interface AuthState {
     password: string,
     firstName: string,
     lastName: string,
-    organizationName?: string
+    organizationName?: string,
+    invitationToken?: string,
+    turnstileToken?: string
   ) => Promise<boolean>;
   logout: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
@@ -45,11 +47,16 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post<{ success: boolean; data: AuthResponse }>('auth/login/', {
+          const response = await api.post<{ success: boolean; data: AuthResponse & { requires_email_verification?: boolean; registration_session?: string } }>('auth/login/', {
             email,
             password,
           });
           const data = response.data.data;
+          if (data.requires_email_verification && data.registration_session) {
+            sessionStorage.setItem('sentinel:registration-session', data.registration_session);
+            set({ isLoading: false, error: null });
+            return { success: false, requiresEmailVerification: true };
+          }
           if (data.requires_2fa && data.pre_auth_token) {
             set({
               requires2FA: true,
@@ -126,32 +133,21 @@ export const useAuthStore = create<AuthState>()(
         set({ requires2FA: false, preAuthToken: null, loginEmail: null, error: null, isLoading: false });
       },
 
-      register: async (email, password, firstName, lastName, organizationName) => {
+      register: async (email, password, firstName, lastName, organizationName, invitationToken, turnstileToken) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post<{ success: boolean; data: AuthResponse }>('auth/register/', {
-            email,
-            password,
-            first_name: firstName,
-            last_name: lastName,
-            organization_name: organizationName,
+          const response = await api.post('auth/register/', {
+            email, password, first_name: firstName, last_name: lastName,
+            organization_name: organizationName, invitation_token: invitationToken,
+            turnstile_token: turnstileToken,
           });
-          const { access_token, refresh_token, user } = response.data.data;
-          if (access_token && refresh_token && user) {
-            localStorage.setItem('access_token', access_token);
-            localStorage.setItem('refresh_token', refresh_token);
-            set({
-              user,
-              accessToken: access_token,
-              refreshToken: refresh_token,
-              isAuthenticated: true,
-              isLoading: false,
-            });
-            return true;
-          }
-          return false;
+          const session = response.data?.data?.registration_session;
+          if (!session) throw new Error('No se pudo iniciar la verificación.');
+          sessionStorage.setItem('sentinel:registration-session', session);
+          set({ isLoading: false });
+          return true;
         } catch (err: any) {
-          const message = err.response?.data?.message || 'Error al registrar usuario';
+          const message = err.response?.data?.message || 'No se pudo iniciar la verificación.';
           set({ isLoading: false, error: message });
           return false;
         }
@@ -210,3 +206,11 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Keep the persisted UI session consistent with the HTTP client's token lifecycle.
+window.addEventListener('sentinel:session-expired', () => {
+  useAuthStore.setState({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false, requires2FA: false, preAuthToken: null });
+});
+window.addEventListener('sentinel:session-refreshed', () => {
+  useAuthStore.setState({ accessToken: localStorage.getItem('access_token'), refreshToken: localStorage.getItem('refresh_token') });
+});

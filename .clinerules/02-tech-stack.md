@@ -1,47 +1,5 @@
-# Technology Stack
+# 02-tech-stack
 
-## Backend
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-- Python 3.13+
-- Django
-- Django REST Framework
-- Celery
-- Celery Beat
-
-## Database
-
-- PostgreSQL
-- Redis
-
-## Frontend
-
-- React
-- TypeScript
-- TailwindCSS
-- React Query
-- Recharts
-
-## Monitoring
-
-- Prometheus
-- Blackbox Exporter
-- Loki
-
-## Infrastructure
-
-- Docker
-- Docker Compose
-- Nginx
-
-## Authentication
-
-- JWT
-- OAuth2
-
-## Billing
-
-- Stripe
-
-## Guideline
-
-No reemplazar estas tecnologías salvo que exista una justificación técnica clara.
+La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.

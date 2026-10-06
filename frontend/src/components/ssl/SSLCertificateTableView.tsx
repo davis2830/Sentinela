@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { SSLCertificate } from '../../types/ssl';
 import StatusBadge from '../common/StatusBadge';
@@ -50,6 +51,7 @@ export default function SSLCertificateTableView({
     certificates.length > 0 && selectedIds.length === certificates.length;
 
   const getStatusType = (cert: SSLCertificate) => {
+    if (!cert.last_scanned_at) return 'desconocido';
     if (!cert.is_valid) return 'fallo';
     const days = cert.days_remaining;
     if (days !== null && days <= 0) return 'expirado';
@@ -72,12 +74,12 @@ export default function SSLCertificateTableView({
   };
 
   return (
-    <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
-              <th className="py-3 px-3.5 w-10">
+              <th scope="col" className="py-3 px-3.5 w-10">
                 <button
                   type="button"
                   onClick={onSelectAll}
@@ -91,14 +93,14 @@ export default function SSLCertificateTableView({
                   )}
                 </button>
               </th>
-              <th className="py-3 px-4">Dominio Certificado</th>
-              <th className="py-3 px-3">Autoridad Emisora (CA)</th>
-              <th className="py-3 px-3">Seguridad</th>
-              <th className="py-3 px-3">Estado</th>
-              <th className="py-3 px-3">Vigencia & Timeline</th>
-              <th className="py-3 px-3">Expiración</th>
-              <th className="py-3 px-3">SANs</th>
-              <th className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-4">Dominio Certificado</th>
+              <th scope="col" className="py-3 px-3">Autoridad Emisora (CA)</th>
+              <th scope="col" className="py-3 px-3">Seguridad</th>
+              <th scope="col" className="py-3 px-3">Estado</th>
+              <th scope="col" className="py-3 px-3">Vigencia & Timeline</th>
+              <th scope="col" className="py-3 px-3">Expiración</th>
+              <th scope="col" className="py-3 px-3">SANs</th>
+              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40 font-sans">
@@ -123,6 +125,9 @@ export default function SSLCertificateTableView({
                 <tr
                   key={cert.id}
                   onClick={() => onSelectCert(cert)}
+                  tabIndex={0}
+                  aria-label={cert.domain}
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectCert(cert); } }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
                     isSelected ? 'bg-accent-green/[0.03]' : ''
                   }`}
@@ -184,9 +189,9 @@ export default function SSLCertificateTableView({
                         className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-full border ${getGradeStyle(
                           cert.security_grade
                         )}`}
-                        title={`Grado de seguridad SSL: ${cert.security_grade || 'A'}`}
+                        title={`Grado de seguridad SSL: ${cert.security_grade || '—'}`}
                       >
-                        {cert.security_grade || 'A'}
+                        {cert.security_grade || '—'}
                       </span>
                       <span className="font-mono text-[10px] text-text-dim">
                         {cert.tls_version || 'TLS 1.3'}
@@ -266,34 +271,23 @@ export default function SSLCertificateTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        onClick={(e) => onScan(cert.id, e)}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
-                        title="Verificar certificado ahora"
-                      >
-                        <RefreshCw
-                          size={14}
-                          className={isScanning ? 'animate-spin' : ''}
-                        />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => onEdit(cert, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
                         title="Editar dominio"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => onDelete(cert, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
                         title="Eliminar certificado"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

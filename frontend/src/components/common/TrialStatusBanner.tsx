@@ -22,7 +22,7 @@ export default function TrialStatusBanner() {
     return null;
   }
 
-  const isPastDue = subData.subscription_status === 'past_due';
+  const isPastDue = subData.monitoring_allowed === false || subData.subscription_status === 'past_due' || subData.subscription_status === 'canceled' || (subData.subscription_status === 'trialing' && !subData.is_in_trial);
   const isInTrial = subData.is_in_trial || subData.subscription_status === 'trialing';
   const daysRemaining = subData.trial_days_remaining ?? 0;
   const isExpiringSoon = isInTrial && daysRemaining <= 3 && !isPastDue;
@@ -35,32 +35,32 @@ export default function TrialStatusBanner() {
   return (
     <>
       <div
-        className={`w-full rounded-2xl p-4 md:p-5 border transition-all duration-300 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 ${
+        className={`w-full rounded-lg px-3 py-2 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 ${
           isPastDue
-            ? 'bg-gradient-to-r from-accent-red/15 via-bg-card to-accent-red/5 border-accent-red/40 shadow-accent-red/10 text-text-main'
-            : 'bg-gradient-to-r from-accent-yellow/15 via-bg-card to-accent-yellow/5 border-accent-yellow/40 shadow-accent-yellow/10 text-text-main'
+            ? 'bg-accent-red/5 border-accent-red/25 text-text-main'
+            : 'bg-accent-yellow/5 border-accent-yellow/25 text-text-main'
         }`}
       >
-        <div className="flex items-start sm:items-center gap-3.5">
+        <div className="flex items-start sm:items-center gap-2.5">
           <div
-            className={`p-2.5 rounded-xl shrink-0 ${
+            className={`p-1.5 rounded-lg shrink-0 ${
               isPastDue
                 ? 'bg-accent-red/20 text-accent-red border border-accent-red/30'
                 : 'bg-accent-yellow/20 text-accent-yellow border border-accent-yellow/30'
             }`}
           >
             {isPastDue ? (
-              <ShieldAlert size={22} className="animate-pulse" />
+              <ShieldAlert size={16} />
             ) : (
-              <Clock size={22} className="animate-pulse" />
+              <Clock size={16} />
             )}
           </div>
 
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-bold tracking-wide">
+              <h4 className="text-xs font-semibold">
                 {isPastDue
-                  ? 'Suscripción Expirada &bull; Monitoreo en Segundo Plano Pausado'
+                  ? 'Prueba o suscripción vencida: operación bloqueada'
                   : daysRemaining <= 0
                   ? 'Tu Periodo de Prueba Finaliza Hoy'
                   : `Periodo de Prueba: Te ${daysRemaining === 1 ? 'queda' : 'quedan'} ${daysRemaining} ${
@@ -79,8 +79,8 @@ export default function TrialStatusBanner() {
             </div>
             <p className="text-xs text-text-muted max-w-3xl">
               {isPastDue
-                ? 'El periodo de prueba de tu organización ha concluido. Para optimizar infraestructura, los chequeos automáticos (Uptime, SSL, DNS, APIs y Cabeceras) están pausados. Actualiza tu plan para reactivarlos inmediatamente.'
-                : `Estás explorando Sentinel bajo el plan ${subData.plan_name}. Actualiza a un plan de pago antes de que venza el periodo de prueba para garantizar la continuidad operativa de tus servicios y alertas 24/7.`}
+                ? 'No puedes agregar recursos ni escanear hasta contratar y confirmar el pago. Pagos en línea pendientes; contacta al administrador. Tu historial sigue disponible.'
+                : `Tu prueba del plan ${subData.plan_name} está por finalizar. Actualiza el plan para mantener los chequeos activos.`}
             </p>
           </div>
         </div>
@@ -99,14 +99,14 @@ export default function TrialStatusBanner() {
           <button
             type="button"
             onClick={() => setShowUpgradeModal(true)}
-            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs tracking-wide transition-all shadow-lg cursor-pointer w-full sm:w-auto hover:scale-[1.02] active:scale-[0.98] ${
+            className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer w-full sm:w-auto ${
               isPastDue
                 ? 'bg-accent-red hover:bg-accent-red/90 text-white shadow-accent-red/20'
                 : 'bg-accent-yellow hover:bg-accent-yellow/90 text-black shadow-accent-yellow/20'
             }`}
           >
             {isPastDue ? <Zap size={15} /> : <Sparkles size={15} />}
-            <span>{isPastDue ? 'Reactivar Monitoreo' : 'Actualizar Plan'}</span>
+            <span>{isPastDue ? 'Consultar planes' : 'Actualizar Plan'}</span>
             <ArrowRight size={14} />
           </button>
         </div>

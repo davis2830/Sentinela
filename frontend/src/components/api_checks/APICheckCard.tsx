@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { APICheckTarget } from '../../types/api_checks';
 import StatusBadge from '../common/StatusBadge';
@@ -77,7 +78,7 @@ export default function APICheckCard({
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {/* Selection Checkbox */}
-            <button
+            <AdminButton
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -91,7 +92,7 @@ export default function APICheckCard({
               ) : (
                 <Square size={16} />
               )}
-            </button>
+            </AdminButton>
 
             {/* Method Badge */}
             <span
@@ -201,34 +202,23 @@ export default function APICheckCard({
         </span>
 
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onScan}
-            disabled={isScanning}
-            className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-            title="Escanear endpoint ahora"
-          >
-            <RefreshCw
-              size={14}
-              className={isScanning ? 'animate-spin text-accent-green' : ''}
-            />
-          </button>
-          <button
+
+          <AdminButton
             type="button"
             onClick={onEdit}
             className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
             title="Editar target"
           >
             <Pencil size={14} />
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             type="button"
             onClick={onDelete}
             className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
             title="Eliminar target"
           >
             <Trash2 size={14} />
-          </button>
+          </AdminButton>
         </div>
       </div>
     </div>

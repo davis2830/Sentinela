@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import {
   Calendar,
@@ -220,7 +221,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
         {/* Acciones Rápidas */}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {item.status === 'scheduled' && (
-            <button
+            <AdminButton
               type="button"
               disabled={isStarting}
               onClick={() => onStart(item.id)}
@@ -231,18 +232,18 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
               }`}
             >
               <Play size={11} /> {isInsideWindow ? 'Iniciar Ahora' : 'Iniciar'}
-            </button>
+            </AdminButton>
           )}
 
           {item.status === 'in_progress' && (
-            <button
+            <AdminButton
               type="button"
               disabled={isCompleting}
               onClick={() => onComplete(item.id)}
               className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-accent-green text-black hover:bg-accent-green/90 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
             >
               <CheckCircle2 size={11} /> Finalizar
-            </button>
+            </AdminButton>
           )}
 
           <button

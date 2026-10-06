@@ -1,56 +1,5 @@
-# API Design
+# API DESIGN
 
-Todas las APIs serán REST.
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-## Versionado
-
-/api/v1/
-
----
-
-## Formato
-
-Success
-
-{
-    "success": true,
-    "data": {}
-}
-
-Error
-
-{
-    "success": false,
-    "message": "...",
-    "errors": []
-}
-
----
-
-## Authentication
-
-JWT
-
-OAuth2
-
----
-
-## Documentation
-
-Toda API deberá documentarse mediante OpenAPI.
-
----
-
-## Naming
-
-Utilizar nombres consistentes.
-
-Ejemplo
-
-/organizations/
-
-/monitoring-targets/
-
-/ssl-certificates/
-
-/alerts/
+La documentación mantenida y verificable está en [Centro de documentación](../../docs/README.md). El historial anterior permanece disponible en Git.

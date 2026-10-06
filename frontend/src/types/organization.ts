@@ -48,7 +48,7 @@ export interface QuotaMetric {
 export interface PlanLimitInfo {
   tier: 'free' | 'pro' | 'business' | 'enterprise';
   name: string;
-  price_monthly_usd: number;
+  price_monthly_usd: number | null;
   max_monitoring_targets: number;
   max_ssl_certificates: number;
   max_api_checks: number;
@@ -68,6 +68,8 @@ export interface PlanLimitInfo {
 }
 
 export interface SubscriptionSummary {
+  beta_managed?: boolean;
+  monitoring_allowed?: boolean;
   plan_tier: 'free' | 'pro' | 'business' | 'enterprise';
   plan_name: string;
   subscription_status: 'trialing' | 'active' | 'past_due' | 'canceled';

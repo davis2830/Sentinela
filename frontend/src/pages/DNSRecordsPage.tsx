@@ -1,7 +1,15 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ScanAction from '../components/common/ScanAction';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
+import ReloadDataButton from '../components/common/ReloadDataButton';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
   DNSRecord,
   DNSRecordType,
@@ -20,7 +28,7 @@ import {
   NOCBulkActionBar,
   NOCDrawer,
 } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Globe,
@@ -61,6 +69,8 @@ const RECORD_TYPES: DNSRecordType[] = [
 ];
 
 export default function DNSRecordsPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
@@ -68,7 +78,7 @@ export default function DNSRecordsPage() {
   const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
   const [domainInput, setDomainInput] = useState('');
   const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>('A');
-  const [typeFilter, setTypeFilter] = useState<'all' | DNSRecordType>('all');
+  const [typeFilter, setTypeFilter] = useUrlFilter('type', ["all","A","AAAA","CNAME","MX","TXT","NS","SOA","SRV","CAA"] as const);
   const [searchTerm, setSearchTerm] = useState('');
   // Persistent viewMode: remembers table or grid across refreshes and updates
   const [viewMode, setViewMode] = usePersistentViewMode('dns_records', 'table');
@@ -83,15 +93,12 @@ export default function DNSRecordsPage() {
   const [isTestingResolution, setIsTestingResolution] = useState(false);
   const [testResult, setTestResult] = useState<DNSTestResolutionResult | null>(null);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
+  // Read cadence follows the server plan; GET never triggers a scan.
+  const autoRefresh = useConnectivityRefresh();
 
   // Stats query
   const { data: stats } = useQuery<DNSStats>({
-    queryKey: ['dns-stats'],
+    queryKey: ['dns-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('dns-records/stats/');
       return (response.data?.data || {}) as DNSStats;
@@ -101,7 +108,7 @@ export default function DNSRecordsPage() {
 
   // Main DNS records query
   const { data: records, isLoading } = useQuery<DNSRecord[]>({
-    queryKey: ['dns-records'],
+    queryKey: ['dns-records', organizationId],
     queryFn: async () => {
       const response = await api.get('dns-records/');
       return (response.data?.data || []) as DNSRecord[];
@@ -111,7 +118,7 @@ export default function DNSRecordsPage() {
 
   // Selected record change history query
   const { data: history, isLoading: isLoadingHistory } = useQuery<DNSChangeHistory[]>({
-    queryKey: ['dns-history', selectedRecord?.id],
+    queryKey: ['dns-history', organizationId, selectedRecord?.id],
     queryFn: async () => {
       if (!selectedRecord) return [];
       const response = await api.get(`dns-records/${selectedRecord.id}/history/`);
@@ -125,8 +132,8 @@ export default function DNSRecordsPage() {
       await api.post('dns-records/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
       handleCloseModal();
     },
   });
@@ -136,8 +143,8 @@ export default function DNSRecordsPage() {
       await api.patch(`dns-records/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
       handleCloseModal();
     },
   });
@@ -146,12 +153,17 @@ export default function DNSRecordsPage() {
     mutationFn: async (id: string) => {
       setScanningId(id);
       const response = await api.post(`dns-records/${id}/scan/`);
-      return response.data?.data;
+      const queued = response.data?.data as QueuedScan;
+      return waitForFreshScan<DNSRecord>(
+        queued,
+        async () => (await api.get(`dns-records/${id}/`)).data?.data as DNSRecord,
+        (record) => record.last_scanned_at,
+      );
     },
     onSuccess: (updatedRecord) => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-history', selectedRecord?.id] });
+      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['dns-history', organizationId, selectedRecord?.id] });
       if (selectedRecord && updatedRecord && selectedRecord.id === updatedRecord.id) {
         setSelectedRecord(updatedRecord);
       }
@@ -162,23 +174,14 @@ export default function DNSRecordsPage() {
     },
   });
 
-  const scanAllMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('dns-records/scan-all/');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`dns-records/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
       if (selectedRecord?.id === deleteTarget?.id) {
         setSelectedRecord(null);
       }
@@ -210,8 +213,8 @@ export default function DNSRecordsPage() {
         record_ids: selectedIds,
       });
       setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
     } catch {
       for (const id of selectedIds) {
         api.post(`dns-records/${id}/scan/`).catch(() => {});
@@ -244,8 +247,8 @@ export default function DNSRecordsPage() {
     }
     setSelectedIds([]);
     setBulkDeleting(false);
-    queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-    queryClient.invalidateQueries({ queryKey: ['dns-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
+    queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
   };
 
   // Test DNS Resolution in Modal
@@ -412,10 +415,12 @@ export default function DNSRecordsPage() {
     return true;
   });
 
+  useLinkedResource(records, selectedRecord, setSelectedRecord);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["dns-records","dns-stats","dns-history"]}
         title="Registros & Zonas DNS"
         badgeText="DNS MONITOR"
         description="Monitorización continua de resolución, propagación, tiempos de respuesta y detección de mutaciones en zonas DNS."
@@ -424,6 +429,9 @@ export default function DNSRecordsPage() {
           enabled: autoRefresh.enabled,
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
+          intervalSeconds: autoRefresh.intervalSeconds,
+          resetCountdown: autoRefresh.resetCountdown,
+          ready: autoRefresh.ready,
         }}
         actions={
           <>
@@ -437,110 +445,26 @@ export default function DNSRecordsPage() {
               <Download size={15} />
               <span>Exportar</span>
             </button>
-            <button
-              type="button"
-              onClick={() => scanAllMutation.mutate()}
-              disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50 cursor-pointer"
-              title="Re-resolver todos los registros DNS inmediatamente"
-            >
-              <RefreshCw
-                size={15}
-                className={scanAllMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>Re-resolver Todos</span>
-            </button>
-            <button
+
+
+            <AdminButton
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
               <span>Nuevo Registro</span>
-            </button>
+            </AdminButton>
           </>
         }
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Resolución Exitosa */}
-        <NOCKpiCard
-          title="Salud de Resolución"
-          icon={<Globe size={16} className="text-accent-green" />}
-          badge={{
-            text: resolutionSla >= 99.0 ? 'Óptimo' : 'Degradado',
-            variant: resolutionSla >= 99.0 ? 'success' : 'warning',
-          }}
-          value={`${resolutionSla}%`}
-          valueSuffix="resueltos"
-          progress={{ value: resolutionSla }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Registros monitorizados</span>
-              <span className="text-text-main font-mono">{totalCount} activos</span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Latencia Media de Consulta */}
-        <NOCKpiCard
-          title="Latencia DNS Media"
-          icon={<Zap size={16} className="text-accent-cyan" />}
-          badge={{
-            text: `${stats?.avg_latency_ms || 24}ms`,
-            variant: 'info',
-          }}
-          value={`${stats?.avg_latency_ms || 24} ms`}
-          valueColor="text-accent-cyan"
-          subtitle="Tiempo medio de respuesta del servidor DNS"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Resolución rápida</span>
-              <span className="text-accent-green font-mono font-medium">&lt; 50ms</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Mutaciones de Zona Recientes */}
-        <NOCKpiCard
-          title="Mutaciones Recientes"
-          icon={<History size={16} className={changedCount > 0 ? 'text-accent-yellow' : 'text-text-dim'} />}
-          badge={{
-            text: changedCount > 0 ? 'Mutación (24h)' : 'Zona Estable',
-            variant: changedCount > 0 ? 'warning' : 'neutral',
-          }}
-          value={changedCount}
-          valueColor={changedCount > 0 ? 'text-accent-yellow' : 'text-text-main'}
-          subtitle={changedCount > 0 ? 'Cambios de IP detectados hoy' : 'Sin mutaciones de IP recientes'}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Auditoría de Cambios</span>
-              <span className="text-accent-green font-mono font-medium">Activa</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Carga y Protocolo */}
-        <NOCKpiCard
-          title="Dominios Únicos"
-          icon={<Server size={16} className="text-accent-purple" />}
-          badge={{
-            text: 'UDP / TCP 53',
-            variant: 'neutral',
-          }}
-          value={stats?.unique_domains || 4}
-          valueColor="text-accent-purple"
-          valueSuffix="zonas"
-          subtitle="Zonas primarias bajo auditoría"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Protocolo de Red</span>
-              <span className="text-accent-green font-mono">Puerto 53</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary variant="status" items={[
+        {label:'Registros',value:records ? totalCount : null,icon:Globe,tone:'neutral'},
+        {label:'Resueltos',value:records ? resolvedCount : null,icon:Check,tone:'success'},
+        {label:'Cambios recientes',value:records ? changedCount : null,icon:History,tone:'warning'}
+      ]} />
 
       {/* 3. TOOLBAR: Omnibar Search + Record Type Chips + Persistent Grid/Table Switcher */}
       <NOCToolbar
@@ -573,15 +497,8 @@ export default function DNSRecordsPage() {
         itemLabel="registros"
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleBulkScan}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm cursor-pointer"
-            >
-              <RefreshCw size={13} />
-              Re-resolver Seleccionados
-            </button>
-            <button
+
+            <AdminButton
               type="button"
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
@@ -589,7 +506,7 @@ export default function DNSRecordsPage() {
             >
               <Trash2 size={13} />
               {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -602,12 +519,12 @@ export default function DNSRecordsPage() {
       ) : filteredRecords && filteredRecords.length > 0 ? (
         viewMode === 'table' ? (
           /* Compact NOC Table View */
-          <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
+          <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
-                    <th className="py-3 px-3.5 w-10">
+                    <th scope="col" className="py-3 px-3.5 w-10">
                       <button
                         type="button"
                         onClick={handleSelectAllToggle}
@@ -625,14 +542,14 @@ export default function DNSRecordsPage() {
                         )}
                       </button>
                     </th>
-                    <th className="py-3 px-3">Tipo</th>
-                    <th className="py-3 px-4">Nombre / Host</th>
-                    <th className="py-3 px-4">Valor Resuelto</th>
-                    <th className="py-3 px-3">TTL</th>
-                    <th className="py-3 px-3">Latencia</th>
-                    <th className="py-3 px-3">Mutaciones</th>
-                    <th className="py-3 px-3">Último Check</th>
-                    <th className="py-3 px-4 text-right">Acciones</th>
+                    <th scope="col" className="py-3 px-3">Tipo</th>
+                    <th scope="col" className="py-3 px-4">Nombre / Host</th>
+                    <th scope="col" className="py-3 px-4">Valor Resuelto</th>
+                    <th scope="col" className="py-3 px-3">TTL</th>
+                    <th scope="col" className="py-3 px-3">Latencia</th>
+                    <th scope="col" className="py-3 px-3">Mutaciones</th>
+                    <th scope="col" className="py-3 px-3">Último Check</th>
+                    <th scope="col" className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-base/40">
@@ -647,6 +564,9 @@ export default function DNSRecordsPage() {
                     return (
                       <tr
                         key={record.id}
+                        tabIndex={0}
+                        aria-label={record.domain}
+                        onKeyDown={e=> { if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedRecord(record);} }}
                         onClick={() => setSelectedRecord(record)}
                         className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
                           isSelected ? 'bg-accent-green/[0.03]' : ''
@@ -787,27 +707,16 @@ export default function DNSRecordsPage() {
                             className="flex items-center justify-end gap-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              type="button"
-                              onClick={() => scanMutation.mutate(record.id)}
-                              disabled={isScanning}
-                              className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-                              title="Re-resolver ahora"
-                            >
-                              <RefreshCw
-                                size={14}
-                                className={isScanning ? 'animate-spin text-accent-green' : ''}
-                              />
-                            </button>
-                            <button
+
+                            <AdminButton
                               type="button"
                               onClick={(e) => handleOpenEdit(record, e)}
                               className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                               title="Editar registro"
                             >
                               <Pencil size={14} />
-                            </button>
-                            <button
+                            </AdminButton>
+                            <AdminButton
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -817,7 +726,7 @@ export default function DNSRecordsPage() {
                               title="Eliminar registro"
                             >
                               <Trash2 size={14} />
-                            </button>
+                            </AdminButton>
                           </div>
                         </td>
                       </tr>
@@ -912,27 +821,16 @@ export default function DNSRecordsPage() {
                     </span>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scanMutation.mutate(record.id);
-                        }}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-                        title="Re-resolver ahora"
-                      >
-                        <RefreshCw size={14} className={isScanning ? 'animate-spin text-accent-green' : ''} />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => handleOpenEdit(record, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar registro"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -942,7 +840,7 @@ export default function DNSRecordsPage() {
                         title="Eliminar registro"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </div>
                 </div>
@@ -951,7 +849,7 @@ export default function DNSRecordsPage() {
           </div>
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           title="No hay registros DNS monitorizados"
           description="Agrega registros A, MX, TXT, CNAME o NS para vigilar la resolución de nombres y recibir alertas cuando las IPs cambien."
           actionLabel="Agregar Primer Registro DNS"
@@ -990,18 +888,7 @@ export default function DNSRecordsPage() {
         headerActions={
           selectedRecord && (
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scanMutation.mutate(selectedRecord.id)}
-                disabled={scanningId === selectedRecord.id}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green/20 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <RefreshCw
-                  size={13}
-                  className={scanningId === selectedRecord.id ? 'animate-spin' : ''}
-                />
-                Re-resolver
-              </button>
+              <ScanAction resource={selectedRecord} route="dns-records" pending={scanMutation.isPending} onScan={()=>scanMutation.mutateAsync(selectedRecord.id)} />
               <a
                 href={`https://${selectedRecord.domain}`}
                 target="_blank"
@@ -1052,22 +939,22 @@ export default function DNSRecordsPage() {
         footerActions={
           selectedRecord && (
             <>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => handleOpenEdit(selectedRecord)}
                 className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Pencil size={14} />
                 Editar Registro
-              </button>
-              <button
+              </AdminButton>
+              <AdminButton
                 type="button"
                 onClick={() => setDeleteTarget(selectedRecord)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Trash2 size={14} />
                 Eliminar Registro
-              </button>
+              </AdminButton>
             </>
           )
         }
@@ -1402,7 +1289,7 @@ export default function DNSRecordsPage() {
                 >
                   Cancelar
                 </button>
-                <button
+                <AdminButton
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
                   className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
@@ -1414,7 +1301,7 @@ export default function DNSRecordsPage() {
                   ) : (
                     'Guardar y Monitorear'
                   )}
-                </button>
+                </AdminButton>
               </div>
             </form>
           </div>

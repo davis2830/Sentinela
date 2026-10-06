@@ -1,8 +1,9 @@
 from rest_framework import status
+from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.subscriptions import OperationalAPIView as APIView
 
-from common.responses import error_response, success_response
+from common.responses import error_response, queued_scan_response, success_response
 
 from .serializers import (
     DomainInfoCreateSerializer,
@@ -23,7 +24,7 @@ class DomainListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         domains = DomainService.list_domains(org_id)
-        serializer = DomainInfoSerializer(domains, many=True)
+        serializer = DomainInfoSerializer(domains, many=True, context={"request": request})
         return success_response(serializer.data)
 
     def post(self, request):
@@ -56,7 +57,7 @@ class DomainListView(APIView):
             from .tasks import scan_whois
             scan_whois.delay(str(domain_info.id))
 
-            response_serializer = DomainInfoSerializer(domain_info)
+            response_serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -80,7 +81,7 @@ class DomainDetailView(APIView):
         org_id = request.user.organization_id
         try:
             domain_info = DomainService.get_domain(domain_id, org_id)
-            serializer = DomainInfoSerializer(domain_info)
+            serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(serializer.data)
         except Exception:
             return error_response(
@@ -100,7 +101,7 @@ class DomainDetailView(APIView):
             )
             from .tasks import scan_whois
             scan_whois.delay(str(domain_info.id))
-            serializer = DomainInfoSerializer(domain_info)
+            serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
@@ -131,9 +132,10 @@ class DomainScanView(APIView):
         try:
             domain_info = DomainService.get_domain(domain_id, org_id)
             from .tasks import scan_whois
-            scan_whois.delay(str(domain_info.id))
-            serializer = DomainInfoSerializer(domain_info)
-            return success_response(serializer.data, message="Escaneo WHOIS programado exitosamente.")
+            task = enqueue_scan(domain_info, scan_whois)
+            return queued_scan_response(task, domain_info.id)
+        except ScanLimited as exc:
+            return limited_response(exc)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -150,7 +152,7 @@ class DomainExpiringSoonView(APIView):
         org_id = request.user.organization_id
         days = int(request.query_params.get("days", 30))
         domains = DomainService.get_expiring_soon(org_id, days=days)
-        serializer = DomainInfoSerializer(domains, many=True)
+        serializer = DomainInfoSerializer(domains, many=True, context={"request": request})
         return success_response(serializer.data)
 
 
@@ -165,7 +167,7 @@ class DomainExpiredView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         domains = DomainService.get_expired(org_id)
-        serializer = DomainInfoSerializer(domains, many=True)
+        serializer = DomainInfoSerializer(domains, many=True, context={"request": request})
         return success_response(serializer.data)
 
 
@@ -193,9 +195,9 @@ class DomainBulkScanView(APIView):
 
     def post(self, request):
         try:
-            from .tasks import scan_all_domains
-            scan_all_domains.delay()
-            return success_response({"message": "Consulta WHOIS masiva de dominios iniciada."})
+            from .tasks import scan_whois
+            from .models import DomainInfo
+            return success_response(enqueue_many(DomainInfo.objects.filter(organization_id=request.user.organization_id), scan_whois))
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -240,4 +242,4 @@ class DomainBulkActionView(APIView):
             res = DomainService.bulk_action(org_id, action, domain_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

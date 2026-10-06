@@ -3,7 +3,7 @@ Health Check and Meta-Observability Views for Sentinel NOC
 ==========================================================
 Provides external Dead Man's Snitch and internal SLA probes
 verifying active connectivity and latency for:
-  - PostgreSQL / TimescaleDB
+  - PostgreSQL 16
   - Redis Distributed Cache
   - Celery Message Broker & Workers
 """
@@ -36,7 +36,7 @@ class HealthCheckView(APIView):
         overall_healthy = True
         components = {}
 
-        # 1. Check Database (PostgreSQL / TimescaleDB)
+        # 1. Check Database (PostgreSQL 16)
         db_start = time.perf_counter()
         try:
             with connection.cursor() as cursor:
@@ -46,7 +46,7 @@ class HealthCheckView(APIView):
             components["database"] = {
                 "status": "healthy",
                 "latency_ms": db_latency_ms,
-                "engine": "PostgreSQL + TimescaleDB",
+                "engine": "PostgreSQL 16",
             }
         except Exception as exc:
             db_latency_ms = round((time.perf_counter() - db_start) * 1000, 2)

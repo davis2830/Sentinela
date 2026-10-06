@@ -27,7 +27,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="h-14 shrink-0 flex items-center justify-between px-8 bg-bg-dark/95 backdrop-blur-md border-b border-border-base z-30">
+      <nav className="h-14 shrink-0 flex items-center justify-between gap-3 px-4 lg:px-6 bg-bg-dark/95 backdrop-blur-md border-b border-border-base z-30">
         {/* Brand */}
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-3 font-bold text-lg text-text-main no-underline group">
@@ -42,19 +42,20 @@ export default function Navbar() {
               Sentinel
             </span>
           </Link>
-          <span className="bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold">
+          <span className="hidden xl:inline bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold">
             Observabilidad
           </span>
         </div>
 
         {/* Omnibar Search Trigger Button */}
         <button
+          aria-label="Buscar en Sentinel"
           onClick={() => setIsSearchOpen(true)}
           className="flex items-center gap-3 bg-bg-card border border-border-base hover:border-accent-green px-4 py-1.5 rounded-full text-xs text-text-muted hover:text-text-main transition-all shadow-sm"
         >
           <Search size={14} className="text-accent-green" />
-          <span>Buscar todo en Sentinel...</span>
-          <span className="bg-bg-dark border border-border-base text-text-dim px-2 py-0.5 rounded-full text-[10px] font-mono">
+          <span className="hidden lg:inline">Buscar en Sentinel...</span>
+          <span className="hidden lg:inline bg-bg-dark border border-border-base text-text-dim px-2 py-0.5 rounded-full text-[10px] font-mono">
             Ctrl K
           </span>
         </button>
@@ -63,11 +64,11 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link
             to="/profile"
-            className="hidden sm:flex items-center gap-2 text-sm text-text-muted hover:text-accent-green transition-colors"
+            className="hidden md:flex items-center gap-2 text-xs text-text-muted hover:text-accent-green transition-colors"
             title="Ver perfil de usuario"
           >
             <Activity className="text-accent-green" size={16} />
-            <span>{user?.email || 'admin@sentinel.local'}</span>
+            <span className="max-w-52 truncate">{user?.email || 'admin@sentinel.local'}</span>
           </Link>
           <button
             onClick={handleLogout}

@@ -2,7 +2,9 @@ import logging
 import re
 import requests
 from django.db import models, transaction
+from common.beta_quota import beta_creation
 from django.utils import timezone
+from common import safe_http
 
 from .models import SecurityHeaderResult, SecurityHeaderTarget
 
@@ -79,6 +81,7 @@ class SecurityHeadersService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation("security_headers")
     def create_target(organization_id, name, url, enabled=True):
         """Create a new security header target.
 
@@ -552,18 +555,11 @@ class SecurityHeadersService:
             "User-Agent": "Sentinel-HeaderAudit/1.0",
         }
 
-        # If testing internal backend in docker
-        if "localhost:8000" in target_url or "127.0.0.1:8000" in target_url:
-            target_url = target_url.replace("localhost:8000", "backend:8000").replace("127.0.0.1:8000", "backend:8000")
-            headers["Host"] = "localhost"
-
         try:
-            response = requests.get(
+            response = safe_http.get(
                 target_url,
                 headers=headers,
                 timeout=12,
-                allow_redirects=True,
-                verify=False if "localhost" in target_url or "127.0.0.1" in target_url else True,
             )
             elapsed_ms = int(response.elapsed.total_seconds() * 1000)
             raw_headers = dict(response.headers)
@@ -580,6 +576,7 @@ class SecurityHeadersService:
                 "directives_analysis": analysis["directives_analysis"],
                 "info_leaks": analysis["info_leaks"],
                 "raw_headers": raw_headers,
+                "redirect_location": response.headers.get("Location") if response.is_redirect else None,
                 "success": True,
                 "error": None,
             }

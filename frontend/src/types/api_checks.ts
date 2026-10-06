@@ -1,6 +1,7 @@
 export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
 export interface APICheckTarget {
+  scan_availability?: import('./scan').ScanAvailability;
   id: string;
   organization: string;
   name: string;

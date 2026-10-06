@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
@@ -55,7 +56,7 @@ export default function TargetCard({
   // Latency styling
   const getLatencyColor = (ms: number | null) => {
     if (ms === null) return 'text-text-dim';
-    if (ms < 400) return 'text-accent-green';
+    if (ms < 400) return 'text-accent-cyan';
     if (ms < 1000) return 'text-accent-yellow';
     return 'text-accent-red';
   };
@@ -126,7 +127,7 @@ export default function TargetCard({
 
   return (
     <div
-      className={`group relative bg-bg-card/95 border rounded-2xl p-5 cursor-pointer transition-all duration-200 hover:shadow-xl ${
+      className={`group relative bg-bg-card/70 border rounded-xl p-4 cursor-pointer transition-colors duration-200 ${
         isSelected
           ? 'border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30'
           : 'border-border-base/70 hover:border-accent-green/40 hover:bg-bg-card'
@@ -200,19 +201,9 @@ export default function TargetCard({
 
         {/* Action icons */}
         <div className="flex items-center gap-1 shrink-0 bg-bg-dark/70 p-1.5 rounded-xl border border-border-base/60">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onScan(target);
-            }}
-            disabled={isScanning}
-            className="p-1.5 text-text-muted hover:text-accent-green hover:bg-accent-green/10 rounded-lg transition-colors disabled:opacity-50"
-            title="Escanear ahora"
-          >
-            <RefreshCw size={14} className={isScanning ? 'animate-spin text-accent-green' : ''} />
-          </button>
+
           {onAlert && (
-            <button
+            <AdminButton
               onClick={(e) => {
                 e.stopPropagation();
                 onAlert(target);
@@ -221,9 +212,9 @@ export default function TargetCard({
               title="Vincular regla de alerta"
             >
               <Bell size={14} />
-            </button>
+            </AdminButton>
           )}
-          <button
+          <AdminButton
             onClick={(e) => {
               e.stopPropagation();
               onEdit(target);
@@ -232,8 +223,8 @@ export default function TargetCard({
             title="Editar target"
           >
             <Pencil size={14} />
-          </button>
-          <button
+          </AdminButton>
+          <AdminButton
             onClick={(e) => {
               e.stopPropagation();
               onDelete(target);
@@ -242,7 +233,7 @@ export default function TargetCard({
             title="Eliminar target"
           >
             <Trash2 size={14} />
-          </button>
+          </AdminButton>
         </div>
       </div>
 
@@ -310,7 +301,7 @@ export default function TargetCard({
           )}
         </div>
 
-        <button
+        <AdminButton
           onClick={(e) => {
             e.stopPropagation();
             onToggle(target);
@@ -325,7 +316,7 @@ export default function TargetCard({
               target.enabled ? 'translate-x-4 bg-black' : 'translate-x-0 bg-text-dim'
             }`}
           />
-        </button>
+        </AdminButton>
       </div>
     </div>
   );

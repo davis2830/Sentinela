@@ -1,3 +1,9 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -69,6 +75,8 @@ interface SnoozeTarget {
 }
 
 export default function AlertsPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const targetIdFilter = searchParams.get('target_id');
@@ -81,7 +89,7 @@ export default function AlertsPage() {
   const [deleteTarget, setDeleteTarget] = useState<AlertRule | null>(null);
 
   // Persistent view mode ('grid' | 'table') per Sentinel NOC standard
-  const [viewMode, setViewMode] = usePersistentViewMode('alerts', 'grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('alerts', 'table');
 
   // Inspection Drawer
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
@@ -95,8 +103,8 @@ export default function AlertsPage() {
   const [snoozeMinutes, setSnoozeMinutes] = useState<number>(60);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>('active');
-  const [severityFilter, setSeverityFilter] = useState<FilterSeverity>('all');
+  const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","unresolved","active","acknowledged","resolved"] as const, 'active');
+  const [severityFilter, setSeverityFilter] = useUrlFilter('severity', ["all","critical","warning","info"] as const);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionNotification, setActionNotification] = useState<{
     message: string;
@@ -111,7 +119,7 @@ export default function AlertsPage() {
 
   // Rules query
   const { data: rules, isLoading: isLoadingRules } = useQuery<AlertRule[]>({
-    queryKey: ['alert-rules'],
+    queryKey: ['alert-rules', organizationId],
     queryFn: async () => {
       const response = await api.get('alert-rules/');
       return (response.data?.data || []) as AlertRule[];
@@ -121,7 +129,7 @@ export default function AlertsPage() {
 
   // Alerts stats query
   const { data: stats } = useQuery<AlertStats>({
-    queryKey: ['alerts-stats'],
+    queryKey: ['alerts-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('alerts/stats/');
       return (response.data?.data || {}) as AlertStats;
@@ -132,14 +140,14 @@ export default function AlertsPage() {
   // Alerts query
   const getAlertsEndpoint = () => {
     const params = new URLSearchParams();
-    if (statusFilter !== 'all') params.append('status', statusFilter);
+    if (statusFilter !== 'all' && statusFilter !== 'unresolved') params.append('status', statusFilter);
     if (severityFilter !== 'all') params.append('severity', severityFilter);
     const queryString = params.toString();
     return queryString ? `alerts/?${queryString}` : 'alerts/';
   };
 
   const { data: alerts, isLoading: isLoadingAlerts } = useQuery<Alert[]>({
-    queryKey: ['alerts-list', statusFilter, severityFilter],
+    queryKey: ['alerts-list', organizationId, statusFilter, severityFilter],
     queryFn: async () => {
       const response = await api.get(getAlertsEndpoint());
       return (response.data?.data || []) as Alert[];
@@ -192,7 +200,7 @@ export default function AlertsPage() {
       await api.post('alert-rules/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules', organizationId] });
       notify('Regla creada exitosamente.', 'success');
     },
     onError: (err: any) => {
@@ -205,7 +213,7 @@ export default function AlertsPage() {
       await api.patch(`alert-rules/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules', organizationId] });
       notify('Regla actualizada exitosamente.', 'success');
     },
     onError: (err: any) => {
@@ -218,7 +226,7 @@ export default function AlertsPage() {
       await api.delete(`alert-rules/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules', organizationId] });
       setDeleteTarget(null);
       notify('Regla eliminada del sistema.', 'info');
     },
@@ -230,8 +238,8 @@ export default function AlertsPage() {
       await api.patch(`alerts/${id}/`, { status });
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
       if (selectedAlert?.id === vars.id) {
         setSelectedAlert((prev) => (prev ? { ...prev, status: vars.status } : null));
       }
@@ -244,8 +252,8 @@ export default function AlertsPage() {
       await api.post('alerts/acknowledge-all/');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
       notify('Todas las alertas activas han sido reconocidas.', 'success');
     },
   });
@@ -255,8 +263,8 @@ export default function AlertsPage() {
       await api.post('alerts/resolve-all/');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
       notify('Todas las alertas han sido marcadas como resueltas.', 'success');
     },
   });
@@ -267,9 +275,9 @@ export default function AlertsPage() {
       return res.data?.data;
     },
     onSuccess: (data, alertId) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
       if (selectedAlert?.id === alertId) {
         setSelectedAlert((prev) =>
           prev
@@ -295,9 +303,9 @@ export default function AlertsPage() {
       return res.data?.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules', organizationId] });
       const msg = data?.message || 'Evaluación de reglas completada correctamente.';
       notify(msg, 'success');
     },
@@ -317,8 +325,8 @@ export default function AlertsPage() {
       return res.data?.data;
     },
     onSuccess: (data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
       if (selectedAlert?.id === vars.id) {
         setSelectedAlert(data?.alert || null);
       }
@@ -338,7 +346,7 @@ export default function AlertsPage() {
       return res.data?.data;
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['alert-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-rules', organizationId] });
       setSnoozeTarget(null);
       const msg =
         vars.minutes > 0
@@ -363,8 +371,8 @@ export default function AlertsPage() {
       return res.data?.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts-list'] });
-      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats', organizationId] });
       setSelectedAlertIds([]);
       setSnoozeTarget(null);
       notify(data?.message || 'Acción en lote completada con éxito.', 'success');
@@ -408,6 +416,9 @@ export default function AlertsPage() {
     return (alerts || []).filter((alert: Alert) => {
       if (targetIdFilter && alert.target_id !== targetIdFilter) return false;
       if (targetTypeFilter && alert.target_type !== targetTypeFilter) return false;
+      if (statusFilter === 'unresolved' && alert.status === 'resolved') return false;
+      if (statusFilter !== 'all' && statusFilter !== 'unresolved' && alert.status !== statusFilter) return false;
+      if (severityFilter !== 'all' && alert.severity !== severityFilter) return false;
       if (!searchTerm.trim()) return true;
       const term = searchTerm.toLowerCase();
       return (
@@ -416,7 +427,7 @@ export default function AlertsPage() {
         (alert.target_type && alert.target_type.toLowerCase().includes(term))
       );
     });
-  }, [alerts, searchTerm, targetIdFilter, targetTypeFilter]);
+  }, [alerts, searchTerm, targetIdFilter, targetTypeFilter, statusFilter, severityFilter]);
 
   // Filtered rules by search term (Memoized)
   const filteredRules = useMemo(() => {
@@ -527,10 +538,12 @@ export default function AlertsPage() {
     return new Date(snoozedUntil) > new Date();
   };
 
+  useLinkedResource(alerts, selectedAlert, setSelectedAlert);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["alerts-list","alerts-stats","alert-rules"]}
         title="Centro de Alertas Inteligentes & Umbrales"
         badgeText="SMART ALERTS RADAR"
         description="Deduplicación inteligente, anti-flapping, mitigación de fatiga (snooze), simulación previa y enlace directo a módulos."
@@ -542,7 +555,8 @@ export default function AlertsPage() {
         }}
         actions={
           <>
-            <button
+
+            <AdminButton
               type="button"
               onClick={() => evaluateMutation.mutate()}
               disabled={evaluateMutation.isPending}
@@ -556,16 +570,16 @@ export default function AlertsPage() {
               <span>
                 {evaluateMutation.isPending ? 'Evaluando...' : 'Evaluar Reglas Ahora'}
               </span>
-            </button>
+            </AdminButton>
             {activeTab === 'rules' && (
-              <button
+              <AdminButton
                 type="button"
                 onClick={handleOpenCreateRule}
                 className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
               >
                 <Plus size={16} />
                 Nueva Regla
-              </button>
+              </AdminButton>
             )}
           </>
         }
@@ -603,88 +617,7 @@ export default function AlertsPage() {
       )}
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Críticas Activas */}
-        <NOCKpiCard
-          title="Críticas Activas"
-          icon={<ShieldAlert size={16} className="text-accent-red" />}
-          badge={{
-            text: (stats?.active_critical || 0) > 0 ? `${stats?.active_critical} Activas` : 'Sin Alarma',
-            variant: (stats?.active_critical || 0) > 0 ? 'danger' : 'success',
-          }}
-          value={stats?.active_critical || 0}
-          valueColor={(stats?.active_critical || 0) > 0 ? 'text-accent-red' : 'text-text-main'}
-          valueSuffix="alertas"
-          subtitle="Requieren acción inmediata o escalación"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Nivel de Gravedad</span>
-              <span className={(stats?.active_critical || 0) > 0 ? 'text-accent-red font-semibold' : 'text-accent-green'}>
-                {(stats?.active_critical || 0) > 0 ? 'Atención Inmediata' : 'Óptimo'}
-              </span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Advertencias */}
-        <NOCKpiCard
-          title="Advertencias"
-          icon={<AlertTriangle size={16} className="text-amber-400" />}
-          badge={{
-            text: `${stats?.active_warning || 0} Activas`,
-            variant: (stats?.active_warning || 0) > 0 ? 'warning' : 'neutral',
-          }}
-          value={stats?.active_warning || 0}
-          valueColor={(stats?.active_warning || 0) > 0 ? 'text-amber-400' : 'text-text-main'}
-          valueSuffix="alertas"
-          subtitle="Umbrales preventivos superados"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Monitoreo Preventivo</span>
-              <span className="text-amber-400 font-medium">Activo</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Resueltas & Auto-Mitigadas */}
-        <NOCKpiCard
-          title="Alertas Resueltas"
-          icon={<CheckCircle2 size={16} className="text-accent-green" />}
-          badge={{
-            text: 'Histórico',
-            variant: 'success',
-          }}
-          value={stats?.resolved || 0}
-          valueSuffix="mitigadas"
-          subtitle="Contención exitosa y auto-resolución"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Reconocidas en Gestión</span>
-              <span className="text-text-main font-semibold">{stats?.acknowledged || 0}</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: MTTR Promedio */}
-        <NOCKpiCard
-          title="MTTR Promedio"
-          icon={<Clock size={16} className="text-accent-cyan" />}
-          badge={{
-            text: 'SLA Resolución',
-            variant: 'info',
-          }}
-          value={stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '0m'}
-          valueColor="text-accent-cyan"
-          valueSuffix="tiempo medio"
-          subtitle="Calculado desde disparo inicial a resolución"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Eficiencia de Respuesta</span>
-              <span className="text-accent-green font-medium">&lt; 30m</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary items={[{label:'Críticas activas',value:stats?.active_critical ?? null},{label:'Advertencias activas',value:stats?.active_warning ?? null},{label:'Reconocidas',value:stats?.acknowledged ?? null},{label:'Resueltas',value:stats?.resolved ?? null}]} />
 
       {/* 3. TOOLBAR: Omnibar Search + View Mode Switcher (Grid vs List/Table) + Main Tab Switcher + Status Pills */}
       <NOCToolbar
@@ -708,6 +641,7 @@ export default function AlertsPage() {
           activeTab === 'alerts'
             ? [
                 { id: 'all', label: 'Todos', count: totalAlertsCount, variant: 'all' },
+                { id: 'unresolved', label: 'Sin resolver', variant: 'warning' },
                 {
                   id: 'active',
                   label: 'Activas',
@@ -802,7 +736,7 @@ export default function AlertsPage() {
             </button>
 
             {/* Acknowledge All */}
-            <button
+            <AdminButton
               type="button"
               onClick={() => acknowledgeAllMutation.mutate()}
               disabled={acknowledgeAllMutation.isPending || !stats?.total_active}
@@ -811,10 +745,10 @@ export default function AlertsPage() {
             >
               <CheckCheck size={14} className="text-accent-yellow" />
               Reconocer Todas
-            </button>
+            </AdminButton>
 
             {/* Resolve All */}
-            <button
+            <AdminButton
               type="button"
               onClick={() => resolveAllMutation.mutate()}
               disabled={
@@ -825,7 +759,7 @@ export default function AlertsPage() {
             >
               <CheckSquare size={14} className="text-accent-green" />
               Resolver Todas
-            </button>
+            </AdminButton>
           </div>
         </div>
       )}
@@ -837,7 +771,7 @@ export default function AlertsPage() {
         onClearSelection={() => setSelectedAlertIds([])}
         actions={
           <>
-            <button
+            <AdminButton
               type="button"
               onClick={() =>
                 bulkActionMutation.mutate({
@@ -850,9 +784,9 @@ export default function AlertsPage() {
             >
               <Eye size={13} />
               Reconocer en Lote
-            </button>
+            </AdminButton>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() =>
                 bulkActionMutation.mutate({
@@ -865,9 +799,9 @@ export default function AlertsPage() {
             >
               <CheckCircle size={13} />
               Resolver en Lote
-            </button>
+            </AdminButton>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() =>
                 setSnoozeTarget({
@@ -880,9 +814,9 @@ export default function AlertsPage() {
             >
               <Moon size={13} />
               Silenciar en Lote
-            </button>
+            </AdminButton>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() => {
                 if (
@@ -901,7 +835,7 @@ export default function AlertsPage() {
             >
               <Trash2 size={13} />
               Eliminar
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -1056,7 +990,7 @@ export default function AlertsPage() {
                       </button>
 
                       {/* Snooze Button */}
-                      <button
+                      <AdminButton
                         type="button"
                         onClick={() =>
                           setSnoozeTarget({
@@ -1074,7 +1008,7 @@ export default function AlertsPage() {
                         title={snoozed ? 'Configurar / Desactivar silencio' : 'Silenciar alerta'}
                       >
                         <Moon size={15} />
-                      </button>
+                      </AdminButton>
 
                       {/* Incident Button */}
                       {alert.incident_id ? (
@@ -1085,7 +1019,7 @@ export default function AlertsPage() {
                           <Flame size={13} /> Incidente Vinc.
                         </span>
                       ) : (
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() => createIncidentMutation.mutate(alert.id)}
                           disabled={createIncidentMutation.isPending}
@@ -1094,12 +1028,12 @@ export default function AlertsPage() {
                         >
                           <Flame size={13} />
                           Crear Incidente
-                        </button>
+                        </AdminButton>
                       )}
 
                       {/* Acknowledge Button */}
                       {alert.status === 'active' && (
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() =>
                             updateAlertStatusMutation.mutate({ id: alert.id, status: 'acknowledged' })
@@ -1109,12 +1043,12 @@ export default function AlertsPage() {
                         >
                           <Eye size={13} />
                           Reconocer
-                        </button>
+                        </AdminButton>
                       )}
 
                       {/* Resolve Button */}
                       {alert.status !== 'resolved' && (
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() =>
                             updateAlertStatusMutation.mutate({ id: alert.id, status: 'resolved' })
@@ -1124,7 +1058,7 @@ export default function AlertsPage() {
                         >
                           <CheckCircle size={13} />
                           Resolver
-                        </button>
+                        </AdminButton>
                       )}
                     </div>
                   </div>
@@ -1164,7 +1098,7 @@ export default function AlertsPage() {
             />
           )
         ) : (
-          <EmptyState
+          <EmptyState requiresAdmin
             icon={Bell}
             title={
               searchTerm || statusFilter !== 'all' || severityFilter !== 'all'
@@ -1273,7 +1207,7 @@ export default function AlertsPage() {
                       </span>
                       <div className="flex items-center gap-1">
                         {/* Rule Snooze Button */}
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() =>
                             setSnoozeTarget({
@@ -1291,27 +1225,27 @@ export default function AlertsPage() {
                           title={ruleSnoozed ? 'Desactivar silencio' : 'Silenciar regla (Mute)'}
                         >
                           <Moon size={14} />
-                        </button>
+                        </AdminButton>
 
                         {/* Edit Rule */}
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() => handleOpenEditRule(rule)}
                           className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                           title="Editar regla"
                         >
                           <Pencil size={14} />
-                        </button>
+                        </AdminButton>
 
                         {/* Delete Rule */}
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() => setDeleteTarget(rule)}
                           className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                           title="Eliminar regla"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </AdminButton>
                       </div>
                     </div>
                   </div>
@@ -1335,7 +1269,7 @@ export default function AlertsPage() {
             />
           )
         ) : (
-          <EmptyState
+          <EmptyState requiresAdmin
             icon={Sliders}
             title={
               searchTerm
@@ -1648,7 +1582,7 @@ export default function AlertsPage() {
                     <p className="text-xs text-text-muted mb-3">
                       Crea un expediente de incidente formal con asignación de responsables y bitácora de seguimiento.
                     </p>
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={() => createIncidentMutation.mutate(selectedAlert.id)}
                       disabled={createIncidentMutation.isPending}
@@ -1656,7 +1590,7 @@ export default function AlertsPage() {
                     >
                       <Flame size={14} />
                       <span>{createIncidentMutation.isPending ? 'Creando...' : 'Elevar a Incidente'}</span>
-                    </button>
+                    </AdminButton>
                   </div>
                 )}
               </div>
@@ -1680,7 +1614,7 @@ export default function AlertsPage() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                   {[30, 60, 240, 1440].map((mins) => (
-                    <button
+                    <AdminButton
                       key={mins}
                       type="button"
                       onClick={() =>
@@ -1690,12 +1624,12 @@ export default function AlertsPage() {
                       className="px-3 py-2 bg-bg-card border border-border-base hover:border-amber-400/50 text-text-main hover:text-amber-400 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer"
                     >
                       {mins === 30 ? '30m' : mins === 60 ? '1 hora' : mins === 240 ? '4 horas' : '24 horas'}
-                    </button>
+                    </AdminButton>
                   ))}
                 </div>
 
                 {isItemSnoozed(selectedAlert.snoozed_until) && (
-                  <button
+                  <AdminButton
                     type="button"
                     onClick={() =>
                       snoozeAlertMutation.mutate({ id: selectedAlert.id, minutes: 0 })
@@ -1705,7 +1639,7 @@ export default function AlertsPage() {
                   >
                     <RotateCcw size={13} />
                     <span>Reanudar Notificaciones (Quitar Silencio)</span>
-                  </button>
+                  </AdminButton>
                 )}
               </div>
 
@@ -1716,7 +1650,7 @@ export default function AlertsPage() {
                 </span>
                 <div className="flex gap-2">
                   {selectedAlert.status === 'active' && (
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={() =>
                         updateAlertStatusMutation.mutate({
@@ -1729,11 +1663,11 @@ export default function AlertsPage() {
                     >
                       <Eye size={14} />
                       <span>Reconocer Alerta</span>
-                    </button>
+                    </AdminButton>
                   )}
 
                   {selectedAlert.status !== 'resolved' && (
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={() =>
                         updateAlertStatusMutation.mutate({
@@ -1746,7 +1680,7 @@ export default function AlertsPage() {
                     >
                       <CheckCircle size={14} />
                       <span>Marcar como Resuelta</span>
-                    </button>
+                    </AdminButton>
                   )}
                 </div>
               </div>
@@ -1766,13 +1700,13 @@ export default function AlertsPage() {
                   Silenciar Notificaciones (Snooze)
                 </h3>
               </div>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => setSnoozeTarget(null)}
                 className="p-1 text-text-dim hover:text-text-main rounded-full cursor-pointer"
               >
                 <X size={18} />
-              </button>
+              </AdminButton>
             </div>
 
             <p className="text-xs text-text-muted leading-relaxed">
@@ -1807,7 +1741,7 @@ export default function AlertsPage() {
 
             <div className="flex items-center justify-between pt-3 border-t border-border-base/50">
               {snoozeTarget.isCurrentlySnoozed ? (
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => {
                     setSnoozeMinutes(0);
@@ -1820,26 +1754,26 @@ export default function AlertsPage() {
                   className="text-xs text-rose-400 hover:text-rose-300 underline cursor-pointer"
                 >
                   Quitar Silencio
-                </button>
+                </AdminButton>
               ) : (
                 <span />
               )}
 
               <div className="flex items-center gap-2">
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => setSnoozeTarget(null)}
                   className="px-4 py-2 rounded-full border border-border-base bg-bg-dark text-text-muted hover:text-text-main text-xs font-medium transition-colors cursor-pointer"
                 >
                   Cancelar
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type="button"
                   onClick={handleConfirmSnooze}
                   className="px-5 py-2 rounded-full bg-amber-500 text-black font-semibold text-xs hover:bg-amber-400 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
                 >
                   Confirmar Silencio
-                </button>
+                </AdminButton>
               </div>
             </div>
           </div>

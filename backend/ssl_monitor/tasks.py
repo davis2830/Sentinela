@@ -1,4 +1,6 @@
 import logging
+from common.scan_limits import guarded_scan, enqueue_many
+from common.subscriptions import eligible_organization_ids
 from celery import shared_task
 
 from .models import SSLCertificate
@@ -7,7 +9,8 @@ from .services import SSLMonitorService
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="ssl_monitor.scan_certificate")
+@shared_task(bind=True, name="ssl_monitor.scan_certificate", soft_time_limit=510, time_limit=540)
+@guarded_scan('ssl_monitor.SSLCertificate')
 def scan_ssl_certificate(self, certificate_id):
     """Scan an SSL certificate for a given certificate record.
 
@@ -18,7 +21,10 @@ def scan_ssl_certificate(self, certificate_id):
         certificate_id: UUID string of the SSLCertificate record.
     """
     try:
-        cert = SSLCertificate.objects.get(id=certificate_id)
+        cert = SSLCertificate.objects.select_related("organization").get(id=certificate_id)
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(cert.organization):
+            return {"status": "skipped", "reason": "subscription_required"}
     except SSLCertificate.DoesNotExist:
         logger.error("SSL certificate %s not found.", certificate_id)
         return
@@ -81,9 +87,8 @@ def scan_all_certificates():
     """
     certs = SSLCertificate.objects.filter(
         organization__status="active",
-        organization__subscription_status__in=["active", "trialing"],
+        organization_id__in=eligible_organization_ids(),
     )
-    for cert in certs:
-        scan_ssl_certificate.delay(str(cert.id))
+    enqueue_many(certs, scan_ssl_certificate)
 
     logger.info("Scheduled SSL scans for %d certificates.", certs.count())

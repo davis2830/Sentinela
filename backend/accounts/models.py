@@ -1,4 +1,8 @@
+import hashlib
+import secrets
 import uuid
+
+from .beta_models import AbuseBucket, BetaControl, BetaInvitation, EmailChallenge, IdentityMail, DisposableDomainPolicy
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -39,6 +43,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    # Existing accounts remain an explicitly grandfathered cohort, never falsely verified.
+    verification_required = models.BooleanField(default=False)
+    session_version = models.PositiveIntegerField(default=0)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     organization = models.ForeignKey(
@@ -94,7 +102,8 @@ class APIToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_tokens")
     name = models.CharField(max_length=255)
-    token = models.CharField(max_length=64, unique=True)
+    token_hash = models.CharField(max_length=64, unique=True)
+    token_prefix = models.CharField(max_length=16, db_index=True)
     scope = models.CharField(max_length=20, default="full", choices=SCOPE_CHOICES)
     expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -106,6 +115,20 @@ class APIToken(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.user.email})"
+
+    @classmethod
+    def issue(cls, *, user, name, scope="full", expires_at=None):
+        """Create a token while returning the secret exactly once."""
+        raw_token = f"snt_{secrets.token_hex(32)}"
+        token = cls.objects.create(
+            user=user,
+            name=name,
+            scope=scope,
+            expires_at=expires_at,
+            token_hash=hashlib.sha256(raw_token.encode("utf-8")).hexdigest(),
+            token_prefix=raw_token[:12],
+        )
+        return token, raw_token
 
     @property
     def is_expired(self):

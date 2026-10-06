@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
@@ -56,7 +57,7 @@ export default function TargetTableView({
 
   const getLatencyColor = (ms: number | null) => {
     if (ms === null) return 'text-text-dim';
-    if (ms < 400) return 'text-accent-green';
+    if (ms < 400) return 'text-accent-cyan';
     if (ms < 1000) return 'text-accent-yellow';
     return 'text-accent-red';
   };
@@ -112,12 +113,12 @@ export default function TargetTableView({
   };
 
   return (
-    <div className="bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl">
+    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-text-main border-collapse">
           <thead>
             <tr className="border-b border-border-base bg-bg-dark/80 font-medium text-xs text-text-muted">
-              <th className="py-3.5 px-4 w-10">
+              <th scope="col" className="py-3.5 px-4 w-10">
                 <button
                   type="button"
                   onClick={onSelectAllToggle}
@@ -131,29 +132,29 @@ export default function TargetTableView({
                   <Check size={12} strokeWidth={3} className={allSelected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'} />
                 </button>
               </th>
-              <th className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('status')}>
+              <th scope="col" className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('status')}>
                 <div className="flex items-center gap-1.5">
                   Estado
                   <ArrowUpDown size={12} className={sortField === 'status' ? 'text-accent-green' : 'text-text-dim'} />
                 </div>
               </th>
-              <th className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('name')}>
+              <th scope="col" className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('name')}>
                 <div className="flex items-center gap-1.5">
                   Target & Endpoint
                   <ArrowUpDown size={12} className={sortField === 'name' ? 'text-accent-green' : 'text-text-dim'} />
                 </div>
               </th>
-              <th className="py-3.5 px-4">Tipo</th>
-              <th className="py-3.5 px-4">Intervalo</th>
-              <th className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('latency')}>
+              <th scope="col" className="py-3.5 px-4">Tipo</th>
+              <th scope="col" className="py-3.5 px-4">Intervalo</th>
+              <th scope="col" className="py-3.5 px-4 cursor-pointer hover:text-text-main" onClick={() => onSortChange('latency')}>
                 <div className="flex items-center gap-1.5">
                   Latencia
                   <ArrowUpDown size={12} className={sortField === 'latency' ? 'text-accent-green' : 'text-text-dim'} />
                 </div>
               </th>
-              <th className="py-3.5 px-4 min-w-[140px]">Historial Reciente</th>
-              <th className="py-3.5 px-4">Último Check</th>
-              <th className="py-3.5 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3.5 px-4 min-w-[140px]">Historial Reciente</th>
+              <th scope="col" className="py-3.5 px-4">Último Check</th>
+              <th scope="col" className="py-3.5 px-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/50">
@@ -169,7 +170,7 @@ export default function TargetTableView({
               const recentChecks = target.recent_checks && target.recent_checks.length > 0
                 ? target.recent_checks
                 : Array.from({ length: 12 }).map(() => ({
-                    status: target.enabled ? (target.last_status || 'up') : 'disabled',
+                    status: target.enabled ? (target.last_status || 'unknown') : 'disabled',
                     latency: target.last_latency,
                   }));
 
@@ -177,6 +178,9 @@ export default function TargetTableView({
                 <tr
                   key={target.id}
                   onClick={() => onClick(target)}
+                  tabIndex={0}
+                  aria-label={target.name}
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(target); } }}
                   className={`hover:bg-bg-dark/50 cursor-pointer transition-colors ${
                     isSelected ? 'bg-accent-green/5' : ''
                   }`}
@@ -191,6 +195,9 @@ export default function TargetTableView({
                           : 'border border-border-base/90 bg-bg-dark/80 hover:border-accent-green/50 text-transparent'
                       }`}
                       title={isSelected ? 'Deseleccionar target' : 'Seleccionar target'}
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      aria-label={`Seleccionar ${target.name}`}
                     >
                       <Check size={12} strokeWidth={3} className={isSelected ? 'scale-100 opacity-100' : 'scale-50 opacity-0'} />
                     </button>
@@ -281,38 +288,31 @@ export default function TargetTableView({
                   </td>
                   <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => onScan(target)}
-                        disabled={scanningId === target.id}
-                        className="p-1.5 text-text-muted hover:text-accent-green hover:bg-accent-green/10 rounded transition-colors disabled:opacity-50"
-                        title="Escanear ahora"
-                      >
-                        <RefreshCw size={14} className={scanningId === target.id ? 'animate-spin text-accent-green' : ''} />
-                      </button>
+
                       {onAlert && (
-                        <button
+                        <AdminButton
                           onClick={() => onAlert(target)}
                           className="p-1.5 text-text-muted hover:text-accent-yellow hover:bg-accent-yellow/10 rounded transition-colors"
                           title="Vincular regla de alerta"
                         >
                           <Bell size={14} />
-                        </button>
+                        </AdminButton>
                       )}
-                      <button
+                      <AdminButton
                         onClick={() => onEdit(target)}
                         className="p-1.5 text-text-muted hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors"
                         title="Editar target"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         onClick={() => onDelete(target)}
                         className="p-1.5 text-text-muted hover:text-accent-red hover:bg-accent-red/10 rounded transition-colors"
                         title="Eliminar target"
                       >
                         <Trash2 size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         onClick={() => onToggle(target)}
                         className={`w-8 h-4.5 flex items-center rounded-full p-0.5 ml-2 cursor-pointer transition-colors ${
                           target.enabled ? 'bg-accent-green' : 'bg-bg-dark border border-border-base'
@@ -324,7 +324,7 @@ export default function TargetTableView({
                             target.enabled ? 'translate-x-3.5 bg-black' : 'translate-x-0 bg-text-dim'
                           }`}
                         />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

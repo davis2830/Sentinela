@@ -1,14 +1,17 @@
 from rest_framework import serializers
+from common.scan_serializers import ScanAvailabilitySerializer, AvailabilityListSerializer
 
 from .models import SecurityHeaderResult, SecurityHeaderTarget
 
 
-class SecurityHeaderTargetSerializer(serializers.ModelSerializer):
+class SecurityHeaderTargetSerializer(ScanAvailabilitySerializer):
     """Serializer for SecurityHeaderTarget model."""
 
     class Meta:
+        list_serializer_class = AvailabilityListSerializer
         model = SecurityHeaderTarget
         fields = (
+            "scan_availability",
             "id",
             "organization",
             "name",

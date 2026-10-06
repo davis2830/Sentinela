@@ -1,15 +1,19 @@
 import logging
+from common.scan_limits import guarded_scan, enqueue_many
+from common.subscriptions import eligible_organization_ids
 
 import requests
 from celery import shared_task
 
 from .models import SecurityHeaderTarget
 from .services import SecurityHeadersService
+from common import safe_http
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="security_headers.scan")
+@shared_task(bind=True, name="security_headers.scan", soft_time_limit=510, time_limit=540)
+@guarded_scan('security_headers.SecurityHeaderTarget')
 def scan_security_headers(self, target_id):
     """Scan security headers for a given target.
 
@@ -20,7 +24,10 @@ def scan_security_headers(self, target_id):
         target_id: UUID string of the SecurityHeaderTarget.
     """
     try:
-        target = SecurityHeaderTarget.objects.get(id=target_id)
+        target = SecurityHeaderTarget.objects.select_related("organization").get(id=target_id)
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(target.organization):
+            return {"status": "skipped", "reason": "subscription_required"}
     except SecurityHeaderTarget.DoesNotExist:
         logger.error("Security header target %s not found.", target_id)
         return
@@ -31,14 +38,11 @@ def scan_security_headers(self, target_id):
 
     url = target.url
     headers = {}
-    if "localhost:8000" in url or "127.0.0.1:8000" in url:
-        url = url.replace("localhost:8000", "backend:8000").replace("127.0.0.1:8000", "backend:8000")
-        headers["Host"] = "localhost"
 
     logger.info("Scanning security headers for: %s", url)
 
     try:
-        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+        response = safe_http.get(url, headers=headers, timeout=15)
         response_time_ms = int(response.elapsed.total_seconds() * 1000)
         raw_headers = dict(response.headers)
 
@@ -107,9 +111,8 @@ def scan_all_security_headers():
     targets = SecurityHeaderTarget.objects.filter(
         enabled=True,
         organization__status="active",
-        organization__subscription_status__in=["active", "trialing"],
+        organization_id__in=eligible_organization_ids(),
     )
-    for target in targets:
-        scan_security_headers.delay(str(target.id))
+    enqueue_many(targets, scan_security_headers)
 
     logger.info("Scheduled security header scans for %d targets.", targets.count())

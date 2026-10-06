@@ -1,8 +1,9 @@
 from rest_framework import status
+from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.subscriptions import OperationalAPIView as APIView
 
-from common.responses import error_response, success_response
+from common.responses import error_response, queued_scan_response, success_response
 
 from .serializers import (
     SecurityHeaderResultSerializer,
@@ -24,7 +25,7 @@ class SecurityHeaderTargetListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         targets = SecurityHeadersService.list_targets(org_id)
-        serializer = SecurityHeaderTargetSerializer(targets, many=True)
+        serializer = SecurityHeaderTargetSerializer(targets, many=True, context={"request": request})
         return success_response(serializer.data)
 
     def post(self, request):
@@ -65,7 +66,7 @@ class SecurityHeaderTargetListView(APIView):
             from .tasks import scan_security_headers
             scan_security_headers.delay(str(target.id))
 
-            response_serializer = SecurityHeaderTargetSerializer(target)
+            response_serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -90,7 +91,7 @@ class SecurityHeaderTargetDetailView(APIView):
         org_id = request.user.organization_id
         try:
             target = SecurityHeadersService.get_target(target_id, org_id)
-            serializer = SecurityHeaderTargetSerializer(target)
+            serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
         except Exception:
             return error_response(
@@ -108,7 +109,7 @@ class SecurityHeaderTargetDetailView(APIView):
                 url=request.data.get("url"),
                 enabled=request.data.get("enabled"),
             )
-            serializer = SecurityHeaderTargetSerializer(target)
+            serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
@@ -141,9 +142,10 @@ class SecurityHeaderTargetScanView(APIView):
         try:
             target = SecurityHeadersService.get_target(target_id, org_id)
             from .tasks import scan_security_headers
-            scan_security_headers.delay(str(target.id))
-            serializer = SecurityHeaderTargetSerializer(target)
-            return success_response(serializer.data, message="Escaneo de cabeceras de seguridad programado exitosamente.")
+            task = enqueue_scan(target, scan_security_headers)
+            return queued_scan_response(task, target.id)
+        except ScanLimited as exc:
+            return limited_response(exc)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -196,9 +198,9 @@ class SecurityHeaderBulkScanView(APIView):
 
     def post(self, request):
         try:
-            from .tasks import scan_all_security_headers
-            scan_all_security_headers.delay()
-            return success_response({"message": "Escaneo masivo de Security Headers iniciado."})
+            from .tasks import scan_security_headers
+            from .models import SecurityHeaderTarget
+            return success_response(enqueue_many(SecurityHeaderTarget.objects.filter(organization_id=request.user.organization_id), scan_security_headers))
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 

@@ -1,8 +1,17 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
+import { formatRefreshCountdown } from '../hooks/useAutoRefresh';
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type { MonitoringTarget, CreateTargetData } from '../types/monitoring';
 import TargetCard from '../components/monitoring/TargetCard';
 import TargetTableView from '../components/monitoring/TargetTableView';
@@ -31,6 +40,8 @@ import {
 } from 'lucide-react';
 
 export default function MonitoringPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -40,56 +51,42 @@ export default function MonitoringPage() {
   const [showProbeDrawer, setShowProbeDrawer] = useState(false);
 
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const autoRefresh = useConnectivityRefresh();
+  const { subscription, enabled: autoRefreshEnabled, countdown, setEnabled: setAutoRefreshEnabled } = autoRefresh;
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'up' | 'down' | 'slow' | 'disabled'>('all');
-  const [protocolFilter, setProtocolFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","up","down","slow","disabled"] as const);
+  const [protocolFilter, setProtocolFilter] = useUrlFilter('type', ["all","http","https","tcp","dns","api","ssl"] as const);
   const [selectedTag, setSelectedTag] = useState<string>('all');
-  const [viewMode, setViewMode] = usePersistentViewMode('monitoring', 'grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('monitoring', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortField, setSortField] = useState<'name' | 'latency' | 'status'>('status');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Live Auto-refresh countdown state
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  const [countdown, setCountdown] = useState(15);
-
   const { data: targets, isLoading } = useQuery({
-    queryKey: ['monitoring-targets'],
+    queryKey: ['monitoring-targets', organizationId],
     queryFn: async () => {
       const response = await api.get('/monitoring/');
       return (response.data?.data || []) as MonitoringTarget[];
     },
-    refetchInterval: autoRefreshEnabled ? 15000 : false,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Probe query for live badge count
   const { data: probes } = useQuery({
-    queryKey: ['agent-probes'],
+    queryKey: ['agent-probes', organizationId],
     queryFn: async () => {
       const res = await api.get('agent-probes/');
       return res.data?.data || [];
     },
-    refetchInterval: autoRefreshEnabled ? 15000 : false,
+    refetchInterval: autoRefresh.refetchInterval,
   });
-
-  // Countdown timer effect
-  useEffect(() => {
-    if (!autoRefreshEnabled) return;
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) return 15;
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [autoRefreshEnabled]);
 
   const createMutation = useMutation({
     mutationFn: async (data: CreateTargetData) => {
       await api.post('/monitoring/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets', organizationId] });
     },
   });
 
@@ -98,7 +95,7 @@ export default function MonitoringPage() {
       await api.patch(`/monitoring/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets', organizationId] });
     },
   });
 
@@ -107,7 +104,7 @@ export default function MonitoringPage() {
       await api.delete(`/monitoring/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets', organizationId] });
     },
   });
 
@@ -115,13 +112,18 @@ export default function MonitoringPage() {
     mutationFn: async (id: string) => {
       setScanningId(id);
       const res = await api.post(`/monitoring/${id}/scan/`);
-      return res.data?.data;
+      const queued = res.data?.data as QueuedScan;
+      return waitForFreshScan<MonitoringTarget>(
+        queued,
+        async () => (await api.get(`/monitoring/${id}/`)).data?.data as MonitoringTarget,
+        (target) => target.last_checked_at,
+      );
     },
     onSuccess: (updatedTarget) => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['monitoring-checks'] });
-      queryClient.invalidateQueries({ queryKey: ['target-checks-chart'] });
-      queryClient.invalidateQueries({ queryKey: ['target-uptime-sla'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-checks', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['target-checks-chart', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['target-uptime-sla', organizationId] });
       if (selectedTarget && updatedTarget && selectedTarget.id === updatedTarget.id) {
         setSelectedTarget(updatedTarget);
       }
@@ -132,21 +134,13 @@ export default function MonitoringPage() {
     },
   });
 
-  const scanAllMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('/monitoring/scan-all/');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
-    },
-  });
 
   const toggleMutation = useMutation({
     mutationFn: async (target: MonitoringTarget) => {
       await api.patch(`/monitoring/${target.id}/`, { enabled: !target.enabled });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets', organizationId] });
     },
   });
 
@@ -155,7 +149,7 @@ export default function MonitoringPage() {
       await api.post('/monitoring/bulk-action/', { action, target_ids });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
+      queryClient.invalidateQueries({ queryKey: ['monitoring-targets', organizationId] });
       setSelectedIds([]);
     },
   });
@@ -241,6 +235,7 @@ export default function MonitoringPage() {
   const slowCount = allTargets.filter((t) => t.enabled && t.last_status === 'slow').length;
   const downCount = allTargets.filter((t) => t.enabled && (t.last_status === 'down' || t.last_status === 'error')).length;
   const pausedCount = allTargets.filter((t) => !t.enabled).length;
+  const estimatedChecksPerMinute = subscription?.monitoring_allowed === false ? 0 : allTargets.filter(t => t.enabled).reduce((sum, target) => sum + 60 / Math.max(target.interval || 300, subscription?.limits?.min_check_interval_seconds || 300), 0);
 
   const activeWithLatency = allTargets.filter((t) => t.enabled && t.last_latency !== null);
   const avgLatency =
@@ -297,14 +292,16 @@ export default function MonitoringPage() {
       });
   }, [allTargets, searchTerm, statusFilter, protocolFilter, selectedTag, sortField, sortAsc]);
 
+  useLinkedResource(targets, selectedTarget, setSelectedTarget);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="compact-workspace space-y-4 animate-in fade-in duration-300">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-extrabold tracking-tight">Uptime & Latencia</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight">Uptime & Latencia</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-accent-green/10 text-accent-green border border-accent-green/30">
               TELEMETRÍA EN VIVO
             </span>
           </div>
@@ -317,25 +314,21 @@ export default function MonitoringPage() {
           {/* Auto-refresh indicator & toggle */}
           <button
             onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+            aria-label={autoRefreshEnabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'}
+            disabled={!autoRefresh.ready}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               autoRefreshEnabled
                 ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
                 : 'bg-bg-dark/80 border-border-base/80 text-text-dim'
             }`}
-            title={autoRefreshEnabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'}
+            title="Recarga automática de datos guardados, no ejecuta sondeos. La frecuencia sigue el plan."
           >
             {autoRefreshEnabled ? <Radio size={12} className="animate-pulse text-accent-green" /> : <Pause size={12} />}
-            {autoRefreshEnabled ? `En vivo: ${countdown}s` : 'Pausado'}
+            {!autoRefresh.ready ? 'Frecuencia no disponible' : autoRefreshEnabled ? `En vivo: ${formatRefreshCountdown(countdown)}` : 'Pausado'}
           </button>
 
-          <button
-            onClick={() => scanAllMutation.mutate()}
-            disabled={scanAllMutation.isPending}
-            className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={scanAllMutation.isPending ? 'animate-spin' : ''} />
-            Actualizar Todo
-          </button>
+          <ReloadDataButton queryKeys={["monitoring-targets","agent-probes","org-subscription","target-timeseries"]} scanIntervalSeconds={autoRefresh.ready ? autoRefresh.intervalSeconds : undefined} onReload={autoRefresh.resetCountdown} />
+
 
           <button
             onClick={() => setShowProbeDrawer(true)}
@@ -356,100 +349,16 @@ export default function MonitoringPage() {
         </div>
       </div>
 
-      {/* NOC Command Center: KPI Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Global SLA */}
-        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[150px]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <ShieldCheck size={16} className="text-accent-green" /> Disponibilidad SLA
-            </span>
-            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {globalSla >= 99.0 ? 'Óptimo' : 'Atención'}
-            </span>
-          </div>
-          <div className="my-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold font-mono text-text-main tracking-tight">{globalSla}%</span>
-            <span className="text-xs text-text-dim">últimas 24h</span>
-          </div>
-          <div className="w-full bg-bg-dark h-2 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                globalSla >= 99 ? 'bg-emerald-400' : globalSla >= 95 ? 'bg-amber-400' : 'bg-rose-500'
-              }`}
-              style={{ width: `${Math.min(globalSla, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* KPI 2: Latencia Promedio */}
-        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <Activity size={16} className="text-accent-cyan" /> Latencia Promedio
-            </span>
-            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
-              Red Global
-            </span>
-          </div>
-          <div className="my-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold font-mono text-accent-cyan tracking-tight">{avgLatency}ms</span>
-            <span className="text-xs text-text-dim">tiempo respuesta</span>
-          </div>
-          <p className="text-[11px] text-text-muted truncate">
-            Calculado sobre {activeWithLatency.length} targets activos
-          </p>
-        </div>
-
-        {/* KPI 3: Estado de Targets */}
-        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-              <Zap size={16} className="text-amber-400" /> Salud de Infraestructura
-            </span>
-            <span className="text-xs font-bold text-text-main">{totalCount} Targets</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2.5 text-center pt-1">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl py-2 px-1">
-              <div className="text-lg font-bold text-emerald-400">{onlineCount}</div>
-              <div className="text-[10px] font-medium text-emerald-400/80">Online</div>
-            </div>
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl py-2 px-1">
-              <div className="text-lg font-bold text-amber-400">{slowCount}</div>
-              <div className="text-[10px] font-medium text-amber-400/80">Lentos</div>
-            </div>
-            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl py-2 px-1">
-              <div className="text-lg font-bold text-rose-400">{downCount}</div>
-              <div className="text-[10px] font-medium text-rose-400/80">Caídos</div>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4: Próximo Chequeo / Carga */}
-        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col justify-between min-h-[150px]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-muted">Frecuencia Monitoreo</span>
-            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
-              Celery Beat
-            </span>
-          </div>
-          <div className="my-2">
-            <div className="text-2xl font-extrabold font-mono text-accent-green tracking-tight">
-              {totalCount > 0 ? `${totalCount * 2} checks` : '0 checks'}
-            </div>
-            <p className="text-xs text-text-dim mt-0.5">por minuto en ejecución continua</p>
-          </div>
-          <div className="text-[11px] text-text-muted flex items-center justify-between pt-2 border-t border-border-base/40">
-            <span>Pausados: {pausedCount}</span>
-            <span className="text-accent-green flex items-center gap-1 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-ping" /> Activo
-            </span>
-          </div>
-        </div>
-      </div>
+      <CompactModuleSummary variant="status" items={[
+        {label:'Targets',value:targets ? totalCount : null,icon:Server,tone:'neutral',active:statusFilter==='all',onClick:()=>setStatusFilter('all')},
+        {label:'Online',value:targets ? onlineCount : null,icon:ShieldCheck,tone:'success',active:statusFilter==='up',onClick:()=>setStatusFilter('up')},
+        {label:'Lentos',value:targets ? slowCount : null,icon:Activity,tone:'warning',active:statusFilter==='slow',onClick:()=>setStatusFilter('slow')},
+        {label:'Caídos',value:targets ? downCount : null,icon:AlertTriangle,tone:'danger',active:statusFilter==='down',onClick:()=>setStatusFilter('down')},
+        {label:'Pausados',value:targets ? pausedCount : null,icon:Pause,tone:'muted',active:statusFilter==='disabled',onClick:()=>setStatusFilter('disabled')},
+      ]} />
 
       {/* Search, Filter Toolbar & View Switcher */}
-      <div className="bg-bg-card/90 border border-border-base/70 rounded-2xl p-4 shadow-md space-y-3.5">
+      <div className="border-b border-border-base/70 py-3 space-y-2.5">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Search input */}
           <div className="relative flex-1">
@@ -489,7 +398,7 @@ export default function MonitoringPage() {
               className={`p-1.5 rounded-full transition-all ${
                 viewMode === 'grid' ? 'bg-accent-green text-black font-semibold shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
-              title="Vista de Cuadrícula (Cards)"
+              title="Cuadrícula" aria-label="Cuadrícula"
             >
               <LayoutGrid size={16} />
             </button>
@@ -498,7 +407,7 @@ export default function MonitoringPage() {
               className={`p-1.5 rounded-full transition-all ${
                 viewMode === 'table' ? 'bg-accent-green text-black font-semibold shadow-sm' : 'text-text-muted hover:text-text-main'
               }`}
-              title="Vista de Tabla Compacta"
+              title="Lista" aria-label="Lista"
             >
               <ListIcon size={16} />
             </button>
@@ -508,7 +417,7 @@ export default function MonitoringPage() {
         {/* Filters Row: Protocol Chips & Status Pills */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border-base/40">
           {/* Protocol Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 max-w-full text-xs">
             <span className="text-[11px] text-text-dim font-semibold mr-1">Tipo:</span>
             {['all', 'https', 'http', 'tcp', 'dns', 'api', 'ssl'].map((proto) => (
               <button
@@ -526,7 +435,7 @@ export default function MonitoringPage() {
           </div>
 
           {/* Status Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 max-w-full text-xs">
             <button
               onClick={() => setStatusFilter('all')}
               className={`px-3.5 py-1 rounded-full border transition-all font-medium ${
@@ -582,34 +491,28 @@ export default function MonitoringPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => bulkMutation.mutate({ action: 'scan', target_ids: selectedIds })}
-              disabled={bulkMutation.isPending}
-              className="px-3.5 py-1.5 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium rounded-full text-xs hover:bg-accent-green/20 transition-all"
-            >
-              Escanear Seleccionados
-            </button>
-            <button
+
+            <AdminButton
               onClick={() => bulkMutation.mutate({ action: 'pause', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
               className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 font-medium rounded-full text-xs hover:bg-amber-500/20 transition-all"
             >
               Pausar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               onClick={() => bulkMutation.mutate({ action: 'resume', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
               className="px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 font-medium rounded-full text-xs hover:bg-emerald-500/20 transition-all"
             >
               Reanudar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               onClick={() => bulkMutation.mutate({ action: 'delete', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
               className="px-3.5 py-1.5 bg-rose-500/10 border border-rose-500/40 text-rose-400 font-medium rounded-full text-xs hover:bg-rose-500/20 transition-all"
             >
               Eliminar
-            </button>
+            </AdminButton>
             <button
               onClick={() => setSelectedIds([])}
               className="px-3 py-1.5 text-text-muted hover:text-text-main text-xs font-medium transition-colors"
@@ -634,7 +537,7 @@ export default function MonitoringPage() {
                 target={target}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onScan={(t) => scanMutation.mutate(t.id)}
+                onScan={(t) => scanMutation.mutateAsync(t.id)}
                 onToggle={(t) => toggleMutation.mutate(t)}
                 onAlert={() => navigate('/alerts')}
                 isScanning={scanningId === target.id}
@@ -734,12 +637,12 @@ export default function MonitoringPage() {
                 Esta acción eliminará todo su historial de métricas y no se puede deshacer.
               </p>
               <div className="flex gap-3">
-                <button
+                <AdminButton
                   onClick={() => setDeleteConfirm(null)}
                   className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
                 >
                   Cancelar
-                </button>
+                </AdminButton>
                 <button
                   onClick={confirmDelete}
                   className="flex-1 py-2.5 bg-accent-red text-white font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity"

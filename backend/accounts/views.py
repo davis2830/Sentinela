@@ -36,6 +36,10 @@ class LoginView(APIView):
             )
 
         try:
+            from .beta import consume_budget
+            from common.client_ip import get_client_ip
+            consume_budget("login-ip", get_client_ip(request), 100, 900)
+            consume_budget("login-email", serializer.validated_data["email"], 15, 900)
             result = AuthService.login(
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
@@ -54,6 +58,7 @@ class RegisterView(APIView):
     """
 
     permission_classes = (AllowAny,)
+    authentication_classes = ()
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -65,16 +70,22 @@ class RegisterView(APIView):
             )
 
         try:
+            from .beta import consume_budget, validate_captcha
+            from common.client_ip import get_client_ip
+            ip = get_client_ip(request)
+            consume_budget("registration-ip", ip, 20, 3600)
+            validate_captcha(serializer.validated_data.get("turnstile_token", ""), "register", ip)
             result = AuthService.register(
                 email=serializer.validated_data["email"],
                 password=serializer.validated_data["password"],
                 first_name=serializer.validated_data.get("first_name", ""),
                 last_name=serializer.validated_data.get("last_name", ""),
                 organization_name=serializer.validated_data.get("organization_name", ""),
+                invitation_token=serializer.validated_data.get("invitation_token", ""),
             )
             return success_response(
                 result,
-                status_code=status.HTTP_201_CREATED,
+                status_code=status.HTTP_202_ACCEPTED,
             )
         except ValueError as exc:
             return error_response(
@@ -339,16 +350,43 @@ class RevokeSessionsView(APIView):
 
     def post(self, request):
         user = request.user
-        revoked_count = 0
+        current_refresh_token = request.data.get("current_refresh_token")
+        if not current_refresh_token:
+            return error_response(
+                "current_refresh_token es obligatorio para conservar la sesión actual.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
+            from django.db import transaction
+            from rest_framework_simplejwt.exceptions import TokenError
+            from rest_framework_simplejwt.tokens import RefreshToken
             from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
-            tokens = OutstandingToken.objects.filter(user=user)
-            for t in tokens:
-                _, created = BlacklistedToken.objects.get_or_create(token=t)
-                if created:
-                    revoked_count += 1
-        except Exception as exc:
-            logger.warning("Error blacklisting tokens for user %s: %s", user.email, exc)
+
+            current = RefreshToken(current_refresh_token)
+            if str(current.get("user_id")) != str(user.id):
+                return error_response(
+                    "El refresh token actual no pertenece al usuario autenticado.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            current_jti = current.get("jti")
+            with transaction.atomic():
+                tokens = OutstandingToken.objects.select_for_update().filter(user=user).exclude(jti=current_jti)
+                revoked_count = 0
+                for token in tokens:
+                    _, created = BlacklistedToken.objects.get_or_create(token=token)
+                    revoked_count += int(created)
+        except TokenError:
+            return error_response(
+                "El refresh token actual es inválido o expiró.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception("No fue posible revocar las sesiones de %s", user.email)
+            return error_response(
+                "No fue posible revocar las sesiones. No se aplicó ningún cambio.",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         from audit.services import AuditService
         AuditService.log(
@@ -396,13 +434,11 @@ class APITokenListView(APIView):
             from django.utils import timezone
             expires_at = timezone.now() + timedelta(days=expires_in_days)
 
-        raw_token = f"snt_{secrets.token_hex(24)}"
-        api_token = APIToken.objects.create(
+        api_token, raw_token = APIToken.issue(
             user=request.user,
             name=serializer.validated_data["name"],
             scope=serializer.validated_data.get("scope", "full"),
             expires_at=expires_at,
-            token=raw_token,
         )
 
         from audit.services import AuditService
@@ -415,9 +451,10 @@ class APITokenListView(APIView):
             description=f"El usuario {request.user.email} generó el API token '{api_token.name}'.",
         )
 
-        response_serializer = APITokenSerializer(api_token)
+        response_data = APITokenSerializer(api_token).data
+        response_data["raw_token"] = raw_token
         return success_response(
-            response_serializer.data,
+            response_data,
             status_code=status.HTTP_201_CREATED,
         )
 

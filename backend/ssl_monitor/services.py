@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone as dt_tz
 import hashlib
 
 from django.db import transaction
+from common.beta_quota import beta_creation
 from django.utils import timezone
 
 from .models import SSLCertificate
@@ -37,9 +38,14 @@ class SSLMonitorService:
         port = int(port or 443)
 
         try:
+            from common.security import resolve_safe_target_endpoint
+            _, tls_hostname, port, resolved_ips = resolve_safe_target_endpoint(
+                f"https://{clean_domain}:{port}",
+                allow_private=False,
+            )
             context = ssl_mod.create_default_context()
-            with socket.create_connection((clean_domain, port), timeout=10) as sock:
-                with context.wrap_socket(sock, server_hostname=clean_domain) as ssock:
+            with socket.create_connection((resolved_ips[0], port), timeout=10) as sock:
+                with context.wrap_socket(sock, server_hostname=tls_hostname) as ssock:
                     cert_der = ssock.getpeercert(binary_form=True)
                     cert_info = ssock.getpeercert()
                     tls_version = ssock.version() or ""
@@ -177,6 +183,7 @@ class SSLMonitorService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation("ssl_certificates")
     def create_certificate(organization_id, domain, port=443):
         """Create a new SSL certificate record and trigger immediate scan."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0]

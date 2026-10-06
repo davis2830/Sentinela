@@ -1,8 +1,9 @@
 from rest_framework import status
+from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.subscriptions import OperationalAPIView as APIView
 
-from common.responses import error_response, success_response
+from common.responses import error_response, queued_scan_response, success_response
 
 from .serializers import (
     DNSChangeHistorySerializer,
@@ -25,7 +26,7 @@ class DNSRecordListView(APIView):
         org_id = request.user.organization_id
         domain = request.query_params.get("domain")
         records = DNSMonitorService.list_records(org_id, domain=domain)
-        serializer = DNSRecordSerializer(records, many=True)
+        serializer = DNSRecordSerializer(records, many=True, context={"request": request})
         return success_response(serializer.data)
 
     def post(self, request):
@@ -59,7 +60,7 @@ class DNSRecordListView(APIView):
             from .tasks import scan_dns_records
             scan_dns_records.delay(str(record.id))
 
-            response_serializer = DNSRecordSerializer(record)
+            response_serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -83,7 +84,7 @@ class DNSRecordDetailView(APIView):
         org_id = request.user.organization_id
         try:
             record = DNSMonitorService.get_record(record_id, org_id)
-            serializer = DNSRecordSerializer(record)
+            serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
         except Exception:
             return error_response(
@@ -100,7 +101,7 @@ class DNSRecordDetailView(APIView):
             )
             from .tasks import scan_dns_records
             scan_dns_records.delay(str(record.id))
-            serializer = DNSRecordSerializer(record)
+            serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
@@ -131,9 +132,10 @@ class DNSRecordScanView(APIView):
         try:
             record = DNSMonitorService.get_record(record_id, org_id)
             from .tasks import scan_dns_records
-            scan_dns_records.delay(str(record.id))
-            serializer = DNSRecordSerializer(record)
-            return success_response(serializer.data, message="Escaneo de registro DNS programado exitosamente.")
+            task = enqueue_scan(record, scan_dns_records)
+            return queued_scan_response(task, record.id)
+        except ScanLimited as exc:
+            return limited_response(exc)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -199,9 +201,9 @@ class DNSBulkScanView(APIView):
 
     def post(self, request):
         try:
-            from .tasks import scan_all_dns_records
-            scan_all_dns_records.delay()
-            return success_response({"message": "Re-resolución masiva de registros DNS iniciada."})
+            from .tasks import scan_dns_records
+            from .models import DNSRecord
+            return success_response(enqueue_many(DNSRecord.objects.filter(organization_id=request.user.organization_id), scan_dns_records))
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -247,4 +249,4 @@ class DNSBulkActionView(APIView):
             res = DNSMonitorService.bulk_action(org_id, action, record_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

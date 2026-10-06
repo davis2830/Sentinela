@@ -58,6 +58,7 @@ export default function UpgradePlanModal({
 
   if (!isOpen) return null;
 
+  const isBeta = subscriptionSummary?.beta_managed === true;
   const plans = [
     {
       tier: 'free',
@@ -106,7 +107,7 @@ export default function UpgradePlanModal({
         '5 Canales de Notificación',
         '1 Agente Satélite Privado (LAN)',
         '2 Status Pages con dominio custom',
-        '30 días de retención en TimescaleDB',
+        '30 días de retención de telemetría en PostgreSQL',
         '5 Miembros de equipo',
         'Reportes de SLA ejecutivos',
       ],
@@ -165,7 +166,15 @@ export default function UpgradePlanModal({
       ],
       notIncluded: [],
     },
-  ];
+  ].filter(plan => !isBeta || plan.tier !== 'enterprise').map(plan => !isBeta ? plan : {
+    ...plan,
+    price: plan.tier === 'business' ? 'Cotización' : plan.price,
+    period: plan.tier === 'business' ? 'Contacta al administrador' : plan.period,
+    features: plan.tier === 'free' ? plan.features.map(feature => feature
+      .replace('5 Monitores de Uptime', '3 Monitores de Uptime')
+      .replace('7 días de retención de métricas', '3 días de retención de métricas')
+      .replace('2 Canales de Notificación', '2 Canales de correo a destinatarios verificados')) : plan.features,
+  });
 
   const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
@@ -186,6 +195,7 @@ export default function UpgradePlanModal({
               {initialReason ||
                 'Selecciona el nivel de plan adecuado para las demandas operativas y el tamaño de tu equipo.'}
             </p>
+            <p className="mt-2 text-xs text-accent-yellow">Pagos en línea pendientes. La activación de un plan de pago requiere confirmación del administrador; seleccionar un plan no reactiva una prueba vencida.</p>
           </div>
           <button
             onClick={onClose}
@@ -272,7 +282,7 @@ export default function UpgradePlanModal({
                 <div className="mt-6 pt-4 border-t border-border-base/60">
                   {isCurrent ? (
                     <div className="w-full py-2.5 text-center text-xs font-semibold text-text-muted bg-white/5 rounded-xl border border-white/10">
-                      Suscripción Activa
+                      {subscriptionSummary?.monitoring_allowed === false ? 'Plan configurado · operación bloqueada' : 'Plan actual'}
                     </div>
                   ) : (
                     <button

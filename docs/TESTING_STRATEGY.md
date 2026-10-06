@@ -1,191 +1,55 @@
-# 🛡️ Sentinel (GC_OPS_OBS) - Estrategia Integral de Automatización y Pruebas
+# Estrategia de pruebas
 
-Documento maestro de referencia para la arquitectura de pruebas continuas, casos de uso, lógica de negocio y pruebas de rendimiento/estrés del proyecto Sentinel.
+## Suite actual
 
----
+Última suite completa local (2026-10-05, ficha integral HTTP/HTTPS): **117/117 Django, 82/82 Playwright Chromium y TypeScript/build Vite aprobados**. Añade doce regresiones backend de asociaciones y seis flujos de interfaz. Incluye aislamiento, GET sin efectos secundarios, WHOIS explícito, puerto/ruta exactos, consultas por lote, Viewer, fallos parciales, confirmación, retorno con filtros, cooldown y 202. Se conservaron las regresiones previas. Revisión visual 1440×900 y 390×844; fixtures aislados retirados. CI y producción pendientes; no se repitió flake8 en esta ejecución. Véase [evidencia y alcance de la ficha](ENDPOINT_DOSSIER.md#evidencia-local--2026-10-05).
 
-## 🏛️ Pirámide de Automatización de Sentinel
+Suite anterior local (2026-10-05, extensión de paleta compartida): **105/105 Django, 76/76 Playwright Chromium y build TypeScript/Vite aprobados**. Las regresiones visuales verifican marca/estado, contraste de texto secundario de tabla, herencia de tokens en portales, lista/cuadrícula/drawer y filtros móviles sin overflow. La extensión comprueba textos secundarios más blancos en 17 rutas de Conectividad, Gestión y Sistema y registra capturas desktop/móvil. Se mantienen las regresiones de cadencia y permisos. CI y producción pendientes; no se repitió flake8 en esta ejecución. El piloto previo tenía 75 pruebas Chromium.
 
-```
-                       ┌──────────────────────────────────────────┐
-                       │    3. Casos de Uso E2E (Playwright)      │
-                       │   Flujos de usuario real en navegador    │
-                       └──────────────────────────────────────────┘
-                                            ▲
-                       ┌──────────────────────────────────────────┐
-                       │ 2. Rendimiento & Carga (Grafana k6)      │
-                       │     Estrés de APIs, SLAs y Concurrencia  │
-                       └──────────────────────────────────────────┘
-                                            ▲
-                       ┌──────────────────────────────────────────┐
-                       │ 1. Lógica de Negocio & APIs (Pytest DRF) │
-                       │    Cuotas de planes, roles y multi-tenant│
-                       └──────────────────────────────────────────┘
-```
+Validación anterior de beta del 2026-10-05: **102/102 Django**, **60/60 Playwright Chromium**, TypeScript/Vite y flake8 crítico aprobados. El conteo histórico de 65/56 corresponde al 2026-10-03. No es evidencia de CI ni de producción. La suite incorpora verificación, hash de desafíos, fallos de correo, resends, Turnstile simulado, capacidad/confirmación/cuotas concurrentes, presupuestos, transición y política de correos temporales. Para la evidencia posterior de SMTP/Turnstile, ver [gates beta](BETA_EMAIL_VERIFICATION.md).
 
----
+La suite histórica del 2026-10-03 contenía 65 pruebas. Cubren autenticación, hash y revelado único de tokens, revocación de sesiones, confianza de proxy, SSRF sin redirects y con conexión fijada contra DNS rebinding, registro y ejecución directa de schedules SSL/DNS/WHOIS, aislamiento multi-tenant, cuotas, RBAC, contrato 202, cuarentena y retención. Incluyen bloqueo por suscripción y fecha de prueba, tareas encoladas y schedulers, Sentinine, pago verificado y cobertura por protocolo con opt-outs e idempotencia. El diagnóstico de conexión conserva HTTP 308 y Location sin visitar el destino. Las regresiones de frecuencia comprueban Free/Pro e intervalos más lentos, alias y masivos, aislamiento organizacional, duplicados de worker, firmas Celery, rechazo del broker, diagnósticos y resultados de agente. Una prueba TransactionTestCase usa dos conexiones concurrentes PostgreSQL: solo una reserva es admitida. Se verifican los siete estados de scan_availability en los seis GET de lista y detalle, tokens de solo lectura, ausencia de reservas y secretos en GET y número de consultas constante al aumentar recursos.
 
-## 1️⃣ Nivel 1: Lógica de Negocio y Cuotas de Planes (`pytest` + Django REST Framework)
+Comando:
 
-**Propósito:** Probar las reglas críticas del sistema en milisegundos sin necesidad de abrir un navegador.
-
-### 📌 Casos de Uso Críticos a Cubrir:
-1. **Límites y Restricciones por Plan de Suscripción (Billing / Monetización):**
-   - **Plan Free:** Máximo 5 targets de monitoreo, frecuencia mínima de sondeo 5 minutos.
-   - **Plan Pro:** Máximo 50 targets, frecuencia mínima 1 minuto.
-   - **Plan Enterprise:** Targets ilimitados, frecuencia 30 segundos, Multi-puerto SSL (`:8443`, `:636`, `:993`), exportación de auditorías ISO 27001 y Multi-Status Pages.
-   - **Validación de Bloqueo:** Intentar crear el target `N+1` debe retornar `HTTP 403 Forbidden` con mensaje descriptivo.
-2. **Aislamiento Multi-Tenant:**
-   - La Organización A jamás debe poder listar, mutar ni eliminar datos (targets, alertas, certificados, incidentes) de la Organización B.
-3. **Control de Acceso Basado en Roles (RBAC):**
-   - `Viewer`: Solo lectura. No puede pausar targets, silenciar alertas ni alterar configuraciones.
-   - `Operator`: Puede reconocer alertas y documentar bitácoras de incidentes.
-   - `Admin / Owner`: Gestión de miembros, facturación y eliminación masiva.
-4. **Motor de Alertas Inteligentes & Anti-Flapping:**
-   - Detección de $\ge 3$ transiciones de estado en 15 minutos escala a severidad Crítica.
-   - Deduplicación con preservación de `triggered_at` y cálculo de MTTR real.
-
-### 💻 Ejemplo de Implementación (`backend/tests/test_plan_limits.py`):
-```python
-import pytest
-from rest_framework.test import APIClient
-
-@pytest.mark.django_db
-def test_free_plan_target_quota_enforced(api_client, free_org_user):
-    api_client.force_authenticate(user=free_org_user)
-    
-    # Crear los 5 targets permitidos
-    for i in range(5):
-        resp = api_client.post('/api/v1/monitoring/', {
-            'name': f'Target {i}',
-            'target_type': 'http',
-            'url': f'https://service{i}.local'
-        })
-        assert resp.status_code == 201
-
-    # El 6to debe ser rechazado por cuota del plan Free
-    resp = api_client.post('/api/v1/monitoring/', {
-        'name': 'Target Excedente',
-        'target_type': 'http',
-        'url': 'https://excedente.local'
-    })
-    assert resp.status_code == 403
-    assert "límite" in resp.data.get('message', '').lower()
-```
-
----
-
-## 2️⃣ Nivel 2: Carga, Estrés y Rendimiento (Grafana k6) - Implementado al 100%
-
-**Propósito:** Evaluar cómo responde el backend y la base de datos TimescaleDB bajo concurrencia masiva antes de salir a producción.
-
-### 📁 Ubicación en el Proyecto:
-Ruta física: `tests_perf/` (en la raíz del proyecto `GC_OPS_OBS/tests_perf/`)
-
-```
-tests_perf/
-├── config.js                                    # Configuración global, BASE_URL y SLAs
-├── README.md                                    # Guía técnica de ejecución y métricas
-├── run_perf.ps1                                 # Runner interactivo para PowerShell
-├── run_perf.bat                                 # Runner rápido para CMD o doble clic
-├── helpers/
-│   ├── auth.js                                  # Login JWT contra /api/v1/auth/login/
-│   └── reporters.js                             # Reportes visuales HTML (Dark Mode NOC)
-├── scenarios/
-│   ├── 01_noc_dashboard_stress.js              # Simulación de operadores en el NOC
-│   ├── 02_full_platform_read_heavy.js           # Lectura intensiva concurrente en 8 módulos
-│   ├── 03_monitoring_crud_stress.js             # Ciclo transaccional y pre-flight checks
-│   ├── 04_spike_stress_test.js                  # Picos repentinos de carga (hasta 70 VUs)
-│   └── 05_soak_endurance_test.js                # Prueba de resistencia continua (Soak Test)
-└── reports/                                     # Reportes HTML generados
-    ├── noc_dashboard_stress_summary.html
-    ├── full_platform_read_heavy_summary.html
-    ├── monitoring_crud_stress_summary.html
-    ├── spike_stress_test_summary.html
-    └── soak_endurance_test_summary.html
-```
-
-### 📌 Escenarios de Prueba Implementados:
-1. **01 - Concurrencia de Operadores en Dashboard NOC (`01_noc_dashboard_stress.js`):**
-   - Simula operadores consultando simultáneamente telemetría en tiempo real (`/monitoring/global-performance/`), alertas activas (`/alerts/`), estadísticas de SLA/MTTR (`/incidents/stats/`) y targets (`/monitoring/`).
-2. **02 - Lectura Intensiva Multi-Módulo (`02_full_platform_read_heavy.js`):**
-   - Concurrencia sobre Uptime, SSL, DNS, WHOIS, Security Headers, API Checks, Alertas e Incidentes (15 a 50 VUs).
-3. **03 - CRUD y Transacciones de Monitoreo (`03_monitoring_crud_stress.js`):**
-   - Test de conexión en vivo con sondeo real, creación de target y eliminación para no ensuciar la base de datos.
-4. **04 - Spike / Ráfagas Repentinas (`04_spike_stress_test.js`):**
-   - Salto de 2 a 70 usuarios virtuales en 10 segundos para validar absorción y resiliencia de Gunicorn y PostgreSQL.
-5. **05 - Soak / Resistencia y Detección de Leaks (`05_soak_endurance_test.js`):**
-   - Carga moderada constante prolongada para asegurar que no existan memory leaks en Redis ni TimescaleDB.
-
-### 🏃‍♂️ Comandos de Ejecución Rápida:
 ```powershell
-# Ejecutar escenario individual:
-.\tests_perf\run_perf.ps1 -Scenario noc
-.\tests_perf\run_perf.ps1 -Scenario read
-.\tests_perf\run_perf.ps1 -Scenario crud
-.\tests_perf\run_perf.ps1 -Scenario spike
-.\tests_perf\run_perf.ps1 -Scenario soak
-
-# Ejecutar la suite completa:
-.\tests_perf\run_perf.ps1 -Scenario all
-
-# O vía batch (CMD):
-tests_perf\run_perf.bat noc
+docker compose exec -T backend python manage.py test
 ```
 
-### ⚡ Resultados Reales Obtenidos en Benchmark Local:
-- **Peticiones procesadas:** 1,965 peticiones en 1 minuto.
-- **Latencia promedio (Avg):** 37.69 ms.
-- **Latencia Percentil 95 (p95):** 55.88 ms (Objetivo SLA: < 300 ms &rarr; **Aprobado con creces**).
-- **Tasa de error HTTP:** 0.00% (con rate limiting adaptado para benchmarks de testing).
-- **Reporte visual:** Generado en `tests_perf/reports/noc_dashboard_stress_summary.html` con tema Sentinel Dark Mode.
+La última ejecución local completa debe quedar verde antes de actualizar este documento; CI vuelve a ejecutarla sin limitar aplicaciones.
 
----
+## Frontend
 
-## 3️⃣ Nivel 3: Casos de Uso E2E en Navegador Real (Playwright)
+Última validación de cadencia de Conectividad (2026-10-05): **105/105 Django, 73/73 Chromium y build TypeScript/Vite**. Reloj virtual comprueba en los seis módulos que Free no consulta a los 15 segundos y sí a los 300, sin POST de sondeo; cubre Pro 60 s, cambio de plan, metadatos ausentes y mensaje de recarga manual. CI pendiente.
 
-**Propósito:** Simular las acciones de un usuario humano en la interfaz gráfica (React + Vite).
+Última regresión local de correo (2026-10-05): **105/105 Django y 65/65 Chromium**, más build TypeScript/Vite. Incluye confirmación con campo captcha opcional ausente/vacío, rechazo de reenvío sin captcha real, cooldown calculado en servidor, cuerpo exacto del POST de confirmación, recuperación de enlace expirado/incompleto y revisión visual desktop/móvil. Los errores HTTP y estados de envío usan fixtures aislados en navegador; la lógica de tokens y envío se comprueba en Django. No sustituye CI ni certifica la entrega de todos los mensajes. Flake8 no pudo repetirse porque falta en el contenedor reconstruido.
 
-### 📌 Flujos de Usuario Críticos:
-1. **Flujo Onboarding Completo:**
-   - Visitar `/register` -> Ingresar datos válidos -> Creación automática de Organización -> Redirección a `/dashboard`.
-2. **Creación de Monitoreo & Test en Vivo:**
-   - Entrar a `/monitoring` -> Abrir Modal -> Probar conexión TLS con botón en vivo -> Guardar -> Validar que aparece en la tabla con radar verde.
-3. **Bloqueo Visual de Cuotas (Upgrade Modal):**
-   - Al intentar crear más componentes que los permitidos por el plan, verificar que se despliegue el modal interactivo `UpgradePlanModal` invitando a mejorar la suscripción.
-4. **Respuesta a Incidentes y Drawer ITIL:**
-   - Hacer clic en un target caído -> Abrir `TargetDetailDrawer` -> Vincular Alerta -> Elevar a Incidente -> Validar actualización en vivo.
+`npm run build` ejecuta TypeScript y Vite. El build local está aprobado en la rama actual.
 
-### 💻 Ejemplo de Test E2E (`frontend/e2e/monitoring_workflow.spec.ts`):
-```typescript
-import { test, expect } from '@playwright/test';
+## Playwright
 
-test('Usuario crea objetivo y valida tarjeta en NOC', async ({ page }) => {
-  await page.goto('http://localhost:3000/login');
-  await page.fill('input[type="email"]', 'admin@sentinel.local');
-  await page.fill('input[type="password"]', 'admin123456');
-  await page.click('button:has-text("Iniciar Sesión")');
+Existen suites Chromium aisladas en `frontend/e2e/critical-flows.spec.ts`, `frontend/e2e/auth-session.spec.ts` y `frontend/e2e/beta-flows.spec.ts` para:
 
-  await expect(page).toHaveURL('http://localhost:3000/dashboard');
+- login y carga del dashboard con telemetría;
+- filtro por salud y módulo, agrupación de alertas y drawer unificado;
+- re-escaneo y reconocimiento de alerta por administrador;
+- ausencia de controles de mutación para Viewer;
+- recuperación ante un endpoint parcial fallido;
+- orden operativo utilizable en viewport móvil;
+- creación de un target por administrador;
+- rechazo HTTP 403 de una mutación Viewer.
 
-  await page.click('a[href="/monitoring"]');
-  await expect(page.locator('h1')).toContainText('Uptime & Latencia');
+La última ejecución local del 2026-10-03 aprobó 56/56 casos, incluyendo gráficas completas dentro del primer viewport de 1440×900 con avisos visibles, controles de período/auto-refresh y ausencia de desbordamiento horizontal en móvil. También valida onboarding con opt-outs, ausencia de aprovisionamiento frontend duplicado, confirmación persistente y bloqueo de onboarding para suscripción vencida. Las regresiones de sesión comprueban renovación concurrente única, credenciales ausentes o revocadas, refresh sin rotación, fallos temporales y login sin Bearer obsoleto. Se verifica el aviso de redirección con lenguaje sencillo, detalles técnicos desplegables y copia de la URL sugerida sin visitarla ni marcarla verificada antes de una nueva prueba explícita. También se comprueban textos de ayuda de al menos 12 px, onboarding móvil sin overflow y selectores de ejecutor sin emojis. Monitoring verifica que `Actualizar datos` no envía un scan, que el 429 muestra el tiempo de espera y que no hay controles de sondeo masivo en las cabeceras ni barras de selección. También se verifican los doce módulos compactos, preferencias Lista/Cuadrícula, filtros URL, navegación a Gestión, deduplicación, agenda y recuperación parcial, disponibilidad individual y metadatos ausentes, y conservación de filtros, selección y drawer durante la recarga. Las cuentas y altas de target son reales y aisladas; las pruebas de presentación utilizan fixtures de telemetría, no datos productivos. El estado de cumplimiento definitivo continúa sujeto a ejecución verde en CI.
 
-  await page.click('button:has-text("Nuevo Objetivo")');
-  await page.fill('input[placeholder*="Ej. Servidor"]', 'Gateway Transaccional');
-  await page.fill('input[placeholder*="https://"]', 'https://gateway.empresa.com');
-  await page.click('button:has-text("Guardar y Monitorear")');
+Se considera gate implementado únicamente después de pasar en CI. Hasta entonces su estado es “configurado, pendiente de CI”.
 
-  await expect(page.locator('text=Gateway Transaccional')).toBeVisible();
-});
-```
+## Seguridad e infraestructura en CI
 
----
+- `flake8` falla por errores de sintaxis o nombres indefinidos.
+- `npm audit --omit=dev --audit-level=high` y `pip-audit` no silencian fallos.
+- Trivy falla ante High/Critical.
+- Se validan Compose, Dockerfiles productivos y `nginx -t`.
 
-## ⚙️ Integración Continua (CI/CD Pipeline)
+## Rendimiento
 
-Al realizar `git push` o abrir un Pull Request:
-1. **Paso 1:** Ejecutar `npx tsc --noEmit` y `npm run build` (0 errores de compilación).
-2. **Paso 2:** Ejecutar `pytest` para verificar todas las reglas de negocio y planes.
-3. **Paso 3:** Ejecutar suite de `Playwright` en modo headless para flujos clave de UI.
-4. **Paso 4:** En despliegues a Staging, ejecutar test de regresión de rendimiento con `k6`.
+Los resultados k6 existentes son históricos. No hay benchmark oficial vigente hasta repetir el escenario documentado después del hardening; consulte [tests_perf/README.md](../tests_perf/README.md).

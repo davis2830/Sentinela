@@ -20,27 +20,23 @@ export default function TwoFactorReminderBanner() {
   }
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-r from-accent-purple/15 via-bg-card to-accent-yellow/10 border border-accent-purple/30 rounded-2xl p-4 sm:p-5 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
+    <div className="relative overflow-hidden bg-accent-purple/5 border border-accent-purple/25 rounded-lg px-3 py-2">
       {/* Top subtle highlight border */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-purple via-accent-yellow to-transparent" />
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5 min-w-0">
-          <div className="p-2.5 rounded-xl bg-accent-purple/15 border border-accent-purple/30 text-accent-purple shrink-0 mt-0.5 sm:mt-0">
-            <ShieldAlert size={20} />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 rounded-lg bg-accent-purple/10 text-accent-purple shrink-0">
+            <ShieldAlert size={16} />
           </div>
 
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-text-main font-sans">
-                Autenticación en Dos Pasos (2FA) Requerida
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-purple/20 text-accent-purple border border-accent-purple/40 uppercase tracking-wider">
-                AppSec Policy
+              <span className="text-xs font-semibold text-text-main font-sans">
+                Protege tu cuenta con 2FA
               </span>
             </div>
             <p className="text-xs text-text-muted font-sans leading-relaxed">
-              Como administrador del NOC Sentinel, debes proteger tu cuenta vinculando un autenticador TOTP (Google Authenticator, Aegis o 1Password) conforme a las directivas de seguridad ISO 27001.
+              Vincula un autenticador para reforzar la seguridad de tu acceso.
             </p>
           </div>
         </div>
@@ -49,7 +45,7 @@ export default function TwoFactorReminderBanner() {
           <button
             type="button"
             onClick={() => navigate('/profile', { state: { tab: 'security' } })}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-accent-purple hover:bg-accent-purple/80 text-white transition-all shadow-md shadow-accent-purple/20 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border border-accent-purple/30 text-accent-purple hover:bg-accent-purple/10 transition-colors cursor-pointer"
           >
             <Lock size={14} />
             <span>Configurar 2FA</span>

@@ -1,3 +1,5 @@
+import ScanAction from '../common/ScanAction';
+import AdminButton from '../common/AdminButton';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
@@ -146,36 +148,27 @@ export default function APICheckDetailDrawer({
   );
 
   const headerActions = (
-    <button
-      type="button"
-      onClick={() => onScan(target.id)}
-      disabled={isScanning}
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
-      title="Ejecutar chequeo HTTP inmediato"
-    >
-      <RefreshCw size={13} className={isScanning ? 'animate-spin' : ''} />
-      <span>{isScanning ? 'Ejecutando...' : 'Escanear Ahora'}</span>
-    </button>
+    <ScanAction resource={target} route="api-checks" pending={isScanning} onScan={()=>onScan(target.id)} />
   );
 
   const footerActions = (
     <>
-      <button
+      <AdminButton
         type="button"
         onClick={() => onEdit(target)}
         className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
       >
         <Pencil size={14} />
         Editar Configuración
-      </button>
-      <button
+      </AdminButton>
+      <AdminButton
         type="button"
         onClick={() => onDelete(target)}
         className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
       >
         <Trash2 size={14} />
         Eliminar Target
-      </button>
+      </AdminButton>
     </>
   );
 
@@ -327,7 +320,7 @@ export default function APICheckDetailDrawer({
                   Dispara una petición HTTP directa contra el endpoint sin esperar el ciclo Celery.
                 </p>
               </div>
-              <button
+              <AdminButton
                 type="button"
                 onClick={handleExecuteQuickTest}
                 disabled={isTestingLive}
@@ -344,7 +337,7 @@ export default function APICheckDetailDrawer({
                     <span>Lanzar Petición</span>
                   </>
                 )}
-              </button>
+              </AdminButton>
             </div>
 
             {quickTestResult && (

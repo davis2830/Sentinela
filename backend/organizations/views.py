@@ -1,5 +1,7 @@
 import json
+from django.db import transaction
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -238,7 +240,7 @@ class OrganizationMembersView(APIView):
             last_name=last_name,
         )
 
-        invite_link = f"http://localhost:3000/accept-invitation?token={inv_token.token}"
+        invite_link = f"http://localhost:3001/accept-invitation?token={inv_token.token}"
 
         # 3. Send email with magic link
         try:
@@ -402,7 +404,7 @@ class OrganizationMemberResendInviteView(APIView):
         inv.is_used = False
         inv.save()
 
-        invite_link = f"http://localhost:3000/accept-invitation?token={inv.token}"
+        invite_link = f"http://localhost:3001/accept-invitation?token={inv.token}"
         org_name = inv.organization.name or "Sentinel"
 
         try:
@@ -640,6 +642,7 @@ class AcceptInvitationView(APIView):
 
     permission_classes = (AllowAny,)
 
+    @transaction.atomic
     def post(self, request):
         token_str = request.data.get("token")
         password = request.data.get("password")
@@ -652,7 +655,7 @@ class AcceptInvitationView(APIView):
 
         from .models import InvitationToken
         try:
-            inv = InvitationToken.objects.get(token=token_str)
+            inv = InvitationToken.objects.select_for_update().get(token=token_str)
             if not inv.is_valid():
                 return error_response("El enlace de invitación ha expirado o ya fue utilizado.", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -660,32 +663,32 @@ class AcceptInvitationView(APIView):
             from django.utils import timezone
 
             is_staff = (inv.role == "admin")
-            existing_user = User.objects.filter(email=inv.email).first()
+            from accounts.beta import check_email, normalize_email
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError
+            try:
+                email = normalize_email(inv.email)
+                check_email(email)
+                validate_password(password, User(email=email, first_name=inv.first_name, last_name=inv.last_name))
+            except (ValueError, ValidationError):
+                return error_response("Revisa el correo y utiliza una contraseña segura.", status_code=400)
+            from common.subscriptions import require_monitoring
+            require_monitoring(inv.organization)
+            existing_user = User.objects.filter(email__iexact=email).first()
 
             if existing_user:
-                if existing_user.organization_id and existing_user.organization_id != inv.organization_id:
-                    return error_response("Un usuario con este correo ya pertenece a otra organización.", status_code=status.HTTP_400_BAD_REQUEST)
-
-                user = existing_user
-                user.set_password(password)
-                user.organization = inv.organization
-                user.is_staff = is_staff
-                user.is_active = True
-                if inv.first_name:
-                    user.first_name = inv.first_name
-                if inv.last_name:
-                    user.last_name = inv.last_name
-                user.last_login = timezone.now()
-                user.save()
+                return error_response("Ya existe una cuenta. Inicia sesión y solicita la gestión de acceso al administrador; este enlace no cambiará tu contraseña ni tu organización.", status_code=400)
             else:
                 user = User.objects.create_user(
-                    email=inv.email,
+                    email=email,
                     password=password,
                     first_name=inv.first_name,
                     last_name=inv.last_name,
                     organization=inv.organization,
                     is_staff=is_staff,
                     is_active=True,
+                    verification_required=True,
+                    email_verified_at=timezone.now(),
                 )
                 user.last_login = timezone.now()
                 user.save(update_fields=["last_login"])
@@ -696,6 +699,7 @@ class AcceptInvitationView(APIView):
 
             from rest_framework_simplejwt.tokens import RefreshToken
             refresh = RefreshToken.for_user(user)
+            refresh["session_version"] = user.session_version
 
             return success_response({
                 "access_token": str(refresh.access_token),
@@ -761,7 +765,8 @@ class OrganizationCurrentView(APIView):
 
         # Audit log for security & compliance
         try:
-            ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
+            from common.client_ip import get_client_ip
+            ip = get_client_ip(request)
             if ip and "," in ip:
                 ip = ip.split(",")[0].strip()
             AuditService.log(
@@ -837,9 +842,9 @@ class OrganizationChangePlanView(APIView):
         new_tier = serializer.validated_data["plan_tier"]
 
         is_superuser = bool(request.user.is_superuser)
-        if not is_superuser and new_tier in ["business", "enterprise"]:
+        if not is_superuser and new_tier in ["pro", "business", "enterprise"]:
             return error_response(
-                "La actualización a los planes Business o Enterprise requiere confirmación de método de pago o contacto con ventas corporativas.",
+                "Se requiere contratar el plan y confirmar el pago. La integración de pagos está pendiente; contacta al administrador. Cambiar de plan no reactiva una prueba vencida.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -852,7 +857,8 @@ class OrganizationChangePlanView(APIView):
 
         # Audit log for billing & plan change
         try:
-            ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
+            from common.client_ip import get_client_ip
+            ip = get_client_ip(request)
             if ip and "," in ip:
                 ip = ip.split(",")[0].strip()
             AuditService.log(

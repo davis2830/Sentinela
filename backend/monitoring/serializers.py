@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from common.scan_serializers import ScanAvailabilitySerializer, AvailabilityListSerializer
 
 from .models import AgentProbe, MaintenanceWindow, MonitoringCheck, MonitoringTarget
 
@@ -49,12 +50,14 @@ class AgentProbeCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
 
 
-class MonitoringTargetSerializer(serializers.ModelSerializer):
+class MonitoringTargetSerializer(ScanAvailabilitySerializer):
     """Serializer for MonitoringTarget model."""
 
     class Meta:
+        list_serializer_class = AvailabilityListSerializer
         model = MonitoringTarget
         fields = (
+            "scan_availability",
             "id",
             "organization",
             "name",
@@ -125,11 +128,15 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     """Serializer for target creation."""
 
     name = serializers.CharField(max_length=255)
+    related_modules = serializers.ListField(
+        child=serializers.ChoiceField(choices=["ssl", "dns", "domain", "security", "api"]),
+        required=False,
+    )
     target_type = serializers.ChoiceField(
         choices=["http", "https", "tcp", "dns", "api", "ssl"]
     )
     endpoint = serializers.CharField(max_length=500)
-    interval = serializers.IntegerField(min_value=10, default=60)
+    interval = serializers.IntegerField(min_value=10, required=False)
     enabled = serializers.BooleanField(default=True)
     http_method = serializers.CharField(max_length=10, required=False, default="GET")
     expected_status = serializers.IntegerField(required=False, default=200)
@@ -142,6 +149,10 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     agent_probe = serializers.UUIDField(required=False, allow_null=True)
 
     def validate(self, attrs):
+        if "interval" not in attrs:
+            request = self.context.get("request")
+            organization = getattr(getattr(request, "user", None), "organization", None)
+            attrs["interval"] = organization.get_plan_limits()["min_check_interval_seconds"] if organization else 300
         endpoint = attrs.get("endpoint")
         runner_type = attrs.get("runner_type", "cloud")
         agent_probe = attrs.get("agent_probe")
@@ -152,6 +163,12 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
         if endpoint:
             from common.security import validate_safe_target_endpoint
             validate_safe_target_endpoint(endpoint, allow_private=allow_private)
+
+        from .discovery import coverage
+        requested = attrs.get("related_modules")
+        selected, _, _, _ = coverage(attrs["target_type"], endpoint, "agent" if allow_private else "cloud", requested)
+        if requested is not None and set(requested) != selected:
+            raise serializers.ValidationError({"related_modules": "Cobertura incompatible con el protocolo, host o ejecución Sentinine."})
 
         return attrs
 

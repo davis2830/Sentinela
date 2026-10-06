@@ -1,3 +1,7 @@
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -60,6 +64,8 @@ import {
 } from 'lucide-react';
 
 export default function StatusPageAdmin() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // Active Tab
@@ -100,8 +106,8 @@ export default function StatusPageAdmin() {
   const [updatingMaint, setUpdatingMaint] = useState<ScheduledMaintenanceItem | null>(null);
 
   // Multi-Status Pages Query
-  const { data: pages = [], isLoading: isLoadingPages } = useQuery<StatusPageSummaryItem[]>({
-    queryKey: ['status-page-pages'],
+  const { data: pages = [], isLoading: isLoadingPages, isError: isPagesError } = useQuery<StatusPageSummaryItem[]>({
+    queryKey: ['status-page-pages', organizationId],
     queryFn: async () => {
       const response = await api.get('status-page/pages/');
       return (response.data?.data || []) as StatusPageSummaryItem[];
@@ -143,7 +149,7 @@ export default function StatusPageAdmin() {
 
   // 1. Config Query
   const { data: config, isLoading: isLoadingConfig } = useQuery({
-    queryKey: ['status-page-config', activePageId],
+    queryKey: ['status-page-config', organizationId, activePageId],
     queryFn: async () => {
       const response = await api.get('status-page/config/', {
         params: activePageId ? { page_id: activePageId } : {},
@@ -155,7 +161,7 @@ export default function StatusPageAdmin() {
 
   // 2. Admin Stats Query
   const { data: stats } = useQuery({
-    queryKey: ['status-page-stats', activePageId],
+    queryKey: ['status-page-stats', organizationId, activePageId],
     queryFn: async () => {
       const response = await api.get('status-page/stats/', {
         params: activePageId ? { page_id: activePageId } : {},
@@ -168,7 +174,7 @@ export default function StatusPageAdmin() {
 
   // 3. Available Targets Query
   const { data: availableTargets = [] } = useQuery<AvailableTargetItem[]>({
-    queryKey: ['status-page-available-targets'],
+    queryKey: ['status-page-available-targets', organizationId],
     queryFn: async () => {
       const response = await api.get('status-page/available-targets/');
       return (response.data?.data || []) as AvailableTargetItem[];
@@ -177,7 +183,7 @@ export default function StatusPageAdmin() {
 
   // 4. Maintenances List Query
   const { data: maintenances = [], isLoading: isLoadingMaint } = useQuery<ScheduledMaintenanceItem[]>({
-    queryKey: ['status-page-maintenances', activePageId],
+    queryKey: ['status-page-maintenances', organizationId, activePageId],
     queryFn: async () => {
       const response = await api.get('status-page/maintenances/', {
         params: activePageId ? { page_id: activePageId } : {},
@@ -189,7 +195,7 @@ export default function StatusPageAdmin() {
 
   // 5. Subscribers List Query
   const { data: subscribers = [] } = useQuery<StatusPageSubscriberItem[]>({
-    queryKey: ['status-page-subscribers', activePageId],
+    queryKey: ['status-page-subscribers', organizationId, activePageId],
     queryFn: async () => {
       const response = await api.get('status-page/subscribers/', {
         params: activePageId ? { page_id: activePageId } : {},
@@ -225,9 +231,9 @@ export default function StatusPageAdmin() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-config', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-stats', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-config', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-stats', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
     },
   });
 
@@ -237,7 +243,7 @@ export default function StatusPageAdmin() {
       return res.data?.data;
     },
     onSuccess: (newPage) => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
       if (newPage?.id) {
         handleSelectPage(newPage.id);
       }
@@ -249,8 +255,8 @@ export default function StatusPageAdmin() {
       await api.post(`status-page/pages/${pageId}/set-default/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-stats', activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-stats', organizationId, activePageId] });
     },
   });
 
@@ -259,7 +265,7 @@ export default function StatusPageAdmin() {
       await api.delete(`status-page/pages/${pageId}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
       setPageToDelete(null);
     },
   });
@@ -276,9 +282,9 @@ export default function StatusPageAdmin() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-stats', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-stats', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
       setShowMaintModal(false);
       setEditingMaint(null);
     },
@@ -289,9 +295,9 @@ export default function StatusPageAdmin() {
       await api.delete(`status-page/maintenances/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-stats', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-stats', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
       setDeleteTarget(null);
     },
   });
@@ -301,7 +307,7 @@ export default function StatusPageAdmin() {
       await api.post(`status-page/maintenances/${id}/updates/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', organizationId, activePageId] });
       setUpdatingMaint(null);
     },
   });
@@ -311,9 +317,9 @@ export default function StatusPageAdmin() {
       await api.delete(`status-page/subscribers/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status-page-subscribers', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-stats', activePageId] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-subscribers', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-stats', organizationId, activePageId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-pages', organizationId] });
       setSubscriberToDelete(null);
     },
   });
@@ -417,8 +423,8 @@ export default function StatusPageAdmin() {
         maintenance_ids: selectedMaintIds,
       });
       setSelectedMaintIds([]);
-      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances'] });
-      queryClient.invalidateQueries({ queryKey: ['status-page-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-maintenances', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['status-page-stats', organizationId] });
     } finally {
       setBulkProcessing(false);
     }
@@ -434,15 +440,16 @@ export default function StatusPageAdmin() {
   const publicUrl = `/status/${activePage?.slug || slug || 'demo'}`;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["status-page-pages","status-page-config","status-page-stats","status-page-maintenances","status-page-subscribers","status-page-available-targets"]}
         title="Administración de Status Page"
         badgeText="ESTADO PÚBLICO"
         description="Portales de transparencia multi-empresa, publicación de componentes, mantenimientos y suscriptores."
         icon={<Activity size={26} />}
         actions={
           <div className="flex items-center gap-2">
+
             <button
               type="button"
               onClick={() => setShowDirectoryModal(true)}
@@ -451,14 +458,14 @@ export default function StatusPageAdmin() {
               <Layers size={14} className="text-accent-blue" />
               Directorio ({pages.length})
             </button>
-            <button
+            <AdminButton
               type="button"
               onClick={() => setShowCreatePageModal(true)}
               className="flex items-center gap-1.5 bg-accent-green text-black font-semibold px-4 py-2 rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-xs cursor-pointer"
             >
               <Plus size={14} />
               Nueva Status Page
-            </button>
+            </AdminButton>
             <a
               href={publicUrl}
               target="_blank"
@@ -535,7 +542,7 @@ export default function StatusPageAdmin() {
           <select
             value={activePageId}
             onChange={(e) => handleSelectPage(e.target.value)}
-            className="bg-bg-dark border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green cursor-pointer min-w-[200px]"
+            className="bg-bg-dark border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green cursor-pointer w-full sm:w-auto min-w-0"
           >
             {pages.map((p) => (
               <option key={p.id} value={p.id}>
@@ -547,95 +554,7 @@ export default function StatusPageAdmin() {
       </div>
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Estado General Proyectado */}
-        <NOCKpiCard
-          title="Salud Proyectada"
-          icon={
-            stats?.projected_status === 'outage' ? (
-              <Flame size={16} className="text-accent-red" />
-            ) : (
-              <ShieldCheck size={16} className="text-accent-green" />
-            )
-          }
-          badge={{
-            text: stats?.projected_status === 'outage' ? 'Interrupción' : 'Operacional',
-            variant: stats?.projected_status === 'outage' ? 'danger' : 'success',
-          }}
-          value={stats?.projected_status === 'outage' ? 'Alerta Crítica' : '100% Estable'}
-          valueColor={stats?.projected_status === 'outage' ? 'text-accent-red' : 'text-accent-green'}
-          valueSuffix="en vivo"
-          subtitle="Estado visible para visitantes"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Visibilidad Pública</span>
-              <span className={config?.is_public ? 'text-accent-green' : 'text-text-muted'}>
-                {config?.is_public ? 'Habilitada' : 'Privada'}
-              </span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Componentes Publicados */}
-        <NOCKpiCard
-          title="Componentes Públicos"
-          icon={<Layers size={16} className="text-accent-blue" />}
-          badge={{
-            text: `${stats?.published_components || 0} de ${stats?.total_components || 0}`,
-            variant: 'info',
-          }}
-          value={stats?.published_components || 0}
-          valueColor="text-text-main"
-          valueSuffix="servicios"
-          subtitle="Monitores visibles en la status page"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Total Inventario</span>
-              <span>{stats?.total_components || 0} targets</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Mantenimientos Programados */}
-        <NOCKpiCard
-          title="Mantenimientos"
-          icon={<Calendar size={16} className="text-amber-400" />}
-          badge={{
-            text: `${stats?.scheduled_maintenances || 0} Activos`,
-            variant: (stats?.scheduled_maintenances || 0) > 0 ? 'warning' : 'neutral',
-          }}
-          value={stats?.scheduled_maintenances || 0}
-          valueColor={(stats?.scheduled_maintenances || 0) > 0 ? 'text-amber-400' : 'text-text-main'}
-          valueSuffix="ventanas"
-          subtitle="Intervenciones planificadas"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Impacto Preventivo</span>
-              <span className="text-amber-400 font-medium">Programación Activa</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Suscriptores Conectados */}
-        <NOCKpiCard
-          title="Suscriptores Clientes"
-          icon={<Users size={16} className="text-purple-400" />}
-          badge={{
-            text: `${stats?.active_subscribers || 0} Correos`,
-            variant: 'neutral',
-          }}
-          value={stats?.active_subscribers || 0}
-          valueColor="text-purple-400"
-          valueSuffix="usuarios"
-          subtitle="Reciben notificaciones por email"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Audiencia Externa</span>
-              <span className="text-purple-400 font-medium">Alertas automáticas</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary items={[{label:'Páginas',value:isLoadingPages || isPagesError ? null : pages.length},{label:'Públicas',value:isLoadingPages || isPagesError ? null : pages.filter(p=>p.is_public).length},{label:'Componentes de esta página',value:stats?.published_components ?? null},{label:'Suscriptores de esta página',value:stats?.active_subscribers ?? null}]} />
 
       {/* 3. NAVIGATION TABS */}
       <div className="flex items-center gap-2 border-b border-border-base/70 pb-2 overflow-x-auto text-xs font-sans">
@@ -838,7 +757,7 @@ export default function StatusPageAdmin() {
             </div>
 
             <div className="flex justify-end pt-3">
-              <button
+              <AdminButton
                 type="submit"
                 disabled={saveConfigMutation.isPending}
                 className="px-6 py-2.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
@@ -849,7 +768,7 @@ export default function StatusPageAdmin() {
                   <Save size={14} />
                 )}
                 Guardar Configuración de Marca
-              </button>
+              </AdminButton>
             </div>
           </form>
         </div>
@@ -869,14 +788,14 @@ export default function StatusPageAdmin() {
               </p>
             </div>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() => setShowComponentPicker(true)}
               className="flex items-center gap-2 px-4 py-2 bg-accent-blue/10 border border-accent-blue/30 text-accent-blue hover:bg-accent-blue hover:text-black font-semibold rounded-full text-xs transition-all shadow-xs cursor-pointer"
             >
               <Sliders size={14} />
               Gestionar Componentes & Categorías
-            </button>
+            </AdminButton>
           </div>
 
           {config?.component_settings && config.component_settings.length > 0 ? (
@@ -917,14 +836,14 @@ export default function StatusPageAdmin() {
               <p className="text-xs text-text-muted max-w-md mx-auto leading-relaxed">
                 Aún no has configurado reglas personalizadas de visibilidad. Por defecto, todos los monitores activos se publican automáticamente.
               </p>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => setShowComponentPicker(true)}
                 className="px-4 py-2 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
               >
                 <Sliders size={14} />
                 Seleccionar Servicios Específicos
-              </button>
+              </AdminButton>
             </div>
           )}
         </div>
@@ -952,14 +871,14 @@ export default function StatusPageAdmin() {
                 <Wrench size={14} className="text-accent-blue" />
                 <span>Gestión de Mantenimientos</span>
               </a>
-              <button
+              <AdminButton
                 type="button"
                 onClick={handleOpenCreateMaint}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black font-semibold rounded-full text-xs hover:bg-amber-400 transition-all shadow-sm cursor-pointer"
               >
                 <Plus size={15} />
                 Nuevo Mantenimiento
-              </button>
+              </AdminButton>
             </div>
           </div>
 
@@ -1003,30 +922,30 @@ export default function StatusPageAdmin() {
             itemLabel="mantenimientos"
             actions={
               <>
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => handleBulkMaintAction('completed')}
                   disabled={bulkProcessing}
                   className="px-3.5 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   Marcar Completados
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type="button"
                   onClick={() => handleBulkMaintAction('cancelled')}
                   disabled={bulkProcessing}
                   className="px-3.5 py-1.5 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-semibold rounded-full text-xs transition-all disabled:opacity-50 cursor-pointer"
                 >
                   Cancelar
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type="button"
                   onClick={() => handleBulkMaintAction('delete')}
                   disabled={bulkProcessing}
                   className="px-3.5 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {bulkProcessing ? 'Eliminando...' : 'Eliminar'}
-                </button>
+                </AdminButton>
               </>
             }
           />
@@ -1116,7 +1035,7 @@ export default function StatusPageAdmin() {
               )}
 
               <div className="flex justify-end pt-2">
-                <button
+                <AdminButton
                   type="submit"
                   disabled={saveConfigMutation.isPending}
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-full text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
@@ -1127,7 +1046,7 @@ export default function StatusPageAdmin() {
                     <Check size={14} />
                   )}
                   Actualizar Anuncio
-                </button>
+                </AdminButton>
               </div>
             </form>
           </div>
@@ -1175,14 +1094,14 @@ export default function StatusPageAdmin() {
                       </div>
                     </div>
 
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={() => setSubscriberToDelete(sub.id)}
                       className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                       title="Dar de baja suscriptor"
                     >
                       <Trash2 size={13} />
-                    </button>
+                    </AdminButton>
                   </div>
                 ))}
               </div>
@@ -1222,12 +1141,12 @@ export default function StatusPageAdmin() {
                 <Calendar size={18} className="text-amber-400" />
                 {editingMaint ? 'Editar Mantenimiento' : 'Programar Nueva Ventana de Mantenimiento'}
               </h3>
-              <button
+              <AdminButton
                 onClick={() => setShowMaintModal(false)}
                 className="text-text-muted hover:text-text-main p-1.5 rounded-full hover:bg-bg-dark transition-colors cursor-pointer"
               >
                 <X size={18} />
-              </button>
+              </AdminButton>
             </div>
 
             <form onSubmit={handleSaveMaint} className="space-y-4 text-xs">
@@ -1302,14 +1221,14 @@ export default function StatusPageAdmin() {
               )}
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border-base/60">
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => setShowMaintModal(false)}
                   className="px-4 py-2 border border-border-base rounded-full text-xs text-text-muted hover:text-text-main hover:bg-bg-dark transition-colors cursor-pointer"
                 >
                   Cancelar
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type="submit"
                   disabled={saveMaintMutation.isPending}
                   className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-full text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
@@ -1320,7 +1239,7 @@ export default function StatusPageAdmin() {
                     <Check size={14} />
                   )}
                   {editingMaint ? 'Guardar Cambios' : 'Programar Mantenimiento'}
-                </button>
+                </AdminButton>
               </div>
             </form>
           </div>

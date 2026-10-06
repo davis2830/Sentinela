@@ -1,4 +1,6 @@
 import logging
+from common.scan_limits import guarded_scan, enqueue_many
+from common.subscriptions import eligible_organization_ids
 from celery import shared_task
 
 from .models import DomainInfo
@@ -7,7 +9,8 @@ from .services import DomainService
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="domain.scan_whois")
+@shared_task(bind=True, name="domain.scan_whois", soft_time_limit=510, time_limit=540)
+@guarded_scan('domain.DomainInfo')
 def scan_whois(self, domain_id):
     """Scan WHOIS information for a given domain.
 
@@ -18,7 +21,10 @@ def scan_whois(self, domain_id):
         domain_id: UUID string of the DomainInfo record.
     """
     try:
-        domain_info = DomainInfo.objects.get(id=domain_id)
+        domain_info = DomainInfo.objects.select_related("organization").get(id=domain_id)
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(domain_info.organization):
+            return {"status": "skipped", "reason": "subscription_required"}
     except DomainInfo.DoesNotExist:
         logger.error("Domain info %s not found.", domain_id)
         return
@@ -77,9 +83,8 @@ def scan_all_domains():
     """
     domains = DomainInfo.objects.filter(
         organization__status="active",
-        organization__subscription_status__in=["active", "trialing"],
+        organization_id__in=eligible_organization_ids(),
     )
-    for domain in domains:
-        scan_whois.delay(str(domain.id))
+    enqueue_many(domains, scan_whois)
 
     logger.info("Scheduled WHOIS scans for %d domains.", domains.count())

@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import dns.resolver
 from django.db import transaction
+from common.beta_quota import beta_creation
 from django.utils import timezone
 
 from .models import DNSChangeHistory, DNSRecord
@@ -28,13 +29,19 @@ class DNSMonitorService:
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         rec_type = record_type.strip().upper()
 
-        resolver = dns.resolver.Resolver()
-        resolver.lifetime = 8.0
-        if nameserver:
-            resolver.nameservers = [nameserver]
-
         start_time = time.perf_counter()
         try:
+            from common.security import resolve_safe_target_endpoint, validate_safe_target_endpoint
+            validate_safe_target_endpoint(f"http://{clean_domain}", allow_private=False)
+            if nameserver:
+                _, _, _, nameserver_ips = resolve_safe_target_endpoint(
+                    f"http://{nameserver}:53",
+                    allow_private=False,
+                )
+            resolver = dns.resolver.Resolver()
+            resolver.lifetime = 8.0
+            if nameserver:
+                resolver.nameservers = [nameserver_ips[0]]
             answers = resolver.resolve(clean_domain, rec_type)
             latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
@@ -154,6 +161,7 @@ class DNSMonitorService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation("dns_records")
     def create_record(organization_id, domain, record_type):
         """Create a new DNS record to monitor and trigger immediate resolution."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]

@@ -40,8 +40,22 @@ class UserService:
         is_active=True,
     ):
         """Create a new user within an organization."""
+        from accounts.beta import check_email, normalize_email, new_challenge, control_lock
+        from organizations.models import Organization
+        from common.subscriptions import require_monitoring
+        control_lock()
+        org = Organization.objects.select_for_update().get(pk=organization_id)
+        require_monitoring(org)
+        if org.beta_managed and User.objects.filter(organization=org).count() >= org.get_plan_limits()["max_team_members"]:
+            raise ValueError("El plan no permite más integrantes. Consulta Planes.")
+        email = normalize_email(email)
+        check_email(email)
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValueError("Ya existe una cuenta con ese correo.")
+        from django.contrib.auth.password_validation import validate_password
+        validate_password(password, User(email=email, first_name=first_name, last_name=last_name))
         is_staff = (role == "admin")
-        return User.objects.create_user(
+        user = User.objects.create_user(
             email=email,
             password=password,
             organization_id=organization_id,
@@ -49,13 +63,18 @@ class UserService:
             last_name=last_name,
             is_staff=is_staff,
             is_active=is_active,
+            verification_required=True,
         )
+        new_challenge(user, email, "member")
+        return user
 
     @staticmethod
     @transaction.atomic
     def update_user(user_id, organization_id, **fields):
         """Update an existing user."""
         user = User.objects.get(id=user_id, organization_id=organization_id)
+        if "email" in fields and fields["email"] != user.email:
+            raise ValueError("El integrante debe confirmar el cambio desde su perfil.")
         
         if "role" in fields and fields["role"] is not None:
             user.is_staff = (fields.pop("role") == "admin")

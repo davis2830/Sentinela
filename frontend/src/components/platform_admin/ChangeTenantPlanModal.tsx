@@ -121,7 +121,7 @@ export default function ChangeTenantPlanModal({
           </div>
 
           <div className="p-3 bg-bg-dark rounded-xl border border-border-base/50 text-[11px] text-text-dim">
-            Al asignar manualmente un plan Enterprise o Business, los límites de targets, monitores de latencia, retención TimescaleDB y agentes satélite se ajustarán automáticamente de acuerdo a las cuotas del sistema.
+            Al asignar manualmente un plan Enterprise o Business, los límites de targets, monitores de latencia, retención de telemetría en PostgreSQL y agentes satélite se ajustarán automáticamente de acuerdo a las cuotas del sistema.
           </div>
         </div>
 

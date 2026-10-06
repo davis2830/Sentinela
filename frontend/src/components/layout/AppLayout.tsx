@@ -31,7 +31,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Navbar />
       <div className="flex flex-1 overflow-hidden min-h-0">
         <Sidebar />
-        <main ref={mainRef} className="flex-1 min-w-0 p-6 sm:p-8 overflow-y-auto h-full">
+        <main ref={mainRef} className="flex-1 min-w-0 p-4 lg:px-6 lg:py-5 overflow-y-auto h-full">
           <Suspense fallback={<ModuleLoadingSkeleton />}>
             {children || <Outlet />}
           </Suspense>

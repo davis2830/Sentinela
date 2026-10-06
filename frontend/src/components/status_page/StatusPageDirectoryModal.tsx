@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import type { StatusPageSummaryItem } from '../../types/status_page';
@@ -61,7 +62,7 @@ export default function StatusPageDirectoryModal({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <AdminButton
               onClick={() => {
                 onClose();
                 onOpenCreate();
@@ -70,7 +71,7 @@ export default function StatusPageDirectoryModal({
             >
               <Plus size={14} />
               Nueva Status Page
-            </button>
+            </AdminButton>
             <button
               onClick={onClose}
               className="text-text-muted hover:text-text-main p-1.5 rounded-full hover:bg-bg-dark transition-colors cursor-pointer"
@@ -81,13 +82,13 @@ export default function StatusPageDirectoryModal({
         </div>
 
         {/* List of Status Pages */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1">
+        <div className="flex-1 overflow-y-auto py-4 divide-y divide-border-base pr-1">
           {pages.map((p) => {
             const isActive = p.id === activePageId;
             return (
               <div
                 key={p.id}
-                className={`p-4 rounded-2xl border transition-all ${
+                className={`py-3 px-2 border-b transition-all ${
                   isActive
                     ? 'bg-accent-green/5 border-accent-green/40 shadow-sm'
                     : 'bg-bg-dark/70 border-border-base hover:border-border-accent'
@@ -214,25 +215,25 @@ export default function StatusPageDirectoryModal({
                     </button>
 
                     {!p.is_default && (
-                      <button
+                      <AdminButton
                         type="button"
                         onClick={() => onSetDefault(p.id)}
                         title="Marcar como Principal"
                         className="p-1.5 text-text-dim hover:text-amber-400 rounded-lg hover:bg-bg-card transition-colors cursor-pointer"
                       >
                         <Star size={15} />
-                      </button>
+                      </AdminButton>
                     )}
 
                     {pages.length > 1 && !p.is_default && (
-                      <button
+                      <AdminButton
                         type="button"
                         onClick={() => onDeletePage(p.id)}
                         title="Eliminar Status Page"
                         className="p-1.5 text-text-dim hover:text-accent-red rounded-lg hover:bg-bg-card transition-colors cursor-pointer"
                       >
                         <Trash2 size={15} />
-                      </button>
+                      </AdminButton>
                     )}
                   </div>
                 </div>

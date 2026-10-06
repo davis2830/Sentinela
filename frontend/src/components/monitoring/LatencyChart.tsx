@@ -184,7 +184,7 @@ export default function LatencyChart({
           <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
             <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Latencia promedio general">
               <span className="text-text-muted">AVG:</span>
-              <span className="font-bold text-accent-green">{summary.avg_latency}ms</span>
+              <span className="font-bold" style={{color:'var(--monitoring-latency, #10b981)'}}>{summary.avg_latency}ms</span>
             </div>
             <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Percentil 50 (Mediana habitual)">
               <span className="text-text-muted">P50:</span>
@@ -221,17 +221,17 @@ export default function LatencyChart({
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="var(--monitoring-latency, #10b981)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--monitoring-latency, #10b981)" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
 
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--monitoring-chart-grid, #1E293B)" vertical={false} />
 
                 <XAxis
                   dataKey="label"
-                  stroke="#64748B"
-                  tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'monospace' }}
+                  stroke="var(--monitoring-chart-label, #64748B)"
+                  tick={{ fontSize: 12, fill: 'var(--monitoring-chart-label, #64748B)', fontFamily: 'monospace' }}
                   tickLine={false}
                   axisLine={{ stroke: '#1E293B' }}
                   interval="preserveStartEnd"
@@ -239,8 +239,8 @@ export default function LatencyChart({
                 />
 
                 <YAxis
-                  stroke="#64748B"
-                  tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'monospace' }}
+                  stroke="var(--monitoring-chart-label, #64748B)"
+                  tick={{ fontSize: 12, fill: 'var(--monitoring-chart-label, #64748B)', fontFamily: 'monospace' }}
                   tickLine={false}
                   axisLine={{ stroke: '#1E293B' }}
                   domain={[0, yDomainMax]}
@@ -269,7 +269,7 @@ export default function LatencyChart({
                     type="monotone"
                     dataKey="displayLatency"
                     name="Latencia Promedio"
-                    stroke="#10b981"
+                    stroke="var(--monitoring-latency, #10b981)"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#latencyGradient)"
@@ -293,7 +293,7 @@ export default function LatencyChart({
                     }}
                     activeDot={{
                       r: 5,
-                      fill: '#10b981',
+                      fill: 'var(--monitoring-latency, #10b981)',
                       stroke: '#FFFFFF',
                       strokeWidth: 2,
                     }}
@@ -337,7 +337,7 @@ export default function LatencyChart({
           <div className="mt-4 pt-3 border-t border-border-base/50 flex flex-wrap items-center justify-between gap-4 text-[11px] font-mono text-text-muted">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-0.5 bg-accent-green" />
+                <span className="w-3.5 h-0.5" style={{backgroundColor:'var(--monitoring-latency, #10b981)'}} />
                 <span>Latencia Promedio (AVG)</span>
               </div>
               <div className="flex items-center gap-1.5">

@@ -1,29 +1,35 @@
 import logging
+from common.scan_limits import guarded_scan, enqueue_many
+from common.subscriptions import eligible_organization_ids
 from urllib.parse import urlparse, urlunparse
 
 import requests
 from celery import shared_task
-from celery.exceptions import Retry
 from django.utils import timezone
 
 from .models import MonitoringTarget
 from .services import MonitoringService
+from common.security import validate_safe_public_url, validate_safe_target_endpoint
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="monitoring.run_check")
+@shared_task(bind=True, name="monitoring.run_check", soft_time_limit=510, time_limit=540)
+@guarded_scan('monitoring.MonitoringTarget')
 def run_monitoring_check(self, target_id):
     """Execute a monitoring check for a specific target.
 
     Delegates HTTP/HTTPS/TCP checks to Blackbox Exporter and DNS/SSL checks
-    to local libraries. Employs soft-retries via Celery for flapping prevention.
+    to local libraries. All attempts obey the same per-resource scan cadence.
 
     Args:
         target_id: UUID string of the MonitoringTarget.
     """
     try:
-        target = MonitoringTarget.objects.get(id=target_id)
+        target = MonitoringTarget.objects.select_related("organization").get(id=target_id)
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(target.organization):
+            return {"status": "skipped", "reason": "subscription_required"}
     except MonitoringTarget.DoesNotExist:
         logger.error("Monitoring target %s not found.", target_id)
         return
@@ -51,25 +57,14 @@ def run_monitoring_check(self, target_id):
             logger.error("Unsupported target type: %s", target.target_type)
             return
 
-        if status in ("down", "error"):
-            if self.request.retries < 2:
-                logger.info("Check failed for %s. Retrying in 5s (attempt %d/3)...", target.name, self.request.retries + 2)
-                raise self.retry(countdown=5)
-
         MonitoringService.record_check(
             target_id=target.id,
             status=status,
             latency=latency,
             details=details,
         )
-    except Retry as retry_exc:
-        raise retry_exc
     except Exception as exc:
         logger.exception("Error checking target %s: %s", target.name, exc)
-        if self.request.retries < 2:
-            logger.info("Exception during check for %s. Retrying in 5s (attempt %d/3)...", target.name, self.request.retries + 2)
-            raise self.retry(countdown=5)
-
         MonitoringService.record_check(
             target_id=target.id,
             status="error",
@@ -84,6 +79,10 @@ def _run_http_check(target):
     url = target.endpoint
     if not url.startswith("http"):
         url = f"https://{url}"
+
+    # Validate every resolved address immediately before asking Blackbox to
+    # connect. Private targets are only valid through a Sentinine agent.
+    validate_safe_public_url(url)
 
     method = (target.http_method or "GET").upper()
     module = "http_post_2xx" if method == "POST" else "http_2xx"
@@ -135,8 +134,7 @@ def _run_tcp_check(target):
     from django.conf import settings
     host_port = target.endpoint
 
-    if host_port.startswith("localhost") or host_port.startswith("127.0.0.1"):
-        host_port = host_port.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
+    validate_safe_target_endpoint(f"http://{host_port}", allow_private=False)
 
     blackbox_url = f"{settings.BLACKBOX_EXPORTER_URL.rstrip('/')}/probe"
 
@@ -184,12 +182,15 @@ def _run_dns_check(target):
     if "://" in endpoint:
         endpoint = endpoint.split("://")[1]
     host = endpoint.split("/")[0].split(":")[0]
-
     start = timezone.now()
     try:
-        result = socket.getaddrinfo(host, None)
+        from common.security import resolve_safe_target_endpoint
+        _, _, _, resolved_ips = resolve_safe_target_endpoint(
+            f"http://{host}",
+            allow_private=False,
+        )
         elapsed = (timezone.now() - start).total_seconds() * 1000
-        addresses = list(set(r[4][0] for r in result))
+        addresses = list(resolved_ips)
         return "up", round(elapsed, 2), {"addresses": addresses, "host": host}
     except socket.gaierror as exc:
         return "down", None, {"error": str(exc), "domain": host}
@@ -206,14 +207,16 @@ def _run_ssl_check(target):
         endpoint = endpoint.split("://")[1]
     host = endpoint.split("/")[0].split(":")[0]
 
-    if host in ("localhost", "127.0.0.1"):
-        host = "host.docker.internal"
-
     start = timezone.now()
     try:
+        from common.security import resolve_safe_target_endpoint
+        _, tls_hostname, port, resolved_ips = resolve_safe_target_endpoint(
+            f"https://{host}",
+            allow_private=False,
+        )
         context = ssl_module.create_default_context()
-        with socket.create_connection((host, 443), timeout=10) as sock:
-            with context.wrap_socket(sock, server_hostname=host) as ssock:
+        with socket.create_connection((resolved_ips[0], port), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=tls_hostname) as ssock:
                 cert_info = ssock.getpeercert()
 
         elapsed = (timezone.now() - start).total_seconds() * 1000
@@ -257,19 +260,23 @@ def schedule_all_checks():
     This task runs periodically via Celery Beat and dispatches
     individual check tasks for each enabled target.
     """
-    target_ids = list(
+    targets = (
         MonitoringTarget.objects.filter(
             enabled=True,
             organization__status="active",
-            organization__subscription_status__in=["active", "trialing"],
+            organization_id__in=eligible_organization_ids(),
         ).exclude(
             runner_type="agent",
-        ).values_list("id", flat=True)
+        ).select_related("organization")
     )
-    for tid in target_ids:
-        run_monitoring_check.delay(str(tid))
-
-    logger.info("Scheduled checks for %d targets.", len(target_ids))
+    count = 0
+    now = timezone.now()
+    for target in targets:
+        interval = max(target.interval, target.organization.get_plan_limits()["min_check_interval_seconds"])
+        if target.last_checked_at and (now - target.last_checked_at).total_seconds() < interval:
+            continue
+        count += enqueue_many([target], run_monitoring_check)['queued_count']
+    logger.info("Scheduled checks for %d targets.", count)
 
 
 @shared_task(name="monitoring.check_all")
@@ -279,7 +286,7 @@ def check_all():
 
 
 @shared_task(name="monitoring.register_target_in_submonitors")
-def register_target_in_submonitors(target_id):
+def register_target_in_submonitors(target_id, related_modules=None):
     """Asynchronously registers the target in all other relevant monitoring submodules."""
     try:
         target = MonitoringTarget.objects.get(id=target_id)
@@ -287,75 +294,73 @@ def register_target_in_submonitors(target_id):
         logger.error("Target %s not found for submonitor registration.", target_id)
         return
 
-    organization_id = target.organization_id
-    endpoint = target.endpoint
-    name = target.name
-    target_type = target.target_type
-
-    if target_type.lower() in ("https", "ssl"):
+    from common.subscriptions import monitoring_allowed
+    from .discovery import coverage
+    from organizations.services import QuotaService
+    from organizations.models import Organization
+    from ssl_monitor.models import SSLCertificate
+    from ssl_monitor.services import SSLMonitorService
+    from dns_monitor.models import DNSRecord
+    from dns_monitor.services import DNSMonitorService
+    from domain.models import DomainInfo
+    from domain.services import DomainService
+    from api_checks.models import APICheckTarget
+    from api_checks.services import APICheckService
+    from security_headers.models import SecurityHeaderTarget
+    from security_headers.services import SecurityHeadersService
+    if not monitoring_allowed(target.organization):
+        return {"status": "skipped", "reason": "subscription_required"}
+    modules, host, port, url = coverage(
+        target.target_type, target.endpoint,
+        "agent" if target.agent_probe_id else target.runner_type, related_modules,
+    )
+    org_id = target.organization_id
+    handlers = {
+        "ssl": (SSLCertificate, {"domain": host}, "ssl_certificates",
+                lambda: SSLMonitorService.create_certificate(org_id, host, port)),
+        "dns": (DNSRecord, {"domain": host, "record_type": "A"}, "dns_records",
+                lambda: DNSMonitorService.get_or_create_dns_record(org_id, host)),
+        "domain": (DomainInfo, {"domain": host}, "domains",
+                   lambda: DomainService.get_or_create_domain(org_id, host)),
+        "api": (APICheckTarget, {"url": url}, "api_checks",
+                lambda: APICheckService.get_or_create_api_target(org_id, target.name, url, target.http_method)),
+        "security": (SecurityHeaderTarget, {"url": url}, "security_headers",
+                     lambda: SecurityHeadersService.get_or_create_target(org_id, target.name, url)),
+    }
+    result = {"created": [], "existing": [], "failed": {}}
+    from django.db import transaction
+    for module in sorted(modules):
+        model, lookup, quota, create = handlers[module]
         try:
-            from ssl_monitor.services import SSLMonitorService
-            SSLMonitorService.get_or_create_certificate(organization_id, endpoint)
+            # Serialize quota checks and creation per tenant; retries never duplicate resources.
+            with transaction.atomic():
+                org = Organization.objects.select_for_update().get(id=org_id)
+                if not monitoring_allowed(org):
+                    return {"status": "skipped", "reason": "subscription_required"}
+                existing = model.objects.filter(organization_id=org_id, **lookup).first()
+                if existing:
+                    from .coverage import link_provisioned
+                    link_provisioned(target, module, existing)
+                    result["existing"].append(module)
+                    continue
+                QuotaService.check_quota(org, quota)
+                resource = create()
+                from .coverage import link_provisioned
+                link_provisioned(target, module, resource)
+                result["created"].append(module)
         except Exception as exc:
-            logger.warning("Failed to register target in ssl_monitor: %s", exc)
-
-    try:
-        from dns_monitor.services import DNSMonitorService
-        DNSMonitorService.get_or_create_dns_record(organization_id, endpoint, record_type="A")
-    except Exception as exc:
-        logger.warning("Failed to register target in dns_monitor: %s", exc)
-
-    try:
-        from domain.services import DomainService
-        DomainService.get_or_create_domain(organization_id, endpoint)
-    except Exception as exc:
-        logger.warning("Failed to register target in domain: %s", exc)
-
-    try:
-        from api_checks.services import APICheckService
-        method = target.http_method or "GET"
-        full_url = endpoint if endpoint.startswith("http") else f"https://{endpoint}"
-        APICheckService.get_or_create_api_target(organization_id, name, full_url, method=method)
-    except Exception as exc:
-        logger.warning("Failed to register target in api_checks: %s", exc)
-
-    try:
-        from security_headers.services import SecurityHeadersService
-        SecurityHeadersService.get_or_create_target(organization_id, name, endpoint)
-    except Exception as exc:
-        logger.warning("Failed to register target in security_headers: %s", exc)
+            result["failed"][module] = str(exc)
+            logger.warning("Submonitor %s provisioning failed for target %s: %s", module, target_id, exc)
+    return result
 
 
 @shared_task(name="monitoring.purge_old_checks_by_retention")
 def purge_old_checks_by_retention():
-    """Purge MonitoringCheck records that exceed the organization's retention policy."""
-    from datetime import timedelta
-    from django.utils import timezone
-    from organizations.models import Organization
-
-    total_deleted = 0
-    orgs = Organization.objects.all()
-    for org in orgs:
-        retention_days = org.metrics_retention_days or 30
-        cutoff_date = timezone.now() - timedelta(days=retention_days)
-
-        target_ids = MonitoringTarget.objects.filter(organization_id=org.id).values_list("id", flat=True)
-        if target_ids:
-            deleted_count, _ = MonitoringCheck.objects.filter(
-                target_id__in=target_ids,
-                checked_at__lt=cutoff_date,
-            ).delete()
-            total_deleted += deleted_count
-            if deleted_count > 0:
-                logger.info(
-                    "Purged %d monitoring checks older than %d days for org %s (%s).",
-                    deleted_count,
-                    retention_days,
-                    org.name,
-                    org.id,
-                )
-
-    return f"Purged {total_deleted} old monitoring checks."
+    """Deprecated task alias retained for one release."""
+    logger.warning(
+        "monitoring.purge_old_checks_by_retention is deprecated; use monitoring.purge_telemetry."
+    )
+    return purge_telemetry()
 
 
 @shared_task(name="monitoring.check_sentinine_heartbeats")
@@ -412,18 +417,22 @@ def check_sentinine_heartbeats():
     return f"Checked Sentinine probes: {count} transitioned to OFFLINE."
 
 
-@shared_task(name="monitoring.purge_old_telemetry")
-def purge_old_telemetry(days=90):
-    """
-    Periodic task running weekly (via Celery Beat) to enforce data retention
-    and prevent unbounded table growth in PostgreSQL / TimescaleDB.
-    """
+@shared_task(name="monitoring.purge_telemetry")
+def purge_telemetry():
+    """Enforce tenant-aware telemetry retention in PostgreSQL."""
     from django.core.management import call_command
-    logger.info("Executing periodic telemetry purge task (retention: %d days)...", days)
+    logger.info("Executing tenant-aware telemetry purge task.")
     try:
-        call_command("setup_retention", days=days, purge=True)
-        return f"Successfully purged telemetry older than {days} days."
+        call_command("purge_telemetry")
+        return "Tenant-aware telemetry purge completed."
     except Exception as exc:
         logger.error("Failed to execute telemetry purge: %s", exc)
         return f"Error during telemetry purge: {str(exc)}"
-
+
+
+@shared_task(name="monitoring.purge_old_telemetry")
+def purge_old_telemetry(days=None):
+    """Deprecated Celery alias retained for one release."""
+    logger.warning("monitoring.purge_old_telemetry is deprecated; use monitoring.purge_telemetry.")
+    return purge_telemetry()
+

@@ -1,18 +1,5 @@
-# Deployment
+# DEPLOYMENT
 
-Todo debe ejecutarse mediante Docker.
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-Cada servicio tendrá su Dockerfile.
-
-Servicios mínimos:
-
-- Django
-- PostgreSQL
-- Redis
-- Prometheus
-- Blackbox Exporter
-- Loki
-- React
-- Nginx
-
-No depender de instalaciones manuales.
+La documentación mantenida y verificable está en [Centro de documentación](../../docs/README.md). El historial anterior permanece disponible en Git.

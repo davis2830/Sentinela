@@ -1,7 +1,15 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ScanAction from '../components/common/ScanAction';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
+import ReloadDataButton from '../components/common/ReloadDataButton';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
   DomainInfo,
   CreateDomainInfoData,
@@ -20,7 +28,7 @@ import {
   NOCBulkActionBar,
   NOCDrawer,
 } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   FileText,
@@ -67,10 +75,12 @@ function renderNameServersList(nsData: any): string[] {
 }
 
 export default function DomainsPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filter, setFilter] = useUrlFilter('status', ["all","expiring","expired"] as const);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = usePersistentViewMode('domains', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -89,11 +99,8 @@ export default function DomainsPage() {
   const [isTestingWhois, setIsTestingWhois] = useState(false);
   const [testResult, setTestResult] = useState<DomainTestWhoisResult | null>(null);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
+  // Read cadence follows the server plan; GET never triggers a scan.
+  const autoRefresh = useConnectivityRefresh();
 
   const getEndpoint = () => {
     switch (filter) {
@@ -107,7 +114,7 @@ export default function DomainsPage() {
   };
 
   const { data: stats } = useQuery<DomainStats>({
-    queryKey: ['domain-stats'],
+    queryKey: ['domain-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('domains/stats/');
       return (response.data?.data || {}) as DomainStats;
@@ -116,7 +123,7 @@ export default function DomainsPage() {
   });
 
   const { data: domains, isLoading } = useQuery<DomainInfo[]>({
-    queryKey: ['domains', filter],
+    queryKey: ['domains', organizationId, filter],
     queryFn: async () => {
       const response = await api.get(getEndpoint());
       return (response.data?.data || []) as DomainInfo[];
@@ -129,8 +136,8 @@ export default function DomainsPage() {
       await api.post('domains/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
-      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['domains', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats', organizationId] });
       handleCloseModal();
     },
   });
@@ -140,8 +147,8 @@ export default function DomainsPage() {
       await api.patch(`domains/${id}/`, { domain });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
-      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['domains', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats', organizationId] });
       handleCloseModal();
     },
   });
@@ -150,11 +157,16 @@ export default function DomainsPage() {
     mutationFn: async (id: string) => {
       setScanningId(id);
       const response = await api.post(`domains/${id}/scan/`);
-      return response.data?.data;
+      const queued = response.data?.data as QueuedScan;
+      return waitForFreshScan<DomainInfo>(
+        queued,
+        async () => (await api.get(`domains/${id}/`)).data?.data as DomainInfo,
+        (domain) => domain.last_scanned_at,
+      );
     },
     onSuccess: (updatedDomain) => {
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
-      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['domains', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats', organizationId] });
       if (selectedDomain && updatedDomain && selectedDomain.id === updatedDomain.id) {
         setSelectedDomain(updatedDomain);
       }
@@ -165,23 +177,14 @@ export default function DomainsPage() {
     },
   });
 
-  const scanAllMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('domains/scan-all/');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
-      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`domains/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
-      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['domains', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats', organizationId] });
       if (selectedDomain?.id === deleteTarget?.id) {
         setSelectedDomain(null);
       }
@@ -213,8 +216,8 @@ export default function DomainsPage() {
         domain_ids: selectedIds,
       });
       setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
-      queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['domains', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['domain-stats', organizationId] });
     } catch {
       for (const id of selectedIds) {
         api.post(`domains/${id}/scan/`).catch(() => {});
@@ -247,8 +250,8 @@ export default function DomainsPage() {
     }
     setSelectedIds([]);
     setBulkDeleting(false);
-    queryClient.invalidateQueries({ queryKey: ['domains'] });
-    queryClient.invalidateQueries({ queryKey: ['domain-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['domains', organizationId] });
+    queryClient.invalidateQueries({ queryKey: ['domain-stats', organizationId] });
   };
 
   // Test WHOIS Query Live in Modal
@@ -415,10 +418,12 @@ export default function DomainsPage() {
     return true;
   });
 
+  useLinkedResource(domains, selectedDomain, setSelectedDomain);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["domains","domain-stats"]}
         title="Dominios & WHOIS"
         badgeText="DOMAIN WATCH"
         description="Supervisión continua de vigencia ICANN, registradores autorizados, servidores de nombres DNS y fechas de renovación."
@@ -427,6 +432,9 @@ export default function DomainsPage() {
           enabled: autoRefresh.enabled,
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
+          intervalSeconds: autoRefresh.intervalSeconds,
+          resetCountdown: autoRefresh.resetCountdown,
+          ready: autoRefresh.ready,
         }}
         actions={
           <>
@@ -440,109 +448,27 @@ export default function DomainsPage() {
               <Download size={15} />
               <span>Exportar</span>
             </button>
-            <button
-              type="button"
-              onClick={() => scanAllMutation.mutate()}
-              disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50 cursor-pointer"
-              title="Sincronizar información WHOIS de todos los dominios"
-            >
-              <RefreshCw
-                size={15}
-                className={scanAllMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>Sincronizar Todos</span>
-            </button>
-            <button
+
+
+            <AdminButton
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
               <span>Registrar Dominio</span>
-            </button>
+            </AdminButton>
           </>
         }
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Vigencia y Salud Global */}
-        <NOCKpiCard
-          title="Salud de Vigencia"
-          icon={<Globe2 size={16} className="text-accent-green" />}
-          badge={{
-            text: validitySla >= 95.0 ? 'Saludable' : 'Atención',
-            variant: validitySla >= 95.0 ? 'success' : 'warning',
-          }}
-          value={`${validitySla}%`}
-          valueSuffix="activos"
-          progress={{ value: validitySla }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Dominios registrados</span>
-              <span className="text-text-main font-mono">{totalCount} activos</span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Candado de Seguridad EPP */}
-        <NOCKpiCard
-          title="Bloqueo Anti-Robo (EPP)"
-          icon={<Lock size={16} className="text-accent-green" />}
-          badge={{
-            text: lockedCount === totalCount ? '100% Blindado' : 'Revisar Candado',
-            variant: lockedCount === totalCount ? 'success' : 'warning',
-          }}
-          value={`${lockedCount} / ${totalCount}`}
-          valueColor="text-accent-green"
-          subtitle="Dominios con Transfer Lock activo"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Protección contra Hijacking</span>
-              <span className="text-accent-green font-mono font-medium">Activa</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Por Expirar <= 30d */}
-        <NOCKpiCard
-          title="Por Expirar (≤ 30 días)"
-          icon={<AlertTriangle size={16} className={expiringCount > 0 ? 'text-accent-yellow' : 'text-text-dim'} />}
-          badge={{
-            text: expiringCount > 0 ? 'Renovación Requerida' : 'Sin Riesgo',
-            variant: expiringCount > 0 ? 'warning' : 'neutral',
-          }}
-          value={expiringCount}
-          valueColor={expiringCount > 0 ? 'text-accent-yellow' : 'text-text-main'}
-          subtitle={expiringCount > 0 ? 'Vencimientos próximos detectados' : 'Todos con vigencia mayor a 30 días'}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Alerta Temprana</span>
-              <span className="text-accent-yellow font-mono font-medium">30 días</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Servidores de Nombres */}
-        <NOCKpiCard
-          title="Delegación de Nombres"
-          icon={<Server size={16} className="text-accent-purple" />}
-          badge={{
-            text: 'ICANN / Registry',
-            variant: 'neutral',
-          }}
-          value={totalCount > 0 ? 'Delegado' : '0'}
-          valueColor="text-accent-purple"
-          subtitle="Nameservers verificados en TLD"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Protocolo RDAP / WHOIS</span>
-              <span className="text-accent-purple font-mono">Port 43</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary variant="status" items={[
+        {label:'Dominios',value:domains ? totalCount : null,icon:Globe2,tone:'neutral'},
+        {label:'Vigentes',value:domains ? activeCount : null,icon:ShieldCheck,tone:'success'},
+        {label:'Por vencer',value:domains ? expiringCount : null,icon:Clock,tone:'warning'},
+        {label:'Bloqueados',value:domains ? lockedCount : null,icon:Lock,tone:'success'}
+      ]} />
 
       {/* 3. TOOLBAR: Omnibar Search + Status Filter Chips + Persistent Grid/Table Switcher */}
       <NOCToolbar
@@ -568,15 +494,8 @@ export default function DomainsPage() {
         itemLabel="dominios"
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleBulkScan}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm cursor-pointer"
-            >
-              <RefreshCw size={13} />
-              Sincronizar Seleccionados
-            </button>
-            <button
+
+            <AdminButton
               type="button"
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
@@ -584,7 +503,7 @@ export default function DomainsPage() {
             >
               <Trash2 size={13} />
               {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -747,27 +666,16 @@ export default function DomainsPage() {
                     </span>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scanMutation.mutate(domain.id);
-                        }}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-                        title="Consultar WHOIS ahora"
-                      >
-                        <RefreshCw size={14} className={isScanning ? 'animate-spin text-accent-green' : ''} />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => handleOpenEdit(domain, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar dominio"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -777,7 +685,7 @@ export default function DomainsPage() {
                         title="Eliminar dominio"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </div>
                 </div>
@@ -786,7 +694,7 @@ export default function DomainsPage() {
           </div>
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           icon={Globe2}
           title={
             searchTerm || filter !== 'all'
@@ -853,19 +761,7 @@ export default function DomainsPage() {
         }
         headerActions={
           selectedDomain && (
-            <button
-              type="button"
-              onClick={() => scanMutation.mutate(selectedDomain.id)}
-              disabled={scanMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
-              title="Consultar WHOIS inmediato"
-            >
-              <RefreshCw
-                size={13}
-                className={scanMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>{scanMutation.isPending ? 'Consultando...' : 'Consultar WHOIS'}</span>
-            </button>
+            <ScanAction resource={selectedDomain} route="domains" pending={scanMutation.isPending} onScan={()=>scanMutation.mutateAsync(selectedDomain.id)} />
           )
         }
         quickKpis={
@@ -920,22 +816,22 @@ export default function DomainsPage() {
         footerActions={
           selectedDomain && (
             <>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => handleOpenEdit(selectedDomain)}
                 className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Pencil size={14} />
                 Editar Dominio
-              </button>
-              <button
+              </AdminButton>
+              <AdminButton
                 type="button"
                 onClick={() => setDeleteTarget(selectedDomain)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Trash2 size={14} />
                 Eliminar Dominio
-              </button>
+              </AdminButton>
             </>
           )
         }
@@ -1224,7 +1120,7 @@ export default function DomainsPage() {
                 >
                   Cancelar
                 </button>
-                <button
+                <AdminButton
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
                   className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
@@ -1236,7 +1132,7 @@ export default function DomainsPage() {
                   ) : (
                     'Guardar y Monitorear'
                   )}
-                </button>
+                </AdminButton>
               </div>
             </form>
           </div>

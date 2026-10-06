@@ -5,13 +5,17 @@ import AppLayout from './components/layout/AppLayout';
 import SuperAdminRoute from './components/auth/SuperAdminRoute';
 import { useAuthStore } from './store/authStore';
 import PageLoadingSpinner from './components/common/PageLoadingSpinner';
+import ScanFeedback from './components/common/ScanFeedback';
 
 // Lazy-loaded pages for optimal route-level code splitting
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
 const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ManagementDashboardPage = lazy(() => import('./pages/ManagementDashboardPage'));
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
+const EndpointDetailPage = lazy(() => import('./pages/EndpointDetailPage'));
 const SSLCertificatesPage = lazy(() => import('./pages/SSLCertificatesPage'));
 const DNSRecordsPage = lazy(() => import('./pages/DNSRecordsPage'));
 const DomainsPage = lazy(() => import('./pages/DomainsPage'));
@@ -85,6 +89,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScanFeedback />
         <Suspense fallback={<PageLoadingSpinner />}>
           <Routes>
             {/* Public Routes */}
@@ -106,6 +111,8 @@ export default function App() {
               }
             />
             <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/check-email" element={<VerifyEmailPage />} />
             <Route path="/status/:slug" element={<PublicStatusPage />} />
 
             {/* Persistent Authenticated NOC Layout (Navbar & Sidebar NEVER unmount) */}
@@ -117,7 +124,9 @@ export default function App() {
               }
             >
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/gestion" element={<ManagementDashboardPage />} />
               <Route path="/monitoring" element={<MonitoringPage />} />
+              <Route path="/monitoring/:targetId" element={<EndpointDetailPage />} />
               <Route path="/ssl" element={<SSLCertificatesPage />} />
               <Route path="/dns" element={<DNSRecordsPage />} />
               <Route path="/domains" element={<DomainsPage />} />

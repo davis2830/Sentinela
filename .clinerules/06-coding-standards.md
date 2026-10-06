@@ -1,54 +1,5 @@
-# Coding Standards
+# 06-coding-standards
 
-## Principles
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-- SOLID
-- DRY
-- KISS
-- Clean Code
-
-## Naming
-
-Utilizar nombres descriptivos.
-
-Evitar:
-
-- Utils
-- Helper
-- Manager
-- Temp
-
-Preferir:
-
-- MonitoringTarget
-- SSLMonitor
-- DNSDetector
-- AlertRule
-
-## Functions
-
-Pequeñas.
-
-Legibles.
-
-Una sola responsabilidad.
-
-## Classes
-
-Responsabilidad única.
-
-## Comments
-
-Comentar únicamente cuando aporte contexto.
-
-No comentar código obvio.
-
-## Secrets
-
-Nunca almacenar secretos en el código.
-
-Usar variables de entorno.
-
-## Tests
-
-Toda funcionalidad importante debe incluir pruebas.
+La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.

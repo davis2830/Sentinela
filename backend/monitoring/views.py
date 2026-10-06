@@ -1,8 +1,10 @@
 from rest_framework import status
+from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.subscriptions import OperationalAPIView as APIView
 
-from common.responses import error_response, success_response
+from common.client_ip import get_client_ip
+from common.responses import error_response, queued_scan_response, success_response
 from common.permissions import IsAdminOrReadOnly
 
 from .serializers import (
@@ -14,7 +16,7 @@ from .serializers import (
     MonitoringTargetSerializer,
     MonitoringTargetUpdateSerializer,
 )
-from .models import MaintenanceWindow
+from .models import MaintenanceWindow, MonitoringTarget
 from .services import AgentProbeService, MonitoringService
 
 
@@ -33,12 +35,12 @@ class MonitoringTargetListView(APIView):
         team_id = request.query_params.get("team_id")
         if team_id:
             targets = targets.filter(owner_team_id=team_id)
-        serializer = MonitoringTargetSerializer(targets, many=True)
+        serializer = MonitoringTargetSerializer(targets, many=True, context={"request": request})
         return success_response(serializer.data)
 
     def post(self, request):
         org_id = request.user.organization_id
-        serializer = MonitoringTargetCreateSerializer(data=request.data)
+        serializer = MonitoringTargetCreateSerializer(data=request.data, context={"request": request})
         if not serializer.is_valid():
             return error_response(
                 "Invalid input.",
@@ -72,6 +74,12 @@ class MonitoringTargetListView(APIView):
                 owner_team=serializer.validated_data.get("owner_team"),
                 runner_type=serializer.validated_data.get("runner_type", "cloud"),
                 agent_probe=serializer.validated_data.get("agent_probe"),
+                related_modules=serializer.validated_data.get("related_modules"),
+                http_method=serializer.validated_data.get("http_method", "GET"),
+                expected_status=serializer.validated_data.get("expected_status", 200),
+                custom_headers=serializer.validated_data.get("custom_headers", {}),
+                request_body=serializer.validated_data.get("request_body", ""),
+                max_latency_ms=serializer.validated_data.get("max_latency_ms", 2000),
             )
             from audit.services import AuditService
             AuditService.log_from_request(
@@ -79,8 +87,9 @@ class MonitoringTargetListView(APIView):
                 action="create",
                 module="monitoring",
                 description=f"El usuario creó el objetivo de monitoreo {target.name} ({target.target_type.upper()}: {target.endpoint}).",
+                metadata={"target_id": str(target.pk)},
             )
-            response_serializer = MonitoringTargetSerializer(target)
+            response_serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -105,7 +114,7 @@ class MonitoringTargetDetailView(APIView):
         org_id = request.user.organization_id
         try:
             target = MonitoringService.get_target(target_id, org_id)
-            serializer = MonitoringTargetSerializer(target)
+            serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
         except Exception:
             return error_response(
@@ -143,8 +152,9 @@ class MonitoringTargetDetailView(APIView):
                 action="update",
                 module="monitoring",
                 description=f"El usuario actualizó el objetivo de monitoreo {target.name}.",
+                metadata={"target_id": str(target.pk)},
             )
-            response_serializer = MonitoringTargetSerializer(target)
+            response_serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(response_serializer.data)
         except Exception:
             return error_response(
@@ -278,9 +288,10 @@ class MonitoringTargetScanView(APIView):
         try:
             target = MonitoringService.get_target(target_id, org_id)
             from .tasks import run_monitoring_check
-            run_monitoring_check.delay(str(target.id))
-            serializer = MonitoringTargetSerializer(target)
-            return success_response(serializer.data, message="Escaneo programado exitosamente.")
+            task = enqueue_scan(target, run_monitoring_check)
+            return queued_scan_response(task, target.id)
+        except ScanLimited as exc:
+            return limited_response(exc)
         except Exception as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
@@ -400,9 +411,9 @@ class MonitoringTargetBulkScanView(APIView):
 
     def post(self, request):
         try:
-            from .tasks import schedule_all_checks
-            schedule_all_checks.delay()
-            return success_response({"message": "Re-escaneo masivo de objetivos iniciado."})
+            from .tasks import run_monitoring_check
+            from .models import MonitoringTarget
+            return success_response(enqueue_many(MonitoringTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_monitoring_check))
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -535,7 +546,6 @@ class MaintenanceWindowDetailView(APIView):
 
 import socket
 import time
-import requests
 
 
 class TestConnectionView(APIView):
@@ -568,14 +578,13 @@ class TestConnectionView(APIView):
                 if isinstance(custom_headers, dict):
                     headers.update(custom_headers)
 
-                resp = requests.request(
+                from common import safe_http
+                resp = safe_http.request(
                     method=http_method,
                     url=url,
                     headers=headers,
                     data=request_body if request_body else None,
                     timeout=5,
-                    verify=False,
-                    allow_redirects=False,
                 )
                 latency = round((time.perf_counter() - start) * 1000, 2)
                 code_match = resp.status_code == expected_status
@@ -588,10 +597,15 @@ class TestConnectionView(APIView):
                     "expected_status": expected_status,
                     "message": f"Respondió HTTP {resp.status_code} en {latency}ms." if code_match else f"Código inesperado: HTTP {resp.status_code} (esperaba {expected_status}).",
                     "headers": dict(resp.headers),
+                    "redirect_location": resp.headers.get("Location") if resp.is_redirect else None,
                 })
             elif target_type == "tcp":
-                host, port = endpoint.split(":") if ":" in endpoint else (endpoint, 80)
-                sock = socket.create_connection((host, int(port)), timeout=5)
+                from common.security import resolve_safe_target_endpoint
+                _, host, port, resolved_ips = resolve_safe_target_endpoint(
+                    endpoint,
+                    allow_private=False,
+                )
+                sock = socket.create_connection((resolved_ips[0], port), timeout=5)
                 sock.close()
                 latency = round((time.perf_counter() - start) * 1000, 2)
                 return success_response({
@@ -601,10 +615,13 @@ class TestConnectionView(APIView):
                     "message": f"Conexión TCP establecida con {host}:{port} en {latency}ms.",
                 })
             elif target_type == "dns":
-                import dns.resolver
-                answers = dns.resolver.resolve(endpoint, "A")
+                from common.security import resolve_safe_target_endpoint
+                _, _, _, resolved_ips = resolve_safe_target_endpoint(
+                    endpoint,
+                    allow_private=False,
+                )
                 latency = round((time.perf_counter() - start) * 1000, 2)
-                ips = [r.to_text() for r in answers]
+                ips = list(resolved_ips)
                 return success_response({
                     "status": "up",
                     "latency_ms": latency,
@@ -650,9 +667,7 @@ class BulkActionView(APIView):
             msg = f"{count} targets eliminados."
         elif action == "scan":
             from .tasks import run_monitoring_check
-            for t in targets:
-                run_monitoring_check.delay(str(t.id))
-            msg = f"Escaneo en segundo plano encolado para {count} targets."
+            return success_response(enqueue_many(targets, run_monitoring_check))
         else:
             return error_response(f"Acción '{action}' inválida.", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -777,9 +792,7 @@ class AgentProbeHeartbeatView(APIView):
             return error_response("Token de agente no válido o revocado.", status_code=status.HTTP_401_UNAUTHORIZED)
 
         hostname = request.data.get("hostname", "")
-        ip_address = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", ""))
-        if ip_address and "," in ip_address:
-            ip_address = ip_address.split(",")[0].strip()
+        ip_address = get_client_ip(request)
         os_info = request.data.get("os_info", "")
         version = request.data.get("version", "1.0.0")
 
@@ -826,4 +839,4 @@ class AgentProbeSubmitResultsView(APIView):
         return success_response({
             "ingested_count": ingested_count,
             "message": f"Se procesaron {ingested_count} chequeos exitosamente.",
-        })
+        })

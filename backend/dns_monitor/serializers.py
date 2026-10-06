@@ -1,14 +1,17 @@
 from rest_framework import serializers
+from common.scan_serializers import ScanAvailabilitySerializer, AvailabilityListSerializer
 
 from .models import DNSChangeHistory, DNSRecord
 
 
-class DNSRecordSerializer(serializers.ModelSerializer):
+class DNSRecordSerializer(ScanAvailabilitySerializer):
     """Serializer for DNSRecord model."""
 
     class Meta:
+        list_serializer_class = AvailabilityListSerializer
         model = DNSRecord
         fields = (
+            "scan_availability",
             "id",
             "organization",
             "domain",

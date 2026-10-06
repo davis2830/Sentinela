@@ -1,6 +1,13 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
+import ReloadDataButton from '../components/common/ReloadDataButton';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
   APICheckTarget,
   CreateAPICheckTargetData,
@@ -20,7 +27,7 @@ import {
   NOCToolbar,
   NOCBulkActionBar,
 } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Plug,
@@ -39,25 +46,24 @@ import {
 type StatusFilterType = 'all' | 'pass' | 'slow' | 'fail';
 
 export default function APIChecksPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
-  const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [methodFilter, setMethodFilter] = useUrlFilter('method', ["all","GET","POST","PUT","PATCH","DELETE","HEAD"] as const);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('all');
+  const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","pass","slow","fail"] as const);
   const [viewMode, setViewMode] = usePersistentViewMode('api_checks', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
+  // Read cadence follows the server plan; GET never triggers a scan.
+  const autoRefresh = useConnectivityRefresh();
 
   // Stats query
   const { data: stats } = useQuery<APICheckStats>({
-    queryKey: ['api-check-stats'],
+    queryKey: ['api-check-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('api-checks/stats/');
       return (response.data?.data || {}) as APICheckStats;
@@ -70,7 +76,7 @@ export default function APIChecksPage() {
     data: targets,
     isLoading,
   } = useQuery<APICheckTarget[]>({
-    queryKey: ['api-check-targets'],
+    queryKey: ['api-check-targets', organizationId],
     queryFn: async () => {
       const response = await api.get('api-checks/');
       return (response.data?.data || []) as APICheckTarget[];
@@ -84,8 +90,8 @@ export default function APIChecksPage() {
       await api.post('api-checks/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats', organizationId] });
     },
   });
 
@@ -94,8 +100,8 @@ export default function APIChecksPage() {
       await api.patch(`api-checks/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats', organizationId] });
     },
   });
 
@@ -103,11 +109,16 @@ export default function APIChecksPage() {
     mutationFn: async (id: string) => {
       setScanningId(id);
       const response = await api.post(`api-checks/${id}/scan/`);
-      return response.data?.data;
+      const queued = response.data?.data as QueuedScan;
+      return waitForFreshScan<APICheckTarget>(
+        queued,
+        async () => (await api.get(`api-checks/${id}/`)).data?.data as APICheckTarget,
+        (target) => target.last_checked_at,
+      );
     },
     onSuccess: (updatedTarget) => {
-      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats', organizationId] });
       if (selectedTarget && updatedTarget && selectedTarget.id === updatedTarget.id) {
         setSelectedTarget(updatedTarget);
       }
@@ -118,23 +129,14 @@ export default function APIChecksPage() {
     },
   });
 
-  const scanAllMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('api-checks/scan-all/');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`api-checks/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats', organizationId] });
       if (selectedTarget?.id === deleteTarget?.id) {
         setSelectedTarget(null);
       }
@@ -180,8 +182,8 @@ export default function APIChecksPage() {
         target_ids: selectedIds,
       });
       setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['api-check-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['api-check-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['api-check-stats', organizationId] });
     } catch {
       // Fallback
       if (action === 'scan') {
@@ -311,10 +313,12 @@ export default function APIChecksPage() {
     return true;
   });
 
+  useLinkedResource(targets, selectedTarget, setSelectedTarget);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["api-check-targets","api-check-stats","api-check-results"]}
         title="API Endpoints Check"
         badgeText="API WATCHDOG"
         description="Monitoreo sintético continuo, benchmarking de latencia REST, códigos de respuesta HTTP y validación de esquemas JSON."
@@ -323,6 +327,9 @@ export default function APIChecksPage() {
           enabled: autoRefresh.enabled,
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
+          intervalSeconds: autoRefresh.intervalSeconds,
+          resetCountdown: autoRefresh.resetCountdown,
+          ready: autoRefresh.ready,
         }}
         actions={
           <>
@@ -336,115 +343,28 @@ export default function APIChecksPage() {
               <Download size={15} />
               <span>Exportar</span>
             </button>
-            <button
-              type="button"
-              onClick={() => scanAllMutation.mutate()}
-              disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50 cursor-pointer"
-              title="Ejecutar validación de todas las APIs inmediatamente"
-            >
-              <RefreshCw
-                size={15}
-                className={scanAllMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>Ejecutar Todos</span>
-            </button>
-            <button
+
+
+            <AdminButton
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
               <span>Nuevo API Check</span>
-            </button>
+            </AdminButton>
           </>
         }
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Global SLA */}
-        <NOCKpiCard
-          title="Disponibilidad SLA"
-          icon={<ShieldCheck size={16} className="text-accent-green" />}
-          badge={{
-            text: globalSla >= 99.0 ? 'Óptimo' : 'Atención',
-            variant: globalSla >= 99.0 ? 'success' : 'warning',
-          }}
-          value={`${globalSla}%`}
-          valueSuffix="en APIs activas"
-          progress={{ value: globalSla }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Pass Rate Global</span>
-              <span>
-                {passCount} / {Math.max(totalCount - pausedCount, 1)} activas
-              </span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Latencia de APIs */}
-        <NOCKpiCard
-          title="Velocidad de Respuesta"
-          icon={<Activity size={16} className="text-accent-cyan" />}
-          badge={{
-            text: 'REST Benchmark',
-            variant: 'info',
-          }}
-          value={stats?.avg_latency ? `${Math.round(stats.avg_latency)}ms` : '0ms'}
-          valueColor="text-accent-cyan"
-          valueSuffix="promedio"
-          subtitle={`Calculado sobre ${totalCount} endpoints monitoreados`}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Umbral recomendado</span>
-              <span className="text-text-main">&le; 500 ms</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Salud de Endpoints (Distribución) */}
-        <NOCKpiCard
-          title="Salud de Endpoints"
-          icon={<Zap size={16} className="text-amber-400" />}
-          badge={{
-            text: `${totalCount} APIs`,
-            variant: 'neutral',
-          }}
-          distribution={[
-            { label: 'Exitosas', count: passCount, variant: 'success' },
-            { label: 'Lentas', count: slowCount, variant: 'warning' },
-            { label: 'Fallos', count: failCount, variant: 'danger' },
-          ]}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Pausadas: {pausedCount}</span>
-              <span className="text-accent-green">En monitoreo activo</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Frecuencia & Carga */}
-        <NOCKpiCard
-          title="Carga & Frecuencia"
-          icon={<Plug size={16} className="text-accent-green" />}
-          badge={{
-            text: 'Celery Beat',
-            variant: 'neutral',
-          }}
-          value={totalCount > 0 ? `${totalCount * 2} checks` : '0 checks'}
-          valueColor="text-accent-green"
-          valueSuffix="por minuto"
-          subtitle="Verificación automática de respuesta y schema"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Motor de Validación</span>
-              <span className="text-accent-green font-medium">JSON Schema Draft-07</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary variant="status" items={[
+        {label:'API Checks',value:targets ? totalCount : null,icon:Plug,tone:'neutral'},
+        {label:'Correctos',value:targets ? passCount : null,icon:ShieldCheck,tone:'success'},
+        {label:'Lentos',value:targets ? slowCount : null,icon:Activity,tone:'warning'},
+        {label:'Fallos',value:targets ? failCount : null,icon:Zap,tone:'danger'},
+        {label:'Pausados',value:targets ? pausedCount : null,icon:Pause,tone:'muted'}
+      ]} />
 
       {/* 3. TOOLBAR: Omnibar Search + Methods + Status Pills + Grid/Table Switcher */}
       <NOCToolbar
@@ -482,16 +402,8 @@ export default function APIChecksPage() {
         itemLabel="endpoints"
         actions={
           <>
-            <button
-              type="button"
-              onClick={() => handleBulkAction('scan')}
-              disabled={bulkProcessing}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw size={13} />
-              Escanear Seleccionados
-            </button>
-            <button
+
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('pause')}
               disabled={bulkProcessing}
@@ -499,8 +411,8 @@ export default function APIChecksPage() {
             >
               <Pause size={13} />
               Pausar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('resume')}
               disabled={bulkProcessing}
@@ -508,8 +420,8 @@ export default function APIChecksPage() {
             >
               <Play size={13} />
               Reanudar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('delete')}
               disabled={bulkProcessing}
@@ -517,7 +429,7 @@ export default function APIChecksPage() {
             >
               <Trash2 size={13} />
               {bulkProcessing ? 'Procesando...' : 'Eliminar'}
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -566,7 +478,7 @@ export default function APIChecksPage() {
           />
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           icon={Plug}
           title={
             searchTerm || methodFilter !== 'all' || statusFilter !== 'all'

@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: ['localhost', '127.0.0.1', 'host.docker.internal'],
     watch: {
       usePolling: true,
       interval: 1000,

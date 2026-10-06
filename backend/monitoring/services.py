@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.db import transaction
+from common.beta_quota import beta_creation
 from django.utils import timezone
 
 from .models import MonitoringCheck, MonitoringTarget
@@ -15,7 +16,7 @@ class MonitoringService:
 
     @staticmethod
     def list_targets(organization_id):
-        """Return all monitoring targets for an organization with TimescaleDB time-window prefetch."""
+        """Return targets with a bounded PostgreSQL history prefetch."""
         from django.db.models import Prefetch
         from django.utils import timezone
         from datetime import timedelta
@@ -40,6 +41,7 @@ class MonitoringService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation("targets")
     def create_target(
         organization_id,
         name,
@@ -51,6 +53,12 @@ class MonitoringService:
         owner_team=None,
         runner_type="cloud",
         agent_probe=None,
+        related_modules=None,
+        http_method="GET",
+        expected_status=200,
+        custom_headers=None,
+        request_body="",
+        max_latency_ms=2000,
     ):
         owner_team_obj = None
         if owner_team:
@@ -67,6 +75,11 @@ class MonitoringService:
             name=name,
             target_type=target_type,
             endpoint=endpoint,
+            http_method=http_method,
+            expected_status=expected_status,
+            custom_headers=custom_headers or {},
+            request_body=request_body,
+            max_latency_ms=max_latency_ms,
             interval=interval,
             enabled=enabled,
             tags=tags or [],
@@ -76,7 +89,7 @@ class MonitoringService:
         )
         # Asynchronously register in submonitors after transaction commits
         from .tasks import register_target_in_submonitors
-        transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id)))
+        transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id), related_modules))
 
         return target
 
@@ -644,9 +657,22 @@ class AgentProbeService:
         probe.save(update_fields=["last_heartbeat", "status", "hostname", "ip_address", "os_info", "version", "updated_at"])
 
         # Fetch assigned active targets
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(probe.organization):
+            return []
         targets = probe.assigned_targets.filter(enabled=True)
         task_list = []
         for t in targets:
+            interval = max(t.interval, probe.organization.get_plan_limits()["min_check_interval_seconds"])
+            if t.last_checked_at and (timezone.now() - t.last_checked_at).total_seconds() < interval:
+                continue
+            from common.scan_limits import reserve, start, ScanLimited
+            try:
+                token = reserve(t)
+                if not start(t, token):
+                    continue
+            except ScanLimited:
+                continue
             task_list.append({
                 "target_id": str(t.id),
                 "name": t.name,
@@ -657,7 +683,7 @@ class AgentProbeService:
                 "custom_headers": t.custom_headers,
                 "request_body": t.request_body,
                 "max_latency_ms": t.max_latency_ms,
-                "interval": t.interval,
+                "interval": interval,
             })
         return task_list
 
@@ -665,6 +691,8 @@ class AgentProbeService:
     @transaction.atomic
     def ingest_results(probe, results):
         """Ingest batch check execution results from private probe."""
+        from common.subscriptions import require_monitoring
+        require_monitoring(probe.organization)
         from .models import MonitoringCheck, MonitoringTarget
         ingested = 0
         now = timezone.now()
@@ -672,8 +700,11 @@ class AgentProbeService:
             target_id = item.get("target_id")
             if not target_id:
                 continue
-            target = MonitoringTarget.objects.filter(id=target_id, organization=probe.organization).first()
+            target = MonitoringTarget.objects.filter(id=target_id, organization=probe.organization, agent_probe=probe, runner_type='agent', enabled=True).first()
             if not target:
+                continue
+            from common.scan_limits import accept_agent_result
+            if not accept_agent_result(target):
                 continue
 
             status_val = item.get("status", "down")

@@ -6,15 +6,28 @@ import logging
 import time
 import uuid
 
-import requests
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Avg
 from django.utils import timezone
 
 from .models import Notification, NotificationChannel
+from common import safe_http
 
 logger = logging.getLogger(__name__)
+
+
+def validate_beta_channel(organization_id, channel_type, config):
+    from organizations.models import Organization
+    from accounts.models import User
+    org = Organization.objects.get(pk=organization_id)
+    if not org.beta_managed or org.plan_tier != "free":
+        return
+    recipients = (config or {}).get("recipients", [])
+    verified = set(User.objects.filter(organization=org, is_active=True,
+                    email_verified_at__isnull=False).values_list("email", flat=True))
+    if channel_type != "email" or not isinstance(recipients, list) or not recipients or not set(recipients) <= verified:
+        raise ValueError("Free beta permite correo únicamente a integrantes con correo confirmado. Máximo 50 envíos por día.")
 
 SEVERITY_LEVELS = {
     "info": 1,
@@ -86,6 +99,7 @@ class NotificationChannelService:
         quiet_hours_critical_override=True,
     ):
         """Create a new notification channel with smart routing configuration."""
+        validate_beta_channel(organization_id, channel_type, config or {})
         return NotificationChannel.objects.create(
             organization_id=organization_id,
             name=name,
@@ -109,6 +123,8 @@ class NotificationChannelService:
         channel = NotificationChannel.objects.get(
             id=channel_id, organization_id=organization_id
         )
+        validate_beta_channel(organization_id, fields.get("channel_type", channel.channel_type),
+                              fields.get("config", channel.config))
         for field, value in fields.items():
             if value is not None:
                 setattr(channel, field, value)
@@ -222,6 +238,28 @@ class NotificationService:
             notification.error_message = "Channel not found or disabled."
             notification.save(update_fields=["status", "error_message"])
             return False
+
+        org = notification.organization
+        if org.beta_managed:
+            from common.subscriptions import monitoring_allowed
+            from accounts.models import User
+            from accounts.beta import consume_budget
+            from rest_framework.exceptions import Throttled
+            recipients = (channel.config or {}).get("recipients", [])
+            verified = set(User.objects.filter(organization=org, is_active=True,
+                            email_verified_at__isnull=False).values_list("email", flat=True))
+            allowed = monitoring_allowed(org)
+            if org.plan_tier == "free":
+                allowed = allowed and channel.channel_type == "email" and bool(recipients) and isinstance(recipients, list) and set(recipients) <= verified
+            try:
+                consume_budget("beta-notifications", str(org.pk), 50, 86400)
+            except Throttled:
+                allowed = False
+            if not allowed:
+                notification.status = Notification.Status.FAILED
+                notification.error_message = "Beta: usa destinatarios verificados; revisa estado y límite diario de 50 envíos."
+                notification.save(update_fields=["status", "error_message"])
+                return False
 
         t0 = time.monotonic()
         try:
@@ -587,7 +625,7 @@ class SlackDeliveryHandler:
             "text": f"*{notification.title}*\n{notification.message}",
         }
 
-        response = requests.post(webhook_url, json=payload, timeout=10)
+        response = safe_http.post(webhook_url, json=payload, timeout=10)
         duration_ms = int((time.monotonic() - t0) * 1000)
         response.raise_for_status()
 
@@ -619,7 +657,7 @@ class TeamsDeliveryHandler:
             ],
         }
 
-        response = requests.post(webhook_url, json=payload, timeout=10)
+        response = safe_http.post(webhook_url, json=payload, timeout=10)
         duration_ms = int((time.monotonic() - t0) * 1000)
         response.raise_for_status()
 
@@ -648,7 +686,7 @@ class WebhookDeliveryHandler:
             "notification_id": str(notification.id),
         }
 
-        response = requests.post(
+        response = safe_http.post(
             webhook_url,
             json=payload,
             headers=headers,
@@ -676,7 +714,7 @@ class DiscordDeliveryHandler:
             "content": f"**{notification.title}**\n{notification.message}",
         }
 
-        response = requests.post(webhook_url, json=payload, timeout=10)
+        response = safe_http.post(webhook_url, json=payload, timeout=10)
         duration_ms = int((time.monotonic() - t0) * 1000)
         response.raise_for_status()
 
@@ -703,7 +741,7 @@ class TelegramDeliveryHandler:
             "parse_mode": "Markdown",
         }
 
-        response = requests.post(url, json=payload, timeout=10)
+        response = safe_http.post(url, json=payload, timeout=10)
         duration_ms = int((time.monotonic() - t0) * 1000)
         response.raise_for_status()
 

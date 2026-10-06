@@ -7,7 +7,7 @@ and network boundary checks for monitoring targets and API checks.
 
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 from rest_framework.exceptions import ValidationError
 
 
@@ -71,6 +71,11 @@ def is_ip_restricted(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address, allo
         return True, f"La dirección IP {ip_obj} no es enrutable o es multicast."
 
     if not allow_private:
+        if not ip_obj.is_global:
+            return True, (
+                f"La dirección IP {ip_obj} no es globalmente enrutable. "
+                "Los destinos internos deben ejecutarse mediante un Guardián Sentinine."
+            )
         # Check against private IPv4 / IPv6 ranges
         if isinstance(ip_obj, ipaddress.IPv4Address):
             for net in RESTRICTED_IPV4_NETWORKS:
@@ -91,7 +96,10 @@ def is_ip_restricted(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address, allo
     return False, ""
 
 
-def validate_safe_target_endpoint(endpoint: str, allow_private: bool = False) -> str:
+def _validate_and_resolve_endpoint(
+    endpoint: str,
+    allow_private: bool = False,
+) -> tuple[str, ParseResult, tuple[str, ...]]:
     """
     Validate that an endpoint (URL, hostname, or IP:port) is safe against SSRF attacks.
     
@@ -127,6 +135,17 @@ def validate_safe_target_endpoint(endpoint: str, allow_private: bool = False) ->
     if not hostname:
         raise ValidationError("No se pudo determinar el nombre de host o dirección IP del endpoint.")
 
+    if parsed.scheme not in ("http", "https"):
+        raise ValidationError("Solo se permiten destinos HTTP o HTTPS.")
+    if parsed.username or parsed.password:
+        raise ValidationError("No se permiten credenciales embebidas en la URL.")
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as exc:
+        raise ValidationError("El puerto del destino no es válido.") from exc
+    if not 1 <= port <= 65535:
+        raise ValidationError("El puerto del destino debe estar entre 1 y 65535.")
+
     # Check against known dangerous cloud metadata hostnames
     if hostname in CLOUD_METADATA_HOSTS:
         raise ValidationError(
@@ -139,40 +158,50 @@ def validate_safe_target_endpoint(endpoint: str, allow_private: bool = False) ->
         is_restr, reason = is_ip_restricted(ip_obj, allow_private=allow_private)
         if is_restr:
             raise ValidationError(reason)
-        return raw
+        return raw, parsed, (str(ip_obj),)
     except ValueError:
         # It's a domain name / hostname, proceed to DNS resolution check
         pass
 
     # Resolve hostname to verify underlying IP addresses (DNS Rebinding / SSRF protection)
-    # Only perform DNS resolution check for Cloud runner (allow_private=False)
-    if not allow_private:
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        try:
-            addr_info = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
-            resolved_ips = set()
-            for item in addr_info:
-                sockaddr = item[4]
-                ip_str = sockaddr[0]
-                resolved_ips.add(ip_str)
+    try:
+        addr_info = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        resolved_ips = tuple(sorted({item[4][0] for item in addr_info}))
+        if not resolved_ips:
+            raise ValidationError(f"El destino '{hostname}' no resolvió ninguna dirección IP.")
 
-            for ip_str in resolved_ips:
-                ip_obj = ipaddress.ip_address(ip_str)
-                is_restr, reason = is_ip_restricted(ip_obj, allow_private=False)
-                if is_restr:
-                    raise ValidationError(
-                        f"El dominio '{hostname}' resuelve a la IP restringida {ip_str}. {reason}"
-                    )
-        except socket.gaierror:
-            # If DNS resolution fails here, we still let it pass if it's a syntactically valid domain,
-            # but reject obvious invalid internal suffixes
-            if hostname.endswith(".internal") or hostname.endswith(".local") or hostname.endswith(".lan"):
+        for ip_str in resolved_ips:
+            ip_obj = ipaddress.ip_address(ip_str)
+            is_restr, reason = is_ip_restricted(ip_obj, allow_private=allow_private)
+            if is_restr:
                 raise ValidationError(
-                    f"El dominio '{hostname}' es un dominio interno (.local/.internal/.lan). "
-                    f"Para monitorizar redes internas, asigna este objetivo a un 'Guardián Sentinine'."
+                    f"El dominio '{hostname}' resuelve a la IP restringida {ip_str}. {reason}"
                 )
+    except socket.gaierror as exc:
+        raise ValidationError(
+            f"No se pudo resolver de forma segura el destino '{hostname}'."
+        ) from exc
 
+    return raw, parsed, resolved_ips
+
+
+def validate_safe_target_endpoint(endpoint: str, allow_private: bool = False) -> str:
+    """Validate an endpoint and every IP returned by DNS."""
+    raw, _, _ = _validate_and_resolve_endpoint(endpoint, allow_private=allow_private)
     return raw
+
+
+def resolve_safe_target_endpoint(
+    endpoint: str,
+    allow_private: bool = False,
+) -> tuple[str, str, int, tuple[str, ...]]:
+    """Return a validated endpoint and the IP literals safe to connect to."""
+    raw, parsed, resolved_ips = _validate_and_resolve_endpoint(
+        endpoint,
+        allow_private=allow_private,
+    )
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return raw, parsed.hostname or "", port, resolved_ips
 
 
 def validate_safe_public_url(url: str) -> str:
@@ -182,3 +211,22 @@ def validate_safe_public_url(url: str) -> str:
     except ValidationError as exc:
         msg = exc.detail[0] if isinstance(exc.detail, list) else str(exc.detail)
         raise SSRFSecurityException(msg)
+
+
+def resolve_safe_public_url(url: str) -> tuple[str, str, int, tuple[str, ...]]:
+    """Resolve and validate a public URL for a DNS-pinned connection.
+
+    The caller must connect to one of the returned IP literals instead of
+    resolving the hostname a second time. This closes the DNS-rebinding gap
+    between validation and connection establishment.
+    """
+    try:
+        raw, hostname, port, resolved_ips = resolve_safe_target_endpoint(
+            url,
+            allow_private=False,
+        )
+    except ValidationError as exc:
+        msg = exc.detail[0] if isinstance(exc.detail, list) else str(exc.detail)
+        raise SSRFSecurityException(msg)
+
+    return raw, hostname, port, resolved_ips

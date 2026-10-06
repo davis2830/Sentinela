@@ -1,6 +1,14 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ScanAction from '../components/common/ScanAction';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
+import ReloadDataButton from '../components/common/ReloadDataButton';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
   SecurityHeaderTarget,
   SecurityHeaderResult,
@@ -21,7 +29,7 @@ import {
   NOCBulkActionBar,
   NOCDrawer,
 } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   ShieldCheck,
@@ -111,6 +119,8 @@ const STANDARD_SECURITY_HEADERS = [
 ];
 
 export default function SecurityHeadersPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
@@ -118,7 +128,7 @@ export default function SecurityHeadersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingTarget, setEditingTarget] = useState<SecurityHeaderTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SecurityHeaderTarget | null>(null);
-  const [gradeFilter, setGradeFilter] = useState<GradeFilterType>('all');
+  const [gradeFilter, setGradeFilter] = useUrlFilter('grade', ["all","grade_a","grade_bc","grade_df"] as const);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = usePersistentViewMode('security_headers', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -129,15 +139,12 @@ export default function SecurityHeadersPage() {
   const [rawHeadersFilter, setRawHeadersFilter] = useState('');
   const [bulkActionRunning, setBulkActionRunning] = useState(false);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
+  // Read cadence follows the server plan; GET never triggers a scan.
+  const autoRefresh = useConnectivityRefresh();
 
   // Stats query
   const { data: stats } = useQuery<SecurityHeaderStats>({
-    queryKey: ['security-header-stats'],
+    queryKey: ['security-header-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('security-headers/stats/');
       return (response.data?.data || {}) as SecurityHeaderStats;
@@ -147,7 +154,7 @@ export default function SecurityHeadersPage() {
 
   // Targets query
   const { data: targets, isLoading } = useQuery<SecurityHeaderTarget[]>({
-    queryKey: ['security-header-targets'],
+    queryKey: ['security-header-targets', organizationId],
     queryFn: async () => {
       const response = await api.get('security-headers/');
       return (response.data?.data || []) as SecurityHeaderTarget[];
@@ -157,7 +164,7 @@ export default function SecurityHeadersPage() {
 
   // Target scan results query for selectedTarget
   const { data: results, isLoading: isLoadingResults } = useQuery<SecurityHeaderResult[]>({
-    queryKey: ['security-header-results', selectedTarget?.id],
+    queryKey: ['security-header-results', organizationId, selectedTarget?.id],
     queryFn: async () => {
       if (!selectedTarget) return [];
       const response = await api.get(`security-headers/${selectedTarget.id}/results/`);
@@ -171,8 +178,8 @@ export default function SecurityHeadersPage() {
       await api.post('security-headers/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats', organizationId] });
       setShowForm(false);
       setEditingTarget(null);
     },
@@ -183,8 +190,8 @@ export default function SecurityHeadersPage() {
       await api.patch(`security-headers/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats', organizationId] });
       setShowForm(false);
       setEditingTarget(null);
     },
@@ -194,12 +201,17 @@ export default function SecurityHeadersPage() {
     mutationFn: async (id: string) => {
       setScanningId(id);
       const response = await api.post(`security-headers/${id}/scan/`);
-      return response.data?.data;
+      const queued = response.data?.data as QueuedScan;
+      return waitForFreshScan<SecurityHeaderTarget>(
+        queued,
+        async () => (await api.get(`security-headers/${id}/`)).data?.data as SecurityHeaderTarget,
+        (target) => target.last_checked_at,
+      );
     },
     onSuccess: (updatedTarget) => {
-      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-results', selectedTarget?.id] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-results', organizationId, selectedTarget?.id] });
       if (selectedTarget && updatedTarget && selectedTarget.id === updatedTarget.id) {
         setSelectedTarget(updatedTarget);
       }
@@ -210,23 +222,14 @@ export default function SecurityHeadersPage() {
     },
   });
 
-  const scanAllMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('security-headers/scan-all/');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`security-headers/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats', organizationId] });
       if (selectedTarget?.id === deleteTarget?.id) {
         setSelectedTarget(null);
       }
@@ -265,8 +268,8 @@ export default function SecurityHeadersPage() {
         action,
         target_ids: selectedIds,
       });
-      queryClient.invalidateQueries({ queryKey: ['security-header-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['security-header-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-targets', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['security-header-stats', organizationId] });
       if (action === 'delete') {
         setSelectedIds([]);
       }
@@ -565,10 +568,12 @@ header {
     setTimeout(() => setCopiedSnippet(false), 2000);
   };
 
+  useLinkedResource(targets, selectedTarget, setSelectedTarget);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["security-header-targets","security-header-stats","security-header-results"]}
         title="Cabeceras de Seguridad"
         badgeText="HEADER AUDIT"
         description="Auditoría de cabeceras HTTP recomendadas (HSTS, CSP, X-Frame-Options) y análisis de mitigación contra ataques web."
@@ -577,6 +582,9 @@ header {
           enabled: autoRefresh.enabled,
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
+          intervalSeconds: autoRefresh.intervalSeconds,
+          resetCountdown: autoRefresh.resetCountdown,
+          ready: autoRefresh.ready,
         }}
         actions={
           <>
@@ -589,115 +597,27 @@ header {
               <Download size={15} />
               Exportar CSV
             </button>
-            <button
-              type="button"
-              onClick={() => scanAllMutation.mutate()}
-              disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50"
-              title="Escanear cabeceras de todos los endpoints inmediatamente"
-            >
-              <RefreshCw
-                size={15}
-                className={scanAllMutation.isPending ? 'animate-spin' : ''}
-              />
-              Escanear Todos
-            </button>
-            <button
+
+
+            <AdminButton
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
             >
               <Plus size={16} />
               Nuevo Endpoint
-            </button>
+            </AdminButton>
           </>
         }
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Calificación Óptima */}
-        <NOCKpiCard
-          title="Tasa de Excelencia"
-          icon={<ShieldCheck size={16} className="text-accent-green" />}
-          badge={{
-            text: optimalRate >= 80.0 ? 'Óptimo' : 'Atención',
-            variant: optimalRate >= 80.0 ? 'success' : 'warning',
-          }}
-          value={`${optimalRate}%`}
-          valueSuffix="Grado A/A+"
-          progress={{ value: optimalRate }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Blindaje de Seguridad</span>
-              <span>
-                {gradeACount} de {totalCount} endpoints
-              </span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Puntuación Promedio */}
-        <NOCKpiCard
-          title="Puntuación Media"
-          icon={<Activity size={16} className="text-accent-cyan" />}
-          badge={{
-            text: 'Benchmark OWASP',
-            variant: 'info',
-          }}
-          value={stats?.avg_score ? `${Math.round(stats.avg_score)}` : '0'}
-          valueColor="text-accent-cyan"
-          valueSuffix="/ 100 pts"
-          subtitle="Basado en presencia y configuración de cabeceras"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Nivel Recomendado</span>
-              <span className="text-accent-cyan font-semibold">&ge; 80 puntos</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Distribución por Grados */}
-        <NOCKpiCard
-          title="Distribución de Calidad"
-          icon={<Zap size={16} className="text-amber-400" />}
-          badge={{
-            text: `${totalCount} Sitios`,
-            variant: 'neutral',
-          }}
-          distribution={[
-            { label: 'Grado A/A+', count: gradeACount, variant: 'success' },
-            { label: 'Grado B/C', count: gradeBCCount, variant: 'warning' },
-            { label: 'Grado D/F', count: gradeDFCount, variant: 'danger' },
-          ]}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>HSTS / CSP / X-Frame</span>
-              <span className="text-accent-green">Auditado</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Fugas de Servidor / Stack Disclosure */}
-        <NOCKpiCard
-          title="Fugas de Servidor"
-          icon={<ShieldAlert size={16} className={infoLeaksCount > 0 ? 'text-amber-400' : 'text-accent-green'} />}
-          badge={{
-            text: infoLeaksCount > 0 ? 'Exposición Detectada' : 'Protegido',
-            variant: infoLeaksCount > 0 ? 'warning' : 'success',
-          }}
-          value={infoLeaksCount > 0 ? `${infoLeaksCount} sitios` : '0 sitios'}
-          valueColor={infoLeaksCount > 0 ? 'text-amber-400' : 'text-accent-green'}
-          valueSuffix="con versión expuesta"
-          subtitle="Cabeceras Server y X-Powered-By auditadas"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Estándar Evaluado</span>
-              <span className="text-accent-green font-medium">CWE-200 / ISO 27001</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary variant="status" items={[
+        {label:'Sitios',value:targets ? totalCount : null,icon:Shield,tone:'neutral'},
+        {label:'Grado A / A+',value:targets ? gradeACount : null,icon:ShieldCheck,tone:'success'},
+        {label:'Grado D / F',value:targets ? gradeDFCount : null,icon:ShieldAlert,tone:'danger'},
+        {label:'Fugas',value:targets ? infoLeaksCount : null,icon:Eye,tone:'warning'}
+      ]} />
 
       {/* 3. TOOLBAR: Omnibar Search + Grade Status Pills + Grid/Table Switcher */}
       <NOCToolbar
@@ -723,16 +643,8 @@ header {
         itemLabel="endpoints"
         actions={
           <>
-            <button
-              type="button"
-              onClick={() => handleExecuteBulkAction('scan')}
-              disabled={bulkActionRunning}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={bulkActionRunning ? 'animate-spin' : ''} />
-              Escanear
-            </button>
-            <button
+
+            <AdminButton
               type="button"
               onClick={() => handleExecuteBulkAction('pause')}
               disabled={bulkActionRunning}
@@ -740,8 +652,8 @@ header {
             >
               <Pause size={13} />
               Pausar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleExecuteBulkAction('resume')}
               disabled={bulkActionRunning}
@@ -749,8 +661,8 @@ header {
             >
               <Play size={13} />
               Reanudar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleExecuteBulkAction('delete')}
               disabled={bulkActionRunning}
@@ -758,7 +670,7 @@ header {
             >
               <Trash2 size={13} />
               Eliminar
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -916,27 +828,16 @@ header {
                     </span>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scanMutation.mutate(target.id);
-                        }}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
-                        title="Escanear cabeceras ahora"
-                      >
-                        <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => handleOpenEdit(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
                         title="Editar endpoint"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -946,7 +847,7 @@ header {
                         title="Eliminar endpoint"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </div>
                 </div>
@@ -974,7 +875,7 @@ header {
           />
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           icon={ShieldCheck}
           title={
             searchTerm || gradeFilter !== 'all'
@@ -1028,19 +929,7 @@ header {
         }
         headerActions={
           selectedTarget && (
-            <button
-              type="button"
-              onClick={() => scanMutation.mutate(selectedTarget.id)}
-              disabled={scanMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all disabled:opacity-50"
-              title="Escanear cabeceras inmediatamente"
-            >
-              <RefreshCw
-                size={13}
-                className={scanMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>{scanMutation.isPending ? 'Escaneando...' : 'Re-escanear'}</span>
-            </button>
+            <ScanAction resource={selectedTarget} route="security-headers" pending={scanMutation.isPending} onScan={()=>scanMutation.mutateAsync(selectedTarget.id)} />
           )
         }
         quickKpis={
@@ -1094,22 +983,22 @@ header {
         footerActions={
           selectedTarget && (
             <>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => handleOpenEdit(selectedTarget)}
                 className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors"
               >
                 <Pencil size={14} />
                 Editar Configuración
-              </button>
-              <button
+              </AdminButton>
+              <AdminButton
                 type="button"
                 onClick={() => setDeleteTarget(selectedTarget)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors"
               >
                 <Trash2 size={14} />
                 Eliminar Endpoint
-              </button>
+              </AdminButton>
             </>
           )
         }

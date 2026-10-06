@@ -1,33 +1,5 @@
 # MVP
 
-La primera versión debe ser completamente funcional y comercializable.
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-## Funcionalidades
-
-✔ Login
-
-✔ Organizaciones
-
-✔ Usuarios
-
-✔ Dashboard
-
-✔ SSL
-
-✔ DNS
-
-✔ WHOIS
-
-✔ API Health
-
-✔ Uptime
-
-✔ Security Headers
-
-✔ Alertas
-
-✔ Incidentes
-
-✔ Reportes
-
-No desarrollar funcionalidades de Fase 2 mientras el MVP no esté completo.
+La documentación mantenida y verificable está en [Centro de documentación](../../docs/README.md). El historial anterior permanece disponible en Git.

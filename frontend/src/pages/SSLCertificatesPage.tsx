@@ -1,7 +1,15 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ScanAction from '../components/common/ScanAction';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
+import ReloadDataButton from '../components/common/ReloadDataButton';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
   SSLCertificate,
   CreateSSLCertificateData,
@@ -20,7 +28,7 @@ import {
   NOCBulkActionBar,
   NOCDrawer,
 } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   ShieldCheck,
@@ -62,10 +70,12 @@ function parseIssuerName(issuerStr: string | null): string {
 }
 
 export default function SSLCertificatesPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filter, setFilter] = useUrlFilter('status', ["all","expiring","expired"] as const);
   const [searchTerm, setSearchTerm] = useState('');
   // Persistent viewMode: remembers table or grid across refreshes and updates
   const [viewMode, setViewMode] = usePersistentViewMode('ssl_certificates', 'table');
@@ -88,11 +98,8 @@ export default function SSLCertificatesPage() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<SSLTestConnectionResult | null>(null);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
+  // Read cadence follows the server plan; GET never triggers a scan.
+  const autoRefresh = useConnectivityRefresh();
 
   const getEndpoint = () => {
     switch (filter) {
@@ -106,7 +113,7 @@ export default function SSLCertificatesPage() {
   };
 
   const { data: stats } = useQuery<SSLStats>({
-    queryKey: ['ssl-stats'],
+    queryKey: ['ssl-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('ssl-certificates/stats/');
       return (response.data?.data || {}) as SSLStats;
@@ -115,7 +122,7 @@ export default function SSLCertificatesPage() {
   });
 
   const { data: certificates, isLoading } = useQuery<SSLCertificate[]>({
-    queryKey: ['ssl-certificates', filter],
+    queryKey: ['ssl-certificates', organizationId, filter],
     queryFn: async () => {
       const response = await api.get(getEndpoint());
       return (response.data?.data || []) as SSLCertificate[];
@@ -128,8 +135,8 @@ export default function SSLCertificatesPage() {
       await api.post('ssl-certificates/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats', organizationId] });
       handleCloseModal();
     },
   });
@@ -139,8 +146,8 @@ export default function SSLCertificatesPage() {
       await api.patch(`ssl-certificates/${id}/`, { domain, port });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats', organizationId] });
       handleCloseModal();
     },
   });
@@ -149,11 +156,16 @@ export default function SSLCertificatesPage() {
     mutationFn: async (id: string) => {
       setScanningId(id);
       const response = await api.post(`ssl-certificates/${id}/scan/`);
-      return response.data?.data;
+      const queued = response.data?.data as QueuedScan;
+      return waitForFreshScan<SSLCertificate>(
+        queued,
+        async () => (await api.get(`ssl-certificates/${id}/`)).data?.data as SSLCertificate,
+        (certificate) => certificate.last_scanned_at,
+      );
     },
     onSuccess: (updatedCert) => {
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats', organizationId] });
       if (selectedCert && updatedCert && selectedCert.id === updatedCert.id) {
         setSelectedCert(updatedCert);
       }
@@ -164,23 +176,14 @@ export default function SSLCertificatesPage() {
     },
   });
 
-  const scanAllMutation = useMutation({
-    mutationFn: async () => {
-      await api.post('ssl-certificates/scan-all/');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`ssl-certificates/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats', organizationId] });
       if (selectedCert?.id === deleteTarget?.id) {
         setSelectedCert(null);
       }
@@ -212,8 +215,8 @@ export default function SSLCertificatesPage() {
         certificate_ids: selectedIds,
       });
       setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-certificates', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['ssl-stats', organizationId] });
     } catch {
       // Fallback
       for (const id of selectedIds) {
@@ -247,8 +250,8 @@ export default function SSLCertificatesPage() {
     }
     setSelectedIds([]);
     setBulkDeleting(false);
-    queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-    queryClient.invalidateQueries({ queryKey: ['ssl-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['ssl-certificates', organizationId] });
+    queryClient.invalidateQueries({ queryKey: ['ssl-stats', organizationId] });
   };
 
   // Test SSL Connection in Modal
@@ -421,10 +424,12 @@ export default function SSLCertificatesPage() {
     return true;
   });
 
+  useLinkedResource(certificates, selectedCert, setSelectedCert);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["ssl-certificates","ssl-stats"]}
         title="Certificados SSL & TLS"
         badgeText="CERT GUARD"
         description="Supervisa la validez, cadena criptográfica, emisor y vencimiento de tus certificados SSL/TLS con alertas preventivas."
@@ -433,6 +438,9 @@ export default function SSLCertificatesPage() {
           enabled: autoRefresh.enabled,
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
+          intervalSeconds: autoRefresh.intervalSeconds,
+          resetCountdown: autoRefresh.resetCountdown,
+          ready: autoRefresh.ready,
         }}
         actions={
           <>
@@ -446,109 +454,27 @@ export default function SSLCertificatesPage() {
               <Download size={15} />
               <span>Exportar</span>
             </button>
-            <button
-              type="button"
-              onClick={() => scanAllMutation.mutate()}
-              disabled={scanAllMutation.isPending}
-              className="flex items-center gap-2 bg-accent-green/10 border border-accent-green/40 text-accent-green font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-green/20 transition-all disabled:opacity-50 cursor-pointer"
-              title="Re-escanear todos los certificados inmediatamente"
-            >
-              <RefreshCw
-                size={15}
-                className={scanAllMutation.isPending ? 'animate-spin' : ''}
-              />
-              <span>Escanear Todos</span>
-            </button>
-            <button
+
+
+            <AdminButton
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
               <span>Nuevo Certificado</span>
-            </button>
+            </AdminButton>
           </>
         }
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Disponibilidad y Validez */}
-        <NOCKpiCard
-          title="Salud de Certificados"
-          icon={<ShieldCheck size={16} className="text-accent-green" />}
-          badge={{
-            text: validitySla >= 95.0 ? 'Óptimo' : 'Atención',
-            variant: validitySla >= 95.0 ? 'success' : 'warning',
-          }}
-          value={`${validitySla}%`}
-          valueSuffix="vigentes"
-          progress={{ value: validitySla }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Inventario total</span>
-              <span className="font-mono text-text-main font-medium">{totalCount} dominios</span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: Certificados por Expirar */}
-        <NOCKpiCard
-          title="Próximos a Vencer"
-          icon={<Clock size={16} className={expiringCount > 0 ? 'text-accent-yellow' : 'text-accent-green'} />}
-          badge={{
-            text: expiringCount > 0 ? '≤ 15 días' : 'Bajo control',
-            variant: expiringCount > 0 ? 'warning' : 'neutral',
-          }}
-          value={expiringCount}
-          valueColor={expiringCount > 0 ? 'text-accent-yellow' : 'text-text-main'}
-          subtitle={expiringCount > 0 ? 'Requieren renovación en CA' : 'Sin riesgos inmediatos'}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Umbral preventivo</span>
-              <span className="font-mono text-accent-yellow">15 días</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Certificados Críticos o Caídos */}
-        <NOCKpiCard
-          title="Fallos o Expirados"
-          icon={<AlertTriangle size={16} className={expiredCount > 0 ? 'text-accent-red' : 'text-text-dim'} />}
-          badge={{
-            text: expiredCount > 0 ? 'Incidente' : '0 Caídos',
-            variant: expiredCount > 0 ? 'danger' : 'success',
-          }}
-          value={expiredCount}
-          valueColor={expiredCount > 0 ? 'text-accent-red' : 'text-accent-green'}
-          subtitle={expiredCount > 0 ? 'Tráfico HTTPS comprometido' : 'Todos los dominios con TLS activo'}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Cifrado TLS Activo</span>
-              <span className="text-accent-green font-medium">Protegido</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Frecuencia de Monitoreo */}
-        <NOCKpiCard
-          title="Vigencia Promedio"
-          icon={<Calendar size={16} className="text-accent-blue" />}
-          badge={{
-            text: `${stats?.avg_days_remaining || 63}d promedio`,
-            variant: 'info',
-          }}
-          value={`${stats?.avg_days_remaining || 63} días`}
-          valueColor="text-accent-blue"
-          subtitle="Tiempo medio de vida útil restante"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Inspección Multi-puerto</span>
-              <span className="text-accent-green font-medium font-mono">:443, :8443, :636</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary variant="status" items={[
+        {label:'Certificados',value:certificates ? totalCount : null,icon:Lock,tone:'neutral'},
+        {label:'Válidos',value:certificates ? validCount : null,icon:ShieldCheck,tone:'success'},
+        {label:'Por vencer',value:certificates ? expiringCount : null,icon:Clock,tone:'warning'},
+        {label:'Inválidos / vencidos',value:stats ? expiredCount : null,icon:ShieldAlert,tone:'danger'}
+      ]} />
 
       {/* 3. TOOLBAR: Omnibar Search + Status Pills + Persistent Grid/Table Switcher */}
       <NOCToolbar
@@ -573,15 +499,8 @@ export default function SSLCertificatesPage() {
         itemLabel="certificados"
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleBulkScan}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm cursor-pointer"
-            >
-              <RefreshCw size={13} />
-              Re-escanear Seleccionados
-            </button>
-            <button
+
+            <AdminButton
               type="button"
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
@@ -589,7 +508,7 @@ export default function SSLCertificatesPage() {
             >
               <Trash2 size={13} />
               {bulkDeleting ? 'Eliminando...' : 'Eliminar'}
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -762,27 +681,16 @@ export default function SSLCertificatesPage() {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scanMutation.mutate(cert.id);
-                        }}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
-                        title="Verificar certificado ahora"
-                      >
-                        <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => handleOpenEdit(cert, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
                         title="Editar dominio"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -792,7 +700,7 @@ export default function SSLCertificatesPage() {
                         title="Eliminar certificado"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </div>
                 </div>
@@ -820,7 +728,7 @@ export default function SSLCertificatesPage() {
           />
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           title="No hay certificados SSL registrados"
           description="Añade tus dominios críticos para auditar la vigencia de sus certificados SSL/TLS y recibir avisos antes del vencimiento."
           actionLabel="Monitorear Primer Certificado"
@@ -847,18 +755,7 @@ export default function SSLCertificatesPage() {
         headerActions={
           selectedCert && (
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scanMutation.mutate(selectedCert.id)}
-                disabled={scanningId === selectedCert.id}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green/20 text-xs font-semibold transition-all disabled:opacity-50"
-              >
-                <RefreshCw
-                  size={13}
-                  className={scanningId === selectedCert.id ? 'animate-spin' : ''}
-                />
-                Re-escanear
-              </button>
+              <ScanAction resource={selectedCert} route="ssl-certificates" pending={scanMutation.isPending} onScan={()=>scanMutation.mutateAsync(selectedCert.id)} />
               <a
                 href={`https://${selectedCert.domain}${selectedCert.port && selectedCert.port !== 443 ? `:${selectedCert.port}` : ''}`}
                 target="_blank"
@@ -1229,7 +1126,7 @@ export default function SSLCertificatesPage() {
                 >
                   Cancelar
                 </button>
-                <button
+                <AdminButton
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
                   className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
@@ -1241,7 +1138,7 @@ export default function SSLCertificatesPage() {
                   ) : (
                     'Guardar y Monitorear'
                   )}
-                </button>
+                </AdminButton>
               </div>
             </form>
           </div>

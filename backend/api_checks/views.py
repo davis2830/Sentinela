@@ -1,8 +1,9 @@
 from rest_framework import status
+from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.subscriptions import OperationalAPIView as APIView
 
-from common.responses import error_response, success_response
+from common.responses import error_response, queued_scan_response, success_response
 
 from .serializers import (
     APICheckResultSerializer,
@@ -25,12 +26,12 @@ class APICheckTargetListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         targets = APICheckService.list_targets(org_id)
-        serializer = APICheckTargetSerializer(targets, many=True)
+        serializer = APICheckTargetSerializer(targets, many=True, context={"request": request})
         return success_response(serializer.data)
 
     def post(self, request):
         org_id = request.user.organization_id
-        serializer = APICheckTargetCreateSerializer(data=request.data)
+        serializer = APICheckTargetCreateSerializer(data=request.data, context={"request": request})
         if not serializer.is_valid():
             return error_response(
                 "Invalid input.",
@@ -43,8 +44,8 @@ class APICheckTargetListView(APIView):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
                 QuotaService.check_quota(request.user.organization, "api_checks")
-                if "interval_seconds" in serializer.validated_data:
-                    QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval_seconds"])
+                if "check_interval" in serializer.validated_data:
+                    QuotaService.check_min_interval(request.user.organization, serializer.validated_data["check_interval"])
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -57,10 +58,8 @@ class APICheckTargetListView(APIView):
                 organization_id=org_id,
                 **serializer.validated_data,
             )
-            from .tasks import run_api_check
-            run_api_check(str(target.id))
             updated_target = APICheckService.get_target(target.id, org_id)
-            response_serializer = APICheckTargetSerializer(updated_target)
+            response_serializer = APICheckTargetSerializer(updated_target, context={"request": request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -85,7 +84,7 @@ class APICheckTargetDetailView(APIView):
         org_id = request.user.organization_id
         try:
             target = APICheckService.get_target(target_id, org_id)
-            serializer = APICheckTargetSerializer(target)
+            serializer = APICheckTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
         except Exception:
             return error_response(
@@ -103,10 +102,10 @@ class APICheckTargetDetailView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        if "interval_seconds" in serializer.validated_data and getattr(request.user, "organization", None):
+        if "check_interval" in serializer.validated_data and getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval_seconds"])
+                QuotaService.check_min_interval(request.user.organization, serializer.validated_data["check_interval"])
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -118,7 +117,7 @@ class APICheckTargetDetailView(APIView):
             target = APICheckService.update_target(
                 target_id, org_id, **serializer.validated_data
             )
-            response_serializer = APICheckTargetSerializer(target)
+            response_serializer = APICheckTargetSerializer(target, context={"request": request})
             return success_response(response_serializer.data)
         except Exception:
             return error_response(
@@ -151,9 +150,10 @@ class APICheckTargetScanView(APIView):
         try:
             target = APICheckService.get_target(target_id, org_id)
             from .tasks import run_api_check
-            run_api_check.delay(str(target.id))
-            serializer = APICheckTargetSerializer(target)
-            return success_response(serializer.data, message="Chequeo sintético de API programado exitosamente.")
+            task = enqueue_scan(target, run_api_check)
+            return queued_scan_response(task, target.id)
+        except ScanLimited as exc:
+            return limited_response(exc)
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -204,9 +204,9 @@ class APICheckBulkScanView(APIView):
 
     def post(self, request):
         try:
-            from .tasks import run_all_api_checks
-            run_all_api_checks.delay()
-            return success_response({"message": "Validación masiva de API Endpoints iniciada."})
+            from .tasks import run_api_check
+            from .models import APICheckTarget
+            return success_response(enqueue_many(APICheckTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_api_check))
         except Exception as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -269,4 +269,4 @@ class APICheckBulkActionView(APIView):
             res = APICheckService.bulk_action(org_id, action, target_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)

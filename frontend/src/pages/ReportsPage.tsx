@@ -1,3 +1,9 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -15,7 +21,6 @@ import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 
 // Modular Report Components
-import LiveSLADashboard from '../components/reports/LiveSLADashboard';
 import ReportTableView from '../components/reports/ReportTableView';
 import ReportCard from '../components/reports/ReportCard';
 import ReportDetailDrawer from '../components/reports/ReportDetailDrawer';
@@ -33,6 +38,8 @@ import {
 } from 'lucide-react';
 
 export default function ReportsPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
@@ -40,7 +47,8 @@ export default function ReportsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ReportItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [reportStatusFilter, setReportStatusFilter] = useUrlFilter('status', ['all','pending','generating','completed','failed'] as const);
+  const [typeFilter, setTypeFilter] = useUrlFilter('type', ["all","sla","availability","ssl","incidents","trends","summary"] as const);
   const [viewMode, setViewMode] = usePersistentViewMode('reports', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -53,7 +61,7 @@ export default function ReportsPage() {
 
   // Query Reports List
   const { data: reports, isLoading } = useQuery<ReportItem[]>({
-    queryKey: ['reports-list'],
+    queryKey: ['reports-list', organizationId],
     queryFn: async () => {
       const response = await api.get('reports/');
       return (response.data?.data || []) as ReportItem[];
@@ -68,7 +76,7 @@ export default function ReportsPage() {
       return response.data?.data as ReportItem;
     },
     onSuccess: (newReport) => {
-      queryClient.invalidateQueries({ queryKey: ['reports-list'] });
+      queryClient.invalidateQueries({ queryKey: ['reports-list', organizationId] });
       setShowCreateModal(false);
       if (newReport) {
         setSelectedReport(newReport);
@@ -82,7 +90,7 @@ export default function ReportsPage() {
       await api.delete(`reports/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports-list'] });
+      queryClient.invalidateQueries({ queryKey: ['reports-list', organizationId] });
       if (selectedReport?.id === deleteTarget?.id) {
         setSelectedReport(null);
       }
@@ -107,7 +115,7 @@ export default function ReportsPage() {
         report_ids: selectedIds,
       });
       setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['reports-list'] });
+      queryClient.invalidateQueries({ queryKey: ['reports-list', organizationId] });
     } catch (err) {
       console.error('Error in bulk delete:', err);
     } finally {
@@ -190,14 +198,17 @@ export default function ReportsPage() {
 
     if (!matchesSearch) return false;
     if (typeFilter !== 'all' && report.report_type !== typeFilter) return false;
+    if (reportStatusFilter !== 'all' && report.status !== reportStatusFilter) return false;
 
     return true;
   });
 
+  useLinkedResource(reports, selectedReport, setSelectedReport);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["reports-list"]}
         title="Reportes SLA & Métricas"
         badgeText="AUDITORÍA & SLA"
         description="Generación automatizada de informes ejecutivos de cumplimiento de SLA, presupuesto de error SRE, tiempos MTTR / MTTD y exportación directa a PDF y CSV."
@@ -208,101 +219,24 @@ export default function ReportsPage() {
           onToggle: autoRefresh.toggle,
         }}
         actions={
-          <button
+          <AdminButton
             type="button"
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
           >
             <Plus size={16} />
             Nuevo Reporte
-          </button>
+          </AdminButton>
         }
       />
 
       {/* 2. LIVE SLA & ERROR BUDGET TELEMETRY STRIP */}
-      <LiveSLADashboard refetchInterval={autoRefresh.refetchInterval} />
 
       {/* 3. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Cumplimiento SLA Global */}
-        <NOCKpiCard
-          title="Cumplimiento SLA Auditado"
-          icon={<ShieldCheck size={16} className="text-accent-green" />}
-          badge={{
-            text: avgSla >= 99.5 ? 'Óptimo' : 'Atención',
-            variant: avgSla >= 99.5 ? 'success' : 'warning',
-          }}
-          value={`${avgSla.toFixed(2)}%`}
-          valueSuffix="disponibilidad"
-          progress={{ value: avgSla }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Objetivo Contractual</span>
-              <span className="text-accent-green font-mono font-medium">&ge; 99.5%</span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: MTTR (Tiempo de Reparación) */}
-        <NOCKpiCard
-          title="MTTR (Tiempo Reparación)"
-          icon={<Wrench size={16} className="text-accent-cyan" />}
-          badge={{
-            text: 'Eficiencia Operativa',
-            variant: 'info',
-          }}
-          value={`${mttr}m`}
-          valueColor="text-accent-cyan"
-          valueSuffix="promedio"
-          subtitle="Tiempo medio para contener y resolver caídas"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Límite Tolerado</span>
-              <span className="text-accent-cyan font-medium">&lt; 30 min</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: MTTD (Tiempo de Detección) */}
-        <NOCKpiCard
-          title="MTTD (Tiempo Detección)"
-          icon={<Clock size={16} className="text-amber-400" />}
-          badge={{
-            text: 'Radar Sintético',
-            variant: 'warning',
-          }}
-          value={`${mttd}m`}
-          valueColor="text-amber-400"
-          valueSuffix="promedio"
-          subtitle="Tiempo medio hasta el disparo de alerta"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Resolución de Monitoreo</span>
-              <span className="text-accent-green font-medium">30s / ciclo</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Total de Reportes */}
-        <NOCKpiCard
-          title="Informes Generados"
-          icon={<BarChart3 size={16} className="text-accent-green" />}
-          badge={{
-            text: `${totalCount} Informes`,
-            variant: 'neutral',
-          }}
-          value={totalCount}
-          valueColor="text-text-main"
-          valueSuffix="reportes"
-          subtitle="Informes ejecutivos archivados"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Exportación Habilitada</span>
-              <span className="text-accent-green font-medium">PDF & CSV</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary items={[{label:'Reportes',value:reports ? totalCount : null},{label:'Completados',value:reports ? allReports.filter(r=>r.status==='completed').length : null},{label:'Pendientes',value:reports ? allReports.filter(r=>r.status==='pending'||r.status==='generating').length : null},{label:'Fallidos',value:reports ? allReports.filter(r=>r.status==='failed').length : null}]} />
+      <div className="flex flex-wrap gap-2 text-xs" aria-label="Estado del reporte">
+        {(['all','pending','generating','completed','failed'] as const).map(status=><button key={status} type="button" aria-pressed={reportStatusFilter===status} onClick={()=>setReportStatusFilter(status)} className="px-3 py-1 rounded-lg border border-border-base">{({all:'Todos',pending:'Pendientes',generating:'Generando',completed:'Completados',failed:'Fallidos'})[status]}</button>)}
+      </div>
 
       {/* 4. TOOLBAR: Omnibar Search + Category Chips + Grid/Table Switcher */}
       <NOCToolbar
@@ -331,7 +265,7 @@ export default function ReportsPage() {
         onClearSelection={() => setSelectedIds([])}
         itemLabel="reportes"
         actions={
-          <button
+          <AdminButton
             type="button"
             onClick={handleBulkDelete}
             disabled={bulkDeleting}
@@ -339,7 +273,7 @@ export default function ReportsPage() {
           >
             <Trash2 size={13} />
             {bulkDeleting ? 'Eliminando...' : 'Eliminar Seleccionados'}
-          </button>
+          </AdminButton>
         }
       />
 
@@ -377,7 +311,7 @@ export default function ReportsPage() {
           </div>
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           icon={FileText}
           title="No se encontraron reportes"
           description={

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type {
   APICheckTarget,
@@ -58,7 +59,15 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
   const [method, setMethod] = useState<HTTPMethod>('GET');
   const [expectedStatus, setExpectedStatus] = useState<number>(200);
   const [expectedTimeMs, setExpectedTimeMs] = useState<number>(2000);
-  const [checkInterval, setCheckInterval] = useState<number>(60);
+  const [checkInterval, setCheckInterval] = useState<number>(300);
+  const { data: subscription } = useQuery({
+    queryKey: ['subscription-summary'],
+    queryFn: async () => (await api.get('organizations/current/subscription/')).data?.data,
+  });
+  const minInterval = subscription?.limits?.min_check_interval_seconds ?? 300;
+  useEffect(() => {
+    if (subscription) setCheckInterval(target ? Math.max(target.check_interval || minInterval, minInterval) : minInterval);
+  }, [subscription?.plan_tier, minInterval, target]);
   const [enabled, setEnabled] = useState<boolean>(true);
 
   // Authentication states
@@ -353,7 +362,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
         method,
         expected_status: Number(expectedStatus),
         expected_response_time_ms: Number(expectedTimeMs),
-        check_interval: Number(checkInterval),
+        check_interval: Math.max(Number(checkInterval), minInterval),
         enabled,
         request_headers: headers,
         request_body: body,
@@ -590,11 +599,12 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 onChange={(e) => setCheckInterval(Number(e.target.value))}
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono cursor-pointer"
               >
-                <option value={30}>Cada 30 seg</option>
-                <option value={60}>Cada 1 min</option>
-                <option value={120}>Cada 2 min</option>
+                <option value={30} disabled={minInterval > 30}>Cada 30 seg · Business</option>
+                <option value={60} disabled={minInterval > 60}>Cada 1 min · Pro</option>
+                <option value={120} disabled={minInterval > 120}>Cada 2 min</option>
                 <option value={300}>Cada 5 min</option>
               </select>
+              <p className="mt-1 text-[11px] text-text-dim">Mínimo de tu plan: {minInterval} segundos.</p>
             </div>
           </div>
 

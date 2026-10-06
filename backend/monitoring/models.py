@@ -121,6 +121,16 @@ class MonitoringTarget(OrganizationOwnedModel):
         return f"{self.name} ({self.target_type})"
 
 
+class TargetCoverage(BaseModel):
+    """Explicit resource associations, scoped through the owning target."""
+
+    target = models.OneToOneField(MonitoringTarget, on_delete=models.CASCADE, related_name="coverage")
+    ssl = models.ForeignKey("ssl_monitor.SSLCertificate", null=True, blank=True, on_delete=models.SET_NULL)
+    domain = models.ForeignKey("domain.DomainInfo", null=True, blank=True, on_delete=models.SET_NULL)
+    security = models.ForeignKey("security_headers.SecurityHeaderTarget", null=True, blank=True, on_delete=models.SET_NULL)
+    dns = models.ManyToManyField("dns_monitor.DNSRecord", blank=True)
+
+
 class MonitoringCheck(BaseModel):
     """Represents a single execution of a monitoring check.
 

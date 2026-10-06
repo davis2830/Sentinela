@@ -21,6 +21,7 @@ export interface InfoLeakInfo {
 }
 
 export interface SecurityHeaderTarget {
+  scan_availability?: import('./scan').ScanAvailability;
   id: string;
   organization: string;
   name: string;

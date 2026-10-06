@@ -1,4 +1,5 @@
 export interface MonitoringTarget {
+  scan_availability?: import('./scan').ScanAvailability;
   id: string;
   organization: string;
   name: string;
@@ -53,6 +54,7 @@ export interface UptimeStats {
 }
 
 export interface CreateTargetData {
+  related_modules?: string[];
   name: string;
   target_type: 'http' | 'https' | 'tcp' | 'dns' | 'api' | 'ssl';
   endpoint: string;
@@ -140,4 +142,4 @@ export interface TimeseriesData {
   timeseries: TimeseriesPoint[];
   daily_availability: DailyAvailabilityItem[];
   incidents: DowntimeIncident[];
-}
+}

@@ -1,4 +1,5 @@
 from django.urls import path
+from .views_coverage import TargetCoverageView
 
 from .views import (
     MonitoringCheckListView,
@@ -25,6 +26,7 @@ urlpatterns = [
     path("test-connection/", TestConnectionView.as_view(), name="target_test_connection"),
     path("search/", GlobalSearchView.as_view(), name="global_search"),
     path("<uuid:target_id>/", MonitoringTargetDetailView.as_view(), name="target_detail"),
+    path("<uuid:target_id>/coverage/", TargetCoverageView.as_view(), name="target_coverage"),
     path("<uuid:target_id>/checks/", MonitoringCheckListView.as_view(), name="target_checks"),
     path("<uuid:target_id>/uptime/", MonitoringUptimeView.as_view(), name="target_uptime"),
     path("<uuid:target_id>/timeseries/", MonitoringTimeseriesView.as_view(), name="target_timeseries"),

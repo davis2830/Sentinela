@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.db import transaction
+from common.beta_quota import beta_creation
 from django.utils import timezone
 
 from .models import DomainInfo
@@ -43,6 +44,8 @@ class DomainService:
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
 
         try:
+            from common.security import validate_safe_target_endpoint
+            validate_safe_target_endpoint(f"https://{clean_domain}", allow_private=False)
             import whois
 
             w = whois.whois(clean_domain)
@@ -155,6 +158,7 @@ class DomainService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation("domains")
     def create_domain(organization_id, domain):
         """Create a new domain info record and trigger immediate WHOIS scan."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
