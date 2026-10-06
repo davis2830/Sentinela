@@ -14,6 +14,7 @@ import {
 import ExtendTrialModal from '../components/platform_admin/ExtendTrialModal';
 import ChangeTenantPlanModal from '../components/platform_admin/ChangeTenantPlanModal';
 import TenantDetailDrawer from '../components/platform_admin/TenantDetailDrawer';
+import BetaAdminPanel from '../components/platform_admin/BetaAdminPanel';
 import {
   Building,
   TrendingUp,
@@ -128,6 +129,7 @@ export default function PlatformAdminPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 font-sans pb-10">
+      <BetaAdminPanel />
       {/* 1. TOP HEADER */}
       <NOCPageHeader
         title="Torre de Control de Plataforma"

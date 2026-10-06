@@ -8,6 +8,11 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const successMessage = location.state?.message;
+  const [sessionExpired] = useState(() => {
+    const expired = sessionStorage.getItem('sentinel:session-expired') === '1';
+    sessionStorage.removeItem('sentinel:session-expired');
+    return expired;
+  });
   const { login, login2FA, cancel2FA, requires2FA, loginEmail, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +29,7 @@ export default function LoginPage() {
       }
     } else {
       const res = await login(email, password);
+      if (res.requiresEmailVerification) navigate('/check-email');
       if (res.success) {
         navigate('/dashboard');
       }
@@ -60,6 +66,7 @@ export default function LoginPage() {
         </div>
 
         {/* Success Alert */}
+        {sessionExpired && <p role="status" className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">Tu sesión expiró. Inicia sesión nuevamente para continuar.</p>}
         {successMessage && !requires2FA && (
           <div className="mb-5 flex items-center gap-3 bg-accent-green/10 border border-accent-green/40 text-accent-green px-4 py-3 rounded-xl text-sm font-sans animate-in fade-in">
             <CheckCircle2 size={18} className="shrink-0" />

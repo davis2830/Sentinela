@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import ScanAction from '../common/ScanAction';
+import AdminButton from '../common/AdminButton';
+import React, { useState, useEffect } from 'react';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useAuthStore } from '../../store/authStore';
 import { createPortal } from 'react-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import {
@@ -52,7 +57,7 @@ const typeIcons: Record<string, typeof Globe> = {
 interface TargetDetailDrawerProps {
   target: MonitoringTarget;
   onClose: () => void;
-  onScan: (target: MonitoringTarget) => void;
+  onScan: (target: MonitoringTarget) => void | Promise<unknown>;
   onEdit: (target: MonitoringTarget) => void;
   onAlert: (target: MonitoringTarget) => void;
   onExport: (targetId: string, targetName: string) => void;
@@ -68,12 +73,16 @@ export default function TargetDetailDrawer({
   onExport,
   isScanning,
 }: TargetDetailDrawerProps) {
+  const dialogRef = useDialogFocus(true);
+  const location = useLocation();
+  const organizationId = useAuthStore(s=>s.user?.organization?.id);
+  useEffect(()=>{ const close=(event:KeyboardEvent)=>{if(event.key==='Escape')onClose();};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[onClose]);
   const [activeTab, setActiveTab] = useState<'metrics' | 'history' | 'config'>('metrics');
   const [selectedPeriod, setSelectedPeriod] = useState<'24h' | '7d' | '30d'>('24h');
 
   // Unified Timeseries & Incidents Query
   const { data: tsData, isLoading: isLoadingTimeseries } = useQuery({
-    queryKey: ['target-timeseries', target.id, selectedPeriod],
+    queryKey: ['target-timeseries', organizationId, target.id, selectedPeriod],
     queryFn: async () => {
       const res = await api.get(`monitoring/${target.id}/timeseries/`, {
         params: { period: selectedPeriod },
@@ -96,6 +105,7 @@ export default function TargetDetailDrawer({
         </span>
       );
     }
+    if (status === 'unknown' || !target.last_checked_at) return <span className="text-xs text-text-muted">Sin datos</span>;
     if (status === 'up') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
@@ -135,6 +145,8 @@ export default function TargetDetailDrawer({
       onClick={onClose}
     >
       <div
+        role="dialog" aria-modal="true" aria-label={target.name}
+        ref={dialogRef} tabIndex={-1}
         className="w-full max-w-2xl bg-bg-card border-l border-border-base h-full overflow-y-auto flex flex-col shadow-2xl animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
       >
@@ -180,16 +192,10 @@ export default function TargetDetailDrawer({
         </div>
 
         {/* Action Toolbar */}
+        {['http','https'].includes(target.target_type)&&<Link to={`/monitoring/${target.id}?returnTo=${encodeURIComponent(location.pathname+location.search)}`} className="px-6 py-3 text-sm text-accent-cyan border-b border-border-base hover:bg-bg-card-hover">Abrir vista completa del endpoint →</Link>}
         <div className="px-6 py-3 bg-bg-dark/50 border-b border-border-base flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onScan(target)}
-              disabled={isScanning}
-              className="flex items-center gap-1.5 bg-accent-green/10 border border-accent-green text-accent-green font-semibold px-3 py-1.5 rounded-lg text-xs hover:bg-accent-green/20 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={isScanning ? 'animate-spin' : ''} />
-              Escanear Ahora
-            </button>
+            <ScanAction resource={target} route="monitoring" pending={isScanning} onScan={()=>onScan(target)} />
             <button
               onClick={() => onExport(target.id, target.name)}
               className="flex items-center gap-1.5 bg-bg-card border border-border-base text-text-muted hover:text-text-main px-3 py-1.5 rounded-lg text-xs transition-colors"
@@ -200,20 +206,20 @@ export default function TargetDetailDrawer({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
+            <AdminButton
               onClick={() => onAlert(target)}
               className="flex items-center gap-1.5 bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow px-3 py-1.5 rounded-lg text-xs hover:bg-accent-yellow/20 transition-colors"
             >
               <Bell size={13} />
               Alerta
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               onClick={() => onEdit(target)}
               className="flex items-center gap-1.5 bg-accent-blue/10 border border-accent-blue/30 text-accent-blue px-3 py-1.5 rounded-lg text-xs hover:bg-accent-blue/20 transition-colors"
             >
               <Pencil size={13} />
               Editar
-            </button>
+            </AdminButton>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ export type DNSRecordType =
   | 'CAA';
 
 export interface DNSRecord {
+  scan_availability?: import('./scan').ScanAvailability;
   id: string;
   organization: string;
   domain: string;

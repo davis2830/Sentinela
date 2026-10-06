@@ -117,6 +117,8 @@ class Organization(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
+    beta_managed = models.BooleanField(default=False)
+    beta_status = models.CharField(max_length=20, default="active")
     slug = models.SlugField(max_length=255, unique=True)
     status = models.CharField(
         max_length=20,
@@ -134,13 +136,13 @@ class Organization(models.Model):
     plan_tier = models.CharField(
         max_length=20,
         choices=OrganizationPlanTier.choices,
-        default=OrganizationPlanTier.PRO,
+        default=OrganizationPlanTier.FREE,
         help_text="Current subscription tier.",
     )
     subscription_status = models.CharField(
         max_length=20,
         choices=OrganizationSubscriptionStatus.choices,
-        default=OrganizationSubscriptionStatus.TRIALING,
+        default=OrganizationSubscriptionStatus.ACTIVE,
         help_text="Billing subscription status.",
     )
     trial_ends_at = models.DateTimeField(
@@ -171,14 +173,14 @@ class Organization(models.Model):
         help_text="Number of state changes in 15m to trigger flapping alert.",
     )
     default_scan_interval_seconds = models.IntegerField(
-        default=60,
+        default=300,
         help_text="Default interval for monitoring checks in seconds.",
     )
 
     # Retention & Compliance (ISO 27001 / SOC 2)
     metrics_retention_days = models.IntegerField(
         default=90,
-        help_text="Days to retain raw time-series metrics in TimescaleDB.",
+        help_text="Days to retain historical telemetry in PostgreSQL.",
     )
     audit_logs_retention_days = models.IntegerField(
         default=365,
@@ -216,7 +218,7 @@ class Organization(models.Model):
 
     def save(self, *args, **kwargs):
         # Auto-provision 14-day trial on creation if not set
-        if not self.trial_ends_at and not self.pk:
+        if not self.trial_ends_at and self._state.adding and self.subscription_status == OrganizationSubscriptionStatus.TRIALING:
             self.trial_ends_at = timezone.now() + timedelta(days=14)
         super().save(*args, **kwargs)
 
@@ -225,7 +227,7 @@ class Organization(models.Model):
         if self.subscription_status == OrganizationSubscriptionStatus.TRIALING:
             if self.trial_ends_at:
                 return timezone.now() <= self.trial_ends_at
-            return True
+            return False
         return False
 
     @property
@@ -236,9 +238,12 @@ class Organization(models.Model):
         return max(0, delta.days)
 
     def get_plan_limits(self):
-        return PLAN_LIMITS.get(
+        limits = dict(PLAN_LIMITS.get(
             self.plan_tier, PLAN_LIMITS[OrganizationPlanTier.FREE]
-        )
+        ))
+        if self.beta_managed and self.plan_tier == OrganizationPlanTier.FREE:
+            limits.update(max_monitoring_targets=3, metrics_retention_days=3)
+        return limits
 
 
 

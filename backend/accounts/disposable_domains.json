@@ -1,0 +1,5 @@
+{
+  "version": "2026-10-05.1",
+  "description": "Initial conservative local policy. Reviewed updates are deployed atomically with the application.",
+  "domains": ["10minutemail.com", "guerrillamail.com", "guerrillamail.net", "mailinator.com", "temp-mail.org", "yopmail.com"]
+}

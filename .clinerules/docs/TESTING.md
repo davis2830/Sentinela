@@ -1,25 +1,5 @@
-# Testing
+# TESTING
 
-Toda funcionalidad nueva deberá incluir pruebas.
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-## Backend
-
-- Unit Tests
-- Integration Tests
-
-## Frontend
-
-- Component Tests
-
-## Reglas
-
-No aceptar código sin pruebas cuando la funcionalidad afecte reglas de negocio.
-
-Los Services deberán ser la prioridad para las pruebas unitarias.
-
-Toda API nueva deberá validar:
-
-- autorización
-- autenticación
-- respuestas
-- errores
+La documentación mantenida y verificable está en [Centro de documentación](../../docs/README.md). El historial anterior permanece disponible en Git.

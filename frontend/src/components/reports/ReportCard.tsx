@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { ReportItem, ReportType } from '../../types/reports';
 import StatusBadge from '../common/StatusBadge';
@@ -283,14 +284,14 @@ export default function ReportCard({
             </>
           )}
 
-          <button
+          <AdminButton
             type="button"
             onClick={() => onDelete(report)}
             title="Eliminar reporte"
             className="p-1.5 text-text-dim hover:text-accent-red hover:bg-bg-main rounded-lg transition-colors"
           >
             <Trash2 size={15} />
-          </button>
+          </AdminButton>
         </div>
       </div>
     </div>

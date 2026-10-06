@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { ScheduledMaintenanceItem } from '../../types/status_page';
 import StatusBadge from '../common/StatusBadge';
@@ -198,30 +199,30 @@ export default function MaintenanceTableView({
                   {/* Actions */}
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
+                      <AdminButton
                         type="button"
                         onClick={() => onAddUpdate(m)}
                         className="p-1.5 text-text-dim hover:text-purple-400 hover:bg-purple-500/10 rounded-full transition-colors cursor-pointer"
                         title="Publicar nota de avance"
                       >
                         <MessageSquarePlus size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={() => onEdit(m)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar mantenimiento"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={() => onDelete(m)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                         title="Eliminar mantenimiento"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

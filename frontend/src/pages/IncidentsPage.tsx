@@ -1,3 +1,9 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -79,6 +85,8 @@ interface Member {
 }
 
 export default function IncidentsPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -89,8 +97,8 @@ export default function IncidentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Incident | null>(null);
   const [noteInput, setNoteInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","active","open","investigating","identified","mitigated","resolved","closed"] as const);
+  const [priorityFilter, setPriorityFilter] = useUrlFilter('priority', ["all","critical","high","medium","low"] as const);
   const [viewMode, setViewMode] = usePersistentViewMode('incidents', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drawerTab, setDrawerTab] = useState<'timeline' | 'rca' | 'alerts' | 'details'>('timeline');
@@ -118,11 +126,11 @@ export default function IncidentsPage() {
       setAssigneeState(selectedIncident.assigned_to || '');
       setTeamAssigneeState(selectedIncident.assigned_team || '');
     }
-  }, [selectedIncident]);
+  }, [selectedIncident?.id]);
 
   // Incidents List Query
   const { data: incidents, isLoading } = useQuery<Incident[]>({
-    queryKey: ['incidents-list'],
+    queryKey: ['incidents-list', organizationId],
     queryFn: async () => {
       const response = await api.get('incidents/');
       return (response.data?.data || []) as Incident[];
@@ -132,7 +140,7 @@ export default function IncidentsPage() {
 
   // Incidents Stats Query (Real-time MTTA/MTTR and SLA metrics)
   const { data: stats } = useQuery<IncidentStats>({
-    queryKey: ['incidents-stats'],
+    queryKey: ['incidents-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('incidents/stats/');
       return response.data?.data as IncidentStats;
@@ -142,7 +150,7 @@ export default function IncidentsPage() {
 
   // Team Members Query for quick assignment
   const { data: members = [] } = useQuery<Member[]>({
-    queryKey: ['org-members-select'],
+    queryKey: ['org-members-select', organizationId],
     queryFn: async () => {
       try {
         const response = await api.get('organizations/members/');
@@ -156,7 +164,7 @@ export default function IncidentsPage() {
 
   // Teams Query for quick assignment
   const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: ['teams-list-select'],
+    queryKey: ['teams-list-select', organizationId],
     queryFn: async () => {
       try {
         const response = await api.get('users/teams/');
@@ -170,7 +178,7 @@ export default function IncidentsPage() {
 
   // Timeline events query for selected incident
   const { data: timelineEvents, isLoading: isLoadingTimeline } = useQuery<IncidentTimelineEvent[]>({
-    queryKey: ['incident-timeline', selectedIncident?.id],
+    queryKey: ['incident-timeline', organizationId, selectedIncident?.id],
     queryFn: async () => {
       if (!selectedIncident) return [];
       const response = await api.get(`incidents/${selectedIncident.id}/timeline/`);
@@ -182,7 +190,7 @@ export default function IncidentsPage() {
 
   // Linked alerts query for selected incident
   const { data: linkedAlerts } = useQuery<IncidentAlert[]>({
-    queryKey: ['incident-alerts', selectedIncident?.id],
+    queryKey: ['incident-alerts', organizationId, selectedIncident?.id],
     queryFn: async () => {
       if (!selectedIncident) return [];
       const response = await api.get(`incidents/${selectedIncident.id}/alerts/`);
@@ -198,8 +206,8 @@ export default function IncidentsPage() {
       await api.post('incidents/', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats', organizationId] });
       setShowForm(false);
       setEditingIncident(null);
     },
@@ -217,9 +225,9 @@ export default function IncidentsPage() {
       return response.data?.data as Incident;
     },
     onSuccess: (updatedIncident) => {
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-timeline', organizationId, selectedIncident?.id] });
       if (selectedIncident && updatedIncident) {
         setSelectedIncident(updatedIncident);
       }
@@ -233,8 +241,8 @@ export default function IncidentsPage() {
       await api.delete(`incidents/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats', organizationId] });
       if (selectedIncident?.id === deleteTarget?.id) {
         setSelectedIncident(null);
       }
@@ -250,8 +258,8 @@ export default function IncidentsPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
+      queryClient.invalidateQueries({ queryKey: ['incident-timeline', organizationId, selectedIncident?.id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
       setNoteInput('');
     },
   });
@@ -269,8 +277,8 @@ export default function IncidentsPage() {
       return response.data?.data as Incident;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-      queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-timeline', organizationId, selectedIncident?.id] });
       if (selectedIncident && updated) {
         setSelectedIncident(updated);
       }
@@ -292,9 +300,9 @@ export default function IncidentsPage() {
       return response.data?.data as Incident;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['incident-timeline', selectedIncident?.id] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incident-timeline', organizationId, selectedIncident?.id] });
       if (selectedIncident && updated) {
         setSelectedIncident(updated);
       }
@@ -335,8 +343,8 @@ export default function IncidentsPage() {
         incident_ids: selectedIds,
       });
       setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['incidents-list'] });
-      queryClient.invalidateQueries({ queryKey: ['incidents-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-list', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['incidents-stats', organizationId] });
     } catch (err) {
       console.error('Error en acción masiva de incidentes:', err);
     } finally {
@@ -523,7 +531,8 @@ export default function IncidentsPage() {
         (incident.assigned_to_name && incident.assigned_to_name.toLowerCase().includes(term));
 
       if (!matchesSearch) return false;
-      if (statusFilter !== 'all' && incident.status !== statusFilter) return false;
+      if (statusFilter === 'active' && ['resolved','closed'].includes(incident.status)) return false;
+      if (statusFilter !== 'all' && statusFilter !== 'active' && incident.status !== statusFilter) return false;
       if (priorityFilter !== 'all' && incident.priority !== priorityFilter) return false;
 
       return true;
@@ -534,10 +543,12 @@ export default function IncidentsPage() {
     ? LIFECYCLE_STEPS.findIndex((s) => s.status === selectedIncident.status)
     : -1;
 
+  useLinkedResource(incidents, selectedIncident, setSelectedIncident);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["incidents-list","incidents-stats","incident-timeline","incident-alerts","org-members-select","teams-list-select"]}
         title="Gestión de Incidentes"
         badgeText="CENTRO DE INCIDENTES"
         description="Gestión del ciclo de vida ITIL/SRE, asignación de ingenieros, RCA colaborativo y control de MTTR."
@@ -558,111 +569,20 @@ export default function IncidentsPage() {
               <Download size={14} />
               Exportar CSV
             </button>
-            <button
+            <AdminButton
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={16} />
               Nuevo Incidente
-            </button>
+            </AdminButton>
           </div>
         }
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: Incidentes Críticos */}
-        <NOCKpiCard
-          title="Incidentes Críticos"
-          icon={<Flame size={16} className="text-accent-red" />}
-          badge={{
-            text: criticalCount > 0 ? `${criticalCount} Activos` : 'Bajo control',
-            variant: criticalCount > 0 ? 'danger' : 'success',
-          }}
-          value={criticalCount}
-          valueColor={criticalCount > 0 ? 'text-accent-red' : 'text-text-main'}
-          valueSuffix="críticos"
-          subtitle="Impacto de alta severidad no resuelto"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Nivel de Escalación</span>
-              <span
-                className={
-                  criticalCount > 0 ? 'text-accent-red font-semibold' : 'text-accent-green'
-                }
-              >
-                {criticalCount > 0 ? 'Atención Inmediata' : 'Sin Alarma'}
-              </span>
-            </div>
-          }
-        />
-
-        {/* KPI 2: En Mitigación / Progreso */}
-        <NOCKpiCard
-          title="En Mitigación"
-          icon={<Wrench size={16} className="text-amber-400" />}
-          badge={{
-            text: `${inProgressCount} en curso`,
-            variant: inProgressCount > 0 ? 'warning' : 'neutral',
-          }}
-          value={inProgressCount}
-          valueColor={inProgressCount > 0 ? 'text-amber-400' : 'text-text-main'}
-          valueSuffix="incidentes"
-          subtitle="Investigación y contención activa"
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Fase de Contención</span>
-              <span className="text-amber-400 font-medium">Monitoreo Activo</span>
-            </div>
-          }
-        />
-
-        {/* KPI 3: Tasa de Resolución */}
-        <NOCKpiCard
-          title="Tasa de Cierre"
-          icon={<CheckCircle2 size={16} className="text-accent-green" />}
-          badge={{
-            text: `${resolvedCount} Resueltos`,
-            variant: 'success',
-          }}
-          value={`${resolutionRate}%`}
-          valueSuffix="resueltos"
-          progress={{ value: resolutionRate }}
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Total Histórico</span>
-              <span>{totalCount} incidentes</span>
-            </div>
-          }
-        />
-
-        {/* KPI 4: Tiempo Medio de Respuesta & MTTR */}
-        <NOCKpiCard
-          title="Respuesta Operativa"
-          icon={<Clock size={16} className="text-accent-cyan" />}
-          badge={{
-            text: `SLA ${stats?.sla_compliance_rate ?? 99.2}%`,
-            variant: (stats?.sla_compliance_rate ?? 100) >= 95 ? 'success' : 'warning',
-          }}
-          value={stats?.avg_mttr_minutes ? `${stats.avg_mttr_minutes}m` : '< 15m'}
-          valueColor="text-accent-cyan"
-          valueSuffix="MTTR promedio"
-          subtitle={
-            stats?.avg_mtta_minutes
-              ? `MTTA medio: ${stats.avg_mtta_minutes}m`
-              : 'Tiempo medio de contención'
-          }
-          footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Cumplimiento SLA</span>
-              <span className="text-accent-green font-medium">
-                {stats?.sla_compliance_rate ?? 99.2}%
-              </span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary items={[{label:'Incidentes',value:incidents ? totalCount : null},{label:'Críticos',value:incidents ? criticalCount : null},{label:'En gestión',value:incidents ? inProgressCount : null},{label:'Resueltos',value:incidents ? resolvedCount : null}]} />
 
       {/* 3. TOOLBAR: Omnibar Search + Priority Chips + Status Pills + Dual View */}
       <NOCToolbar
@@ -683,6 +603,7 @@ export default function IncidentsPage() {
         onCategoryChange={setPriorityFilter}
         statusPills={[
           { id: 'all', label: 'Todos', count: totalCount, variant: 'all' },
+          { id: 'active', label: 'Activos', count: allIncidents.filter(i=>!['resolved','closed'].includes(i.status)).length, variant: 'warning' },
           {
             id: 'open',
             label: 'Abiertos',
@@ -694,6 +615,12 @@ export default function IncidentsPage() {
             label: 'Investigando',
             count: allIncidents.filter((i: Incident) => i.status === 'investigating').length,
             variant: 'warning',
+          },
+          {
+            id: 'identified',
+            label: 'Identificados',
+            count: allIncidents.filter((i: Incident) => i.status === 'identified').length,
+            variant: 'info',
           },
           {
             id: 'mitigated',
@@ -725,7 +652,8 @@ export default function IncidentsPage() {
         itemLabel="incidentes"
         actions={
           <>
-            <button
+
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('resolve')}
               disabled={bulkProcessing}
@@ -733,8 +661,8 @@ export default function IncidentsPage() {
             >
               <CheckCircle2 size={13} />
               Resolver
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('mitigate')}
               disabled={bulkProcessing}
@@ -742,8 +670,8 @@ export default function IncidentsPage() {
             >
               <ShieldAlert size={13} />
               Mitigar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('close')}
               disabled={bulkProcessing}
@@ -751,8 +679,8 @@ export default function IncidentsPage() {
             >
               <XCircle size={13} />
               Cerrar
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('delete')}
               disabled={bulkProcessing}
@@ -760,7 +688,7 @@ export default function IncidentsPage() {
             >
               <Trash2 size={13} />
               {bulkProcessing ? 'Eliminando...' : 'Eliminar'}
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -805,7 +733,7 @@ export default function IncidentsPage() {
           />
         )
       ) : (
-        <EmptyState
+        <EmptyState requiresAdmin
           icon={AlertOctagon}
           title={
             searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
@@ -947,22 +875,22 @@ export default function IncidentsPage() {
         footerActions={
           selectedIncident && (
             <>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => handleOpenEdit(selectedIncident)}
                 className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Pencil size={14} />
                 Editar Incidente
-              </button>
-              <button
+              </AdminButton>
+              <AdminButton
                 type="button"
                 onClick={() => setDeleteTarget(selectedIncident)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
               >
                 <Trash2 size={14} />
                 Eliminar Incidente
-              </button>
+              </AdminButton>
             </>
           )
         }
@@ -986,7 +914,7 @@ export default function IncidentsPage() {
                   onChange={(e) => setNoteInput(e.target.value)}
                   className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-sans resize-none"
                 />
-                <button
+                <AdminButton
                   type="submit"
                   disabled={addNoteMutation.isPending || !noteInput.trim()}
                   className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
@@ -997,7 +925,7 @@ export default function IncidentsPage() {
                     <Check size={13} />
                   )}
                   Publicar en Línea de Tiempo
-                </button>
+                </AdminButton>
               </form>
             </div>
 
@@ -1073,7 +1001,7 @@ export default function IncidentsPage() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <button
+                  <AdminButton
                     type="submit"
                     disabled={rcaMutation.isPending}
                     className="flex items-center gap-1.5 px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-full text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
@@ -1084,7 +1012,7 @@ export default function IncidentsPage() {
                       <Check size={13} />
                     )}
                     Guardar Análisis RCA
-                  </button>
+                  </AdminButton>
                 </div>
               </form>
             </div>
@@ -1190,7 +1118,7 @@ export default function IncidentsPage() {
               </div>
 
               <div className="flex justify-end pt-1">
-                <button
+                <AdminButton
                   type="button"
                   onClick={handleSaveAssignee}
                   disabled={assignMutation.isPending}
@@ -1202,7 +1130,7 @@ export default function IncidentsPage() {
                     <Check size={13} />
                   )}
                   Guardar Asignaciones
-                </button>
+                </AdminButton>
               </div>
             </div>
 

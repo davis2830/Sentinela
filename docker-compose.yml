@@ -37,6 +37,20 @@ services:
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --reload
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Sentinel <no-reply@example.invalid>}
+      BETA_EMAIL_DOMAIN_ALLOWLIST: ${BETA_EMAIL_DOMAIN_ALLOWLIST:-}
+      BETA_GLOBAL_SCANS_PER_MINUTE: ${BETA_GLOBAL_SCANS_PER_MINUTE:-120}
+      BETA_MAX_PENDING_SCANS: ${BETA_MAX_PENDING_SCANS:-60}
+      ENFORCE_LEGACY_EMAIL_VERIFICATION: ${ENFORCE_LEGACY_EMAIL_VERIFICATION:-false}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-True}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
@@ -79,6 +93,20 @@ services:
     command: celery -A config worker -l info --concurrency=4 -O fair -Q high_priority,monitoring,background,celery --max-tasks-per-child=1000
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Sentinel <no-reply@example.invalid>}
+      BETA_EMAIL_DOMAIN_ALLOWLIST: ${BETA_EMAIL_DOMAIN_ALLOWLIST:-}
+      BETA_GLOBAL_SCANS_PER_MINUTE: ${BETA_GLOBAL_SCANS_PER_MINUTE:-120}
+      BETA_MAX_PENDING_SCANS: ${BETA_MAX_PENDING_SCANS:-60}
+      ENFORCE_LEGACY_EMAIL_VERIFICATION: ${ENFORCE_LEGACY_EMAIL_VERIFICATION:-false}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-True}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
@@ -107,6 +135,20 @@ services:
     command: celery -A config beat -l info
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Sentinel <no-reply@example.invalid>}
+      BETA_EMAIL_DOMAIN_ALLOWLIST: ${BETA_EMAIL_DOMAIN_ALLOWLIST:-}
+      BETA_GLOBAL_SCANS_PER_MINUTE: ${BETA_GLOBAL_SCANS_PER_MINUTE:-120}
+      BETA_MAX_PENDING_SCANS: ${BETA_MAX_PENDING_SCANS:-60}
+      ENFORCE_LEGACY_EMAIL_VERIFICATION: ${ENFORCE_LEGACY_EMAIL_VERIFICATION:-false}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-True}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
@@ -138,7 +180,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
     depends_on:
       - backend
 
@@ -170,8 +212,41 @@ services:
     volumes:
       - loki_data:/loki
 
+  alloy:
+    image: grafana/alloy:v1.4.3
+    container_name: sentinel_alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      ENVIRONMENT: development
+    user: "473:473"
+    group_add:
+      - "0"
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_positions:/var/lib/alloy/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/usr/bin/bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12345"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - loki
+
 volumes:
   postgres_data:
   redis_data:
   prometheus_data:
   loki_data:
+  alloy_positions:

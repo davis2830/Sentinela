@@ -1,52 +1,5 @@
-# Backend Rules
+# 03-backend
 
-## Folder Structure
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-Cada aplicación debe mantener una estructura consistente.
-
-```
-app/
-│
-├── models.py
-├── serializers.py
-├── views.py
-├── urls.py
-├── services.py
-├── tasks.py
-├── permissions.py
-├── tests/
-```
-
-## Services
-
-Toda lógica de negocio debe implementarse en Services.
-
-Las Views únicamente deben:
-
-- validar
-- llamar servicios
-- responder
-
-## Tasks
-
-Todo proceso pesado debe ejecutarse mediante Celery.
-
-Ejemplos:
-
-- SSL Scan
-- DNS Scan
-- WHOIS
-- Envío de correos
-- Notificaciones
-
-## Exceptions
-
-Utilizar excepciones claras.
-
-No devolver errores genéricos.
-
-## Logging
-
-Toda excepción importante debe registrarse.
-
-Nunca ocultar errores silenciosamente.
+La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.

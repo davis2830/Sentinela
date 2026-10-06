@@ -1,3 +1,8 @@
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -69,12 +74,14 @@ const TYPE_COLORS: Record<ChannelType, { bg: string; text: string; border: strin
 };
 
 export default function NotificationsPage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // View mode and search state
-  const [viewMode, setViewMode] = usePersistentViewMode('notifications_channels_view', 'grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('notifications_channels_view', 'table');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useUrlFilter('type', ["all","active","inactive","email","slack","teams","discord","telegram","webhook"] as const);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Modals & Drawers
@@ -87,7 +94,7 @@ export default function NotificationsPage() {
   const [testingChannelId, setTestingChannelId] = useState<string | null>(null);
   const [retryingLogId, setRetryingLogId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [logStatusFilter, setLogStatusFilter] = useState<'all' | 'sent' | 'failed'>('all');
+  const [logStatusFilter, setLogStatusFilter] = useUrlFilter('status', ["all","sent","failed"] as const);
 
   // Auto-refresh hook (20s countdown)
   const autoRefresh = useAutoRefresh({
@@ -97,7 +104,7 @@ export default function NotificationsPage() {
 
   // 1. Stats Query
   const { data: stats } = useQuery<NotificationStats>({
-    queryKey: ['notification-stats'],
+    queryKey: ['notification-stats', organizationId],
     queryFn: async () => {
       const response = await api.get('notifications/stats/');
       return response.data?.data as NotificationStats;
@@ -111,7 +118,7 @@ export default function NotificationsPage() {
     isLoading: isLoadingChannels,
     refetch: refetchChannels,
   } = useQuery<NotificationChannel[]>({
-    queryKey: ['notification-channels'],
+    queryKey: ['notification-channels', organizationId],
     queryFn: async () => {
       const response = await api.get('notifications/channels/');
       return (response.data?.data || []) as NotificationChannel[];
@@ -125,7 +132,7 @@ export default function NotificationsPage() {
     isLoading: isLoadingLogs,
     refetch: refetchLogs,
   } = useQuery<NotificationItem[]>({
-    queryKey: ['notification-logs'],
+    queryKey: ['notification-logs', organizationId],
     queryFn: async () => {
       const response = await api.get('notifications/');
       return (response.data?.data || []) as NotificationItem[];
@@ -143,8 +150,8 @@ export default function NotificationsPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-channels'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-channels', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats', organizationId] });
       setShowForm(false);
       setEditingChannel(null);
     },
@@ -156,8 +163,8 @@ export default function NotificationsPage() {
       await api.delete(`notifications/channels/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notification-channels'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-channels', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats', organizationId] });
       setDeleteChannel(null);
       setSelectedIds((prev) => prev.filter((item) => item !== deleteChannel?.id));
     },
@@ -169,8 +176,8 @@ export default function NotificationsPage() {
       await api.patch(`notifications/channels/${channel.id}/`, {
         enabled: !channel.enabled,
       });
-      queryClient.invalidateQueries({ queryKey: ['notification-channels'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-channels', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats', organizationId] });
     } catch (err: any) {
       console.error('Error toggling channel enabled state', err);
     }
@@ -181,8 +188,8 @@ export default function NotificationsPage() {
     setTestingChannelId(channel.id);
     try {
       await api.post(`notifications/channels/${channel.id}/test/`);
-      queryClient.invalidateQueries({ queryKey: ['notification-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-logs', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats', organizationId] });
     } catch (err: any) {
       console.error('Error sending test notification', err);
     } finally {
@@ -195,8 +202,8 @@ export default function NotificationsPage() {
     setRetryingLogId(notificationId);
     try {
       await api.post(`notifications/${notificationId}/retry/`);
-      queryClient.invalidateQueries({ queryKey: ['notification-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-logs', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats', organizationId] });
     } catch (err: any) {
       console.error('Error retrying notification', err);
     } finally {
@@ -212,9 +219,9 @@ export default function NotificationsPage() {
         action,
         channel_ids: selectedIds,
       });
-      queryClient.invalidateQueries({ queryKey: ['notification-channels'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['notification-channels', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-logs', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['notification-stats', organizationId] });
       if (action === 'delete') {
         setSelectedIds([]);
       }
@@ -307,15 +314,16 @@ export default function NotificationsPage() {
   ];
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="compact-workspace space-y-6 pb-24">
       {/* 1. Header Toolbar */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["notification-channels","notification-stats","notification-logs"]}
         badgeText="Canales de Notificación"
         title="Canales de Notificación & Enrutamiento"
         description="Configuración multicanal (Telegram, Slack, Teams, Discord, Email, Webhooks) con telemetría de latencia en tiempo real"
         icon={<Send size={24} />}
         actions={
           <div className="flex items-center gap-2.5">
+
             <button
               type="button"
               onClick={handleExportCSV}
@@ -325,7 +333,7 @@ export default function NotificationsPage() {
               <Download size={14} />
               <span>Exportar CSV</span>
             </button>
-            <button
+            <AdminButton
               type="button"
               onClick={() => {
                 setEditingChannel(null);
@@ -335,7 +343,7 @@ export default function NotificationsPage() {
             >
               <Plus size={15} />
               <span>Nuevo Canal</span>
-            </button>
+            </AdminButton>
           </div>
         }
         autoRefresh={{
@@ -346,43 +354,7 @@ export default function NotificationsPage() {
       />
 
       {/* 2. Top-level KPI Cards */}
-      <NOCKpiGrid columns={4}>
-        <NOCKpiCard
-          title="Canales Configurados"
-          value={stats?.total_channels || 0}
-          icon={<Radio size={18} />}
-          badge={{ text: `${stats?.enabled_channels || 0} activos`, variant: 'info' }}
-          subtitle={`${(stats?.total_channels || 0) - (stats?.enabled_channels || 0)} canales pausados`}
-        />
-        <NOCKpiCard
-          title="Tasa de Entrega Exitosa"
-          value={`${stats?.success_rate || 100}%`}
-          icon={<Activity size={18} />}
-          badge={{ text: 'Disponibilidad', variant: (stats?.success_rate || 100) >= 95 ? 'success' : 'warning' }}
-          progress={{
-            value: stats?.success_rate || 100,
-            color: (stats?.success_rate || 100) >= 95 ? '#10b981' : '#F59E0B',
-          }}
-          subtitle="Porcentaje global de envíos completados sin error"
-        />
-        <NOCKpiCard
-          title="Envíos Exitosos"
-          value={stats?.total_sent || 0}
-          icon={<CheckCircle2 size={18} />}
-          badge={{ text: 'Entregados', variant: 'success' }}
-          subtitle="Total acumulado de notificaciones entregadas"
-        />
-        <NOCKpiCard
-          title="Envíos Fallidos & Latencia"
-          value={stats?.total_failed || 0}
-          icon={<XCircle size={18} />}
-          badge={{
-            text: (stats?.total_failed || 0) > 0 ? 'Fallas' : 'Óptimo',
-            variant: (stats?.total_failed || 0) > 0 ? 'danger' : 'success',
-          }}
-          subtitle={`Latencia promedio: ${stats?.avg_duration_ms || 0}ms`}
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary items={[{label:'Canales',value:stats?.total_channels ?? null},{label:'Activos',value:stats?.enabled_channels ?? null},{label:'Entregadas',value:stats?.total_sent ?? null},{label:'Fallidas',value:stats?.total_failed ?? null}]} />
 
       {/* 3. NOC Toolbar */}
       <NOCToolbar
@@ -410,7 +382,7 @@ export default function NotificationsPage() {
               ? 'No hay integraciones que coincidan con los términos de búsqueda.'
               : 'Configura canales como Telegram, Slack, Teams o Email para recibir alertas instantáneas.'}
           </p>
-          <button
+          <AdminButton
             type="button"
             onClick={() => {
               setEditingChannel(null);
@@ -420,7 +392,7 @@ export default function NotificationsPage() {
           >
             <Plus size={14} />
             <span>Crear Primer Canal</span>
-          </button>
+          </AdminButton>
         </div>
       ) : viewMode === 'table' ? (
         <ChannelTableView
@@ -500,7 +472,7 @@ export default function NotificationsPage() {
                       </div>
                     </div>
 
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -514,7 +486,7 @@ export default function NotificationsPage() {
                       title={channel.enabled ? 'Click para pausar' : 'Click para activar'}
                     >
                       {channel.enabled ? 'Activo' : 'Pausado'}
-                    </button>
+                    </AdminButton>
                   </div>
 
                   {/* Channel Description */}
@@ -588,7 +560,7 @@ export default function NotificationsPage() {
                   className="pt-3 border-t border-border-base flex items-center justify-between"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button
+                  <AdminButton
                     type="button"
                     onClick={() => handleTestChannel(channel)}
                     disabled={isTesting}
@@ -596,7 +568,7 @@ export default function NotificationsPage() {
                   >
                     {isTesting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                     <span>{isTesting ? 'Probando...' : 'Probar Canal'}</span>
-                  </button>
+                  </AdminButton>
 
                   <div className="flex items-center gap-1">
                     <button
@@ -607,7 +579,7 @@ export default function NotificationsPage() {
                     >
                       <SlidersHorizontal size={14} />
                     </button>
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={() => {
                         setEditingChannel(channel);
@@ -617,15 +589,15 @@ export default function NotificationsPage() {
                       title="Editar canal"
                     >
                       <Pencil size={14} />
-                    </button>
-                    <button
+                    </AdminButton>
+                    <AdminButton
                       type="button"
                       onClick={() => setDeleteChannel(channel)}
                       className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors"
                       title="Eliminar canal"
                     >
                       <Trash2 size={14} />
-                    </button>
+                    </AdminButton>
                   </div>
                 </div>
               </div>
@@ -641,38 +613,38 @@ export default function NotificationsPage() {
         itemLabel="canales"
         actions={
           <div className="flex items-center gap-2">
-            <button
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('enable')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 hover:bg-accent-green hover:text-black text-accent-green border border-accent-green/30 rounded-xl text-xs font-semibold transition-all"
             >
               <Power size={13} />
               <span>Activar</span>
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('disable')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-dark hover:bg-bg-card text-text-muted hover:text-text-main border border-border-base rounded-xl text-xs font-semibold transition-all"
             >
               <Power size={13} />
               <span>Pausar</span>
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('test')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue/10 hover:bg-accent-blue hover:text-white text-accent-blue border border-accent-blue/30 rounded-xl text-xs font-semibold transition-all"
             >
               <Play size={13} />
               <span>Probar en Lote</span>
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => handleBulkAction('delete')}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 hover:bg-accent-red hover:text-white text-accent-red border border-accent-red/30 rounded-xl text-xs font-semibold transition-all"
             >
               <Trash2 size={13} />
               <span>Eliminar</span>
-            </button>
+            </AdminButton>
           </div>
         }
       />
@@ -802,7 +774,7 @@ export default function NotificationsPage() {
                       </td>
                       <td className="py-3 px-2 text-right whitespace-nowrap">
                         {log.status === 'failed' && (
-                          <button
+                          <AdminButton
                             type="button"
                             onClick={() => handleRetryNotification(log.id)}
                             disabled={isRetrying}
@@ -811,7 +783,7 @@ export default function NotificationsPage() {
                           >
                             {isRetrying ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
                             <span>Reintentar</span>
-                          </button>
+                          </AdminButton>
                         )}
                       </td>
                     </tr>

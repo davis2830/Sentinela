@@ -84,7 +84,7 @@ export default function NOCToolbar({
 
   return (
     <div
-      className={`bg-bg-card/90 border border-border-base/70 rounded-2xl p-4 shadow-md space-y-3.5 ${className}`}
+      className={`border-b border-border-base/70 py-3 space-y-2.5 ${className}`}
     >
       {/* Top row: Search input + View Switcher + Extra Filters */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -127,7 +127,7 @@ export default function NOCToolbar({
                   ? 'bg-accent-green text-black font-semibold shadow-sm'
                   : 'text-text-muted hover:text-text-main'
               }`}
-              title="Vista de Cuadrícula (Cards)"
+              title="Cuadrícula" aria-label="Cuadrícula"
             >
               <LayoutGrid size={16} />
             </button>
@@ -139,7 +139,7 @@ export default function NOCToolbar({
                   ? 'bg-accent-green text-black font-semibold shadow-sm'
                   : 'text-text-muted hover:text-text-main'
               }`}
-              title="Vista de Tabla Compacta"
+              title="Lista" aria-label="Lista"
             >
               <ListIcon size={16} />
             </button>

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
+import RedirectNotice from './RedirectNotice';
 import type { MonitoringTarget, CreateTargetData } from '../../types/monitoring';
 import type { Team } from '../../types/users';
 import type { AgentProbe } from '../../types/agent_probe';
@@ -135,8 +136,9 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [name, setName] = useState(target?.name || '');
   const [targetType, setTargetType] = useState<MonitoringTarget['target_type']>(target?.target_type || 'https');
   const [endpoint, setEndpoint] = useState(target?.endpoint || '');
-  const [interval, setInterval] = useState(target?.interval || 60);
+  const [interval, setInterval] = useState(target?.interval || 300);
   const [enabled, setEnabled] = useState(target?.enabled ?? true);
+  const [autoCoverage, setAutoCoverage] = useState(true);
 
   const [ownerTeam, setOwnerTeam] = useState<string>(target?.owner_team || '');
   const [runnerType, setRunnerType] = useState<'cloud' | 'agent'>(target?.runner_type || 'cloud');
@@ -184,7 +186,11 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
     staleTime: 60000,
   });
 
-  const minAllowedInterval = subData?.limits?.min_check_interval_seconds ?? 60;
+  const minAllowedInterval = subData?.limits?.min_check_interval_seconds ?? 300;
+
+  useEffect(() => {
+    if (!target && subData) setInterval(minAllowedInterval);
+  }, [target, subData?.plan_tier, minAllowedInterval]);
 
   useEffect(() => {
     if (minAllowedInterval && interval < minAllowedInterval) {
@@ -230,6 +236,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
     latency_ms?: number;
     status_code?: number;
     headers?: Record<string, string>;
+    redirect_location?: string;
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -416,6 +423,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
     setLoading(true);
     try {
       await onSubmit({
+        ...(!target && !autoCoverage ? { related_modules: [] } : {}),
         name: name.trim(),
         target_type: targetType,
         endpoint: targetEndpoint,
@@ -447,7 +455,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
       onClick={onClose}
     >
       <div
-        className="bg-bg-card/95 border border-border-base/70 rounded-3xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 font-sans"
+        className="readable-form bg-bg-card border border-border-base/70 rounded-3xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -737,8 +745,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   >
                     <Globe size={18} className={runnerType === 'cloud' ? 'text-accent-green' : 'text-text-dim'} />
                     <div>
-                      <div className="font-semibold text-xs text-text-main">🌐 Nube Sentinel (Público)</div>
-                      <div className="text-[10px] text-text-dim mt-0.5">Sondeo desde internet / multi-región</div>
+                      <div className="font-semibold text-sm text-text-main">Nube Sentinel (Público)</div>
+                      <div className="text-xs text-text-muted mt-0.5">Sondeo desde Internet</div>
                     </div>
                   </button>
 
@@ -758,8 +766,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   >
                     <Server size={18} className={runnerType === 'agent' ? 'text-accent-purple' : 'text-text-dim'} />
                     <div>
-                      <div className="font-semibold text-xs text-text-main">🐕 Guardián Sentinine (Privado)</div>
-                      <div className="text-[10px] text-text-dim mt-0.5">Sondeo dentro de tu red LAN o VPC</div>
+                      <div className="font-semibold text-sm text-text-main">Guardián Sentinine (Privado)</div>
+                      <div className="text-xs text-text-muted mt-0.5">Sondeo dentro de tu red LAN o VPC</div>
                     </div>
                   </button>
                 </div>
@@ -875,6 +883,10 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               )}
 
               {/* Interval & Presets */}
+              {!target && <div className="rounded-xl border border-border-base p-3 text-xs text-text-muted">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={autoCoverage} onChange={(event) => setAutoCoverage(event.target.checked)} />Añadir cobertura compatible con el protocolo</label>
+                <p className="mt-2 text-text-dim">{runnerType === 'agent' ? 'Sentinine: sin recursos cloud adicionales.' : targetType === 'https' ? 'HTTPS: SSL, DNS (si es un dominio) y cabeceras.' : targetType === 'http' ? 'HTTP: DNS (si es un dominio) y cabeceras; sin SSL.' : targetType === 'dns' ? 'DNS: registro A; sin SSL ni WHOIS.' : targetType === 'ssl' ? 'SSL: certificado en el puerto indicado.' : 'TCP y API: solo este monitor, sin recursos adicionales.'} WHOIS y API Checks avanzados se configuran por separado. Puedes desactivar esta cobertura.</p>
+              </div>}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-text-muted">
@@ -917,7 +929,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </div>
                 {minAllowedInterval > 60 && (
                   <p className="text-[11px] text-amber-400/90 flex items-center gap-1 mt-1">
-                    <span>⚠️ Tu plan actual limita chequeos de alta frecuencia a un mínimo de {minAllowedInterval}s ({Math.round(minAllowedInterval / 60)}m).</span>
+                    <span>Tu plan actual limita chequeos de alta frecuencia a un mínimo de {minAllowedInterval}s ({Math.round(minAllowedInterval / 60)}m).</span>
                   </p>
                 )}
               </div>
@@ -1218,7 +1230,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 {testResult && (
                   <div
                     className={`p-4 rounded-2xl border text-xs space-y-3 animate-in fade-in ${
-                      testResult.status === 'up'
+                      testResult.redirect_location ? 'bg-amber-500/10 border-amber-500/35 text-amber-300' : testResult.status === 'up'
                         ? 'bg-emerald-500/10 border-emerald-500/35 text-emerald-400'
                         : testResult.status === 'slow'
                         ? 'bg-amber-500/10 border-amber-500/35 text-amber-400'
@@ -1230,22 +1242,23 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         {testResult.status === 'up' && <CheckCircle2 size={16} />}
                         {testResult.status === 'slow' && <AlertTriangle size={16} />}
                         {testResult.status === 'down' && <AlertCircle size={16} />}
-                        {testResult.status === 'up'
+                        {testResult.redirect_location ? 'Esta página te envía a otra dirección' : testResult.status === 'up'
                           ? 'Conexión Exitosa'
                           : testResult.status === 'slow'
                           ? 'Conexión con Retardo'
                           : 'Fallo de Conexión'}
                       </span>
-                      {testResult.latency_ms !== undefined && (
+                      {!testResult.redirect_location && testResult.latency_ms !== undefined && (
                         <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-black/30">
                           {testResult.latency_ms} ms
                         </span>
                       )}
                     </div>
 
-                    <div className="text-xs opacity-90">{testResult.message}</div>
+                    {!testResult.redirect_location && <div className="text-xs opacity-90">{testResult.message}</div>}
+                    {testResult.redirect_location && <RedirectNotice location={testResult.redirect_location} endpoint={getActualEndpoint()} statusCode={testResult.status_code} onUseAddress={(address) => { setEndpoint(address); if (targetType !== 'api') setTargetType(address.startsWith('https:') ? 'https' : 'http'); setTestResult(null); }} />}
 
-                    {testResult.headers && (
+                    {!testResult.redirect_location && testResult.headers && (
                       <div className="pt-2 border-t border-current/20">
                         <span className="block text-[11px] font-semibold mb-1 opacity-80">Encabezados Recibidos:</span>
                         <pre className="text-[10px] font-mono bg-black/40 p-2.5 rounded-xl max-h-32 overflow-y-auto">

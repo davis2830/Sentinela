@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useDialogFocus } from '../../../hooks/useDialogFocus';
 
 export interface NOCDrawerTab {
   id: string;
@@ -39,6 +40,7 @@ export default function NOCDrawer({
   footerActions,
   maxWidthClass = 'max-w-xl',
 }: NOCDrawerProps) {
+  const dialogRef = useDialogFocus(isOpen);
   // Close drawer on ESC key
   useEffect(() => {
     if (!isOpen) return;
@@ -55,16 +57,23 @@ export default function NOCDrawer({
 
   return createPortal(
     <div
+      role="presentation"
       className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        ref={dialogRef}
+        tabIndex={-1}
+        aria-modal="true"
+        aria-label={title}
+        data-testid="noc-drawer"
         className={`w-full ${maxWidthClass} h-full bg-bg-card border-l border-border-base shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-250`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
         <div className="p-6 border-b border-border-base shrink-0 space-y-3">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
             <div className="space-y-1 overflow-hidden">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2
@@ -82,10 +91,11 @@ export default function NOCDrawer({
               )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap max-w-full">
               {headerActions}
               <button
                 type="button"
+                aria-label="Cerrar panel"
                 onClick={onClose}
                 className="p-1.5 text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full transition-colors"
                 title="Cerrar panel"
@@ -130,7 +140,7 @@ export default function NOCDrawer({
 
         {/* Optional Footer Actions */}
         {footerActions && (
-          <div className="p-4 border-t border-border-base bg-bg-card/95 shrink-0 flex items-center justify-end gap-2.5">
+          <div className="p-4 border-t border-border-base bg-bg-card/95 shrink-0 flex flex-wrap items-center justify-end gap-2.5">
             {footerActions}
           </div>
         )}

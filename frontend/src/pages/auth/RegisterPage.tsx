@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Mail,
@@ -16,9 +16,25 @@ import {
 } from 'lucide-react';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuthStore } from '../../store/authStore';
+import { api } from '../../services/api';
+import Turnstile from '../../components/auth/Turnstile';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [invitationToken] = useState(() => {
+    const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || '';
+    return token;
+  });
+  const [config, setConfig] = useState<{ admissions_open: boolean; turnstile_site_key: string } | null>(null);
+  const [captcha, setCaptcha] = useState('');
+  const [captchaEpoch, setCaptchaEpoch] = useState(0);
+  const [invitation, setInvitation] = useState<{ status: string; masked_email: string } | null>(null);
+  useEffect(() => {
+    window.history.replaceState(null, '', window.location.pathname);
+    api.get('auth/beta/config/').then(r => setConfig(r.data.data)).catch(() => setLocalError('No pudimos consultar las admisiones. Recarga la página.'));
+    if (invitationToken) api.post('auth/beta/invitation/', { token: invitationToken })
+      .then(r => setInvitation(r.data.data)).catch(() => setLocalError('No pudimos consultar tu invitación. Recarga la página.'));
+  }, []);
   const { register, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,10 +63,11 @@ export default function RegisterPage() {
       return;
     }
 
-    const success = await register(email, password, firstName, lastName, organizationName);
+    const success = await register(email, password, firstName, lastName, organizationName, invitationToken, captcha);
+    setCaptcha('');
+    setCaptchaEpoch(v => v + 1);
     if (success) {
-      localStorage.setItem('sentinel_launch_onboarding', 'true');
-      navigate('/dashboard');
+      navigate('/check-email');
     }
   };
 
@@ -81,7 +98,7 @@ export default function RegisterPage() {
           </p>
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30">
             <Sparkles size={12} className="text-accent-green" />
-            <span>14 días de prueba Pro gratis &bull; Sin tarjeta de crédito</span>
+            <span>Beta privada &bull; Plan Free &bull; Verificación de correo</span>
           </div>
         </div>
 
@@ -95,6 +112,13 @@ export default function RegisterPage() {
 
         {/* Register Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {invitation && <p className="text-sm text-text-muted" role="status">{invitation.status === 'invited'
+            ? `Invitación para ${invitation.masked_email}. Usa ese mismo correo al registrarte.`
+            : invitation.status === 'pending_verification' ? 'Esta invitación ya tiene un registro pendiente. Inicia sesión para reenviar la confirmación.'
+            : 'La invitación venció, fue utilizada o ya no está disponible. Solicita un nuevo enlace al administrador.'}</p>}
+          {(!config?.admissions_open || !invitationToken) && <p role="status" className="text-sm text-text-muted">
+            {!config ? 'Consultando disponibilidad…' : !config.admissions_open ? 'La beta está cerrada a nuevos registros.' : 'Necesitas abrir el enlace de invitación enviado a tu correo.'}
+          </p>}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
@@ -280,9 +304,11 @@ export default function RegisterPage() {
           </div>
 
           {/* Submit */}
+          <p className="text-xs text-text-muted">Tu cuenta comienza en Free: monitoreo cada 5 minutos. Puedes contratar Pro desde Planes; no se activa automáticamente.</p>
+          <Turnstile key={captchaEpoch} siteKey={config?.turnstile_site_key || ''} action="register" onToken={setCaptcha} />
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !config?.admissions_open || !invitationToken || invitation?.status !== 'invited' || (!!config.turnstile_site_key && !captcha)}
             className="w-full mt-2 py-3 px-4 rounded-xl font-bold text-sm bg-accent-green hover:bg-accent-green-glow text-black shadow-lg shadow-accent-green/20 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isLoading ? (

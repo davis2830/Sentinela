@@ -1,5 +1,7 @@
 import json
 import logging
+from common.scan_limits import guarded_scan, enqueue_many
+from common.subscriptions import eligible_organization_ids
 
 import requests
 from celery import shared_task
@@ -7,11 +9,13 @@ from django.utils import timezone
 
 from .models import APICheckTarget
 from .services import APICheckService
+from common import safe_http
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="api_checks.run_check")
+@shared_task(bind=True, name="api_checks.run_check", soft_time_limit=510, time_limit=540)
+@guarded_scan('api_checks.APICheckTarget')
 def run_api_check(self, target_id):
     """Execute an API check for a specific target.
 
@@ -22,7 +26,10 @@ def run_api_check(self, target_id):
         target_id: UUID string of the APICheckTarget.
     """
     try:
-        target = APICheckTarget.objects.get(id=target_id)
+        target = APICheckTarget.objects.select_related("organization").get(id=target_id)
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(target.organization):
+            return {"status": "skipped", "reason": "subscription_required"}
     except APICheckTarget.DoesNotExist:
         logger.error("API check target %s not found.", target_id)
         return
@@ -37,17 +44,13 @@ def run_api_check(self, target_id):
         target_url = target.url
         headers = dict(target.request_headers or {})
 
-        from common.security import validate_safe_public_url
-        validate_safe_public_url(target_url)
-
         start = timezone.now()
-        response = requests.request(
+        response = safe_http.request(
             method=target.method,
             url=target_url,
             headers=headers,
             json=target.request_body or None,
             timeout=15,
-            allow_redirects=False,
         )
         elapsed = (timezone.now() - start).total_seconds() * 1000
 
@@ -209,18 +212,16 @@ def run_all_api_checks():
     targets = APICheckTarget.objects.filter(
         enabled=True,
         organization__status="active",
-        organization__subscription_status__in=["active", "trialing"],
-    )
+        organization_id__in=eligible_organization_ids(),
+    ).select_related("organization")
     count = 0
     for target in targets:
         if not target.last_checked_at:
-            run_api_check.delay(str(target.id))
-            count += 1
+            count += enqueue_many([target], run_api_check)['queued_count']
         else:
             elapsed_sec = (now - target.last_checked_at).total_seconds()
-            interval = target.check_interval or 60
-            if elapsed_sec >= (interval - 5):
-                run_api_check.delay(str(target.id))
-                count += 1
+            interval = max(target.check_interval or 300, target.organization.get_plan_limits()["min_check_interval_seconds"])
+            if elapsed_sec >= interval:
+                count += enqueue_many([target], run_api_check)['queued_count']
 
     logger.info("Scheduled periodic API checks for %d targets (total active: %d).", count, targets.count())

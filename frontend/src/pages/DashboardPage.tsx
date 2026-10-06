@@ -1,6 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import ScanAction from '../components/common/ScanAction';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, Info, RefreshCw, Rocket, Sparkles, X } from 'lucide-react';
 import { api } from '../services/api';
 import type { MonitoringTarget } from '../types/monitoring';
 import type { SSLCertificate } from '../types/ssl';
@@ -10,947 +12,211 @@ import type { SecurityHeaderTarget } from '../types/security_headers';
 import type { DNSRecord } from '../types/dns';
 import type { Alert } from '../types/alerts';
 import type { Incident } from '../types/incidents';
-import StatusBadge from '../components/common/StatusBadge';
-import PriorityBadge from '../components/common/PriorityBadge';
-import SeverityBadge from '../components/common/SeverityBadge';
+import type { AgentProbe } from '../types/agent_probe';
 import QuickStartWizardModal from '../components/onboarding/QuickStartWizardModal';
 import TrialStatusBanner from '../components/common/TrialStatusBanner';
 import TwoFactorReminderBanner from '../components/common/TwoFactorReminderBanner';
 import { NOCDrawer } from '../components/common/noc';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
-import { latestTimestamp, scannedFreshness, scheduledFreshness } from '../utils/dashboardFreshness';
+import { latestTimestamp, scheduledFreshness } from '../utils/dashboardFreshness';
+import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import { useAuthStore } from '../store/authStore';
-
-// High-Density Modular Dashboard Components
+import {
+  buildDashboardActivityEvents,
+  buildDashboardItems,
+  isAttentionItem,
+  type AuditLogItem,
+  type DashboardAttentionItem,
+  type DashboardFilterState,
+  type DashboardModuleFilter,
+  type DashboardRawItem,
+  type DashboardSourceData,
+} from '../utils/dashboardModel';
 import NOCDashboardHeader from '../components/dashboard/NOCDashboardHeader';
 import NOCExecutiveKpis from '../components/dashboard/NOCExecutiveKpis';
 import NOCPerformanceSection from '../components/dashboard/NOCPerformanceSection';
-import NOCServicesBar from '../components/dashboard/NOCServicesBar';
+import NOCServicesBar, { type ServiceCategoryMetric } from '../components/dashboard/NOCServicesBar';
 import NOCInfraHealthDonut from '../components/dashboard/NOCInfraHealthDonut';
-import NOCRecentActivityFeed, { ActivityEvent } from '../components/dashboard/NOCRecentActivityFeed';
-import NOCCriticalTargetsTable from '../components/dashboard/NOCCriticalTargetsTable';
-import NOCLiveAlertsList from '../components/dashboard/NOCLiveAlertsList';
+import NOCRecentActivityFeed from '../components/dashboard/NOCRecentActivityFeed';
+import NOCOperationalInbox from '../components/dashboard/NOCOperationalInbox';
 
-import {
-  Sparkles,
-  Rocket,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  X,
-  ExternalLink,
-  ArrowRight,
-} from 'lucide-react';
+type TimeRange = '1h' | '6h' | '24h' | '7d';
+interface GlobalPerformance {
+  period: string;
+  summary: { avg_uptime: number | null; avg_latency: number | null; total_checks: number; checks_per_minute: number };
+  points: Array<{ timestamp: number; time: string; uptime: number | null; latency: number | null; checks: number; checks_per_minute: number }>;
+}
 
-type InspectableItem =
-  | { type: 'monitoring'; item: MonitoringTarget }
-  | { type: 'api_check'; item: APICheckTarget }
-  | { type: 'ssl'; item: SSLCertificate }
-  | { type: 'domain'; item: DomainInfo }
-  | { type: 'alert'; item: Alert }
-  | { type: 'incident'; item: Incident };
+const rangeMilliseconds: Record<TimeRange, number> = { '1h': 3_600_000, '6h': 21_600_000, '24h': 86_400_000, '7d': 604_800_000 };
+
+function listFromResponse<T>(response: { data?: { data?: T[] } }) { return response.data?.data ?? []; }
+
+function scanConfig(item: DashboardAttentionItem) {
+  const config: Partial<Record<DashboardAttentionItem['type'], { endpoint: string; timestamp: (resource: DashboardRawItem) => string | null | undefined }>> = {
+    monitoring: { endpoint: 'monitoring', timestamp: (resource) => (resource as MonitoringTarget).last_checked_at },
+    api_check: { endpoint: 'api-checks', timestamp: (resource) => (resource as APICheckTarget).last_checked_at },
+    ssl: { endpoint: 'ssl-certificates', timestamp: (resource) => (resource as SSLCertificate).last_scanned_at },
+    domain: { endpoint: 'domains', timestamp: (resource) => (resource as DomainInfo).last_scanned_at },
+    dns: { endpoint: 'dns-records', timestamp: (resource) => (resource as DNSRecord).last_scanned_at },
+    security: { endpoint: 'security-headers', timestamp: (resource) => (resource as SecurityHeaderTarget).last_checked_at },
+  };
+  return config[item.type];
+}
+
+const scanResourceRoutes: Partial<Record<DashboardAttentionItem['type'], string>> = {monitoring:'monitoring',api_check:'api-checks',ssl:'ssl-certificates',domain:'domains',dns:'dns-records',security:'security-headers'};
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const canManageTargets = Boolean(user?.is_staff);
-
-  // Dashboard time range filter
-  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('24h');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [actionNotification, setActionNotification] = useState<{
-    message: string;
-    type: 'success' | 'error' | 'info';
-  } | null>(null);
-
-  // Inspector slide-over drawer state
-  const [selectedItem, setSelectedItem] = useState<InspectableItem | null>(null);
-  const [showQuickStartWizard, setShowQuickStartWizard] = useState(false);
-  const [scanningTargetId, setScanningTargetId] = useState<string | null>(null);
-
-  // Auto-refresh hook (standard 30s)
+  const canManage = Boolean(user?.is_staff);
   const autoRefresh = useAutoRefresh({ intervalSeconds: 30 });
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [filters, setFilters] = useState<DashboardFilterState>({ view: 'attention', health: null, module: null });
+  const [selectedItem, setSelectedItem] = useState<DashboardAttentionItem | null>(null);
+  const [showQuickStartWizard, setShowQuickStartWizard] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // 1. Telemetry Data Queries
-  const { data: monitoringTargets, isLoading: isLoadingMon, isError: isErrorMon, refetch: refetchMon } = useQuery<
-    MonitoringTarget[]
-  >({
-    queryKey: ['dash-monitoring'],
-    queryFn: async () => {
-      const res = await api.get('monitoring/');
-      return (res.data?.data || []) as MonitoringTarget[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
+  const notify = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+    setNotification({ message, type });
+    window.setTimeout(() => setNotification(null), 4500);
+  }, []);
 
-  const { data: sslCerts, isError: isErrorSSL, refetch: refetchSSL } = useQuery<
-    SSLCertificate[]
-  >({
-    queryKey: ['dash-ssl'],
-    queryFn: async () => {
-      const res = await api.get('ssl-certificates/');
-      return (res.data?.data || []) as SSLCertificate[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  const { data: domains, isError: isErrorDomains, refetch: refetchDomains } = useQuery<
-    DomainInfo[]
-  >({
-    queryKey: ['dash-domains'],
-    queryFn: async () => {
-      const res = await api.get('domains/');
-      return (res.data?.data || []) as DomainInfo[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  const { data: apiChecks, isError: isErrorAPI, refetch: refetchAPI } = useQuery<
-    APICheckTarget[]
-  >({
-    queryKey: ['dash-api-checks'],
-    queryFn: async () => {
-      const res = await api.get('api-checks/');
-      return (res.data?.data || []) as APICheckTarget[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  const { data: securityHeaders, isError: isErrorSec, refetch: refetchSec } = useQuery<
-    SecurityHeaderTarget[]
-  >({
-    queryKey: ['dash-sec-headers'],
-    queryFn: async () => {
-      const res = await api.get('security-headers/');
-      return (res.data?.data || []) as SecurityHeaderTarget[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  const { data: dnsRecords, isError: isErrorDNS, refetch: refetchDNS } = useQuery<DNSRecord[]>({
-    queryKey: ['dash-dns-records'],
-    queryFn: async () => {
-      const res = await api.get('dns-records/');
-      return (res.data?.data || []) as DNSRecord[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  const { data: activeAlerts, isError: isErrorAlerts, refetch: refetchAlerts } = useQuery<
-    Alert[]
-  >({
-    queryKey: ['dash-active-alerts'],
-    queryFn: async () => {
-      const res = await api.get('alerts/?status=active');
-      return (res.data?.data || []) as Alert[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  const { data: openIncidents, isError: isErrorIncidents, refetch: refetchIncidents } = useQuery<
-    Incident[]
-  >({
-    queryKey: ['dash-open-incidents'],
-    queryFn: async () => {
-      const res = await api.get('incidents/');
-      const allIncidents = (res.data?.data || []) as Incident[];
-      return allIncidents.filter((inc) => inc.status !== 'resolved' && inc.status !== 'closed');
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  // Real Organization-Wide Global Performance Timeseries Query
-  const {
-    data: globalPerfData,
-    isLoading: isLoadingPerf,
-    isError: isErrorPerf,
-    refetch: refetchPerf,
-  } = useQuery<{
-    period: string;
-    summary: {
-      avg_uptime: number | null;
-      avg_latency: number | null;
-      total_checks: number;
-      checks_per_minute: number;
-    };
-    points: { timestamp: number; time: string; uptime: number | null; latency: number | null; checks: number; checks_per_minute: number }[];
-    services: {
-      web: { count: number; total: number; avg_latency: number };
-      api: { count: number; total: number; avg_latency: number };
-      db: { count: number; total: number; avg_latency: number };
-      ssl: { count: number; total: number; avg_latency: number };
-      dns: { count: number; total: number; avg_latency: number };
-    };
-  }>({
-    queryKey: ['dash-global-perf', timeRange],
-    queryFn: async () => {
-      const res = await api.get('monitoring/global-performance/', {
-        params: { period: timeRange },
-      });
-      return res.data?.data;
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  // 2. Refresh All Telemetry
-  const handleRefetchAll = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const results = await Promise.all([
-        refetchMon(),
-        refetchSSL(),
-        refetchDomains(),
-        refetchAPI(),
-        refetchSec(),
-        refetchDNS(),
-        refetchAlerts(),
-        refetchIncidents(),
-        refetchPerf(),
-      ]);
-      if (results.some((result) => result.isError)) {
-        throw new Error('Al menos un módulo no respondió.');
-      }
-      setActionNotification({
-        message: 'Telemetría actualizada correctamente en vivo para todos los módulos.',
-        type: 'success',
-      });
-      setTimeout(() => setActionNotification(null), 4000);
-    } catch {
-      setActionNotification({
-        message: 'No fue posible completar la actualización de telemetría.',
-        type: 'error',
-      });
-      setTimeout(() => setActionNotification(null), 4000);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [
-    refetchMon,
-    refetchSSL,
-    refetchDomains,
-    refetchAPI,
-    refetchSec,
-    refetchDNS,
-    refetchAlerts,
-    refetchIncidents,
-    refetchPerf,
-  ]);
-
-  // 3. Quick Actions: Scan & Toggle Active
-  const scanMutation = useMutation({
-    mutationFn: async (targetId: string) => {
-      setScanningTargetId(targetId);
-      const res = await api.post(`monitoring/${targetId}/scan/`);
-      return res.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
-      queryClient.invalidateQueries({ queryKey: ['dash-active-alerts'] });
-      queryClient.invalidateQueries({ queryKey: ['dash-global-perf'] });
-      setActionNotification({
-        message: 'Escaneo ejecutado exitosamente.',
-        type: 'success',
-      });
-      setTimeout(() => setActionNotification(null), 4000);
-    },
-    onError: () => {
-      setActionNotification({
-        message: 'Error al solicitar el escaneo bajo demanda.',
-        type: 'error',
-      });
-      setTimeout(() => setActionNotification(null), 4000);
-    },
-    onSettled: () => {
-      setScanningTargetId(null);
-    },
-  });
-
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const res = await api.patch(`monitoring/${id}/`, { enabled: !enabled });
-      return res.data?.data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
-      queryClient.invalidateQueries({ queryKey: ['dash-global-perf'] });
-      setActionNotification({
-        message: `Monitoreo ${!variables.enabled ? 'activado' : 'pausado'} correctamente.`,
-        type: 'info',
-      });
-      setTimeout(() => setActionNotification(null), 4000);
-    },
-    onError: () => {
-      setActionNotification({ message: 'No se pudo cambiar el estado del monitor.', type: 'error' });
-      setTimeout(() => setActionNotification(null), 4000);
-    },
-  });
-  const hasTelemetryError = isErrorMon || isErrorSSL || isErrorDomains || isErrorAPI || isErrorSec || isErrorDNS || isErrorAlerts || isErrorIncidents || isErrorPerf;
-
-  // 4. Metric Calculations (Strictly Mutually Exclusive)
-  const totalMon = monitoringTargets?.length || 0;
-  const downMon = monitoringTargets?.filter((t) => t.enabled && (t.last_status === 'down' || t.last_status === 'error')).length || 0;
-  const degradedMon = monitoringTargets?.filter(
-    (t) => t.enabled && (t.last_status === 'degraded' || t.last_status === 'slow' || (t.last_status === 'up' && t.last_latency !== null && t.last_latency > 500))
-  ).length || 0;
-  const upMon = monitoringTargets?.filter(
-    (t) => t.enabled && t.last_status === 'up' && (t.last_latency === null || t.last_latency <= 500)
-  ).length || 0;
-
-  const totalAPIChecks = apiChecks?.length || 0;
-  const failingAPIChecks = apiChecks?.filter(
-    (a) => a.enabled && (a.last_status === 'fail' || a.last_status === 'error')
-  ).length || 0;
-  const degradedAPIChecks = apiChecks?.filter(
-    (a) => a.enabled && (a.last_status === 'degraded' || a.last_status === 'slow' || (a.last_status === 'pass' && a.last_response_time_ms != null && a.last_response_time_ms > 1000))
-  ).length || 0;
-  const passingAPIChecks = apiChecks?.filter(
-    (a) => a.enabled && a.last_status === 'pass' && (a.last_response_time_ms == null || a.last_response_time_ms <= 1000)
-  ).length || 0;
-
-  const totalServices = totalMon + totalAPIChecks;
-  const healthyServices = upMon + passingAPIChecks;
-  const degradedServices = degradedMon + degradedAPIChecks;
-  const downServices = downMon + failingAPIChecks;
-  const visibleDownServices = (isErrorMon ? 0 : downMon) + (isErrorAPI ? 0 : failingAPIChecks);
-  const visibleDegradedServices = (isErrorMon ? 0 : degradedMon) + (isErrorAPI ? 0 : degradedAPIChecks);
-  const unknownServices = totalServices - healthyServices - degradedServices - downServices;
-  const currentHealth = !isErrorMon && !isErrorAPI && totalServices > 0 ? Math.round((healthyServices / totalServices) * 100) : null;
-  const targetsLoading = !isErrorMon && !isErrorAPI && (!monitoringTargets || !apiChecks);
-  const targetsAvailable = !isErrorMon && !isErrorAPI && !targetsLoading;
-
-  const alertsCount = activeAlerts?.length || 0;
-  const incidentsCount = openIncidents?.length || 0;
-  const criticalIncidentsCount = (openIncidents || []).filter(
-    (i) => i.priority === 'critical'
-  ).length;
-
-  // Period availability comes from checks; current health remains a separate measure.
-  const avgLatency = globalPerfData?.summary.avg_latency ?? null;
-  const slaPercentage = globalPerfData?.summary.avg_uptime ?? null;
-
-  // Only evaluated SSL certificates and security headers contribute to the score.
-  const totalSSL = sslCerts?.length || 0;
-  const evaluatedSSL = (sslCerts || []).filter((c) => c.last_scanned_at);
-  const validSSL = evaluatedSSL.filter((c) => c.is_valid).length;
-  const evaluatedHeaders = (securityHeaders || []).filter((s) => s.last_score !== null);
-  const securityVulnerabilitiesCount = evaluatedSSL.filter((c) => !c.is_valid).length + evaluatedHeaders.filter(
-    (s) => s.info_leak_detected || (s.last_score !== null && s.last_score < 70)
-  ).length;
-  const securitySampleCount = evaluatedSSL.length + evaluatedHeaders.length;
-  const securityScore = !isErrorSSL && !isErrorSec && securitySampleCount > 0
-    ? Math.round((validSSL * 100 + evaluatedHeaders.reduce((sum, item) => sum + (item.last_score ?? 0), 0)) / securitySampleCount)
-    : null;
-
-  // Service Sub-Metric Chips for Performance Section
-  const webTargets = (monitoringTargets || []).filter(
-    (t) => t.target_type === 'http' || t.target_type === 'https' || !t.target_type
-  );
-  const dbTargets = (monitoringTargets || []).filter(
-    (t) => t.target_type === 'tcp'
-  );
-  const serviceFreshness = {
-    web: scheduledFreshness(webTargets.map((t) => ({ enabled: t.enabled, last_checked_at: t.last_checked_at, intervalSeconds: t.interval })), isErrorMon),
-    api: scheduledFreshness(apiChecks?.map((a) => ({ enabled: a.enabled, last_checked_at: a.last_checked_at, intervalSeconds: a.check_interval })), isErrorAPI),
-    tcp: scheduledFreshness(dbTargets.map((t) => ({ enabled: t.enabled, last_checked_at: t.last_checked_at, intervalSeconds: t.interval })), isErrorMon),
-    ssl: scannedFreshness(sslCerts?.map((c) => c.last_scanned_at), isErrorSSL),
-    dns: scannedFreshness(dnsRecords?.map((r) => r.last_scanned_at), isErrorDNS),
+  const queryOptions = { refetchInterval: autoRefresh.refetchInterval };
+  const monitoringQuery = useQuery<MonitoringTarget[]>({ queryKey: ['dash-monitoring', user?.organization?.id], queryFn: async () => listFromResponse<MonitoringTarget>(await api.get('monitoring/')), ...queryOptions });
+  const subscriptionQuery = useQuery({ queryKey: ['subscription-summary', user?.organization?.id], queryFn: async () => (await api.get('organizations/current/subscription/')).data?.data, ...queryOptions });
+  const onboardingKey = `sentinel_onboarding:${user?.id}`;
+  const canSetup = canManage && subscriptionQuery.isSuccess && subscriptionQuery.data?.monitoring_allowed === true;
+  useEffect(() => {
+    if (!user?.id || !canSetup || !monitoringQuery.isSuccess || monitoringQuery.data.length !== 0) return;
+    if (!localStorage.getItem(onboardingKey)) setShowQuickStartWizard(true);
+  }, [user?.id, canSetup, monitoringQuery.isSuccess, monitoringQuery.data, onboardingKey]);
+  const closeOnboarding = () => {
+    if (localStorage.getItem(onboardingKey) !== 'completed') localStorage.setItem(onboardingKey, 'dismissed');
+    localStorage.removeItem('sentinel_launch_onboarding');
+    localStorage.removeItem('sentinela_launch_onboarding');
+    setShowQuickStartWizard(false);
   };
+  const apiQuery = useQuery<APICheckTarget[]>({ queryKey: ['dash-api-checks', user?.organization?.id], queryFn: async () => listFromResponse<APICheckTarget>(await api.get('api-checks/')), ...queryOptions });
+  const sslQuery = useQuery<SSLCertificate[]>({ queryKey: ['dash-ssl', user?.organization?.id], queryFn: async () => listFromResponse<SSLCertificate>(await api.get('ssl-certificates/')), ...queryOptions });
+  const domainQuery = useQuery<DomainInfo[]>({ queryKey: ['dash-domains', user?.organization?.id], queryFn: async () => listFromResponse<DomainInfo>(await api.get('domains/')), ...queryOptions });
+  const dnsQuery = useQuery<DNSRecord[]>({ queryKey: ['dash-dns-records', user?.organization?.id], queryFn: async () => listFromResponse<DNSRecord>(await api.get('dns-records/')), ...queryOptions });
+  const securityQuery = useQuery<SecurityHeaderTarget[]>({ queryKey: ['dash-sec-headers', user?.organization?.id], queryFn: async () => listFromResponse<SecurityHeaderTarget>(await api.get('security-headers/')), ...queryOptions });
+  const alertsQuery = useQuery<Alert[]>({ queryKey: ['dash-active-alerts', user?.organization?.id], queryFn: async () => listFromResponse<Alert>(await api.get('alerts/?status=active')), ...queryOptions });
+  const incidentsQuery = useQuery<Incident[]>({ queryKey: ['dash-open-incidents', user?.organization?.id], queryFn: async () => listFromResponse<Incident>(await api.get('incidents/')).filter((item) => item.status !== 'resolved' && item.status !== 'closed'), ...queryOptions });
+  const agentsQuery = useQuery<AgentProbe[]>({ queryKey: ['dash-agents', user?.organization?.id], queryFn: async () => listFromResponse<AgentProbe>(await api.get('agent-probes/')), ...queryOptions });
+  const auditQuery = useQuery<AuditLogItem[]>({ queryKey: ['dash-audit', user?.organization?.id], queryFn: async () => listFromResponse<AuditLogItem>(await api.get('audit-logs/?limit=25')), ...queryOptions });
+  const performanceQuery = useQuery<GlobalPerformance>({ queryKey: ['dash-global-perf', user?.organization?.id, timeRange], queryFn: async () => (await api.get('monitoring/global-performance/', { params: { period: timeRange } })).data?.data, ...queryOptions });
+
+  const source = useMemo<DashboardSourceData>(() => ({
+    monitoring: monitoringQuery.data ?? [], apiChecks: apiQuery.data ?? [], ssl: sslQuery.data ?? [], domains: domainQuery.data ?? [], dns: dnsQuery.data ?? [], security: securityQuery.data ?? [], alerts: alertsQuery.data ?? [], incidents: incidentsQuery.data ?? [], agents: agentsQuery.data ?? [],
+  }), [monitoringQuery.data, apiQuery.data, sslQuery.data, domainQuery.data, dnsQuery.data, securityQuery.data, alertsQuery.data, incidentsQuery.data, agentsQuery.data]);
+
+  const allItems = useMemo(() => buildDashboardItems(source), [source]);
+  const attentionItems = useMemo(() => allItems.filter(isAttentionItem), [allItems]);
+  const visibleItems = useMemo(() => allItems.filter((item) => {
+    if (filters.view === 'attention' && !isAttentionItem(item)) return false;
+    if (filters.health && item.health !== filters.health) return false;
+    if (filters.module && item.module !== filters.module) return false;
+    return true;
+  }), [allItems, filters]);
+
+  const activityEvents = useMemo(() => {
+    const cutoff = Date.now() - rangeMilliseconds[timeRange];
+    return buildDashboardActivityEvents(source, auditQuery.data ?? []).filter((event) => event.occurredAt >= cutoff);
+  }, [source, auditQuery.data, timeRange]);
+
+  const queryList = [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, alertsQuery, incidentsQuery, agentsQuery, auditQuery, performanceQuery];
+  const hasTelemetryError = queryList.some((query) => query.isError);
+  const hasOperationalStateError = [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, agentsQuery].some((query) => query.isError);
+  const isStateLoading = [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, alertsQuery, incidentsQuery, agentsQuery].some((query) => query.isLoading);
+  const operationalItems = allItems.filter((item) => item.type !== 'alert' && item.type !== 'incident');
+  const healthCounts = {
+    healthy: operationalItems.filter((item) => item.health === 'healthy').length,
+    degraded: operationalItems.filter((item) => item.health === 'degraded').length,
+    down: operationalItems.filter((item) => item.health === 'down').length,
+    unknown: operationalItems.filter((item) => item.health === 'unknown').length,
+  };
+  const healthScore = !hasOperationalStateError && operationalItems.length ? Math.round(healthCounts.healthy / operationalItems.length * 100) : null;
+  const criticalCount = attentionItems.filter((item) => item.severity === 'critical').length;
+
+  const services = useMemo(() => {
+    const keys: Array<Exclude<DashboardModuleFilter, 'alerts'>> = ['web', 'api', 'tcp', 'ssl', 'dns', 'domain', 'security', 'agent'];
+    return Object.fromEntries(keys.map((key) => {
+      const resources = operationalItems.filter((item) => item.module === key);
+      return [key, { count: resources.filter((item) => item.health === 'healthy').length, total: resources.length, attention: resources.filter(isAttentionItem).length } satisfies ServiceCategoryMetric];
+    })) as Record<Exclude<DashboardModuleFilter, 'alerts'>, ServiceCategoryMetric>;
+  }, [operationalItems]);
+
   const lastSampleAt = latestTimestamp([
-    ...(monitoringTargets || []).map((target) => target.last_checked_at),
-    ...(apiChecks || []).map((target) => target.last_checked_at),
+    ...source.monitoring.map((item) => item.last_checked_at), ...source.apiChecks.map((item) => item.last_checked_at), ...source.ssl.map((item) => item.last_scanned_at), ...source.domains.map((item) => item.last_scanned_at), ...source.dns.map((item) => item.last_scanned_at), ...source.security.map((item) => item.last_checked_at), ...source.agents.map((item) => item.last_heartbeat),
   ]);
-  const activeFreshness = scheduledFreshness([
-    ...(monitoringTargets || []).map((target) => ({ enabled: target.enabled, last_checked_at: target.last_checked_at, intervalSeconds: target.interval })),
-    ...(apiChecks || []).map((target) => ({ enabled: target.enabled, last_checked_at: target.last_checked_at, intervalSeconds: target.check_interval })),
-  ], isErrorMon || isErrorAPI);
+  const headerFreshness = scheduledFreshness([
+    ...source.monitoring.map((item) => ({ enabled: item.enabled, last_checked_at: item.last_checked_at, intervalSeconds: item.interval })),
+    ...source.apiChecks.map((item) => ({ enabled: item.enabled, last_checked_at: item.last_checked_at, intervalSeconds: item.check_interval })),
+  ], monitoringQuery.isError || apiQuery.isError);
 
-  // Memoized handlers for child components
-  const handleScanTarget = useCallback((id: string) => {
-    scanMutation.mutate(id);
-  }, [scanMutation]);
+  const refetchAll = useCallback(async () => {
+    setIsRefreshing(true);
+    const results = await Promise.all(queryList.map((query) => query.refetch()));
+    const failed = results.some((result) => result.isError);
+    notify(failed ? 'Actualización parcial: uno o más módulos no respondieron.' : 'Telemetría actualizada correctamente.', failed ? 'error' : 'success');
+    setIsRefreshing(false);
+  }, [queryList, notify]);
 
-  const handleToggleActive = useCallback((id: string, currentEnabled: boolean) => {
-    toggleActiveMutation.mutate({ id, enabled: currentEnabled });
-  }, [toggleActiveMutation]);
-
-  const handleInspectTarget = useCallback((target: MonitoringTarget) => {
-    setSelectedItem({ type: 'monitoring', item: target });
-  }, []);
-
-  const handleInspectAlertItem = useCallback(
-    (item: { type: 'incident' | 'alert'; data: Incident | Alert }) => {
-      setSelectedItem(
-        item.type === 'incident'
-          ? { type: 'incident', item: item.data as Incident }
-          : { type: 'alert', item: item.data as Alert }
-      );
+  const scanMutation = useMutation({
+    mutationFn: async (item: DashboardAttentionItem) => {
+      const config = scanConfig(item);
+      if (!config) throw new Error('Este recurso no admite re-escaneo desde el dashboard.');
+      setPendingKey(item.key);
+      const response = await api.post(`${config.endpoint}/${item.id}/scan/`);
+      const queued = response.data?.data as QueuedScan;
+      return waitForFreshScan<DashboardRawItem>(queued, async () => (await api.get(`${config.endpoint}/${item.id}/`)).data?.data as DashboardRawItem, config.timestamp);
     },
-    []
-  );
+    onSuccess: (fresh) => {
+      queryClient.invalidateQueries({ queryKey: ['dash-monitoring', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-api-checks', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-ssl', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-domains', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-dns-records', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-sec-headers', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-global-perf', user?.organization?.id] });
+      notify(fresh ? 'Re-escaneo completado y datos actualizados.' : 'El escaneo continúa en cola; el auto-refresh actualizará el resultado.', fresh ? 'success' : 'info');
+    },
+    onError: (error: any) => notify(error.response?.data?.message || 'No fue posible solicitar el re-escaneo.', error.response?.status === 429 ? 'info' : 'error'),
+    onSettled: () => setPendingKey(null),
+  });
 
-  const handleTimeRangeChange = useCallback((range: '1h' | '6h' | '24h' | '7d') => {
-    setTimeRange(range);
-  }, []);
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (item: DashboardAttentionItem) => api.patch(`alerts/${item.id}/`, { status: 'acknowledged' }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['dash-active-alerts', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-audit', user?.organization?.id] }); setSelectedItem(null); notify('Alerta reconocida.', 'success'); },
+    onError: () => notify('No fue posible reconocer la alerta.', 'error'),
+  });
 
-  const subServices = useMemo(
-    () => ({
-      webCount: webTargets.filter((t) => t.enabled && t.last_status === 'up').length,
-      webTotal: Math.max(0, webTargets.length),
-      apiCount: passingAPIChecks,
-      apiTotal: Math.max(0, totalAPIChecks),
-      tcpCount: dbTargets.filter((t) => t.enabled && t.last_status === 'up').length,
-      tcpTotal: Math.max(0, dbTargets.length),
-      sslCount: validSSL,
-      sslTotal: Math.max(0, totalSSL),
-      dnsCount: (dnsRecords || []).filter((r) => r.last_scanned_at).length,
-      dnsTotal: Math.max(0, (dnsRecords || []).length),
-    }),
-    [webTargets, passingAPIChecks, totalAPIChecks, dbTargets, validSSL, totalSSL, dnsRecords]
-  );
+  const setHealthFilter = (health: DashboardFilterState['health']) => setFilters((current) => ({ ...current, health, view: health === 'healthy' ? 'all' : current.view }));
+  const setModuleFilter = (module: DashboardModuleFilter | null) => setFilters((current) => ({ ...current, module }));
+  const openModule = (path: string) => navigate(path);
 
-  // 5. Build Chronological Activity Events Feed (Memoized)
-  const recentEvents: ActivityEvent[] = useMemo(() => {
-    const events: ActivityEvent[] = [];
+  return <div className="space-y-3 pb-6" data-testid="dashboard-page">
+    <NOCDashboardHeader onRefreshAll={refetchAll} isRefreshing={isRefreshing} activeAlertsCount={source.alerts.length} timeRange={timeRange} onTimeRangeChange={setTimeRange} hasTelemetryError={hasTelemetryError} lastSampleAt={lastSampleAt} freshnessState={headerFreshness.state} autoRefresh={autoRefresh} />
 
-    (apiChecks || []).filter((a) => a.last_checked_at).forEach((a) => {
-      events.push({
-        id: `act-api-${a.id}`,
-        occurredAt: new Date(a.last_checked_at!).getTime(),
-        serviceName: a.name,
-        timestamp: a.last_checked_at
-          ? new Date(a.last_checked_at).toLocaleTimeString('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : '',
-        statusText: a.last_status === 'pass' ? 'Respuesta OK' : a.last_status === 'slow' ? 'Latencia elevada' : 'Fallo de verificación',
-        type: a.last_status === 'pass' ? 'success' : a.last_status === 'slow' ? 'warning' : 'error',
-        category: 'api',
-        path: '/api-checks',
-      });
-    });
+    {notification && <div role="status" className={`fixed right-5 top-5 z-[70] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 shadow-2xl ${notification.type === 'success' ? 'border-accent-green/40 bg-bg-card text-accent-green' : notification.type === 'error' ? 'border-accent-red/40 bg-bg-card text-accent-red' : 'border-accent-blue/40 bg-bg-card text-accent-blue'}`}>{notification.type === 'success' ? <CheckCircle2 size={16} /> : notification.type === 'error' ? <AlertTriangle size={16} /> : <Info size={16} />}<span className="text-xs text-text-main">{notification.message}</span><button type="button" onClick={() => setNotification(null)}><X size={14} /></button></div>}
 
-    (monitoringTargets || []).filter((m) => m.last_checked_at).forEach((m) => {
-      const isDegraded = m.last_status === 'slow' || m.last_status === 'degraded' || (m.last_latency != null && m.last_latency > 500);
-      const isDown = m.last_status === 'down' || m.last_status === 'error';
-      events.push({
-        id: `act-mon-${m.id}`,
-        occurredAt: new Date(m.last_checked_at!).getTime(),
-        serviceName: m.name,
-        timestamp: m.last_checked_at
-          ? new Date(m.last_checked_at).toLocaleTimeString('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : '',
-        statusText: isDown
-          ? 'Caído / Inaccesible'
-          : isDegraded
-          ? `Latencia ${Math.round(m.last_latency || 0)}ms`
-          : 'Respuesta OK',
-        type: isDown ? 'error' : isDegraded ? 'warning' : 'success',
-        category: 'uptime',
-        path: '/monitoring',
-      });
-    });
+    <div className="space-y-1.5"><TrialStatusBanner /><TwoFactorReminderBanner /></div>
+    {hasTelemetryError && <div className="rounded-xl border border-accent-yellow/30 bg-accent-yellow/5 px-4 py-2.5 text-xs text-accent-yellow">Telemetría parcial: Sentinel mantiene visibles los módulos disponibles y marca los datos faltantes como no disponibles.</div>}
 
-    (sslCerts || []).filter((s) => s.last_scanned_at).forEach((s) => {
-      events.push({
-        id: `act-ssl-${s.id}`,
-        occurredAt: new Date(s.last_scanned_at!).getTime(),
-        serviceName: s.domain,
-        timestamp: s.last_scanned_at
-          ? new Date(s.last_scanned_at).toLocaleTimeString('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })
-          : '',
-        statusText: s.is_valid ? 'SSL Válido' : 'Certificado Inválido',
-        type: s.is_valid ? 'success' : 'error',
-        category: 'ssl',
-        path: '/ssl',
-      });
-    });
+    {canSetup && !isStateLoading && operationalItems.length === 0 && !hasTelemetryError && <div className="rounded-2xl border border-accent-green/30 bg-gradient-to-r from-accent-green/10 to-bg-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-green"><Sparkles size={12} />Primeros pasos</span><h3 className="mt-1 text-lg font-bold text-text-main">Activa la observabilidad de tu infraestructura</h3><p className="mt-1 text-xs text-text-muted">Agrega un sitio, API o servicio para comenzar a recibir estado operativo.</p></div><button type="button" onClick={() => setShowQuickStartWizard(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-green px-5 py-2.5 text-xs font-bold text-black"><Rocket size={16} />Crear primer monitor</button></div>}
 
-    const windowMs = { '1h': 3600000, '6h': 21600000, '24h': 86400000, '7d': 604800000 }[timeRange];
-    return events.filter((event) => Number.isFinite(event.occurredAt) && event.occurredAt >= Date.now() - windowMs)
-      .sort((a, b) => b.occurredAt - a.occurredAt);
-  }, [apiChecks, monitoringTargets, sslCerts, timeRange]);
+    <NOCExecutiveKpis healthScore={healthScore} totalTargets={operationalItems.length} healthyTargets={healthCounts.healthy} downTargets={healthCounts.down} unknownTargets={healthCounts.unknown} availability={performanceQuery.data?.summary.avg_uptime ?? null} avgLatencyMs={performanceQuery.data?.summary.avg_latency ?? null} attentionCount={attentionItems.length} criticalAttentionCount={criticalCount} activeIncidentsCount={source.incidents.length} telemetryPoints={performanceQuery.data?.points} isLoading={isStateLoading} />
 
-  const servicesBarData = useMemo(() => {
-    return (
-      globalPerfData?.services || {
-        web: { count: subServices.webCount, total: subServices.webTotal },
-        api: { count: subServices.apiCount, total: subServices.apiTotal },
-        tcp: { count: subServices.tcpCount, total: subServices.tcpTotal },
-        ssl: { count: subServices.sslCount, total: subServices.sslTotal },
-        dns: { count: subServices.dnsCount, total: subServices.dnsTotal },
-      }
-    );
-  }, [globalPerfData?.services, subServices]);
-
-  return (
-    <div className="space-y-4 animate-in fade-in duration-300 pb-12 font-sans">
-      {/* 1. TOP HEADER (NOC Operations Center, Live Digital Clock & Controls) */}
-      <NOCDashboardHeader
-        onRefreshAll={handleRefetchAll}
-        isRefreshing={isRefreshing}
-        activeAlertsCount={alertsCount + incidentsCount}
-        timeRange={timeRange}
-        onTimeRangeChange={handleTimeRangeChange}
-        lastSampleAt={lastSampleAt}
-        freshnessState={activeFreshness.state}
-        hasTelemetryError={hasTelemetryError}
-      />
-
-      {hasTelemetryError && <div role="alert" className="rounded-2xl border border-accent-yellow/40 bg-accent-yellow/10 px-4 py-3 text-xs text-accent-yellow">Parte de la telemetría no está disponible. Los datos visibles pueden estar incompletos. Usa «Reintentar telemetría» para actualizar.</div>}
-
-      {/* Action Notification Banner */}
-      {actionNotification && (
-        <div
-          className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs font-sans animate-in fade-in slide-in-from-top-2 duration-200 ${
-            actionNotification.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : actionNotification.type === 'error'
-              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-              : 'bg-sky-500/10 border-sky-500/30 text-sky-400'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            {actionNotification.type === 'success' && (
-              <CheckCircle2 size={16} className="shrink-0" />
-            )}
-            {actionNotification.type === 'error' && (
-              <AlertTriangle size={16} className="shrink-0" />
-            )}
-            {actionNotification.type === 'info' && <Info size={16} className="shrink-0" />}
-            <span className="font-medium">{actionNotification.message}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActionNotification(null)}
-            className="p-1 hover:bg-white/10 rounded-full transition-colors text-text-dim hover:text-text-main"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* SaaS Trial Status / Expiration Warning Banner */}
-      <TrialStatusBanner />
-
-      {/* 2FA Policy Compliance Reminder Banner */}
-      <TwoFactorReminderBanner />
-
-      {(visibleDownServices > 0 || visibleDegradedServices > 0 || (!isErrorIncidents && incidentsCount > 0)) && (
-        <div role="status" className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 text-xs ${visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'border-accent-red/40 bg-accent-red/10' : 'border-accent-yellow/40 bg-accent-yellow/10'}`}>
-          <AlertTriangle size={18} className={visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'text-accent-red' : 'text-accent-yellow'} />
-          <div className="min-w-0 flex-1">
-            <strong className="block text-sm text-text-main">{visibleDownServices > 0 || (!isErrorIncidents && criticalIncidentsCount > 0) ? 'Atención inmediata' : 'Revisión operativa'}</strong>
-            <span className="text-text-muted">{[visibleDownServices > 0 && `${visibleDownServices} caídos`, visibleDegradedServices > 0 && `${visibleDegradedServices} degradados`, !isErrorIncidents && incidentsCount > 0 && `${incidentsCount} incidentes activos`, (isErrorMon || isErrorAPI || isErrorIncidents) && 'Datos parciales'].filter(Boolean).join(' · ')}</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {!isErrorMon && downMon + degradedMon > 0 && <button type="button" onClick={() => navigate('/monitoring')} className="rounded-full border border-border-accent px-3 py-1.5 text-text-main hover:bg-white/5">Ver monitores</button>}
-            {!isErrorAPI && failingAPIChecks + degradedAPIChecks > 0 && <button type="button" onClick={() => navigate('/api-checks')} className="rounded-full border border-border-accent px-3 py-1.5 text-text-main hover:bg-white/5">Ver APIs</button>}
-            {!isErrorIncidents && incidentsCount > 0 && <button type="button" onClick={() => navigate('/incidents')} className="rounded-full border border-border-accent px-3 py-1.5 text-text-main hover:bg-white/5">Ver incidentes</button>}
-          </div>
-        </div>
-      )}
-
-      {/* Onboarding Hero Banner (If 0 monitoring targets) */}
-      {!isLoadingMon && !isErrorMon && monitoringTargets?.length === 0 && (
-        <div className="bg-gradient-to-r from-accent-green/10 via-bg-card to-accent-purple/10 border border-accent-green/30 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-3 duration-300">
-          <div className="space-y-2 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-accent-green/20 text-accent-green border border-accent-green/40">
-              <Sparkles size={13} className="text-accent-green" />
-              <span>Primeros Pasos &bull; Configuración en 60 Segundos</span>
-            </div>
-            <h3 className="text-xl font-bold text-text-main">
-              Activa la Observabilidad de tu Infraestructura
-            </h3>
-            <p className="text-sm text-text-muted">
-              Comienza agregando tu primer sitio web, API o microservicio. Sentinel aprovisionará
-              automáticamente métricas de uptime, certificados SSL, cabeceras de seguridad y
-              reglas de alerta inteligentes.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowQuickStartWizard(true)}
-            className="shrink-0 bg-accent-green hover:bg-accent-green/90 text-black font-bold px-6 py-3 rounded-2xl text-sm flex items-center gap-2.5 shadow-lg shadow-accent-green/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          >
-            <Rocket size={18} />
-            <span>Desplegar Primer Monitor</span>
-          </button>
-        </div>
-      )}
-
-      {/* 2. TOP 5 EXECUTIVE KPI METRIC CARDS */}
-      <NOCExecutiveKpis
-        slaPercentage={slaPercentage}
-        avgLatencyMs={avgLatency}
-        totalTargets={totalServices}
-        onlineTargets={healthyServices}
-        degradedTargets={degradedServices}
-        downTargets={downServices}
-        unknownTargets={unknownServices}
-        activeIncidentsCount={isErrorIncidents ? null : incidentsCount}
-        criticalIncidentsCount={isErrorIncidents ? null : criticalIncidentsCount}
-        securityScore={securityScore}
-        securityVulnerabilitiesCount={securityVulnerabilitiesCount}
-        telemetryPoints={globalPerfData?.points}
-        targetsAvailable={targetsAvailable}
-        targetsLoading={targetsLoading}
-      />
-
-      {/* 3. MIDDLE SECTION (Global Performance Area Chart, Infra Donut, Activity Feed) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-4 items-stretch">
-        {/* Left Column: Rendimiento Global (Span 6) */}
-        <div className="lg:col-span-2 xl:col-span-6 flex flex-col">
-          <NOCPerformanceSection
-            timeRange={timeRange}
-            checksPerMinute={globalPerfData?.summary?.total_checks ? globalPerfData.summary.checks_per_minute : null}
-            historicalData={globalPerfData?.points}
-            isLoading={isLoadingPerf}
-            isError={isErrorPerf}
-          />
-        </div>
-
-        {/* Center Column: Estado de Infraestructura Donut (Span 3) */}
-        <div className="lg:col-span-1 xl:col-span-3 flex flex-col">
-          <NOCInfraHealthDonut
-            total={totalServices}
-            online={healthyServices}
-            degraded={degradedServices}
-            down={downServices}
-            unknown={unknownServices}
-            healthScore={currentHealth}
-            dataUnavailable={!targetsAvailable}
-            isLoading={targetsLoading}
-          />
-        </div>
-
-        {/* Right Column: Actividad Reciente Feed (Span 3) */}
-        <div className="lg:col-span-1 xl:col-span-3 flex flex-col">
-          <NOCRecentActivityFeed events={recentEvents} />
-        </div>
-      </div>
-
-      {/* 3.1 DEDICATED 5-SERVICE BAR (Web, APIs, Base de Datos, SSL, DNS - Outside of Container with Real Data) */}
-      <NOCServicesBar services={servicesBarData} freshness={serviceFreshness} />
-
-      {/* 4. BOTTOM SECTION (Critical Targets Table & Live Incidents/Alerts) */}
-      <div className="grid grid-cols-1 min-[1850px]:grid-cols-12 gap-4">
-        {/* Left Table: Targets Críticos (Span 7) */}
-        <div className="min-w-0 min-[1850px]:col-span-7">
-          <NOCCriticalTargetsTable
-            targets={monitoringTargets || []}
-            onScanTarget={handleScanTarget}
-            onToggleActive={handleToggleActive}
-            onInspectTarget={handleInspectTarget}
-            isScanningId={scanningTargetId}
-            canManageTargets={canManageTargets}
-            isUnavailable={isErrorMon}
-            isLoading={isLoadingMon}
-          />
-        </div>
-
-        {/* Right Table: Incidentes y Alertas (Span 5) */}
-        <div className="min-w-0 min-[1850px]:col-span-5">
-          <NOCLiveAlertsList
-            incidents={openIncidents || []}
-            alerts={activeAlerts || []}
-            onInspectItem={handleInspectAlertItem}
-            isUnavailable={isErrorAlerts || isErrorIncidents}
-            isLoading={!isErrorAlerts && !isErrorIncidents && (!activeAlerts || !openIncidents)}
-          />
-        </div>
-      </div>
-
-      {/* 5. SLIDE-OVER INSPECTOR DRAWER (Zero Context Loss with NOCDrawer) */}
-      <NOCDrawer
-        isOpen={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        title={
-          selectedItem?.type === 'monitoring'
-            ? selectedItem.item.name
-            : selectedItem?.type === 'api_check'
-            ? selectedItem.item.name
-            : selectedItem?.type === 'ssl'
-            ? selectedItem.item.domain
-            : selectedItem?.type === 'domain'
-            ? selectedItem.item.domain
-            : selectedItem?.type === 'alert'
-            ? selectedItem.item.title
-            : selectedItem?.type === 'incident'
-            ? selectedItem.item.title
-            : ''
-        }
-        subtitle={
-          selectedItem && (
-            <div className="flex items-center gap-2 text-xs font-mono text-text-muted truncate">
-              {selectedItem.type === 'monitoring' && selectedItem.item.endpoint}
-              {selectedItem.type === 'api_check' &&
-                `${selectedItem.item.method} ${selectedItem.item.url}`}
-              {selectedItem.type === 'ssl' &&
-                `Emisor: ${selectedItem.item.issuer || 'No disponible'}`}
-              {selectedItem.type === 'domain' &&
-                `Registrador: ${selectedItem.item.registrar || 'No disponible'}`}
-              {selectedItem.type === 'alert' && selectedItem.item.message}
-              {selectedItem.type === 'incident' && selectedItem.item.description}
-            </div>
-          )
-        }
-        statusBadge={
-          selectedItem && (
-            <>
-              {selectedItem.type === 'monitoring' && (
-                <StatusBadge status={selectedItem.item.last_status || 'desconocido'} />
-              )}
-              {selectedItem.type === 'api_check' && (
-                <StatusBadge status={selectedItem.item.last_status || 'desconocido'} />
-              )}
-              {selectedItem.type === 'ssl' && (
-                <StatusBadge status={selectedItem.item.is_valid ? 'valid' : 'invalid'} />
-              )}
-              {selectedItem.type === 'alert' && (
-                <SeverityBadge severity={selectedItem.item.severity} />
-              )}
-              {selectedItem.type === 'incident' && (
-                <PriorityBadge priority={selectedItem.item.priority} />
-              )}
-            </>
-          )
-        }
-        headerActions={
-          selectedItem && (
-            <button
-              type="button"
-              onClick={() => {
-                if (selectedItem.type === 'monitoring') navigate('/monitoring');
-                else if (selectedItem.type === 'api_check') navigate('/api-checks');
-                else if (selectedItem.type === 'ssl') navigate('/ssl');
-                else if (selectedItem.type === 'domain') navigate('/domains');
-                else if (selectedItem.type === 'alert') navigate('/alerts');
-                else if (selectedItem.type === 'incident') navigate('/incidents');
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green hover:text-black rounded-full text-xs font-semibold transition-all"
-            >
-              <span>Abrir Módulo</span>
-              <ExternalLink size={12} />
-            </button>
-          )
-        }
-        quickKpis={
-          selectedItem && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
-              {selectedItem.type === 'monitoring' && (
-                <>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Protocolo</div>
-                    <div className="text-base font-bold font-mono text-accent-green mt-0.5 uppercase">
-                      {selectedItem.item.target_type || 'HTTP'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Latencia</div>
-                    <div className="text-base font-bold font-mono text-text-main mt-0.5">
-                      {selectedItem.item.last_latency !== null
-                        ? `${Math.round(selectedItem.item.last_latency || 0)} ms`
-                        : '-'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Estado</div>
-                    <div className="text-base font-bold font-mono text-accent-green mt-0.5">
-                      {selectedItem.item.last_status === 'up' ? 'Online' : 'Degradado'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Intervalo</div>
-                    <div className="text-xs font-semibold font-mono text-text-muted mt-0.5">
-                      {selectedItem.item.interval}s
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {selectedItem.type === 'ssl' && (
-                <>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Días Restantes</div>
-                    <div className="text-base font-bold font-mono text-accent-green mt-0.5">
-                      {selectedItem.item.days_remaining ?? '-'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Cifrado</div>
-                    <div className="text-xs font-semibold font-mono text-text-main mt-0.5 truncate">
-                      {selectedItem.item.algorithm || 'RSA'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Expiración</div>
-                    <div className="text-xs font-semibold font-mono text-text-muted mt-0.5 truncate">
-                      {selectedItem.item.expiration_date
-                        ? new Date(selectedItem.item.expiration_date).toLocaleDateString('es-ES')
-                        : 'N/A'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Estado</div>
-                    <div className="text-xs font-bold text-accent-green mt-0.5">
-                      {selectedItem.item.is_valid ? 'Válido' : 'Inválido'}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {selectedItem.type === 'domain' && (
-                <>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Vigencia</div>
-                    <div className="text-base font-bold font-mono text-accent-green mt-0.5">
-                      {selectedItem.item.days_until_expiration ?? '-'} días
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Expiración</div>
-                    <div className="text-xs font-semibold font-mono text-text-main mt-0.5 truncate">
-                      {selectedItem.item.expiration_date
-                        ? new Date(selectedItem.item.expiration_date).toLocaleDateString('es-ES')
-                        : 'N/A'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">País</div>
-                    <div className="text-xs font-semibold font-mono text-text-muted mt-0.5">
-                      {selectedItem.item.registrant_country || 'N/A'}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">WHOIS</div>
-                    <div className="text-xs font-bold text-accent-green mt-0.5">Activo</div>
-                  </div>
-                </>
-              )}
-
-              {selectedItem.type === 'alert' && (
-                <>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Severidad</div>
-                    <div className="text-base font-bold text-accent-red mt-0.5 capitalize">
-                      {selectedItem.item.severity}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Estado</div>
-                    <div className="text-xs font-semibold text-accent-yellow mt-0.5 capitalize">
-                      {selectedItem.item.status}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Módulo</div>
-                    <div className="text-xs font-semibold text-text-main mt-0.5 capitalize">
-                      {selectedItem.item.target_type}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Disparada</div>
-                    <div className="text-xs font-semibold font-mono text-text-muted mt-0.5 truncate">
-                      {new Date(selectedItem.item.triggered_at).toLocaleTimeString('es-ES')}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {selectedItem.type === 'incident' && (
-                <>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Prioridad</div>
-                    <div className="text-base font-bold text-accent-red mt-0.5 capitalize">
-                      {selectedItem.item.priority}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Estado</div>
-                    <div className="text-xs font-semibold text-accent-yellow mt-0.5 capitalize">
-                      {selectedItem.item.status}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Alertas</div>
-                    <div className="text-base font-bold font-mono text-accent-green mt-0.5">
-                      {selectedItem.item.alerts_count}
-                    </div>
-                  </div>
-                  <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                    <div className="text-[11px] text-text-dim">Apertura</div>
-                    <div className="text-xs font-semibold font-mono text-text-muted mt-0.5 truncate">
-                      {new Date(selectedItem.item.opened_at).toLocaleDateString('es-ES')}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )
-        }
-        maxWidthClass="max-w-2xl"
-      >
-        {selectedItem && (
-          <div className="space-y-4 font-sans text-xs">
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-2.5 font-mono">
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-sans font-medium">Tipo de Recurso:</span>
-                <span className="font-bold text-accent-green uppercase">{selectedItem.type}</span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-sans font-medium">Identificador:</span>
-                <span className="text-text-muted">{selectedItem.item.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-dim font-sans font-medium">Organización:</span>
-                <span className="text-text-main font-bold">
-                  {selectedItem.item.organization || 'Global'}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 bg-bg-dark/50 border border-border-base rounded-2xl">
-              <h4 className="text-xs font-semibold text-text-muted mb-2 font-sans">
-                Acción Rápida
-              </h4>
-              <p className="text-xs text-text-dim mb-3 font-sans">
-                Para ver el historial detallado de métricas, realizar pruebas en vivo o editar la
-                configuración, abre la pantalla dedicada.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedItem.type === 'monitoring') navigate('/monitoring');
-                  else if (selectedItem.type === 'api_check') navigate('/api-checks');
-                  else if (selectedItem.type === 'ssl') navigate('/ssl');
-                  else if (selectedItem.type === 'domain') navigate('/domains');
-                  else if (selectedItem.type === 'alert') navigate('/alerts');
-                  else if (selectedItem.type === 'incident') navigate('/incidents');
-                }}
-                className="w-full py-2 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <span>Ir al Módulo Específico</span>
-                <ArrowRight size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-      </NOCDrawer>
-
-      {/* Quick-Start Wizard Modal */}
-      <QuickStartWizardModal
-        isOpen={showQuickStartWizard}
-        onClose={() => setShowQuickStartWizard(false)}
-        onComplete={() => setShowQuickStartWizard(false)}
-      />
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+      <div className="order-1 xl:order-4 xl:col-span-7 min-w-0"><NOCOperationalInbox items={visibleItems} total={visibleItems.length} filters={filters} loading={isStateLoading} partialError={hasTelemetryError} canManage={canManage} pendingKey={pendingKey} onViewChange={(view) => setFilters((current) => ({ ...current, view }))} onClearHealth={() => setHealthFilter(null)} onClearModule={() => setModuleFilter(null)} onSelect={setSelectedItem} onScan={(item) => scanMutation.mutate(item)} onAcknowledge={(item) => acknowledgeMutation.mutate(item)} onNavigate={openModule} /></div>
+      <div className="order-2 xl:order-1 xl:col-span-8 min-w-0"><NOCPerformanceSection timeRange={timeRange} checksPerMinute={performanceQuery.data?.summary.total_checks ? performanceQuery.data.summary.checks_per_minute : null} historicalData={performanceQuery.data?.points} isLoading={performanceQuery.isLoading} isError={performanceQuery.isError} /></div>
+      <div className="order-3 xl:order-2 xl:col-span-4 min-w-0"><NOCInfraHealthDonut total={operationalItems.length} online={healthCounts.healthy} degraded={healthCounts.degraded} down={healthCounts.down} unknown={healthCounts.unknown} healthScore={healthScore} dataUnavailable={hasTelemetryError && operationalItems.length === 0} isLoading={isStateLoading} selectedHealth={filters.health} onHealthSelect={setHealthFilter} /></div>
+      <div className="order-4 xl:order-3 xl:col-span-12 min-w-0"><NOCServicesBar services={services} selectedModule={filters.module} onModuleSelect={setModuleFilter} /></div>
+      <div className="order-5 xl:order-5 xl:col-span-5 min-w-0"><NOCRecentActivityFeed events={activityEvents} loading={isStateLoading || auditQuery.isLoading} partialError={hasTelemetryError} onNavigate={openModule} /></div>
     </div>
-  );
+
+    <NOCDrawer isOpen={Boolean(selectedItem)} onClose={() => setSelectedItem(null)} title={selectedItem?.title ?? ''} subtitle={selectedItem?.subtitle} statusBadge={selectedItem && <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${selectedItem.severity === 'critical' ? 'border-accent-red/30 bg-accent-red/10 text-accent-red' : selectedItem.severity === 'warning' ? 'border-accent-yellow/30 bg-accent-yellow/10 text-accent-yellow' : selectedItem.severity === 'healthy' ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : 'border-border-base text-text-dim'}`}>{selectedItem.statusLabel}</span>} headerActions={selectedItem && <button type="button" onClick={() => openModule(selectedItem.path)} className="inline-flex items-center gap-1.5 rounded-full border border-accent-green/30 bg-accent-green/10 px-3 py-1.5 text-xs font-semibold text-accent-green">Abrir módulo <ExternalLink size={12} /></button>} quickKpis={selectedItem && <div className="grid grid-cols-2 gap-2">{selectedItem.details.map((detail) => <div key={detail.label} className="rounded-xl border border-border-base/60 bg-bg-dark/70 p-2.5"><span className="block text-[10px] text-text-dim">{detail.label}</span><strong className="mt-0.5 block truncate text-xs text-text-main">{detail.value}</strong></div>)}</div>} footerActions={selectedItem && <>{canManage && selectedItem.canScan && <ScanAction resource={selectedItem.raw as {id:string; scan_availability?: import('../types/scan').ScanAvailability}} route={scanResourceRoutes[selectedItem.type] || ''} pending={pendingKey === selectedItem.key} onScan={()=>scanMutation.mutateAsync(selectedItem)} />}{canManage && selectedItem.type === 'alert' && <button type="button" onClick={() => acknowledgeMutation.mutate(selectedItem)} className="rounded-xl bg-accent-yellow px-4 py-2 text-xs font-bold text-black">Reconocer alerta</button>}<button type="button" onClick={() => openModule(selectedItem.path)} className="inline-flex items-center gap-1.5 rounded-xl bg-accent-green px-4 py-2 text-xs font-bold text-black">Ver detalle <ArrowRight size={13} /></button></>} maxWidthClass="max-w-xl">
+      {selectedItem && <div className="space-y-4"><div className="rounded-2xl border border-border-base bg-bg-dark/60 p-4"><p className="text-[10px] uppercase tracking-wider text-text-dim">Resumen operativo</p><h4 className="mt-2 text-sm font-semibold text-text-main">{selectedItem.statusLabel}</h4><p className="mt-1 text-xs leading-relaxed text-text-muted">{selectedItem.subtitle}</p></div><div className="rounded-2xl border border-border-base p-4"><dl className="space-y-3 text-xs"><div className="flex justify-between gap-4"><dt className="text-text-dim">Módulo</dt><dd className="font-semibold text-text-main">{selectedItem.moduleLabel}</dd></div><div className="flex justify-between gap-4"><dt className="text-text-dim">Identificador</dt><dd className="font-mono text-text-muted">{selectedItem.id}</dd></div><div className="flex justify-between gap-4"><dt className="text-text-dim">Última señal</dt><dd className="text-text-main">{selectedItem.occurredAt ? new Date(selectedItem.occurredAt).toLocaleString('es-GT') : 'Sin datos'}</dd></div></dl></div><p className="text-[11px] text-text-dim">Las acciones de resolución, edición, pausa y gestión de incidentes se realizan en el módulo correspondiente.</p></div>}
+    </NOCDrawer>
+
+    <QuickStartWizardModal isOpen={showQuickStartWizard && canSetup} onClose={closeOnboarding} onComplete={() => { localStorage.setItem(onboardingKey, 'completed'); setShowQuickStartWizard(false); }} />
+  </div>;
 }

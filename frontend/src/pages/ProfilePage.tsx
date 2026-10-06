@@ -7,6 +7,7 @@ import ConfirmDelete from '../components/common/ConfirmDelete';
 import NOCPageHeader from '../components/common/noc/NOCPageHeader';
 import PasswordStrengthMeter from '../components/profile/PasswordStrengthMeter';
 import CreateTokenModal from '../components/profile/CreateTokenModal';
+import ChangeEmailForm from '../components/profile/ChangeEmailForm';
 import UserActivityTab from '../components/profile/UserActivityTab';
 import TwoFactorModal from '../components/profile/TwoFactorModal';
 import Disable2FAModal from '../components/profile/Disable2FAModal';
@@ -19,8 +20,6 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Copy,
-  Check,
   Plus,
   Trash2,
   ShieldCheck,
@@ -95,8 +94,6 @@ export default function ProfilePage() {
 
   // Tokens state
   const [showTokenModal, setShowTokenModal] = useState(false);
-  const [revealedTokenIds, setRevealedTokenIds] = useState<Set<string>>(new Set());
-  const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
   const [deleteTokenTarget, setDeleteTokenTarget] = useState<APITokenItem | null>(null);
 
   // 2FA state
@@ -201,7 +198,6 @@ export default function ProfilePage() {
       const res = await api.patch('auth/me/', {
         first_name: firstName,
         last_name: lastName,
-        email,
         phone_number: phoneNumber,
       });
       return res.data?.data;
@@ -248,7 +244,9 @@ export default function ProfilePage() {
   // Mutation: Revoke Other Active Sessions
   const revokeSessionsMutation = useMutation({
     mutationFn: async () => {
-      await api.post('auth/revoke-sessions/');
+      const currentRefreshToken = localStorage.getItem('refresh_token');
+      if (!currentRefreshToken) throw new Error('No se encontró la sesión actual.');
+      await api.post('auth/revoke-sessions/', { current_refresh_token: currentRefreshToken });
     },
     onSuccess: () => {
       setRevokeSessionsMsg({
@@ -328,11 +326,11 @@ export default function ProfilePage() {
   // Mutation: Create API Token
   const createTokenMutation = useMutation({
     mutationFn: async (payload: { name: string; scope: 'read' | 'full'; expires_in_days: number | null }) => {
-      await api.post('auth/api-tokens/', payload);
+      const response = await api.post('auth/api-tokens/', payload);
+      return response.data?.data?.raw_token as string;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-api-tokens'] });
-      setShowTokenModal(false);
     },
   });
 
@@ -346,26 +344,6 @@ export default function ProfilePage() {
       setDeleteTokenTarget(null);
     },
   });
-
-  // Helper: Copy Token with feedback
-  const handleCopyToken = (tokenId: string, tokenStr: string) => {
-    navigator.clipboard.writeText(tokenStr);
-    setCopiedTokenId(tokenId);
-    setTimeout(() => setCopiedTokenId(null), 2500);
-  };
-
-  // Helper: Toggle unmasking
-  const toggleRevealToken = (tokenId: string) => {
-    setRevealedTokenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(tokenId)) {
-        next.delete(tokenId);
-      } else {
-        next.add(tokenId);
-      }
-      return next;
-    });
-  };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -633,9 +611,10 @@ export default function ProfilePage() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    readOnly
                     className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                   />
+                  <ChangeEmailForm />
                 </div>
 
                 <div>
@@ -1198,12 +1177,6 @@ export default function ProfilePage() {
           ) : apiTokens.length > 0 ? (
             <div className="space-y-3 font-sans text-xs">
               {apiTokens.map((t) => {
-                const isRevealed = revealedTokenIds.has(t.id);
-                const isCopied = copiedTokenId === t.id;
-                const maskedToken = isRevealed
-                  ? t.token
-                  : `${t.token.slice(0, 4)}••••••••••••••••${t.token.slice(-4)}`;
-
                 return (
                   <div
                     key={t.id}
@@ -1267,30 +1240,8 @@ export default function ProfilePage() {
                     {/* Token String & Quick Actions */}
                     <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
                       <div className="bg-bg-card border border-border-base px-3 py-1.5 rounded-xl font-mono text-xs text-accent-green select-all truncate max-w-[240px]">
-                        {maskedToken}
+                        {t.token_prefix}••••••••••••••••
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleRevealToken(t.id)}
-                        className="p-2 border border-border-base rounded-xl text-text-dim hover:text-text-main hover:bg-bg-card transition-colors cursor-pointer"
-                        title={isRevealed ? 'Ocultar token' : 'Revelar token'}
-                      >
-                        {isRevealed ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleCopyToken(t.id, t.token)}
-                        className="p-2 border border-border-base rounded-xl text-text-dim hover:text-text-main hover:bg-bg-card transition-colors cursor-pointer"
-                        title="Copiar token"
-                      >
-                        {isCopied ? (
-                          <Check size={15} className="text-accent-green" />
-                        ) : (
-                          <Copy size={15} />
-                        )}
-                      </button>
 
                       <button
                         type="button"
@@ -1316,7 +1267,7 @@ export default function ProfilePage() {
             isOpen={showTokenModal}
             onClose={() => setShowTokenModal(false)}
             onSubmit={async (payload) => {
-              await createTokenMutation.mutateAsync(payload);
+              return await createTokenMutation.mutateAsync(payload);
             }}
             isLoading={createTokenMutation.isPending}
           />

@@ -1,5 +1,8 @@
+import hashlib
 import ipaddress
+from django.conf import settings
 from django.http import JsonResponse
+from common.client_ip import get_client_ip
 
 
 class IPAllowlistMiddleware:
@@ -36,7 +39,8 @@ class IPAllowlistMiddleware:
                 token_str = auth_header.split(" ", 1)[1].strip()
                 try:
                     from accounts.models import APIToken
-                    api_tok = APIToken.objects.select_related("user", "user__organization").filter(token=token_str).first()
+                    token_hash = hashlib.sha256(token_str.encode("utf-8")).hexdigest()
+                    api_tok = APIToken.objects.select_related("user", "user__organization").filter(token_hash=token_hash).first()
                     if api_tok and not api_tok.is_expired and api_tok.user.is_active:
                         user = api_tok.user
                         request.user = user
@@ -78,22 +82,21 @@ class IPAllowlistMiddleware:
         return self.get_response(request)
 
     def _get_client_ip(self, request):
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        remote_addr = request.META.get("REMOTE_ADDR", "127.0.0.1")
-        if x_forwarded_for:
-            # Anti-Spoofing: inspect hops from right to left (trusted proxy hops)
-            # preventing untrusted clients from prepending fake IP headers
-            parts = [p.strip() for p in x_forwarded_for.split(",") if p.strip()]
-            for candidate in reversed(parts):
-                try:
-                    ip_obj = ipaddress.ip_address(candidate)
-                    if not (ip_obj.is_loopback or ip_obj.is_private):
-                        return candidate
-                except ValueError:
-                    continue
-            # If all candidates are private/loopback, fall back to remote_addr rather than forged parts[0]
-            return remote_addr
-        return remote_addr
+        return get_client_ip(request)
+
+    @staticmethod
+    def _is_trusted_proxy(remote_addr):
+        try:
+            peer = ipaddress.ip_address(remote_addr)
+        except ValueError:
+            return False
+        for raw_cidr in getattr(settings, "TRUSTED_PROXY_CIDRS", []):
+            try:
+                if peer in ipaddress.ip_network(raw_cidr, strict=False):
+                    return True
+            except ValueError:
+                continue
+        return False
 
 
     def _is_ip_allowed(self, client_ip_str, raw_ranges_str, request=None):
@@ -103,7 +106,6 @@ class IPAllowlistMiddleware:
             return False
 
         # Allow localhost / internal loopback during local development only if REMOTE_ADDR is also loopback
-        from django.conf import settings
         real_remote = request.META.get("REMOTE_ADDR", "") if request else client_ip_str
         if (client_obj.is_loopback or client_ip_str in ("127.0.0.1", "::1")) and settings.DEBUG:
             if real_remote in ("127.0.0.1", "::1", "localhost"):

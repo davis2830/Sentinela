@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Key, Loader2, ShieldCheck, Clock, ShieldAlert } from 'lucide-react';
+import { X, Key, Loader2, ShieldCheck, Clock, ShieldAlert, Copy, Download, Check } from 'lucide-react';
 
 interface CreateTokenModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; scope: 'read' | 'full'; expires_in_days: number | null }) => Promise<void>;
+  onSubmit: (data: { name: string; scope: 'read' | 'full'; expires_in_days: number | null }) => Promise<string>;
   isLoading?: boolean;
 }
 
@@ -18,23 +18,52 @@ export default function CreateTokenModal({
   const [name, setName] = useState('');
   const [scope, setScope] = useState<'read' | 'full'>('full');
   const [expiration, setExpiration] = useState<number | null>(90);
+  const [rawToken, setRawToken] = useState<string | null>(null);
+  const [secretSaved, setSecretSaved] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    await onSubmit({
+    const secret = await onSubmit({
       name: name.trim(),
       scope,
       expires_in_days: expiration,
     });
+    setRawToken(secret);
+  };
+
+  const closeSafely = () => {
+    if (rawToken && !secretSaved) return;
+    setRawToken(null);
+    setSecretSaved(false);
+    setName('');
+    onClose();
+  };
+
+  const copySecret = async () => {
+    if (!rawToken) return;
+    await navigator.clipboard.writeText(rawToken);
+    setSecretSaved(true);
+  };
+
+  const downloadSecret = () => {
+    if (!rawToken) return;
+    const blob = new Blob([`${rawToken}\n`], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sentinel-api-token-${name.trim().replace(/\s+/g, '-').toLowerCase()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setSecretSaved(true);
   };
 
   const content = (
     <div
       className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-      onClick={onClose}
+      onClick={closeSafely}
     >
       <div
         className="bg-bg-card border border-border-base rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200"
@@ -57,13 +86,35 @@ export default function CreateTokenModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeSafely}
+            disabled={!!rawToken && !secretSaved}
             className="p-1.5 rounded-full text-text-dim hover:text-text-main hover:bg-bg-dark transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
+        {rawToken ? (
+          <div className="space-y-4 text-xs font-sans">
+            <div className="p-4 rounded-2xl border border-accent-yellow/40 bg-accent-yellow/10 text-text-main">
+              Este secreto se muestra una sola vez. Cópialo o descárgalo antes de cerrar.
+            </div>
+            <code className="block break-all rounded-2xl border border-border-base bg-bg-dark p-4 font-mono text-accent-green select-all">
+              {rawToken}
+            </code>
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={copySecret} className="py-2.5 rounded-full border border-border-base flex items-center justify-center gap-2">
+                {secretSaved ? <Check size={15} /> : <Copy size={15} />} Copiar
+              </button>
+              <button type="button" onClick={downloadSecret} className="py-2.5 rounded-full border border-border-base flex items-center justify-center gap-2">
+                <Download size={15} /> Descargar
+              </button>
+            </div>
+            <button type="button" disabled={!secretSaved} onClick={closeSafely} className="w-full py-2.5 bg-accent-green text-black font-bold rounded-full disabled:opacity-40">
+              Ya guardé el secreto
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4 text-xs font-sans">
           {/* Name */}
           <div>
@@ -163,7 +214,7 @@ export default function CreateTokenModal({
           <div className="flex gap-3 pt-3 border-t border-border-base">
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeSafely}
               className="flex-1 py-2.5 border border-border-base rounded-full text-xs font-semibold text-text-muted hover:bg-bg-dark transition-colors cursor-pointer"
             >
               Cancelar
@@ -178,6 +229,7 @@ export default function CreateTokenModal({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

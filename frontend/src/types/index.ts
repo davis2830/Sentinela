@@ -37,7 +37,7 @@ export interface User {
 export interface APITokenItem {
   id: string;
   name: string;
-  token: string;
+  token_prefix: string;
   scope: 'read' | 'full';
   expires_at: string | null;
   is_expired: boolean;
@@ -73,4 +73,4 @@ export * from './alerts';
 export * from './incidents';
 export * from './reports';
 export * from './users';
-export * from './maintenance';
+export * from './maintenance';

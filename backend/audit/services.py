@@ -114,11 +114,8 @@ class AuditService:
             else None
         )
 
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0].strip()
-        else:
-            ip = request.META.get("REMOTE_ADDR")
+        from common.client_ip import get_client_ip
+        ip = get_client_ip(request)
 
         return AuditService.log(
             action=action,

@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { SecurityHeaderTarget } from '../../types/security_headers';
 import GradeBadge from '../common/GradeBadge';
@@ -56,12 +57,12 @@ export default function SecurityHeaderTableView({
   };
 
   return (
-    <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
-              <th className="py-3 px-3.5 w-10">
+              <th scope="col" className="py-3 px-3.5 w-10">
                 <button
                   type="button"
                   onClick={onSelectAll}
@@ -75,14 +76,14 @@ export default function SecurityHeaderTableView({
                   )}
                 </button>
               </th>
-              <th className="py-3 px-4">Endpoint / Servicio</th>
-              <th className="py-3 px-3">Calificación</th>
-              <th className="py-3 px-3">Blindaje Crítico</th>
-              <th className="py-3 px-3">Latencia</th>
-              <th className="py-3 px-3">Fuga de Stack</th>
-              <th className="py-3 px-3">Monitoreo</th>
-              <th className="py-3 px-3">Último Análisis</th>
-              <th className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-4">Endpoint / Servicio</th>
+              <th scope="col" className="py-3 px-3">Calificación</th>
+              <th scope="col" className="py-3 px-3">Blindaje Crítico</th>
+              <th scope="col" className="py-3 px-3">Latencia</th>
+              <th scope="col" className="py-3 px-3">Fuga de Stack</th>
+              <th scope="col" className="py-3 px-3">Monitoreo</th>
+              <th scope="col" className="py-3 px-3">Último Análisis</th>
+              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40">
@@ -95,6 +96,9 @@ export default function SecurityHeaderTableView({
                 <tr
                   key={target.id}
                   onClick={() => onSelectTarget(target)}
+                  tabIndex={0}
+                  aria-label={target.name}
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectTarget(target); } }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
                     isSelected ? 'bg-accent-green/[0.03]' : ''
                   }`}
@@ -215,7 +219,7 @@ export default function SecurityHeaderTableView({
 
                   {/* Server Leak Detection */}
                   <td className="py-3 px-3">
-                    {target.info_leak_detected ? (
+                    {!target.last_checked_at ? <span className="text-text-dim">Sin datos</span> : target.info_leak_detected ? (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse"
                         title={target.server_header || target.powered_by_header || 'Expone software de servidor'}
@@ -262,34 +266,23 @@ export default function SecurityHeaderTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        onClick={(e) => onScan(target.id, e)}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50"
-                        title="Escanear cabeceras ahora"
-                      >
-                        <RefreshCw
-                          size={14}
-                          className={isScanning ? 'animate-spin' : ''}
-                        />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => onEdit(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
                         title="Editar endpoint"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => onDelete(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
                         title="Eliminar endpoint"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

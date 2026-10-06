@@ -1,4 +1,5 @@
 from django.urls import path
+from .beta_views import BetaAdminView, BetaPublicView, EmailChangeView
 
 from .views import (
     APITokenDetailView,
@@ -17,6 +18,9 @@ from .views import (
 )
 
 urlpatterns = [
+    path("beta/admin/", BetaAdminView.as_view(), name="beta_admin"),
+    path("beta/<str:operation>/", BetaPublicView.as_view(), name="beta_public"),
+    path("email/change/", EmailChangeView.as_view(), name="email_change"),
     path("login/", LoginView.as_view(), name="login"),
     path("login/2fa/", Login2FAView.as_view(), name="login_2fa"),
     path("register/", RegisterView.as_view(), name="register"),

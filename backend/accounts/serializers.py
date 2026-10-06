@@ -60,6 +60,8 @@ class RegisterSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False, default="")
     last_name = serializers.CharField(max_length=150, required=False, default="")
     organization_name = serializers.CharField(max_length=255, required=False, default="")
+    invitation_token = serializers.CharField(write_only=True, max_length=128, required=False, default="")
+    turnstile_token = serializers.CharField(write_only=True, max_length=2048, required=False, default="")
 
 
 class UserUpdateSerializer(serializers.Serializer):
@@ -72,6 +74,9 @@ class UserUpdateSerializer(serializers.Serializer):
     timezone = serializers.CharField(max_length=50, required=False, allow_blank=True)
     notification_preferences = serializers.DictField(required=False)
 
+    def validate_email(self, value):
+        raise serializers.ValidationError("Cambia tu correo desde el flujo de confirmación de correo.")
+
 
 from .models import APIToken
 
@@ -83,8 +88,8 @@ class APITokenSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = APIToken
-        fields = ("id", "name", "token", "scope", "expires_at", "is_expired", "created_at", "last_used_at")
-        read_only_fields = ("id", "token", "is_expired", "created_at", "last_used_at")
+        fields = ("id", "name", "token_prefix", "scope", "expires_at", "is_expired", "created_at", "last_used_at")
+        read_only_fields = fields
 
 
 class APITokenCreateSerializer(serializers.Serializer):

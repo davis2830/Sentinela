@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React, { useState } from 'react';
 import {
   Calendar,
@@ -321,13 +322,13 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <option value="completed">Completado</option>
               </select>
 
-              <button
+              <AdminButton
                 type="submit"
                 disabled={isPostingUpdate || !updateMsg.trim()}
                 className="px-3 py-1.5 rounded-full bg-accent-green text-black font-bold text-xs hover:bg-accent-green/90 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
               >
                 <Send size={12} /> Publicar
-              </button>
+              </AdminButton>
             </div>
           </form>
 
@@ -363,34 +364,34 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-              <button
+              <AdminButton
                 type="button"
                 disabled={isStarting || item.status === 'in_progress' || item.status === 'completed'}
                 onClick={() => onStart(item.id)}
                 className="py-2.5 px-4 rounded-xl font-bold bg-accent-blue/15 text-accent-blue hover:bg-accent-blue/25 border border-accent-blue/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
               >
                 <Play size={14} /> Iniciar Mantenimiento
-              </button>
+              </AdminButton>
 
-              <button
+              <AdminButton
                 type="button"
                 disabled={isCompleting || item.status === 'completed'}
                 onClick={() => onComplete(item.id)}
                 className="py-2.5 px-4 rounded-xl font-bold bg-accent-green/15 text-accent-green hover:bg-accent-green/25 border border-accent-green/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
               >
                 <CheckCircle2 size={14} /> Marcar Completado
-              </button>
+              </AdminButton>
             </div>
 
             {item.status !== 'cancelled' && item.status !== 'completed' && (
-              <button
+              <AdminButton
                 type="button"
                 disabled={isCancelling}
                 onClick={() => onCancel(item.id)}
                 className="w-full py-2 px-4 rounded-xl font-semibold bg-bg-card border border-border-base text-text-muted hover:text-accent-red hover:border-accent-red/40 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 mt-1"
               >
                 <XCircle size={14} /> Cancelar Ventana de Mantenimiento
-              </button>
+              </AdminButton>
             )}
           </div>
 
@@ -398,7 +399,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
             <h4 className="font-bold text-text-main">Gestión de la Ventana</h4>
 
             <div className="flex items-center gap-2">
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => {
                   onClose();
@@ -407,9 +408,9 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 className="flex-1 py-2 px-4 rounded-xl font-semibold bg-bg-card border border-border-base text-text-main hover:bg-bg-card-hover transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Edit size={14} /> Editar Configuración
-              </button>
+              </AdminButton>
 
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => {
                   if (confirm(`¿Estás seguro de eliminar la ventana '${item.title}'?`)) {
@@ -420,7 +421,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 className="py-2 px-4 rounded-xl font-semibold bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Trash2 size={14} /> Eliminar
-              </button>
+              </AdminButton>
             </div>
           </div>
         </div>

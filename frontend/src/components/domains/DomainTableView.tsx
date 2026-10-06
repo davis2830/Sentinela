@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { DomainInfo } from '../../types/domain';
 import StatusBadge from '../common/StatusBadge';
@@ -42,6 +43,7 @@ export default function DomainTableView({
     domains.length > 0 && selectedIds.length === domains.length;
 
   const getStatusType = (domain: DomainInfo) => {
+    if (!domain.last_scanned_at) return 'desconocido';
     if (domain.status === 'error' || Boolean(domain.error_message)) return 'fallo';
     const days = domain.days_until_expiration;
     if (days !== null && days <= 0) return 'expirado';
@@ -75,12 +77,12 @@ export default function DomainTableView({
   };
 
   return (
-    <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
-              <th className="py-3 px-3.5 w-10">
+              <th scope="col" className="py-3 px-3.5 w-10">
                 <button
                   type="button"
                   onClick={onSelectAll}
@@ -94,13 +96,13 @@ export default function DomainTableView({
                   )}
                 </button>
               </th>
-              <th className="py-3 px-4">Dominio FQDN</th>
-              <th className="py-3 px-3">Registrador ICANN</th>
-              <th className="py-3 px-3">Bloqueo EPP</th>
-              <th className="py-3 px-3">Vigencia & Timeline</th>
-              <th className="py-3 px-3">Fecha Vencimiento</th>
-              <th className="py-3 px-3">Servidores NS</th>
-              <th className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-4">Dominio FQDN</th>
+              <th scope="col" className="py-3 px-3">Registrador ICANN</th>
+              <th scope="col" className="py-3 px-3">Bloqueo EPP</th>
+              <th scope="col" className="py-3 px-3">Vigencia & Timeline</th>
+              <th scope="col" className="py-3 px-3">Fecha Vencimiento</th>
+              <th scope="col" className="py-3 px-3">Servidores NS</th>
+              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40">
@@ -116,6 +118,9 @@ export default function DomainTableView({
                 <tr
                   key={domain.id}
                   onClick={() => onSelectDomain(domain)}
+                  tabIndex={0}
+                  aria-label={domain.domain}
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectDomain(domain); } }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
                     isSelected ? 'bg-accent-green/[0.03]' : ''
                   }`}
@@ -257,34 +262,23 @@ export default function DomainTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        onClick={(e) => onScan(domain.id, e)}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-                        title="Consultar WHOIS ahora"
-                      >
-                        <RefreshCw
-                          size={14}
-                          className={isScanning ? 'animate-spin text-accent-green' : ''}
-                        />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => onEdit(domain, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar dominio"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => onDelete(domain, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                         title="Eliminar dominio"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

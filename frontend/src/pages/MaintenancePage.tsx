@@ -1,3 +1,9 @@
+import { useLinkedResource } from '../hooks/useLinkedResource';
+import { useUrlFilter } from '../hooks/useUrlFilter';
+import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import AdminButton from '../components/common/AdminButton';
+import { useAuthStore } from '../store/authStore';
+import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -29,10 +35,12 @@ import { MaintenanceDetailDrawer } from '../components/maintenance/MaintenanceDe
 import type { MaintenanceWindow, MaintenanceStats } from '../types';
 
 export default function MaintenancePage() {
+  const organizationId = useAuthStore(state => state.user?.organization?.id);
+
   const queryClient = useQueryClient();
 
   // State
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","scheduled","in_progress","completed","cancelled"] as const);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [drawerTarget, setDrawerTarget] = useState<MaintenanceWindow | null>(null);
@@ -40,7 +48,7 @@ export default function MaintenancePage() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   // Persistent view mode (grid vs table)
-  const [viewMode, setViewMode] = usePersistentViewMode('maintenance', 'grid');
+  const [viewMode, setViewMode] = usePersistentViewMode('maintenance', 'table');
 
   // Auto-refresh hook (30s interval)
   const autoRefresh = useAutoRefresh({ intervalSeconds: 30 });
@@ -52,7 +60,7 @@ export default function MaintenancePage() {
     isRefetching,
     refetch,
   } = useQuery<MaintenanceWindow[]>({
-    queryKey: ['maintenance-windows', statusFilter, searchQuery],
+    queryKey: ['maintenance-windows', organizationId, statusFilter, searchQuery],
     queryFn: async () => {
       const params: Record<string, string> = {};
       if (statusFilter !== 'all') params.status = statusFilter;
@@ -66,7 +74,7 @@ export default function MaintenancePage() {
 
   // 2. Fetch NOC Maintenance Stats
   const { data: stats } = useQuery<MaintenanceStats>({
-    queryKey: ['maintenance-stats'],
+    queryKey: ['maintenance-stats', organizationId],
     queryFn: async () => {
       const res = await api.get('maintenance/stats/');
       return res.data?.data || {
@@ -86,8 +94,8 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       setIsModalOpen(false);
     },
   });
@@ -98,8 +106,8 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       if (drawerTarget?.id === updated?.id) setDrawerTarget(updated);
       setIsModalOpen(false);
     },
@@ -111,8 +119,8 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       if (drawerTarget?.id === updated?.id) setDrawerTarget(updated);
     },
   });
@@ -123,8 +131,8 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       if (drawerTarget?.id === updated?.id) setDrawerTarget(updated);
     },
   });
@@ -135,8 +143,8 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       if (drawerTarget?.id === updated?.id) setDrawerTarget(updated);
     },
   });
@@ -146,8 +154,8 @@ export default function MaintenancePage() {
       await api.delete(`maintenance/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       setDrawerTarget(null);
     },
   });
@@ -158,7 +166,7 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
       if (drawerTarget) {
         api.get(`maintenance/${drawerTarget.id}/`).then((res: any) => {
           setDrawerTarget(res.data?.data);
@@ -176,8 +184,8 @@ export default function MaintenancePage() {
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats', organizationId] });
       setSelectedIds(new Set());
     },
   });
@@ -250,10 +258,12 @@ export default function MaintenancePage() {
     document.body.removeChild(link);
   };
 
+  useLinkedResource(windows, drawerTarget, setDrawerTarget);
+
   return (
-    <div className="space-y-6 pb-16 font-sans">
+    <div className="compact-workspace space-y-6 pb-16 font-sans">
       {/* 1. Header Unificado */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["maintenance-windows","maintenance-stats"]}
         title="Ventanas de Mantenimiento"
         badgeText="PLANIFICACIÓN & SUPRESIÓN"
         description="Planifica trabajos de infraestructura con supresión inteligente de alertas y protección de SLA."
@@ -265,16 +275,7 @@ export default function MaintenancePage() {
         }}
         actions={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isRefetching}
-              className="flex items-center gap-1.5 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-medium px-3.5 py-2 rounded-full text-xs hover:bg-bg-card-hover transition-all disabled:opacity-50 cursor-pointer"
-              title="Refrescar lista"
-            >
-              <RefreshCw size={14} className={isRefetching ? 'animate-spin' : ''} />
-              <span>Refrescar</span>
-            </button>
+
             <button
               type="button"
               onClick={handleExportCSV}
@@ -285,7 +286,7 @@ export default function MaintenancePage() {
               <Download size={14} />
               <span>Exportar</span>
             </button>
-            <button
+            <AdminButton
               type="button"
               onClick={() => {
                 setModalTarget(null);
@@ -295,82 +296,13 @@ export default function MaintenancePage() {
             >
               <Plus size={15} />
               <span>Nuevo Mantenimiento</span>
-            </button>
+            </AdminButton>
           </div>
         }
       />
 
       {/* 2. KPI Cards de Nivel Superior */}
-      <NOCKpiGrid columns={4}>
-        <NOCKpiCard
-          title="Mantenimientos En Curso"
-          value={stats?.active_in_progress ?? 0}
-          valueColor="text-accent-yellow"
-          icon={<Clock size={16} className="text-accent-yellow" />}
-          badge={{
-            text: (stats?.active_in_progress ?? 0) > 0 ? 'En curso' : 'Sin activos',
-            variant: (stats?.active_in_progress ?? 0) > 0 ? 'warning' : 'neutral',
-          }}
-          subtitle="Halo de radar pulsante en vivo"
-          footer={
-            <div className="text-[11px] text-text-dim flex justify-between">
-              <span>Estado en consola:</span>
-              <span className="text-accent-yellow font-bold">Activo</span>
-            </div>
-          }
-        />
-        <NOCKpiCard
-          title="Próximas Ventanas (7d)"
-          value={stats?.upcoming_7d ?? 0}
-          valueColor="text-accent-blue"
-          icon={<Calendar size={16} className="text-accent-blue" />}
-          badge={{
-            text: 'Planificado',
-            variant: 'info',
-          }}
-          subtitle="Trabajos programados en la semana"
-          footer={
-            <div className="text-[11px] text-text-dim flex justify-between">
-              <span>Horizonte:</span>
-              <span className="text-text-main font-mono">Próximos 7 días</span>
-            </div>
-          }
-        />
-        <NOCKpiCard
-          title="Targets Protegidos"
-          value={stats?.targets_in_maintenance ?? 0}
-          valueColor="text-accent-green"
-          icon={<Shield size={16} className="text-accent-green" />}
-          badge={{
-            text: 'Silenciado',
-            variant: 'success',
-          }}
-          subtitle="Alertas silenciadas activamente"
-          footer={
-            <div className="text-[11px] text-text-dim flex justify-between">
-              <span>Canales externos:</span>
-              <span className="text-accent-green">Sin falsas alarmas</span>
-            </div>
-          }
-        />
-        <NOCKpiCard
-          title="Horas Planificadas (Mes)"
-          value={`${stats?.scheduled_hours_month ?? 0}h`}
-          valueColor="text-text-main"
-          icon={<Layers size={16} className="text-text-dim" />}
-          badge={{
-            text: 'Tiempo Reservado',
-            variant: 'neutral',
-          }}
-          subtitle="Tiempo reservado en el mes"
-          footer={
-            <div className="text-[11px] text-text-dim flex justify-between">
-              <span>Impacto en SLA:</span>
-              <span className="text-accent-green font-medium">Excluido de castigo</span>
-            </div>
-          }
-        />
-      </NOCKpiGrid>
+      <CompactModuleSummary items={[{label:'En curso',value:stats?.active_in_progress ?? null},{label:'Próximos 7 días',value:stats?.upcoming_7d ?? null},{label:'Targets afectados',value:stats?.targets_in_maintenance ?? null}]} />
 
       {/* 3. Toolbar con Omnibar y Chips de Filtrado */}
       <NOCToolbar
@@ -417,7 +349,8 @@ export default function MaintenancePage() {
         itemLabel="mantenimientos"
         actions={
           <>
-            <button
+
+            <AdminButton
               type="button"
               onClick={() => {
                 if (confirm(`¿Iniciar ${selectedIds.size} ventanas de mantenimiento seleccionadas?`)) {
@@ -427,8 +360,8 @@ export default function MaintenancePage() {
               className="px-3 py-1.5 rounded-full bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue border border-accent-blue/40 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Play size={12} /> Iniciar en Lote
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => {
                 if (confirm(`¿Marcar como completadas ${selectedIds.size} ventanas?`)) {
@@ -438,8 +371,8 @@ export default function MaintenancePage() {
               className="px-3 py-1.5 rounded-full bg-accent-green text-black hover:bg-accent-green/90 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <CheckCircle2 size={12} /> Completar en Lote
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => {
                 if (confirm(`¿Cancelar ${selectedIds.size} ventanas de mantenimiento?`)) {
@@ -449,8 +382,8 @@ export default function MaintenancePage() {
               className="px-3 py-1.5 rounded-full bg-bg-card hover:bg-bg-card-hover border border-border-base text-text-muted hover:text-text-main text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <XCircle size={12} /> Cancelar en Lote
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => {
                 if (confirm(`¿Eliminar definitivamente ${selectedIds.size} ventanas de mantenimiento?`)) {
@@ -460,7 +393,7 @@ export default function MaintenancePage() {
               className="px-3 py-1.5 rounded-full bg-accent-red/15 hover:bg-accent-red/25 border border-accent-red/30 text-accent-red text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Trash2 size={12} /> Eliminar en Lote
-            </button>
+            </AdminButton>
           </>
         }
       />
@@ -495,7 +428,7 @@ export default function MaintenancePage() {
             </p>
           </div>
           {!searchQuery && (
-            <button
+            <AdminButton
               type="button"
               onClick={() => {
                 setModalTarget(null);
@@ -504,7 +437,7 @@ export default function MaintenancePage() {
               className="px-4 py-2 rounded-full bg-accent-green text-black text-xs font-bold hover:bg-accent-green/90 transition-all inline-flex items-center gap-1.5 shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={14} /> Programar Primer Mantenimiento
-            </button>
+            </AdminButton>
           )}
         </div>
       ) : viewMode === 'grid' ? (

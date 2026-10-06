@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -45,7 +46,8 @@ type OrgTab = 'company' | 'billing' | 'team';
 export default function OrganizationSettingsPage() {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<OrgTab>('company');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<OrgTab>(searchParams.get('tab') === 'billing' ? 'billing' : 'company');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -236,8 +238,8 @@ export default function OrganizationSettingsPage() {
 
   // Compute total quota usage for KPI
   const usage = subData?.usage;
-  const totalUsed = (usage?.targets.current || 0) + (usage?.ssl_certificates.current || 0) + (usage?.api_checks.current || 0);
-  const totalLimit = (usage?.targets.limit || 0) + (usage?.ssl_certificates.limit || 0) + (usage?.api_checks.limit || 0);
+  const totalUsed = (usage?.targets?.current || 0) + (usage?.ssl_certificates?.current || 0) + (usage?.api_checks?.current || 0);
+  const totalLimit = (usage?.targets?.limit || 0) + (usage?.ssl_certificates?.limit || 0) + (usage?.api_checks?.limit || 0);
   const overallPct = totalLimit > 0 && totalLimit < 9999 ? Math.round((totalUsed / totalLimit) * 100) : 0;
 
   return (
@@ -301,15 +303,15 @@ export default function OrganizationSettingsPage() {
       <NOCKpiGrid columns={4}>
         <NOCKpiCard
           title="Plan Activo & Suscripción"
-          value={subData?.plan_name || 'Pro / Growth'}
+          value={subData?.plan_name || 'Consultando plan…'}
           subtitle={
             subData?.is_in_trial
               ? `${subData.trial_days_remaining} días restantes de prueba`
-              : 'Suscripción corporativa activa'
+              : subData?.monitoring_allowed === false ? 'Operación bloqueada' : subData?.plan_tier === 'free' ? 'Free activo · sin facturación' : 'Plan contratado'
           }
           icon={<Sparkles size={18} className="text-accent-yellow" />}
           badge={{
-            text: subData?.plan_tier?.toUpperCase() || 'PRO',
+            text: subData?.plan_tier?.toUpperCase() || '—',
             variant: subData?.is_in_trial ? 'warning' : 'success',
           }}
         />
@@ -328,7 +330,7 @@ export default function OrganizationSettingsPage() {
         <NOCKpiCard
           title="Meta SLA Corporativo"
           value={`${orgData?.sla_target_percentage ?? '99.90'}%`}
-          subtitle={`Retención: ${orgData?.metrics_retention_days ?? 90} días TimescaleDB`}
+          subtitle={`Retención: ${orgData?.metrics_retention_days ?? 90} días en PostgreSQL`}
           icon={<Shield size={18} className="text-accent-blue" />}
           badge={{
             text: 'SRE GOAL',
@@ -596,7 +598,7 @@ export default function OrganizationSettingsPage() {
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
                 <p className="text-[11px] text-text-dim mt-1.5">
-                  Compresión y retención de series de tiempo en TimescaleDB.
+                  Retención tenant-aware de históricos de telemetría en PostgreSQL.
                 </p>
               </div>
 
@@ -731,12 +733,12 @@ export default function OrganizationSettingsPage() {
                 )}
               </div>
               <h2 className="text-2xl md:text-3xl font-extrabold text-text-main">
-                {subData?.plan_name || 'Pro / Growth'}
+                {subData?.plan_name || 'Consultando plan…'}
               </h2>
               <p className="text-text-muted text-sm mt-1 max-w-xl">
                 {subData?.is_in_trial
                   ? `Tu prueba gratuita concluye en ${subData.trial_days_remaining} días. Puedes actualizar a Business o Enterprise en cualquier momento para desbloquear más agentes satélite y ventanas de mantenimiento.`
-                  : 'Suscripción corporativa activa. Facturación mensual automatizada.'}
+                  : subData?.monitoring_allowed === false ? 'La operación está bloqueada. Contacta al administrador para confirmar tu contratación.' : subData?.plan_tier === 'free' ? 'Free permanente: monitoreo cada 5 minutos, sin prueba Pro automática. Contrata un plan superior desde Planes si necesitas mayor frecuencia.' : 'Plan contratado. La integración de pagos en línea está pendiente; la activación requiere confirmación administrativa.'}
               </p>
             </div>
 
@@ -1023,7 +1025,7 @@ export default function OrganizationSettingsPage() {
               <div className="p-4 rounded-xl bg-bg-dark border border-border-base flex items-start gap-3">
                 <Check size={18} className="text-accent-green shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-xs font-bold text-text-main">Retención TimescaleDB</h4>
+                  <h4 className="text-xs font-bold text-text-main">Retención PostgreSQL</h4>
                   <p className="text-[11px] text-text-muted mt-0.5">
                     {subData?.limits.metrics_retention_days} días de historial de latencia y disponibilidad.
                   </p>

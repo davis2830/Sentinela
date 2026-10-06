@@ -95,7 +95,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # -------------------------------------------------------------
-  # 2. ZERO-DOWNTIME ROLLING DEPLOYMENT
+  # 2. CONTROLLED CUTOVER DEPLOYMENT
   # -------------------------------------------------------------
   deploy:
     name: Deploy to Production Environment
@@ -110,56 +110,82 @@ jobs:
       - name: Checkout Deployment Scripts & Compose
         uses: actions/checkout@v4
 
+      - name: Validate deployment secrets
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          DEPLOY_SSH_HOST: ${{ secrets.PROD_SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.PROD_SERVER_USER }}
+          PUBLIC_HEALTHCHECK_URL: ${{ secrets.PROD_HEALTHCHECK_URL }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_SSH_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$PUBLIC_HEALTHCHECK_URL"
+
       - name: Setup SSH Deploy Key
-        if: env.DEPLOY_SSH_KEY != ''
         env:
           DEPLOY_SSH_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.PROD_SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.PROD_SERVER_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Execute Remote Zero-Downtime Deployment
-        if: env.DEPLOY_SSH_HOST != ''
+      - name: Execute controlled production cutover
         env:
           DEPLOY_SSH_HOST: ${{ secrets.PROD_SERVER_HOST }}
           DEPLOY_USER: ${{ secrets.PROD_SERVER_USER }}
+          PUBLIC_HEALTHCHECK_URL: ${{ secrets.PROD_HEALTHCHECK_URL }}
         run: |
-          ssh $DEPLOY_USER@$DEPLOY_SSH_HOST 'bash -s' << 'EOF'
-            set -e
-            echo ">>> Pulling latest images..."
+          DEPLOY_IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
+          ssh "$DEPLOY_USER@$DEPLOY_SSH_HOST" "PUBLIC_HEALTHCHECK_URL='$PUBLIC_HEALTHCHECK_URL' DEPLOY_IMAGE_TAG='$DEPLOY_IMAGE_TAG' bash -s" << 'EOF'
+            set -Eeuo pipefail
             cd /opt/sentinel-noc
+            set -a
+            . ./.env
+            set +a
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            mkdir -p backups
+            previous_tag="$IMAGE_TAG"
+
+            docker compose -f docker-compose.prod.yml exec -T db \
+              pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "backups/sentinel-$stamp.sql.gz"
+
+            rollback() {
+              echo "Deployment failed; rolling application images back to $previous_tag"
+              sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$previous_tag/" .env
+              export IMAGE_TAG="$previous_tag"
+              docker compose -f docker-compose.prod.yml up -d --remove-orphans
+              if [ "${MIGRATION_IRREVERSIBLE:-false}" = "true" ]; then
+                echo "Irreversible migration declared; restoring the pre-deploy database backup"
+                gunzip -c "backups/sentinel-$stamp.sql.gz" | docker compose -f docker-compose.prod.yml exec -T db \
+                  psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+              fi
+            }
+            trap rollback ERR
+
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$DEPLOY_IMAGE_TAG/" .env
+            export IMAGE_TAG="$DEPLOY_IMAGE_TAG"
             docker compose -f docker-compose.prod.yml pull
 
-            echo ">>> Running Database Migrations..."
+            echo "Starting documented cutover window"
+            docker compose -f docker-compose.prod.yml stop nginx backend celery_worker celery_beat
             docker compose -f docker-compose.prod.yml run --rm backend python manage.py migrate --noinput
-
-            echo ">>> Applying TimescaleDB Telemetry Retention Policies..."
-            docker compose -f docker-compose.prod.yml run --rm backend python manage.py setup_retention --days 90
-
-            echo ">>> Collecting Static Assets..."
+            docker compose -f docker-compose.prod.yml run --rm backend \
+              python manage.py quarantine_unsafe_targets --apply --operator "deployment:$DEPLOY_IMAGE_TAG"
+            echo "Existing plaintext API tokens were revoked by migration and must be regenerated"
             docker compose -f docker-compose.prod.yml run --rm backend python manage.py collectstatic --noinput
-
-            echo ">>> Reloading Application Services (Zero Downtime)..."
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            echo ">>> Verifying Healthcheck Probes..."
-            MAX_RETRIES=12
-            COUNTER=0
-            until curl -s -f http://127.0.0.1:8000/health/ | grep -q '"status":"healthy"'; do
-              COUNTER=$((COUNTER + 1))
-              if [ $COUNTER -ge $MAX_RETRIES ]; then
-                echo "CRITICAL: Healthcheck probe failed after $MAX_RETRIES attempts!"
-                exit 1
+            for attempt in $(seq 1 12); do
+              if docker compose -f docker-compose.prod.yml exec -T backend \
+                python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/').read()" &&
+                curl --fail --silent --show-error "$PUBLIC_HEALTHCHECK_URL"; then
+                trap - ERR
+                echo "Controlled cutover completed and both health probes passed"
+                exit 0
               fi
-              echo "Waiting for backend health probe ($COUNTER/$MAX_RETRIES)..."
               sleep 5
             done
-            echo "Deployment successfully verified. All health probes green!"
+            exit 1
           EOF
-
-      - name: Post-Deployment Synthetic Health Probe Verification
-        run: |
-          echo "Simulating synthetic probe verification..."
-          echo "All services responding 200 OK with sub-50ms latency."

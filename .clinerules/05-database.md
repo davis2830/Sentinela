@@ -1,36 +1,5 @@
-# Database Rules
+# 05-database
 
-## Engine
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-PostgreSQL.
-
-## IDs
-
-Utilizar UUID para entidades públicas.
-
-## Multi Tenant
-
-Toda entidad pertenece a una organización.
-
-Nunca asumir un único cliente.
-
-## Timestamps
-
-Todas las tablas deben incluir:
-
-- created_at
-- updated_at
-
-## Relationships
-
-Utilizar Foreign Keys.
-
-Evitar duplicación de datos.
-
-## Metrics
-
-No almacenar métricas históricas en PostgreSQL.
-
-Las métricas viven en Prometheus.
-
-Los logs viven en Loki.
+La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.

@@ -1,14 +1,17 @@
 from rest_framework import serializers
+from common.scan_serializers import ScanAvailabilitySerializer, AvailabilityListSerializer
 
 from .models import APICheckResult, APICheckTarget
 
 
-class APICheckTargetSerializer(serializers.ModelSerializer):
+class APICheckTargetSerializer(ScanAvailabilitySerializer):
     """Serializer for APICheckTarget model."""
 
     class Meta:
+        list_serializer_class = AvailabilityListSerializer
         model = APICheckTarget
         fields = (
+            "scan_availability",
             "id",
             "organization",
             "name",
@@ -55,10 +58,14 @@ class APICheckTargetCreateSerializer(serializers.Serializer):
     expected_schema = serializers.DictField(required=False, default=dict)
     request_headers = serializers.DictField(required=False, default=dict)
     request_body = serializers.DictField(required=False, default=dict)
-    check_interval = serializers.IntegerField(required=False, default=60)
+    check_interval = serializers.IntegerField(required=False, min_value=10)
     enabled = serializers.BooleanField(default=True)
 
     def validate(self, attrs):
+        if "check_interval" not in attrs:
+            request = self.context.get("request")
+            organization = getattr(getattr(request, "user", None), "organization", None)
+            attrs["check_interval"] = organization.get_plan_limits()["min_check_interval_seconds"] if organization else 300
         url = attrs.get("url")
         if url:
             from common.security import validate_safe_public_url

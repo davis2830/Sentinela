@@ -3,12 +3,28 @@ Authentication classes for Sentinel.
 Supports custom API token authentication for programmatic access.
 """
 
+import hashlib
+
 from django.utils import timezone
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.permissions import SAFE_METHODS
 
 from .models import APIToken
+from .eligibility import require_identity
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+
+class SentinelJWTAuthentication(JWTAuthentication):
+    def get_user(self, validated_token):
+        user = super().get_user(validated_token)
+        try:
+            require_identity(user)
+        except ValueError as exc:
+            raise AuthenticationFailed(str(exc)) from None
+        if validated_token.get("session_version", 0) != user.session_version:
+            raise AuthenticationFailed("La sesión ya no está vigente. Inicia sesión nuevamente.")
+        return user
 
 
 class SentinelAPITokenAuthentication(BaseAuthentication):
@@ -43,7 +59,7 @@ class SentinelAPITokenAuthentication(BaseAuthentication):
         try:
             api_token = (
                 APIToken.objects.select_related("user", "user__organization")
-                .filter(token=token)
+                .filter(token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest())
                 .first()
             )
         except Exception:
@@ -56,6 +72,10 @@ class SentinelAPITokenAuthentication(BaseAuthentication):
             raise AuthenticationFailed("El token de API ha expirado.")
 
         user = api_token.user
+        try:
+            require_identity(user)
+        except ValueError as exc:
+            raise AuthenticationFailed(str(exc)) from None
         if not user.is_active:
             raise AuthenticationFailed("La cuenta de usuario asociada a este token está desactivada.")
 

@@ -1,4 +1,5 @@
 export interface DomainInfo {
+  scan_availability?: import('./scan').ScanAvailability;
   id: string;
   organization: string;
   domain: string;

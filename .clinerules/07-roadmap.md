@@ -1,56 +1,5 @@
-# Product Roadmap
+# 07-roadmap
 
-## Phase 1
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-Observability Platform
-
-- SSL Monitoring
-- Uptime Monitoring
-- WHOIS
-- DNS Monitoring
-- API Monitoring
-- Security Headers
-- Dashboard
-- Smart Alerts
-- Incidents
-- Reports
-
-Objetivo:
-
-Generar confianza mediante observabilidad.
-
----
-
-## Phase 2
-
-Operational Assistance
-
-- Runbooks
-- Loki Integration
-- Incident Timeline
-- Suggested Actions
-- Approval Workflow
-- Maintenance Windows
-
-Objetivo:
-
-Ayudar al operador.
-
----
-
-## Phase 3
-
-Automation Platform
-
-- AWX Integration
-- Ansible
-- Automation
-- Dependency Graph
-- Blast Radius
-- ChatOps
-- AI
-- Compliance
-
-Objetivo:
-
-Automatizar operaciones de forma segura.
+La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.

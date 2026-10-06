@@ -1,252 +1,174 @@
-# 📝 Bitácora Técnica de Implementaciones (Changelog de Ingeniería)
+# Bitácora de implementación
 
-Este documento registra cronológicamente cada cambio, refactorización, optimización y nueva funcionalidad implementada en Sentinel, detallando los archivos afectados, decisiones técnicas y validaciones realizadas.
+## 2026-10-05 — Ficha integral HTTP/HTTPS
 
----
+- Nueva página `/monitoring/:targetId` desde el drawer de Monitoring: resumen, disponibilidad/rendimiento, SSL/TLS, DNS, dominio/WHOIS, seguridad web, actividad y configuración. Mantiene filtros al volver, navegación por tabs, paleta compartida y adaptación desktop/móvil.
+- Modelo `TargetCoverage`, migración aditiva `0006` aplicada localmente y GET/PATCH de cobertura tenant-aware. Recursos anteriores requieren confirmación; aprovisionamiento registra solo recursos utilizados y compatibles. WHOIS siempre se selecciona explícitamente. GET no crea recursos, reservas ni tareas; hostname/puerto/URL exactos y asociaciones invalidadas al cambiar el endpoint. Consulta por lote sin crecimiento por registro DNS.
+- Viewer de lectura; administradores conservan habilitación por suscripción y disponibilidad de cada sondeo. Lecturas Free 300 s/Pro 60 s, recarga sin POST, comprobación 202 con estado pendiente y resultado posterior. Datos ausentes no son cero ni saludables; cada fuente conserva su timestamp.
+- Gates locales: Django **117/117**, Playwright Chromium **82/82** y TypeScript/Vite aprobados. Doce regresiones nuevas backend y seis de interfaz; detalle en [ficha integral](ENDPOINT_DOSSIER.md). Se corrigió el cierre de conexiones de los hilos de pruebas concurrentes para permitir eliminar la base de prueba. Revisión visual 1440×900 y 390×844; fixtures aislados retirados y auditoría preservada. Worker local recargado. CI y producción pendientes.
 
-## 📌 Plantilla de Registro para Nuevas Implementaciones
+## 2026-10-05 — Paleta compartida y textos más blancos
 
-```markdown
-### [AAAA-MM-DD] - Título Breve de la Implementación
-- **Módulo / Componente:** (ej. Monitoring / Alerts / Incidents / UI)
-- **Motivación / Requerimiento:** Contexto de la necesidad de negocio o técnica.
-- **Cambios en Backend:**
-  - `ruta/archivo.py`: Breve descripción de la lógica, modelo o endpoint añadido/modificado.
-- **Cambios en Frontend:**
-  - `ruta/Componente.tsx`: Componentes creados o modificados, hooks o estados.
-- **Base de Datos / Migraciones:** Nuevas tablas, índices o migraciones aplicadas.
-- **Validaciones & Pruebas:** Comprobaciones realizadas (k6, pytest, validación visual en navegador).
-```
+- Tras aprobar el piloto, la paleta se comparte desde `:root` entre Conectividad, Gestión, Sistema, navegación y formularios/drawers renderizados en portales. Se conserva el fondo oscuro; paneles y franjas usan superficies y bordes consistentes. Sin nuevas dependencias ni cambios de contratos, permisos o cadencia.
+- Textos principales blancos; secundarios `#E2E8F0` y auxiliares `#CBD5E1`, en lugar de grises azulados oscuros. Se aclaran placeholders y clases neutras anteriores sin eliminar los estados deshabilitados. Controles de fondo vivo conservan texto oscuro para contraste.
+- Gráficas de Conectividad y Gestión alineadas con cyan, emerald, verde Online, ámbar, coral y violeta. Ejes/leyendas más claros y etiquetas de rendimiento de al menos 12 px.
+- Gates locales: Django 105/105, Chromium 76/76 y TypeScript/Vite aprobados. Regresión de estilos renderizados en 17 rutas, herencia de tokens en portales y revisión visual 1440×900 y 390×844. Continúan aprobadas las regresiones Free/Pro, Viewer, cooldown y GET sin sondeos. Fixtures aislados retirados; cuenta piloto y auditoría preservadas. CI y producción pendientes.
 
----
+## 2026-10-05 — Piloto de paleta viva en Monitoring
 
-## 📅 Registro Histórico de Implementaciones
+- Uptime & Latencia conserva el fondo oscuro con superficies azuladas más definidas, texto secundario más claro y selección visible en la franja de estados. Marca emerald, Online verde, latencia cyan, advertencias ámbar y caídas coral; los estados conservan etiquetas e iconos, no dependen solo del color.
+- Tokens CSS limitados a `monitoring-workspace`, incluidos tabla, cuadrícula y detalle. Tailwind conserva los colores originales como fallback para los demás módulos. Curva, leyenda y promedio de latencia usan el mismo cyan; ejes de la gráfica legibles a 12 px. Sin dependencias, cambios backend, intervalos ni permisos.
+- Reiniciado únicamente el frontend local para cargar la configuración Tailwind. Revisión visual de 1440×900 y 390×844; contraste del texto secundario renderizado en tabla superior a 4.5:1 en el fixture. No se declara conformidad global de accesibilidad.
+- Gates locales: Django 105/105, Chromium 75/75 y TypeScript/Vite aprobados. Pruebas nuevas cubren separación marca/Online, alcance del tema, tabla/cuadrícula/drawer, filtros móviles y ausencia de overflow de página. Cuentas aisladas de prueba, sin modificar la cuenta piloto; CI, extensión de paleta a otros módulos y producción pendientes.
 
-### [2026-10-03] - Auditoría Integral de Seguridad, Blindaje DoS & Parches Críticos de Negocio
-- **Módulos:** `alerts`, `maintenance`, `monitoring`, `ssl_monitor`, `domain`, `security_headers`, `dns_monitor`, `api_checks`, `organizations`, `accounts`, `common`.
-- **Motivación & Objetivos:**
-  1. **Estabilidad del Motor de Alertas:** Corregir caída en tiempo de ejecución en Celery Beat y en el simulador de reglas SLA Uptime (`target.results` vs `target.checks`).
-  2. **Unificación de Mantenimientos:** Conectar la supresión de alertas con el modelo real de ventanas programadas (`maintenance.MaintenanceWindowTarget`), evitando alertas espurias durante mantenimientos.
-  3. **Protección Anti-DoS en Servidor Web:** Migrar todos los escaneos manuales de red (`/scan/`) ejecutados en hilos Gunicorn síncronos a tareas Celery en background con `.delay()`, previniendo saturación de los 3 workers del backend ante sitios lentos o tarpits.
-  4. **Blindaje Anti-SSRF:** Bloquear evasiones mediante redirecciones HTTP (301/302) configurando `allow_redirects=False` en `TestConnectionView` y `run_api_check`, y erradicar backdoor de auto-login y reescritura de hosts en API checks.
-  5. **Anti-Spoofing en IP Allowlist:** Corregir fallo en `IPAllowlistMiddleware` donde un atacante podía enviar `X-Forwarded-For: 127.0.0.1` para evadir el control de acceso corporativo.
-  6. **Integridad de Suscripciones & Pagos:** Proteger el endpoint `POST /api/v1/organizations/current/change-plan/` contra escalamiento de privilegios, impidiendo que usuarios en periodo de prueba obtengan planes Business/Enterprise gratuitos e inmunidad perpetua sin pasarela de pago o superusuario.
-  7. **Autenticación Nativa de API Tokens:** Implementar `SentinelAPITokenAuthentication` para procesar tokens `snt_...` con soporte de expiración, validación de estado activo y restricción de métodos mutantes según el scope (`read` vs `full`).
-  8. **Revocación Efectiva de Sesiones:** Dotar a `RevokeSessionsView` de invalidación criptográfica real mediante `BlacklistedToken` sobre todos los `OutstandingToken` del usuario.
-- **Cambios en Backend:**
-  - `backend/alerts/services.py`: Corregido acceso al reverse relation de comprobaciones (`target.checks`). Implementado helper `_is_target_in_maintenance(target)` consultando `maintenance.models.MaintenanceWindowTarget` y `monitoring.models.MaintenanceWindow`.
-  - `backend/monitoring/views.py`: Escaneo manual `MonitoringTargetScanView` convertido a `run_monitoring_check.delay()`. Añadido `allow_redirects=False` en `TestConnectionView`.
-  - `backend/ssl_monitor/views.py`: `SSLCertificateScanView` convertido a `scan_ssl_certificate.delay()`.
-  - `backend/domain/views.py`: `DomainScanView` convertido a `scan_whois.delay()`.
-  - `backend/security_headers/views.py`: `SecurityHeadersScanView` convertido a `scan_security_headers.delay()`.
-  - `backend/dns_monitor/views.py`: `DNSRecordScanView` convertido a `scan_dns_records.delay()`.
-  - `backend/api_checks/views.py`: `APICheckScanView` convertido a `run_api_check.delay()`.
-  - `backend/api_checks/tasks.py`: Removida reescritura de `localhost:8000` y auto-login con credenciales Basic Auth. Añadida validación previa `validate_safe_public_url(target_url)` y `allow_redirects=False`.
-  - `backend/common/middleware.py`: Corregido fallback de `_get_client_ip` para no aceptar cabeceras falsificadas hacia loopback, restricción de bypass local solo a entornos con `settings.DEBUG` real, y soporte de extracción de usuario desde `APIToken` (`snt_...`).
-  - `backend/organizations/services.py`: Modificado `change_plan` para recibir `is_superuser` y `verified_payment`. Bloqueada la promoción automática de estado `TRIALING` a `ACTIVE` sin pago verificado.
-  - `backend/organizations/views.py`: En `OrganizationChangePlanView`, se restringe la selección de planes `business` y `enterprise` únicamente a superusuarios o flujos con pago verificado (retornando HTTP 400 descriptivo a usuarios estándar).
-  - `backend/accounts/authentication.py`: Creada clase `SentinelAPITokenAuthentication(BaseAuthentication)` con inspección de `snt_...`, validación de validez/expiración, actualización atómica de `last_used_at` y enforcement de permisos de solo lectura para métodos POST/PUT/PATCH/DELETE.
-  - `backend/config/settings/base.py`: Registrado `accounts.authentication.SentinelAPITokenAuthentication` en `REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]`.
-  - `backend/accounts/views.py`: Implementado blacklisting masivo de tokens en `RevokeSessionsView` usando `BlacklistedToken.objects.get_or_create(token=t)`.
-  - `backend/accounts/tests.py`: Creada suite de pruebas unitarias (`SecurityAndAuthTests`) cubriendo autenticación de tokens, scopes de solo lectura, tokens expirados, gating de planes empresariales y anti-spoofing IP.
-- **Validaciones & Pruebas:**
-  - `docker exec sentinel_backend python manage.py check`: 0 incidencias.
-  - `docker exec sentinel_backend python manage.py test accounts common monitoring organizations alerts`: 11 tests ejecutados con éxito (0 fallos).
-  - `docker exec sentinel_backend python manage.py test accounts`: 5 tests de seguridad ejecutados con éxito en 0.864s.
-  - Verificación de salud y estabilidad en los 9 contenedores del stack Docker (`sentinel_backend`, `sentinel_frontend`, `sentinel_db`, `sentinel_redis`, `sentinel_celery_worker`, `sentinel_celery_beat`, `sentinel_prometheus`, `sentinel_blackbox`, `sentinel_loki`).
+## 2026-10-05 — Recarga de Conectividad alineada con el plan
 
----
+- Se eliminaron los 15 segundos fijos de los seis módulos de Conectividad. El intervalo de lectura procede de `limits.min_check_interval_seconds` de la organización: Free 300 s, Pro 60 s, otros planes según su configuración real. Metadatos ausentes o consulta fallida deshabilitan el polling automático.
+- El contador utiliza tiempo transcurrido real y se reinicia al cambiar el plan o recargar datos. Dashboards y Gestión conservan su configuración propia; no se cambia la programación de recursos ni su política backend.
+- La recarga manual informa que solo consultó resultados guardados, sin ejecutar una comprobación. `Comprobar ahora` sigue exclusivamente en el detalle, condicionado a `scan_availability` y al 429 backend; recursos más lentos mantienen su intervalo.
+- Reloj virtual comprueba que los seis módulos Free no consultan a los 15 segundos y sí a los 300, sin POST de scan; también cubre Pro, cambio de plan y metadatos ausentes. Validación local: Django 105/105, Chromium 73/73 y TypeScript/Vite aprobados. Cuenta piloto preservada; CI y producción pendientes.
 
-### [2026-09-30] - Fase 4 Paso a Producción: CI/CD GitHub Actions, DevSecOps, k6 Benchmark & Go-Live Checklist
-- **Módulo:** `.github/workflows`, `tests_perf`, `docs`, `backend.monitoring`, `frontend`.
-- **Motivación:** Culminar la Fase 4 del Plan Maestro de Paso a Producción: automatizar el ciclo de vida del software con pipelines de integración y entrega continua (CI/CD), auditoría continua de vulnerabilidades (DevSecOps), certificación empírica de latencia y estabilidad con k6 bajo carga concurrente, y elaboración del Runbook Oficial de Go-Live.
-- **Cambios en CI/CD & DevSecOps:**
-  - `.github/workflows/ci.yml`: Pipeline de CI disparado en push/PR contra ramas principales. Incluye 3 etapas paralelas/secuenciales:
-    1. *Frontend:* Node 20, verificación de tipos TypeScript (`tsc --noEmit`), compilación de producción (`npm run build`) y auditoría npm (`npm audit --audit-level=high`).
-    2. *Backend:* Python 3.13 con servicios auxiliares PostgreSQL 16 y Redis 7, flake8 linter y ejecución de la suite de pruebas unitarias (`python manage.py test accounts common monitoring`).
-    3. *DevSecOps:* Auditoría de dependencias Python con `pip-audit` y escaneo de Dockerfiles con Trivy (`aquasecurity/trivy-action`).
-  - `.github/workflows/cd.yml`: Pipeline de Despliegue Continuo (CD) disparado por tags de release `v*.*.*` o ramas productivas.
-    1. Compilación multi-stage de imágenes Docker inmutables para Backend y Frontend con `docker/build-push-action`.
-    2. Publicación de artefactos en GitHub Container Registry (`ghcr.io`).
-    3. Automatización de despliegue Zero-Downtime: migración de base de datos (`migrate`), retención TimescaleDB (`setup_retention --days 90`), compilación de assets estáticos (`collectstatic`), recarga de contenedores y verificación activa del probe de salud `/health/` con rollback automático.
-- **Cambios en Backend & Tests:**
-  - `backend/monitoring/tests.py`: Normalizada la suite de pruebas unitarias de targets para total compatibilidad con las cuotas de organización (`organization.monitoringtarget_set`), serializadores y reglas de aislamiento multi-tenant.
-  - `backend/monitoring/services.py`: Añadida compatibilidad retroactiva para cálculo de métricas de targets (`total_checks`).
-  - Validación de tests: 9 de 9 pruebas unitarias ejecutadas con éxito en 3.517s (`python manage.py test accounts common monitoring`).
-- **Pruebas de Rendimiento & Benchmark k6:**
-  - `tests_perf/scenarios/01_noc_dashboard_stress.js`: Ejecutado escenario de estrés sobre endpoints clave (`/global-performance/`, `/alerts/`, `/incidents/stats/`, `/monitoring/`) con hasta 40 VUs concurrentes.
-  - **Resultados Certificados:** 2,017 peticiones procesadas en 70s, con latencia promedio de **29.22 ms** y percentil 95 (p95) de **48.84 ms** (superando el SLA < 300 ms con 0% de errores HTTP).
-- **Documentación Operativa:**
-  - `docs/GO_LIVE_CHECKLIST.md`: Manual operativo y runbook exhaustivo con matrices de aprobación, verificaciones de pre-vuelo (T-48h a T-2h), ejecución paso a paso de corte (T-0), procedimientos de Día-2 y protocolo de rollback de emergencia ante desastres.
-  - `docs/PRODUCTION_READINESS.md`: Actualizado el Scorecard Ejecutivo y los 6 Pilares de Producción al 100% de cumplimiento.
+## 2026-10-05 — Corrección de confirmación de correo y pantalla de verificación
 
-- **Módulo:** `common.views_health`, `common.logging`, `accounts`, `config.settings`, `frontend.dashboard`, `frontend.profile`.
-- **Motivación:** Ejecutar la Fase 3 del Plan de Producción: dotar a Sentinel de meta-observabilidad y sondeo externo tipo "Dead Man's Snitch" (/health/ activo), rastreo en vivo de excepciones con Sentry, sanitización automática de logs para cumplimiento ISO 27001 / SOC 2, y cifrado en reposo con Fernet AES-128-CBC de secretos TOTP y códigos de recuperación 2FA.
-- **Cambios en Backend:**
-  - `backend/common/views_health.py`: Creada `HealthCheckView` pública (AllowAny) para sondas de disponibilidad externas e internas. Mide latencias activas de PostgreSQL/TimescaleDB (`SELECT 1`), Redis Cache (`ping/pong`) y Celery Broker (`connection_for_read`). Retorna HTTP 200 si todo está saludable o 503 Service Unavailable si hay degradación.
-  - `backend/config/urls.py` & `backend/config/api_urls.py`: Rutas `/health/`, `/health` y `/api/v1/health/` mapeadas directamente.
-  - `backend/common/middleware.py`: Exención en `IPAllowlistMiddleware` para `/api/v1/health` y `/health`.
-  - `backend/common/logging.py`: Creado `SensitiveDataMaskingFilter` con expresiones regulares para censurar tokens JWT (`Bearer [REDACTED_JWT]`), credenciales (`password=[REDACTED_PASSWORD]`) y tokens de probes Sentinine (`snt_[REDACTED_TOKEN]`) en todos los flujos de log.
-  - `backend/config/settings/base.py`: Configuración integral de `LOGGING` con filtro de sanitización y formateador estándar. Integración de `sentry-sdk` (Django, Celery, Redis) con muestreo y sin PII sensible.
-  - `backend/requirements/base.txt`: Incorporado `sentry-sdk>=2.0.0`, `pyotp>=2.9.0`, `qrcode[pil]>=7.4.2` e instalados en backend y celery worker.
-  - `backend/accounts/models.py`: Ampliado `totp_secret` a `max_length=255` para soportar tokens cifrados Fernet `enc:...`.
-  - `backend/accounts/migrations/0005_alter_user_totp_secret.py`: Migración aplicada exitosamente en BD.
-  - `backend/accounts/services.py`: Cifrado transparente con Fernet de `totp_secret` y de los 10 códigos de respaldo (`backup_codes`) al persistir en PostgreSQL. Verificación con desencriptado en memoria O(1) tanto para códigos TOTP como para códigos de respaldo de un solo uso.
-  - `backend/accounts/views.py`: `MeView` (GET y PATCH) y `AuthService.login` retornan la bandera `requires_2fa_setup = True` para administradores u operadores si la organización o política lo requiere.
-- **Cambios en Frontend:**
-  - `frontend/src/types/index.ts`: Añadido campo `requires_2fa_setup?: boolean` en la interfaz de `User`.
-  - `frontend/src/components/common/TwoFactorReminderBanner.tsx`: Componente de alerta NOC de alta visibilidad para operadores/administradores que no han activado 2FA, con acceso directo en 1-clic hacia `/profile?tab=security`.
-  - `frontend/src/pages/DashboardPage.tsx`: Renderizado reactivo de `TwoFactorReminderBanner` junto al banner de estado de suscripción.
-  - `frontend/src/pages/ProfilePage.tsx`: Soporte para cambio directo de pestaña mediante `location.state.tab` (`activeTab = 'security'`).
-- **Cambios en Contenedores & Docker:**
-  - `docker-compose.yml` & `docker-compose.prod.yml`: Healthcheck activo en servicio `backend` invocando `/health/` vía subproceso HTTP de Python.
-- **Validaciones & Pruebas:**
-  - `npm run build` ejecutado exitosamente en `frontend/` (0 errores TypeScript, 0 errores de bundling en 16.21s).
-  - Peticiones HTTP a `/health/` y `/api/v1/health/` respondiendo HTTP 200 en **< 23 ms** (BD: 0.75-16 ms, Redis: 0.77-2 ms, Celery: 17-29 ms).
-  - Suite de validación de 2FA ejecutada en backend con éxito total: cifrado de secreto TOTP verificado (`enc:...`), habilitación con 10 códigos de recuperación cifrados, autenticación con TOTP, autenticación con código de respaldo (consumo a 9 códigos) y desactivación segura con contraseña.
-  - Test de `SensitiveDataMaskingFilter` verificado: enmascaramiento exitoso de JWTs, passwords y tokens de agente en salida stdout.
+- Corregido el HTTP 400 previo a verificar el desafío: el frontend enviaba `turnstile_token` vacío y el serializer opcional rechazaba el valor. La confirmación envía solo su token; el backend acepta el campo opcional vacío sin omitir el captcha obligatorio de registro/reenvío.
+- La pantalla distingue correo en cola, aceptación SMTP, fallo, expiración y envío desconocido. Iniciar sesión con una cuenta pendiente no promete un nuevo envío. La espera del reenvío procede del backend; las consultas de outbox están acotadas y se detienen al recibir aceptación.
+- Rediseño de verificación con progreso de cuenta, identidad Sentinel/GCTechOps, mensajes accionables, recuperación de enlaces incompletos/reemplazados, foco visible y layout desktop/móvil. El fragmento secreto se retira conservando el estado de navegación y no se guarda como token de verificación en almacenamiento persistente.
+- Validación local: Django 105/105, Chromium 65/65 y build TypeScript/Vite aprobados. Las pruebas comprueban el cuerpo real del POST, ausencia de captcha vacío en confirmación, captcha obligatorio para reenvío, cooldown, recuperación y ausencia de overflow móvil. Revisión visual 1440×900 y 390×844. Flake8 no está instalado en el contenedor reconstruido; no se declara ese gate aprobado en esta ejecución.
+- SMTP Gmail probado con un correo cuya recepción confirmó el usuario; invitación piloto enviada por Celery con aceptación SMTP. La cuenta piloto no se activa desde consola: debe confirmar el último enlace válido. CI y producción pendientes.
 
-### [2026-09-30] - Fase 2 Paso a Producción: Resiliencia de Datos, Cifrado en Reposo & Backups
-- **Módulo:** `common.crypto`, `monitoring` (setup_retention & Celery Beat), Redis, PostgreSQL, Scripts de Backup.
-- **Motivación:** Ejecutar la Fase 2 del Plan de Producción: proteger credenciales y tokens mediante cifrado en reposo, prevenir crecimiento desmedido de tablas de telemetría con retención automática y establecer procedimientos de Disaster Recovery automatizados.
-- **Cambios en Backend:**
-  - `backend/common/crypto.py`: Módulo de cifrado autenticado Fernet (AES-128-CBC + HMAC-SHA256) con derivación criptográfica de clave maestra desde `SECRET_KEY`. Cifrado transparente (`encrypt_secrets_dict`), desencriptado para ejecución de sondeos (`decrypt_secrets_dict`) y enmascaramiento (`mask_secrets_dict`) para serializadores y API.
-  - `backend/requirements/base.txt`: Incorporada dependencia `cryptography>=42.0.0` e instalada en contenedores backend y worker.
-  - `backend/monitoring/management/commands/setup_retention.py`: Comando Django para configurar políticas nativas de retención (`add_retention_policy`) y compresión (`add_compression_policy`) en TimescaleDB, o purga por lotes en PostgreSQL estándar.
-  - `backend/monitoring/tasks.py`: Tarea programada `purge_old_telemetry(days=90)` y registrada en `CELERY_BEAT_SCHEDULE` (`purge-telemetry-every-sunday`) para ejecución automática semanal.
-  - `backend/config/settings/base.py`: Soporte nativo para `REDIS_PASSWORD` en `CACHES` y broker/backend de Celery (`redis://[:password@]host:port/X`).
-- **Cambios en Scripts de Disaster Recovery (`scripts/`):**
-  - `scripts/backup_db.sh` & `scripts/backup_db.ps1`: Generación de respaldos binarios comprimidos (`pg_dump -Fc`), verificación de integridad con `pg_restore --list`, cálculo de hash SHA-256, purga automática de respaldos >14 días y soporte para subida off-site S3.
-  - `scripts/restore_db.sh`: Procedimiento seguro de restauración con validación de archivo dump y desconexión controlada de sesiones activas.
-- **Validaciones & Pruebas:**
-  - Test unitario de cifrado/desencriptado/enmascaramiento ejecutado con éxito en backend.
-  - Comando `setup_retention --days 90` ejecutado exitosamente en `sentinel_backend` (código 0).
-  - Respaldo completo en vivo ejecutado vía `backup_db.ps1` generando volcado de **53.86 MB** con checksum SHA-256 verificado.
-  - Contenedores sincronizados y reiniciados (`sentinel_backend`, `sentinel_celery_worker`, `sentinel_celery_beat`).
+## 2026-10-05 — Beta privada y correo confirmado
 
----
+- Registro por invitación, sin organización/JWT hasta confirmar correo. Desafíos e invitaciones beta con hash, outbox cifrado, reintentos limitados y estados reales de aceptación SMTP.
+- Panel de beta exclusivo de superadministración, 20 cupos iniciales, acciones auditadas y apertura bloqueada en producción sin configuración válida. Admisiones cerradas por defecto.
+- Gate de identidad en login/2FA/refresh/JWT/API tokens y elegibilidad beta en tareas y Sentinine. Eliminada asignación de la primera organización a usuarios huérfanos; invitaciones de integrantes no restablecen ni transfieren cuentas existentes.
+- Nuevos Free beta: 3 monitores, 5 minutos y 3 días de telemetría. Cuotas de altas concurrentes bajo bloqueo, presupuestos persistentes para recreación/diagnóstico/sondeos/notificación y límite global provisional de cola.
+- Turnstile server-side, lista temporal versionada con reemplazo atómico, cambio de correo reautenticado con revocación de sesiones y transición explícita sin alterar usuarios/contratos anteriores.
+- Pantallas de invitación, confirmación, reenvío, error de correo y beta cerrada. Se corrigió pérdida de token por inicialización doble de React; los enlaces se limpian tras montar y no activan mediante GET.
+- Migraciones locales `organizations.0007` y `accounts.0007–0009` aplicadas. Auditoría de rollout de solo lectura: ninguna colisión canónica detectada; ninguna cuenta existente se marcó como verificada.
+- Gates locales: Django 102/102, Chromium 60/60, TypeScript/Vite, flake8 crítico, Compose válido y migraciones completas. Pruebas HTTP/UI aisladas no equivalen a correo/Turnstile reales.
+- Pendiente: proveedor SMTP, dominio/remitente autenticado y claves Turnstile, prueba de entrega real, carga y CI. Producción fuera de esta fase. **Retención/almacenamiento de logs pendiente para la siguiente fase**, sin modificar infraestructura ni política de auditoría.
+- Detalle operativo: [Beta y correo](BETA_EMAIL_VERIFICATION.md).
 
-### [2026-09-30] - Fase 1 Paso a Producción: Hardening AppSec, Anti-SSRF, JWT Rotation & Docker Prod
-- **Módulo:** `common.security`, `accounts`, `monitoring`, `api_checks`, `ssl_monitor`, `security_headers`, Nginx, Docker.
-- **Motivación:** Ejecutar el Punto 1 del Plan de Producción: blindar la plataforma contra ataques de Server-Side Request Forgery (SSRF) en sondeos cloud, rotar e invalidar tokens JWT de sesión, mitigar IP spoofing y estructurar el entorno Docker/Nginx de producción.
-- **Cambios en Backend:**
-  - `backend/common/security.py`: Creado módulo central de seguridad con validación estricta de IPs y hostnames (`validate_safe_target_endpoint`, `validate_safe_public_url`, `is_ip_restricted`). Bloqueo de rangos privados (RFC 1918), loopback (`127.0.0.1`), metadata cloud (`169.254.169.254`, `metadata.google.internal`), multicast y broadcast.
-  - `backend/monitoring/serializers.py`: Validación anti-SSRF integrada en `MonitoringTargetCreateSerializer` y `MonitoringTargetUpdateSerializer`. Las IPs privadas solo se admiten si el objetivo está asignado a un Guardián Sentinine (`runner_type="agent"`).
-  - `backend/api_checks/serializers.py` & `views.py`: Validación anti-SSRF en creación y en endpoint `test-request/`.
-  - `backend/security_headers/serializers.py` & `views.py`: Validación anti-SSRF en creación y en endpoint `test-headers/`.
-  - `backend/ssl_monitor/serializers.py` & `views.py`: Validación anti-SSRF en creación y en endpoint `test-connection/`.
-  - `backend/config/settings/base.py`: SimpleJWT configurado con `ACCESS_TOKEN_LIFETIME = 15m`, `ROTATE_REFRESH_TOKENS = True`, `BLACKLIST_AFTER_ROTATION = True` y `UPDATE_LAST_LOGIN = True`.
-  - `backend/accounts/services.py`: Rotación criptográfica y blacklisting inmediato de tokens de refresco usados en `AuthService.refresh_token`.
-  - `backend/common/middleware.py`: Extracción segura de IP de cliente (derecha a izquierda) en `IPAllowlistMiddleware` para prevenir IP Spoofing vía `X-Forwarded-For`.
-- **Cambios en Infraestructura & Producción:**
-  - `docker-compose.prod.yml`: Arquitectura de producción sin puertos expuestos al host para DB (`5432`), Redis (`6379`), Backend (`8000`), Prometheus (`9090`) o Loki (`3100`). Entrada exclusiva por Nginx en puertos `80` y `443`.
-  - `docker/nginx/nginx.conf`: Nginx endurecido con rate limiting zones (`auth_limit` 5r/s, `api_general` 60r/s), compresión Gzip, security headers (nosniff, DENY, Referrer-Policy, Permissions-Policy), caché inmutable de assets estáticos (1 año) y proxies inversos a Gunicorn.
-  - `frontend/Dockerfile.prod`: Imagen multi-stage para construir y servir el bundle compilado de React vía Nginx.
-  - `.env.production.example`: Plantilla de producción con variables de seguridad y contraseñas robustas.
-- **Validaciones & Pruebas:**
-  - 7 casos de prueba unitarios anti-SSRF ejecutados con éxito (loopback, metadata 169.254, LAN y dominios públicos).
-  - Test E2E de Sentinine validado al 100% (código 0).
-  - Prueba de rotación y mitigación de replay attack en JWT exitosa: el token previo fue invalidado y su reutilización rechazada.
+## 2026-10-03 — Franjas homologadas en toda Conectividad
 
----
+- SSL, DNS, dominios WHOIS, API Checks y Security Headers adoptan el estilo compacto de Monitoring: fondo sutil, iconos vectoriales, contadores tabulares y colores semánticos según sus estados existentes.
+- Se conservan las tablas restauradas, filtros y acciones de cada módulo. Los textos largos se distribuyen en dos columnas móviles sin ampliar la página; no se introducen tarjetas KPI grandes ni nuevas consultas.
+- Validación local: build TypeScript/Vite, Django 65/65 y Chromium 56/56. Repetición adicional de los cinco casos móviles de los módulos modificados: 5/5; revisión visual SSL móvil. CI pendiente, sin despliegue a producción.
 
-### [2026-09-30] - Rebranding a Sentinine & Consolidación al 100% de Probes LAN
-- **Módulo:** `monitoring`, `sentinine`, `alerts`, Celery Beat.
-- **Motivación:** Renombrar la arquitectura de sondas privadas a **Sentinine** (Sentinel Watchdog), agregar detección de desconexión en Celery, soporte de intranet SSL autofirmada y selector amigable en `TargetForm`.
-- **Cambios en Backend:**
-  - `backend/monitoring/tasks.py`: Tarea Celery Beat `check_sentinine_heartbeats` (cada 60s) que transiciona agentes inactivos (>45s) a `offline` y dispara alertas críticas operativas.
-  - `backend/config/settings/base.py`: Registrada tarea periódica `check-sentinine-heartbeats-every-60s` en `CELERY_BEAT_SCHEDULE`.
-  - `backend/monitoring/models.py`: Generador de tokens con prefijo oficial `snt_live_...`.
-  - `backend/monitoring/services.py`: Soporte dual para tokens `snt_live_...` y retrocompatibilidad con `prb_live_...`.
-  - `backend/monitoring/serializers.py`: Expuestos `agent_probe_status` y `agent_probe_online` en `MonitoringTargetSerializer`.
-  - `backend/monitoring/views.py`: Comando docker oficial `sentinel/sentinine:latest` y descripción de auditoría para Sentinine.
-  - `backend/test_probe_e2e.py`: Test E2E validando ciclo completo, token `snt_live_`, reporte de checks y watchdog de desconexión.
-- **Cambios en Agente (`sentinine/`):**
-  - `sentinine/agent.py`: Agente v1.1.0 con soporte para `SENTININE_INSECURE_SKIP_VERIFY`, resolución DNS, conexiones TCP a bases de datos y User-Agent oficial `Sentinine/1.1.0`.
-  - `sentinine/Dockerfile`, `sentinine/docker-compose.yml`, `sentinine/install.sh` y `sentinine/install.ps1`.
-- **Cambios en Frontend:**
-  - `frontend/src/components/monitoring/CreateProbeModal.tsx`: Rebrand completo a "Guardián Sentinine", comando Docker y pasos de despliegue.
-  - `frontend/src/components/monitoring/ProbeDirectoryDrawer.tsx`: Rebrand a "Guardianes Sentinine", telemetría en vivo y badges de estado.
-  - `frontend/src/pages/MonitoringPage.tsx`: Botón superior "Sentinine ({count})".
-  - `frontend/src/components/monitoring/TargetForm.tsx`: Selector interactivo de ejecutor (Nube Sentinel vs Sentinine LAN) con auto-detección de IPs privadas.
-  - `frontend/src/components/monitoring/TargetCard.tsx`, `TargetTableView.tsx` y `TargetDetailDrawer.tsx`: Badges semánticos morados y alerta roja cuando el Sentinine asignado está offline.
-- **Validaciones:**
-  - `backend/test_probe_e2e.py` ejecutado con éxito (0 errores).
-  - TypeScript compilado con `npm run build` sin errores.
+## 2026-10-03 — Estilo de la franja de estados de Monitoring
 
----
+- Targets, Online, Lentos, Caídos y Pausados usan una barra compacta con iconos vectoriales, fondo sutil, contadores tabulares y color semántico. El filtro activo tiene borde destacado y se puede seleccionar por teclado.
+- Se mantienen las tablas restauradas, fuentes de datos y controles de sondeo existentes; el cambio no introduce nuevas tarjetas KPI ni altera otros módulos.
+- Revisión visual desktop 1440×900 y móvil 390×844; sin desbordamiento horizontal. Build TypeScript/Vite, Django 65/65 y Chromium 56/56 aprobados localmente, incluida la selección de filtros por teclado. CI pendiente; sin despliegue a producción.
 
-### [2026-09-30] - Sistema Centralizado de Documentación y Contexto Vivo
-- **Módulo:** Documentación del Proyecto / Arquitectura.
-- **Motivación:** Mantener una fuente única de verdad para el contexto técnico, avances del roadmap y registro de decisiones de ingeniería.
-- **Archivos Creados:**
-  - [`docs/README.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/README.md): Índice principal de documentación.
-  - [`docs/ROADMAP_TRACKER.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/ROADMAP_TRACKER.md): Matriz de avance por fases (Fase 1 completada, Fase 2 en curso, Fase 3 futura).
-  - [`docs/IMPLEMENTATION_LOG.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/IMPLEMENTATION_LOG.md): Bitácora técnica estructurada.
-  - [`docs/MODULE_INVENTORY.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/MODULE_INVENTORY.md): Mapeo completo de modelos, endpoints y vistas frontend.
-  - [`docs/DEV_WORKFLOW.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/docs/DEV_WORKFLOW.md): Guía de desarrollo, sincronización con Docker y diseño UI.
-  - [`README.md`](file:///c:/Users/feshernandez/GC_OPS_OBS/README.md): Portada del repositorio con visión general y accesos rápidos.
+## 2026-10-03 — Restauración visual de tablas de Conectividad
 
----
+- Por solicitud del usuario se recuperan las tablas anteriores de Uptime & Latencia, SSL, DNS, dominios WHOIS, API Checks y Security Headers, con columnas e indicadores específicos. Gestión y los dashboards por área no se revierten.
+- Se conservan los resúmenes pequeños, preferencias Lista/Cuadrícula, filtros, selección, drawers y permisos. Los scans permanecen únicamente en el detalle administrativo, sujetos a disponibilidad y límites del backend; no se restauran los botones de sondeo en filas.
+- Las tablas contienen su scroll horizontal en móvil e incorporan encabezados con alcance de columna y apertura del detalle mediante teclado. Los datos ausentes no se presentan como sanos.
+- Validación local posterior a la restauración: Django 65/65, Chromium 56/56, TypeScript/Vite y `git diff --check` aprobados. Revisión visual de Monitoring desktop y móvil. CI pendiente; sin despliegue a producción.
 
-### [2026-09-29] - Motor de Agentes Satélite (Private Probes para Redes Internas)
-- **Módulo:** `monitoring` & `sentinel_probe`
-- **Motivación:** Permitir el monitoreo de endpoints LAN, bases de datos locales y VPCs privadas sin requerir apertura de puertos de entrada hacia internet.
-- **Cambios en Backend:**
-  - `backend/monitoring/models.py`: Modelos `AgentProbe` con token seguro hasheado y campo `runner_type` (`cloud` vs `agent`) en `MonitoringTarget`.
-  - `backend/monitoring/services.py`: `AgentProbeService` para creación de tokens (`prb_live_...`), procesamiento de heartbeats y recepción de resultados.
-  - `backend/monitoring/views.py`: Vistas REST `AgentProbeListView`, `AgentProbeDetailView`, `AgentProbeHeartbeatView` y `AgentProbeSubmitResultsView`.
-  - `backend/monitoring/tasks.py`: Modificada la tarea `schedule_all_checks` para excluir targets asignados a probes (`runner_type="agent"`).
-  - `sentinel_probe/agent.py`: Script Python autónomo ligero para ejecución en contenedor Docker o binario directo.
-- **Cambios en Frontend:**
-  - `frontend/src/components/monitoring/CreateProbeModal.tsx`: Modal para registrar agente satélite con comando Docker listo para copiar.
-  - `frontend/src/components/monitoring/ProbeDirectoryDrawer.tsx`: Drawer de administración de sondas activas, métricas de host y estado.
-  - `frontend/src/components/monitoring/TargetDetailDrawer.tsx` y `TargetCard.tsx`: Badges semánticos púrpura identificando objetivos sondeados por agente LAN.
-- **Validaciones:**
-  - Ejecutado script end-to-end [`backend/test_probe_e2e.py`](file:///c:/Users/feshernandez/GC_OPS_OBS/backend/test_probe_e2e.py) validando registro, despacho de tareas en heartbeat y actualización de latencia en base de datos.
+## 2026-10-03 — Dashboards por área y módulos compactos
 
----
+- `/dashboard` conserva la ruta y pasa a Centro de Conectividad; `/gestion` añade resumen de Gestión, gráficas navegables, pendientes deduplicados, agenda y enlaces a seis módulos. Sistema no se reorganiza.
+- Doce módulos adoptan franjas compactas y listas por defecto, conservando preferencias de cuadrícula, filtros, selección, exportación y configuración. Se retiran los controles de sondeo masivo de la UI.
+- Los seis GET de recursos incorporan `scan_availability` sin crear reservas ni exponer secretos; carga por lote, aislamiento organizacional y siete estados con precedencia explícita. La recarga es GET y la comprobación individual queda en el detalle administrativo, deshabilitada ante metadatos ausentes.
+- Se añadieron foco de drawer, navegación por URL, ayudas de al menos 12 px y filas móviles sin overflow. El refresco conserva filtros, selección y detalle abierto; no reinicia el borrador RCA al recibir mediciones nuevas del mismo incidente.
+- Gates locales: Django 65/65, Chromium 56/56 y build TypeScript/Vite. `makemigrations --check --dry-run` no detecta cambios. La suite de navegador utiliza cuentas aisladas y fixtures de telemetría; incluye revisión desktop 1440×900 y móvil 390×844.
+- Sin nuevas dependencias, endpoints ni migraciones. CI pendiente; no se desplegó a producción.
 
-### [2026-09-28] - Erradicación de N+1 Queries & Optimización de Base de Datos
-- **Módulo:** `monitoring`, `alerts`, `incidents`, `config`
-- **Motivación:** Resolver cuellos de botella severos bajo concurrencia en TimescaleDB y reducir la latencia p95.
-- **Cambios en Backend:**
-  - `backend/monitoring/serializers.py`: Prefetch optimizado con ventana de tiempo de 1 hora (`checked_at__gte=since_1h`) más `select_related('owner_team', 'agent_probe')`, reduciendo de 11 queries a 0 queries en serialización.
-  - `backend/alerts/serializers.py`: Implementado `AlertListSerializer` con precarga en lote (`alert_id IN (...)`) y resolución en memoria O(1), reduciendo 40 queries a 1 sola query.
-  - `backend/incidents/views.py`: Implementado `.annotate(alerts_count_annotated=Count('incident_alerts'))` suprimiendo queries COUNT(*) repetitivas.
-  - `backend/config/settings/base.py`: Activado connection pooling `CONN_MAX_AGE=60` y `CONN_HEALTH_CHECKS=True`.
-  - `backend/monitoring/views.py` & `backend/incidents/views.py`: Activada caché en Redis (DB 2) con TTL de 15 segundos para `/global-performance/` y `/incidents/stats/`.
-- **Base de Datos:**
-  - Creado índice B-Tree `incidents_incidentalert_alert_id_idx` sobre `alert_id` en `incidents_incident_alert`.
-- **Validaciones:**
-  - Benchmark con Grafana k6: Latencia promedio reducida a **22.36 ms** y p95 a **38.81 ms** (40.7% de mejora con 0% de errores).
+## 2026-10-03 — Frecuencia estricta de sondeos por plan
 
----
+- Se cerró la brecha de scans manuales: reservas atómicas PostgreSQL compartidas por API, tareas directas, Beat y Sentinine; Free 300 s / Pro 60 s, respetando intervalos configurados más lentos. Se controla el trabajo pendiente, la entrega duplicada y la siguiente ventana después de completar el sondeo.
+- Los masivos y seleccionados solo admiten recursos de la organización solicitante y reportan encolados/omitidos. Los diagnósticos en vivo también tienen un presupuesto temporal por organización, aunque se cambie la URL.
+- Se retiraron los reintentos de Monitoring a los 5 s, incompatibles con la política estricta. Las seis tareas cloud quedan limitadas a 540 s y una reserva pendiente caduca tras 10 min.
+- Sentinine no recibe asignaciones simultáneas duplicadas y solo acepta resultados pendientes de recursos propios habilitados y asignados al agente correcto.
+- La UI separa `Actualizar datos` de `Comprobar disponibles`, muestra el motivo de espera y deja de afirmar `2 checks/min` por cada target. La frecuencia presentada es una estimación de configuración, no telemetría de ejecuciones.
+- Migración local aplicada: únicamente `common.0001_initial`, sin revocar tokens ni modificar planes. Worker y Beat locales reiniciados. Gates locales: Django 59/59 (incluida concurrencia PostgreSQL real), Chromium 21/21 y build TypeScript/Vite. Producción y CI continúan pendientes.
 
-### [2026-09-25] - Modernización Visual y Operativa del Dashboard NOC
-- **Módulo:** `frontend/src/components/dashboard/` & `DashboardPage.tsx`
-- **Motivación:** Estandarizar la interfaz según la paleta estricta Dark Mode (#090D11, #111720) y proporcionar máxima densidad operativa.
-- **Cambios en Frontend:**
-  - Creada arquitectura modular de 7 widgets bajo `frontend/src/components/dashboard/`:
-    - `NOCDashboardHeader.tsx`: Reloj con segundero, selector de ventana temporal y contador dinámico.
-    - `NOCExecutiveKpis.tsx`: 5 tarjetas KPI ejecutivas con sparklines SVG y donut gauge de seguridad.
-    - `NOCPerformanceSection.tsx`: Gráfica de área Recharts multieje (Disponibilidad, Latencia, RPS) y barra de microservicios.
-    - `NOCInfraHealthDonut.tsx`: Donut chart SVG proporcional de salud de infraestructura.
-    - `NOCRecentActivityFeed.tsx`: Feed cronológico reactivo con badges por estado.
-    - `NOCCriticalTargetsTable.tsx`: Tabla de servicios críticos priorizada por severidad.
-    - `NOCLiveAlertsList.tsx`: Lista unificada de alarmas con enlace directo a incidentes.
-- **Validaciones:**
-  - Compilación limpia con Vite (0 errores TypeScript) y verificación visual en navegador.
+## 2026-10-03 — Redirecciones explicadas al usuario
 
----
+- Onboarding y Monitoring usan el aviso compartido «Esta página te envía a otra dirección», sin exigir conocimiento de HTTP. El código se muestra en detalles técnicos desplegables.
+- «Usar esta dirección» copia una URL HTTP(S) válida al formulario y borra el resultado anterior. No visita Location, no ejecuta un test automático ni declara saludable el destino; la siguiente prueba o alta conserva la validación SSRF del backend.
+- Evidencia local: build TypeScript/Vite, Django 49/49 y Chromium 20/20 aprobados. Se verificó el flujo de copiar y probar explícitamente, además de la presentación desktop/móvil. CI y producción siguen pendientes.
 
-### [2026-09-20] - Módulo de Ventanas de Mantenimiento Programadas (Fase 2)
-- **Módulo:** `maintenance`, `status_page`, `alerts`
-- **Motivación:** Evitar falsos positivos y proteger el SLA mensual durante labores de mantenimiento programadas en infraestructura.
-- **Cambios en Backend:**
-  - `backend/maintenance/models.py`: Modelo `MaintenanceWindow` con soporte de recurrencia (semanal, mensual) y alcance por organización o targets específicos.
-  - `backend/maintenance/services.py`: Sincronización automática con `ScheduledMaintenance` de la Status Page pública.
-  - `backend/alerts/services.py`: Supresión de notificaciones externas en `AlertService.create_alert` si el target está dentro de una ventana de mantenimiento activa.
-  - `backend/reports/services.py`: Exclusión de minutos caídos en cálculo de disponibilidad para targets bajo mantenimiento.
-- **Cambios en Frontend:**
-  - `frontend/src/pages/MaintenancePage.tsx`: Vista completa con `NOCPageHeader`, 4 KPIs, `NOCToolbar`, persistencia de vista (Cards vs Tabla) y `MaintenanceDetailDrawer.tsx`.
+## 2026-10-03 — Sesión, diagnóstico HTTP y legibilidad
+
+- El cliente comparte una única renovación JWT entre peticiones concurrentes. Sin refresh válido limpia la sesión persistida y solicita login; un fallo temporal de red/servidor no revoca credenciales. Login/registro/2FA no envían Bearer obsoleto ni disparan renovación por credenciales incorrectas.
+- La rotación actualiza también Zustand; una respuesta de renovación de una sesión anterior se descarta. Un refresh sin token rotado conserva el anterior en vez de guardar `undefined`.
+- Onboarding y diagnóstico de Monitoring identifican redirecciones y muestran Location como texto, sin seguirlo ni declararlo saludable. Cambiar la URL borra el resultado anterior del onboarding.
+- Se retiraron emojis de Cloud/Sentinine, conservando los iconos vectoriales existentes, y la afirmación de multi-región sin evidencia. Formularios con ayudas de al menos 12 px, mayor contraste y sin escala animada en el modal de target; se evita sintetizar pesos tipográficos y se mantiene la fuente común.
+- Evidencia local: Django 49/49, Chromium 19/19 y build TypeScript/Vite aprobados; revisión visual del onboarding desktop/móvil y prueba adicional móvil sin desbordamiento. No se modificaron planes ni se desplegó a producción. CI sigue pendiente.
+
+## 2026-10-03 — Registro Free y onboarding por plan
+
+- Las cuentas nuevas empiezan en Free activo, sin trial Pro automático ni vencimiento. Pro sigue requiriendo contratación y confirmación desde Planes.
+- La migración de defaults no modifica planes existentes ni reactiva suscripciones vencidas.
+- Monitoring y API Checks usan la frecuencia mínima del plan al omitir el intervalo y rechazan valores menores; se corrigió la validación que buscaba `interval_seconds` en lugar de `check_interval`.
+- Los schedulers ahora respetan los intervalos del recurso y el mínimo contratado, en vez de escanear todos los targets cada minuto. Sentinine recibe únicamente los recursos cuyo sondeo corresponde.
+- Onboarding identifica el plan real, recomienda Free 5 min / Pro 60 s, bloquea frecuencias superiores no contratadas y enlaza a Planes. Se retiró la promesa de menos de 60 segundos.
+- Evidencia local: 48/48 Django, 12/12 Chromium y build TypeScript/Vite aprobados. Producción continúa pendiente.
+- Al aplicar migraciones locales también se aplicó la migración pendiente de hash de API tokens: los tokens anteriores deben regenerarse si estaban en uso. Este efecto fue comunicado al usuario.
+
+## 2026-10-03 — Suscripción, onboarding y cobertura
+
+- Se centralizó la habilitación operativa y se bloquean altas, cambios, tests y scans con prueba vencida, incluso antes de ejecutar el job diario.
+- Celery y Sentinine verifican la suscripción al ejecutar/asignar tareas; la lectura histórica y el heartbeat permanecen disponibles.
+- Pro también exige pago verificado; la interfaz explica que los pagos en línea siguen pendientes y no presenta un plan vencido como activo.
+- Se corrigió la asignación de 14 días de prueba a organizaciones nuevas con UUID preasignado, sin renovar pruebas existentes.
+- Se recuperó el onboarding para administradores sin monitores, con preferencia por usuario, casillas funcionales y confirmación visible.
+- El backend es el único propietario del aprovisionamiento por protocolo, respetando opt-outs, ejecución privada, cuotas e idempotencia. TCP no genera recursos adicionales; WHOIS/API no se crean sin selección explícita.
+- Gates locales: 43/43 pruebas Django, build TypeScript/Vite y 11/11 pruebas Chromium. Sin despliegue a producción ni eliminación de recursos previos.
+- Política y detalles: [Suscripciones, onboarding y cobertura](SUBSCRIPTIONS_ONBOARDING.md).
+
+## 2026-10-03 — Densidad visual y tipografía
+
+- Cabecera del dashboard compacta con selector de período visible y control de auto-refresh accesible.
+- Avisos de suscripción y 2FA reducidos; cuatro KPIs agrupados en una franja de resumen.
+- Fuente principal unificada en Plus Jakarta Sans y cifras de KPI con números tabulares.
+- KPIs compartidos y cabeceras de módulo compactados; Monitoring usa filtros sin contenedor adicional y tarjetas más ligeras.
+- Menú móvil contraído de forma automática, sin modificar la preferencia de escritorio.
+- Build frontend aprobado y 9/9 pruebas Chromium locales; la comprobación de 1440×900 valida ambas gráficas completas en el primer viewport con avisos visibles. La prueba móvil verifica ausencia de desbordamiento horizontal.
+
+## 2026-10-03 — Dashboard NOC Fase 1
+
+- Se redujo la cabecera operativa a cuatro KPIs: salud actual, disponibilidad, latencia y atención.
+- La gráfica global diferencia uptime, latencia y volumen, con umbrales visuales, tooltip unificado, skeleton y recuperación parcial.
+- La dona y ocho tarjetas de módulo funcionan como filtros combinables mediante chips removibles.
+- La tabla crítica y la lista separada de alertas fueron sustituidas por una bandeja de tarjetas normalizada para nueve tipos de recurso.
+- Las alertas vinculadas se agrupan dentro del incidente y los elementos se ordenan por severidad y antigüedad/urgencia.
+- El drawer unificado cubre Monitoring, API, SSL, dominio, DNS, seguridad, alertas, incidentes y Sentinine.
+- Solo administradores reciben re-escaneo y reconocimiento de alertas; Viewer no recibe mutaciones.
+- Actividad combina operación, alertas, incidentes y auditoría; agentes y auditoría participan del auto-refresh de 30 segundos.
+- Playwright Chromium aprobó 8/8 flujos locales, incluidos filtros, drawer, acciones administrativas, Viewer, fallo parcial y viewport móvil.
+
+## 2026-10-03 — Hardening integral
+
+- Beat usa `ssl_monitor.scan_all`, `dns.scan_all` y `domain.scan_all`; una prueba valida todo el schedule.
+- `TRUSTED_PROXY_CIDRS` limita XFF al gateway productivo `172.30.0.10`.
+- `common.safe_http` centraliza HTTP saliente, bloquea destinos no globales, fija la conexión a una IP validada contra DNS rebinding y no sigue redirects.
+- Se retiraron reescrituras localhost y autologin Basic→JWT.
+- Se añadió `quarantine_unsafe_targets`; el dry-run local detectó 8 recursos y no modificó datos.
+- API tokens migran de plaintext a SHA-256/prefijo; secretos antiguos se revocan.
+- “Cerrar otras sesiones” conserva el refresh actual y falla cerrado.
+- Los scans individuales devuelven 202; la UI espera un timestamp posterior hasta 30 segundos.
+- `purge_telemetry` elimina solo históricos por política de organización.
+- La topología productiva usa Nginx TLS, frontend propio, imágenes GHCR y corte controlado.
+- Grafana Alloy sustituye referencias y despliegues de Promtail.
+- CI ejecuta suite Django completa, build, auditorías estrictas, Trivy, Compose, builds, Nginx y Playwright.
+
+## Evidencia local
+
+- `manage.py check`: aprobado.
+- `makemigrations --check --dry-run`: sin cambios.
+- Frontend `npm run build`: aprobado.
+- Playwright Chromium: 8/8 flujos críticos aprobados localmente; el gate permanece pendiente hasta CI.
+- Suite Django completa: 31/31 pruebas aprobadas, incluida la ejecución directa de schedules SSL, DNS y WHOIS.
+- Backend actualizado a Django 5.2.17; `pip-audit` local no reporta vulnerabilidades conocidas.
+- `npm audit --omit=dev --audit-level=high` aprueba; conserva 2 avisos Moderate de React Router cuya corrección exige migrar a v7.
+- Compose desarrollo y producción: configuración válida.
+- Imágenes productivas de backend y frontend: build local aprobado; `nginx -t` aprobado.
+- Alloy: configuración cargada, etiquetas `service`, `container` y `environment` visibles en Loki; posiciones persistidas y reutilizadas tras reinicio.
+- Cuarentena: 8 hallazgos en dry-run, cero cambios.
+
+Los resultados k6 anteriores se conservan como históricos en [tests_perf/README.md](../tests_perf/README.md).

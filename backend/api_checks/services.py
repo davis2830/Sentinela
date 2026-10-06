@@ -1,8 +1,10 @@
 import json
 import logging
-import requests
 from django.db import transaction
+from common.beta_quota import beta_creation
 from django.utils import timezone
+
+from common import safe_http
 
 from .models import APICheckResult, APICheckTarget
 
@@ -58,6 +60,7 @@ class APICheckService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation("api_checks")
     def create_target(
         organization_id,
         name,
@@ -140,36 +143,9 @@ class APICheckService:
         method = method.strip().upper()
         req_headers = dict(headers or {})
 
-        # Handle local docker alias
-        if "localhost:8000" in clean_url or "127.0.0.1:8000" in clean_url:
-            clean_url = clean_url.replace("localhost:8000", "backend:8000").replace("127.0.0.1:8000", "backend:8000")
-            req_headers["Host"] = "localhost"
-
-        # Handle basic auth auto-login for internal dev
-        auth_key = None
-        auth_header = ""
-        for k, v in req_headers.items():
-            if k.lower() == "authorization":
-                auth_header = str(v)
-                auth_key = k
-                break
-
-        if auth_header.startswith("Basic "):
-            try:
-                import base64
-                raw_auth = base64.b64decode(auth_header.replace("Basic ", "")).decode("utf-8")
-                if ":" in raw_auth:
-                    u_email, u_pass = raw_auth.split(":", 1)
-                    if ("backend:8000" in clean_url or "localhost:8000" in clean_url or "/api/v1/" in clean_url) and "@" in u_email:
-                        from accounts.services import AuthService
-                        auth_res = AuthService.login(u_email.strip(), u_pass.strip())
-                        req_headers[auth_key or "Authorization"] = f"Bearer {auth_res['access_token']}"
-            except Exception as auth_err:
-                logger.warning("Auto-JWT login from Basic Auth failed in test_request: %s", auth_err)
-
         try:
             start = timezone.now()
-            res = requests.request(
+            res = safe_http.request(
                 method=method,
                 url=clean_url,
                 headers=req_headers,
@@ -195,6 +171,7 @@ class APICheckService:
                 "status_code": res.status_code,
                 "response_time_ms": elapsed_ms,
                 "headers": dict(res.headers),
+                "redirect_location": res.headers.get("Location") if res.is_redirect else None,
                 "body": parsed_body,
                 "is_json": is_json,
                 "size_bytes": len(res.content),
@@ -317,9 +294,8 @@ class APICheckService:
 
         if action == "scan":
             from .tasks import run_api_check
-            for t in targets:
-                run_api_check.delay(str(t.id))
-            return {"action": "scan", "processed": count, "message": f"{count} endpoints encolados para validación."}
+            from common.scan_limits import enqueue_many
+            return enqueue_many(targets, run_api_check)
 
         elif action == "pause":
             targets.update(enabled=False)

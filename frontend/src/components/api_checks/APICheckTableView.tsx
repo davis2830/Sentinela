@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { APICheckTarget } from '../../types/api_checks';
 import StatusBadge from '../common/StatusBadge';
@@ -60,13 +61,13 @@ export default function APICheckTableView({
   };
 
   return (
-    <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
+    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
               {/* Checkbox select all */}
-              <th className="py-3 px-3.5 w-10">
+              <th scope="col" className="py-3 px-3.5 w-10">
                 <button
                   type="button"
                   onClick={onSelectAll}
@@ -80,14 +81,14 @@ export default function APICheckTableView({
                   )}
                 </button>
               </th>
-              <th className="py-3 px-3">Método</th>
-              <th className="py-3 px-4">Servicio & Endpoint URL</th>
-              <th className="py-3 px-3">Estado HTTP</th>
-              <th className="py-3 px-3">Latencia Real vs Max</th>
-              <th className="py-3 px-3">Schema & Validación</th>
-              <th className="py-3 px-3">Frecuencia</th>
-              <th className="py-3 px-3">Último Check</th>
-              <th className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-3">Método</th>
+              <th scope="col" className="py-3 px-4">Servicio & Endpoint URL</th>
+              <th scope="col" className="py-3 px-3">Estado HTTP</th>
+              <th scope="col" className="py-3 px-3">Latencia Real vs Max</th>
+              <th scope="col" className="py-3 px-3">Schema & Validación</th>
+              <th scope="col" className="py-3 px-3">Frecuencia</th>
+              <th scope="col" className="py-3 px-3">Último Check</th>
+              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40 font-sans">
@@ -107,6 +108,9 @@ export default function APICheckTableView({
                 <tr
                   key={target.id}
                   onClick={() => onSelectTarget(target)}
+                  tabIndex={0}
+                  aria-label={target.name}
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectTarget(target); } }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
                     isSelected ? 'bg-accent-green/[0.03]' : ''
                   }`}
@@ -234,34 +238,23 @@ export default function APICheckTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        type="button"
-                        onClick={(e) => onScan(target.id, e)}
-                        disabled={isScanning}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-                        title="Escanear endpoint ahora"
-                      >
-                        <RefreshCw
-                          size={14}
-                          className={isScanning ? 'animate-spin text-accent-green' : ''}
-                        />
-                      </button>
-                      <button
+
+                      <AdminButton
                         type="button"
                         onClick={(e) => onEdit(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
                         title="Editar target"
                       >
                         <Pencil size={14} />
-                      </button>
-                      <button
+                      </AdminButton>
+                      <AdminButton
                         type="button"
                         onClick={(e) => onDelete(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
                         title="Eliminar target"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

@@ -61,6 +61,7 @@ const navGroups: NavGroup[] = [
     title: 'Gestión',
     icon: Sliders,
     items: [
+      { to: '/gestion', icon: LayoutDashboard, label: 'Resumen de gestión' },
       { to: '/alerts', icon: Bell, label: 'Smart Alerts' },
       { to: '/incidents', icon: AlertTriangle, label: 'Incidentes' },
       { to: '/maintenance', icon: Wrench, label: 'Mantenimientos' },
@@ -104,7 +105,7 @@ export default function Sidebar() {
   });
 
   // Collapsed state with LocalStorage persistence
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+  const [desktopCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('sentinel_sidebar_collapsed');
       return saved === 'true';
@@ -112,6 +113,16 @@ export default function Sidebar() {
       return false;
     }
   });
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const isCollapsed = isMobile ? !mobileExpanded : desktopCollapsed;
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => { setMobileExpanded(false); }, [location.pathname]);
 
   // Accordion groups open/closed state
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -131,6 +142,7 @@ export default function Sidebar() {
   }, [location.pathname, isSuperadmin]);
 
   const toggleCollapse = () => {
+    if (isMobile) { setMobileExpanded((previous) => !previous); return; }
     setIsCollapsed((prev) => {
       const next = !prev;
       try {
@@ -147,7 +159,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`bg-bg-dark border-r border-border-base flex flex-col justify-between transition-all duration-300 ease-in-out shrink-0 select-none z-30 ${
-        isCollapsed ? 'w-20 p-3' : 'w-64 p-4'
+        isMobile && mobileExpanded ? 'absolute left-0 top-14 bottom-0 w-64 p-4 shadow-2xl' : isCollapsed ? 'w-14 p-2 md:w-20 md:p-3' : 'w-64 p-4'
       } h-full overflow-y-auto overflow-x-hidden`}
     >
       {/* Top Nav Content */}

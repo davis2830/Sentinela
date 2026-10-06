@@ -35,3 +35,12 @@ class OrganizationOwnedModel(BaseModel):
     class Meta:
         abstract = True
         ordering = ["-created_at"]
+
+
+class ScanLease(OrganizationOwnedModel):
+    """Durable per-resource reservation shared by API, Beat and workers."""
+    resource_key = models.CharField(max_length=255, unique=True)
+    token = models.UUIDField(null=True)
+    started = models.BooleanField(default=False)
+    pending_until = models.DateTimeField(null=True)
+    next_allowed_at = models.DateTimeField(null=True)

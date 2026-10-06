@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.db import transaction
+from common.subscriptions import monitoring_allowed
 
 from .models import (
     PLAN_LIMITS,
@@ -146,9 +147,17 @@ class QuotaService:
             PLAN_LIMITS[OrganizationPlanTier.BUSINESS],
             PLAN_LIMITS[OrganizationPlanTier.ENTERPRISE],
         ]
+        if organization.beta_managed:
+            all_plans = [dict(plan) for plan in all_plans if plan["tier"] != "enterprise"]
+            all_plans[0].update(max_monitoring_targets=3, metrics_retention_days=3)
+            for plan in all_plans:
+                if plan["tier"] == "business":
+                    plan.update(price_monthly_usd=None, name="Business / Cotización")
 
         return {
             "plan_tier": organization.plan_tier,
+            "beta_managed": organization.beta_managed,
+            "monitoring_allowed": monitoring_allowed(organization),
             "plan_name": limits.get("name", "Pro / Growth"),
             "subscription_status": organization.subscription_status,
             "billing_email": organization.billing_email,
@@ -275,7 +284,7 @@ class OrganizationService:
 
     @staticmethod
     @transaction.atomic
-    def create_organization(name, slug, timezone="UTC", locale="en-US", plan_tier="pro"):
+    def create_organization(name, slug, timezone="UTC", locale="en-US", plan_tier="free"):
         """Create a new organization."""
         return Organization.objects.create(
             name=name,
@@ -283,7 +292,8 @@ class OrganizationService:
             timezone=timezone,
             locale=locale,
             plan_tier=plan_tier,
-            subscription_status=OrganizationSubscriptionStatus.TRIALING,
+            subscription_status=OrganizationSubscriptionStatus.ACTIVE if plan_tier == "free" else OrganizationSubscriptionStatus.TRIALING,
+            default_scan_interval_seconds=PLAN_LIMITS[plan_tier]["min_check_interval_seconds"],
         )
 
     @staticmethod
@@ -306,7 +316,7 @@ class OrganizationService:
             raise ValueError(f"Nivel de plan no válido: {new_tier}")
 
         # Paid tiers (business, enterprise) require verified payment or superuser privilege
-        if new_tier in [OrganizationPlanTier.BUSINESS, OrganizationPlanTier.ENTERPRISE]:
+        if new_tier != OrganizationPlanTier.FREE:
             if not (is_superuser or verified_payment):
                 raise ValueError(
                     f"Para actualizar al plan {new_tier.upper()} se requiere confirmación de método de pago o autorización administrativa."

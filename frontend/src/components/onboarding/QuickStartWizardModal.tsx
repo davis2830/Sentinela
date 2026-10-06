@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
+import RedirectNotice from '../monitoring/RedirectNotice';
 import {
   X,
   Zap,
@@ -40,8 +42,12 @@ export default function QuickStartWizardModal({
   const [enableSSL, setEnableSSL] = useState(true);
   const [enableSecurityHeaders, setEnableSecurityHeaders] = useState(true);
   const [enableDNS, setEnableDNS] = useState(true);
-  const [interval, setInterval] = useState(60);
+  const [interval, setInterval] = useState(300);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [scanWarning, setScanWarning] = useState<string | null>(null);
+  useEffect(() => {
+    if (isOpen) { setStep(1); setLaunchError(null); setScanWarning(null); }
+  }, [isOpen]);
 
   // Fetch plan limits to enforce minimum interval smoothly
   const { data: subData } = useQuery({
@@ -53,7 +59,10 @@ export default function QuickStartWizardModal({
     enabled: isOpen,
   });
 
-  const minAllowedInterval = subData?.limits?.min_check_interval_seconds || 60;
+  const minAllowedInterval = subData?.limits?.min_check_interval_seconds || 300;
+  useEffect(() => {
+    if (isOpen && subData) setInterval(minAllowedInterval);
+  }, [isOpen, subData?.plan_tier, minAllowedInterval]);
 
   // Live Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -62,6 +71,7 @@ export default function QuickStartWizardModal({
     status_code?: number;
     latency_ms?: number;
     message?: string;
+    redirect_location?: string;
   } | null>(null);
 
   // Submit Mutation
@@ -87,6 +97,11 @@ export default function QuickStartWizardModal({
         interval: effectiveInterval,
         enabled: true,
         tags: ['onboarding', 'production'],
+        related_modules: [
+          ...(enableSSL && formattedUrl.startsWith('https://') ? ['ssl'] : []),
+          ...(enableSecurityHeaders ? ['security'] : []),
+          ...(enableDNS && hostname && !hostname.includes(':') && !/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) ? ['dns'] : []),
+        ],
       });
       const newTarget = targetRes.data?.data;
 
@@ -95,45 +110,11 @@ export default function QuickStartWizardModal({
         try {
           await api.post(`/monitoring/${newTarget.id}/scan/`);
         } catch {
-          // Non-blocking scan failure
+          setScanWarning('El objetivo se guardó, pero el escaneo inicial no pudo encolarse. Reinténtalo desde Monitoring cuando tu suscripción esté vigente.');
         }
       }
 
-      // 3. 360° Parallel Cross-Discovery Provisioning
-      const tasks: Promise<any>[] = [];
-
-      if (enableSSL && formattedUrl.startsWith('https') && hostname) {
-        tasks.push(
-          api.post('/ssl-certificates/', {
-            endpoint: hostname,
-            port: 443,
-            enabled: true,
-          }).catch(() => null)
-        );
-      }
-
-      if (enableSecurityHeaders && formattedUrl) {
-        tasks.push(
-          api.post('/security-headers/', {
-            name: `${targetName} - Security Headers`,
-            url: formattedUrl,
-            enabled: true,
-          }).catch(() => null)
-        );
-      }
-
-      if (enableDNS && hostname && !hostname.includes(':') && !/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
-        tasks.push(
-          api.post('/dns-records/', {
-            name: targetName,
-            domain: hostname,
-            record_type: 'A',
-            enabled: true,
-          }).catch(() => null)
-        );
-      }
-
-      await Promise.allSettled(tasks);
+      // Backend is the sole owner of protocol-aware asynchronous provisioning.
       return newTarget;
     },
     onError: (err: any) => {
@@ -155,9 +136,6 @@ export default function QuickStartWizardModal({
       queryClient.invalidateQueries({ queryKey: ['security-headers'] });
       localStorage.removeItem('sentinel_launch_onboarding');
       localStorage.removeItem('sentinela_launch_onboarding');
-      if (onComplete) {
-        onComplete();
-      }
       setStep(3);
     },
   });
@@ -182,7 +160,8 @@ export default function QuickStartWizardModal({
         success: data?.status === 'up',
         status_code: data?.status_code,
         latency_ms: data?.latency_ms,
-        message: data?.error_message || (data?.status === 'up' ? 'Conexión verificada exitosamente' : 'Respuesta con error'),
+        redirect_location: data?.redirect_location,
+        message: data?.redirect_location ? 'Esta página te envía a otra dirección' : data?.error_message || data?.message || (data?.status === 'up' ? 'Conexión verificada exitosamente' : 'Respuesta con error'),
       });
 
       // Auto-suggest name if empty
@@ -208,7 +187,7 @@ export default function QuickStartWizardModal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
+      <div role="dialog" aria-modal="true" aria-label="Inicio guiado" className="readable-form bg-bg-card border border-border-base rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
         {/* Top Edge Glow */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-80" />
 
@@ -219,17 +198,17 @@ export default function QuickStartWizardModal({
               <Rocket className="text-accent-green" size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-bold text-text-main">
-                  {step === 3 ? '¡Observabilidad Activada!' : 'Despliegue Rápido de Observabilidad'}
+                  {step === 3 ? 'Objetivo registrado' : 'Despliegue Rápido de Observabilidad'}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-green/15 text-accent-green border border-accent-green/30 font-mono">
-                  &lt; 60s
+                  Inicio guiado
                 </span>
               </div>
               <p className="text-xs text-text-muted mt-0.5">
                 {step === 3
-                  ? 'Tu primer objetivo ya se encuentra bajo vigilancia continua.'
+                  ? 'Consulta las primeras mediciones cuando finalicen los chequeos.'
                   : 'Configura tu primer monitor y activa la red de alertas inteligentes de Sentinel.'}
               </p>
             </div>
@@ -277,12 +256,16 @@ export default function QuickStartWizardModal({
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="rounded-xl border border-accent-green/20 bg-accent-green/5 p-3 text-xs">
+                <div className="flex items-center justify-between gap-3"><span className="font-semibold text-text-main">{subData ? `Plan actual: ${subData.plan_name}` : 'Consultando tu plan…'}</span><Link to="/organization?tab=billing" onClick={onClose} className="text-accent-green hover:underline">Ver planes</Link></div>
+                <p className="mt-1 text-text-muted">Free: cada 5 min. Pro: cada 60 s tras contratarlo. No necesitas un plan de pago para configurar tu primer monitor.</p>
+              </div>
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   URL o Dominio Corporativo <span className="text-accent-red">*</span>
                 </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1 min-w-0">
                     <Globe
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim"
                       size={16}
@@ -291,14 +274,14 @@ export default function QuickStartWizardModal({
                       type="text"
                       placeholder="https://miempresa.com o api.servicio.cl"
                       value={url}
-                      onChange={(e) => setUrl(e.target.value)}
+                      onChange={(e) => { setUrl(e.target.value); setTestResult(null); }}
                       className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 pl-10 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-accent-green/20 font-mono"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleTestConnection}
-                    disabled={!url.trim() || isTesting}
+                    disabled={!url.trim() || isTesting || !subData}
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-accent-green/10 border border-accent-green/40 text-accent-green hover:bg-accent-green/20 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {isTesting ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
@@ -314,7 +297,7 @@ export default function QuickStartWizardModal({
               {testResult && (
                 <div
                   className={`p-3.5 rounded-xl border flex items-start gap-3 animate-in fade-in duration-150 ${
-                    testResult.success
+                    testResult.redirect_location ? 'bg-accent-yellow/10 border-accent-yellow/30 text-amber-300' : testResult.success
                       ? 'bg-accent-green/10 border-accent-green/30 text-emerald-400'
                       : 'bg-accent-red/10 border-accent-red/30 text-rose-400'
                   }`}
@@ -322,22 +305,25 @@ export default function QuickStartWizardModal({
                   {testResult.success ? (
                     <CheckCircle2 size={18} className="shrink-0 text-accent-green mt-0.5" />
                   ) : (
-                    <AlertCircle size={18} className="shrink-0 text-accent-red mt-0.5" />
+                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
                   )}
                   <div className="text-xs">
-                    <div className="font-bold flex items-center gap-2">
+                    <div className="font-bold flex flex-wrap items-center gap-2">
                       <span>{testResult.message}</span>
-                      {testResult.status_code && (
+                      {!testResult.redirect_location && testResult.status_code && (
                         <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-[10px]">
                           HTTP {testResult.status_code}
                         </span>
                       )}
-                      {testResult.latency_ms !== undefined && (
+                      {!testResult.redirect_location && testResult.latency_ms !== undefined && (
                         <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-[10px]">
                           {testResult.latency_ms.toFixed(0)}ms
                         </span>
                       )}
                     </div>
+                    {testResult.redirect_location && (
+                      <RedirectNotice location={testResult.redirect_location} endpoint={url.startsWith('http') ? url : `https://${url}`} statusCode={testResult.status_code} onUseAddress={(address) => { setUrl(address); setTestResult(null); }} />
+                    )}
                     {testResult.success && (
                       <p className="text-emerald-300/80 text-[11px] mt-1">
                         Endpoint respondiendo adecuadamente desde la red de monitoreo Sentinel Cloud.
@@ -368,9 +354,9 @@ export default function QuickStartWizardModal({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: '60 seg (Recomendado)', value: 60, minPlan: 'Pro' },
-                    { label: '30 seg (Alta Fidelidad)', value: 30, minPlan: 'Business' },
-                    { label: '300 seg (Estándar)', value: 300, minPlan: 'Free' },
+                    { label: '5 min', value: 300, minPlan: 'Free' },
+                    { label: '60 s', value: 60, minPlan: 'Pro' },
+                    { label: '30 s', value: 30, minPlan: 'Business' },
                   ].map((opt) => {
                     const isAllowed = opt.value >= minAllowedInterval;
                     const isSelected = interval === opt.value;
@@ -386,7 +372,7 @@ export default function QuickStartWizardModal({
                         disabled={!isAllowed}
                         className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all text-center relative flex flex-col items-center justify-center min-h-[52px] ${
                           !isAllowed
-                            ? 'opacity-40 bg-bg-dark border-border-base/50 text-text-dim cursor-not-allowed'
+                            ? 'bg-bg-dark border-border-base/50 text-text-muted cursor-not-allowed'
                             : isSelected
                             ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-sm cursor-pointer'
                             : 'bg-bg-dark border-border-base text-text-muted hover:border-zinc-700 cursor-pointer'
@@ -394,6 +380,7 @@ export default function QuickStartWizardModal({
                         title={!isAllowed ? `Requiere plan ${opt.minPlan}` : ''}
                       >
                         <span className="font-mono text-xs">{opt.label}</span>
+                        {isAllowed && opt.value === minAllowedInterval && <span className="mt-0.5 text-[10px]">Recomendado para tu plan</span>}
                         {!isAllowed && (
                           <span className="text-[10px] text-amber-400 font-mono mt-0.5 font-bold">
                             Plan {opt.minPlan}
@@ -440,13 +427,12 @@ export default function QuickStartWizardModal({
 
                   {/* Item 2: SSL */}
                   <label
-                    onClick={() => setEnableSSL(!enableSSL)}
                     className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={enableSSL}
-                      onChange={() => {}}
+                      onChange={(event) => setEnableSSL(event.target.checked)}
                       className="mt-0.5 rounded text-accent-green focus:ring-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
@@ -462,13 +448,12 @@ export default function QuickStartWizardModal({
 
                   {/* Item 3: Security Headers */}
                   <label
-                    onClick={() => setEnableSecurityHeaders(!enableSecurityHeaders)}
                     className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={enableSecurityHeaders}
-                      onChange={() => {}}
+                      onChange={(event) => setEnableSecurityHeaders(event.target.checked)}
                       className="mt-0.5 rounded text-accent-green focus:ring-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
@@ -484,13 +469,12 @@ export default function QuickStartWizardModal({
 
                   {/* Item 4: DNS */}
                   <label
-                    onClick={() => setEnableDNS(!enableDNS)}
                     className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors"
                   >
                     <input
                       type="checkbox"
                       checked={enableDNS}
-                      onChange={() => {}}
+                      onChange={(event) => setEnableDNS(event.target.checked)}
                       className="mt-0.5 rounded text-accent-green focus:ring-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
@@ -521,7 +505,7 @@ export default function QuickStartWizardModal({
               <div className="p-3 bg-accent-green/10 border border-accent-green/20 rounded-xl text-xs text-text-main flex items-center gap-2.5">
                 <CheckCircle2 size={16} className="text-accent-green shrink-0" />
                 <span>
-                  Las 6 reglas de alerta automáticas se vincularán inmediatamente a este objetivo.
+                  Solo se crearán los módulos seleccionados, según el protocolo y los límites de tu plan. WHOIS y API Checks se configuran por separado.
                 </span>
               </div>
             </div>
@@ -529,15 +513,16 @@ export default function QuickStartWizardModal({
 
           {step === 3 && (
             <div className="text-center py-6 space-y-4 animate-in fade-in zoom-in-95 duration-300">
+              {scanWarning && <p role="status" className="rounded-xl border border-accent-yellow/30 p-3 text-xs text-accent-yellow">{scanWarning}</p>}
               <div className="w-16 h-16 rounded-full bg-accent-green/20 border border-accent-green/40 flex items-center justify-center mx-auto shadow-lg shadow-accent-green/20">
                 <Check className="text-accent-green" size={32} strokeWidth={3} />
               </div>
               <div>
                 <h4 className="text-xl font-extrabold text-text-main">
-                  ¡Objetivo Registrado & Observabilidad en Vivo!
+                  Tu primer objetivo está registrado
                 </h4>
                 <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-                  Hemos enviado el primer escaneo de telemetría a los motores de Sentinel. Puedes monitorear la salud en tiempo real desde el tablero principal.
+                  El objetivo fue registrado. La cobertura seleccionada se aprovisiona en segundo plano; consulta sus resultados en los módulos. El primer escaneo puede seguir pendiente.
                 </p>
               </div>
 
@@ -552,13 +537,13 @@ export default function QuickStartWizardModal({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-dim">Frecuencia:</span>
-                  <span className="text-text-muted">Cada {interval}s</span>
+                  <span className="text-text-muted">Cada {Math.max(interval, minAllowedInterval)}s</span>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => { onComplete?.(); onClose(); }}
                 className="w-full max-w-md mx-auto py-3 px-6 rounded-xl font-bold text-sm bg-accent-green hover:bg-accent-green/90 text-black shadow-lg shadow-accent-green/20 transition-all flex items-center justify-center gap-2"
               >
                 <span>Ir al Tablero Principal</span>
@@ -593,7 +578,7 @@ export default function QuickStartWizardModal({
             {step === 1 ? (
               <button
                 type="button"
-                disabled={!url.trim()}
+                disabled={!url.trim() || !subData}
                 onClick={() => setStep(2)}
                 className="px-5 py-2.5 rounded-xl text-xs font-bold bg-accent-green hover:bg-accent-green/90 text-black shadow-md shadow-accent-green/20 transition-all flex items-center gap-2 disabled:opacity-50"
               >
@@ -603,7 +588,7 @@ export default function QuickStartWizardModal({
             ) : (
               <button
                 type="button"
-                disabled={launchMutation.isPending}
+                disabled={launchMutation.isPending || !subData}
                 onClick={() => launchMutation.mutate()}
                 className="px-6 py-2.5 rounded-xl text-xs font-bold bg-accent-green hover:bg-accent-green/90 text-black shadow-lg shadow-accent-green/20 transition-all flex items-center gap-2 disabled:opacity-60"
               >

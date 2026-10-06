@@ -40,6 +40,13 @@ class AuthService:
         if not user.is_active:
             raise ValueError("Tu cuenta ha sido desactivada por un administrador.")
 
+        from .eligibility import require_identity
+        if user.verification_required and not user.email_verified_at:
+            from .beta import session_for
+            return {"requires_email_verification": True, "registration_session": session_for(user),
+                    "message": "Confirma tu correo antes de entrar al monitoreo."}
+        require_identity(user)
+
         # Check if 2FA is required for this user
         if user.is_2fa_enabled:
             from django.core import signing
@@ -57,18 +64,7 @@ class AuthService:
         from django.utils import timezone
         user.last_login = timezone.now()
 
-        # Ensure user has an organization assigned (multi-tenancy safety)
-        if user.organization is None:
-            from organizations.models import Organization
-            org = Organization.objects.first()
-            if not org:
-                from django.utils.text import slugify
-                import uuid
-                org = Organization.objects.create(name="Default Org", slug=f"default-{str(uuid.uuid4())[:8]}")
-            user.organization = org
-            user.save(update_fields=["organization", "last_login"])
-        else:
-            user.save(update_fields=["last_login"])
+        user.save(update_fields=["last_login"])
 
         from audit.services import AuditService
         AuditService.log(
@@ -85,6 +81,7 @@ class AuthService:
         must_setup_2fa = (org_requires_2fa or admin_requires_2fa) and not user.is_2fa_enabled
 
         refresh = RefreshToken.for_user(user)
+        refresh["session_version"] = user.session_version
         return {
             "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
@@ -120,6 +117,11 @@ class AuthService:
         user = User.objects.filter(id=user_id).first()
         if not user or not user.is_active:
             raise ValueError("Usuario no válido o inactivo.")
+        from .beta import consume_budget
+        consume_budget("two-factor-login", str(user.pk), 10, 300)
+
+        from .eligibility import require_identity
+        require_identity(user)
 
         clean_code = str(code).strip().replace(" ", "").replace("-", "")
         is_valid = False
@@ -162,6 +164,7 @@ class AuthService:
         )
 
         refresh = RefreshToken.for_user(user)
+        refresh["session_version"] = user.session_version
         return {
             "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
@@ -360,23 +363,22 @@ class AuthService:
         """
         try:
             token = RefreshToken(refresh_token)
+            from .eligibility import require_identity
+            user = User.objects.select_related("organization").filter(pk=token["user_id"]).first()
+            require_identity(user)
+            if token.get("session_version", 0) != user.session_version:
+                raise ValueError("La sesión ya no está vigente. Inicia sesión nuevamente.")
             data = {
                 "access_token": str(token.access_token),
             }
             # Rotate and blacklist old refresh token to prevent token reuse attacks
-            try:
-                from rest_framework_simplejwt.settings import api_settings
-                if api_settings.ROTATE_REFRESH_TOKENS:
-                    if api_settings.BLACKLIST_AFTER_ROTATION:
-                        try:
-                            token.blacklist()
-                        except AttributeError:
-                            pass
-                    token.set_jti()
-                    token.set_exp()
-                    token.set_iat()
-            except Exception:
-                pass
+            from rest_framework_simplejwt.settings import api_settings
+            if api_settings.ROTATE_REFRESH_TOKENS:
+                if api_settings.BLACKLIST_AFTER_ROTATION:
+                    token.blacklist()
+                token.set_jti()
+                token.set_exp()
+                token.set_iat()
 
             data["refresh_token"] = str(token)
             return data
@@ -402,85 +404,6 @@ class AuthService:
         user.save()
 
     @staticmethod
-    def register(email, password, first_name="", last_name="", organization_name=""):
-        """Register a new user.
-
-        Creates a new user account, an associated Organization with Pro 14-day trial,
-        auto-provisions default alert rules, and returns JWT tokens so the user is immediately
-        authenticated after registration.
-        """
-        if User.objects.filter(email=email).exists():
-            raise ValueError("Ya existe una cuenta con este correo electrónico.")
-
-        from organizations.models import Organization, OrganizationPlanTier, OrganizationSubscriptionStatus
-        from alerts.services import AlertRuleService
-        from audit.models import AuditLog
-        from django.utils.text import slugify
-        from django.utils import timezone
-        from datetime import timedelta
-        import uuid
-
-        clean_org_name = organization_name.strip() if organization_name else ""
-        if not clean_org_name:
-            clean_org_name = f"Organización de {first_name or email.split('@')[0]}"
-
-        slug = f"{slugify(clean_org_name) or 'org'}-{str(uuid.uuid4())[:8]}"
-        org = Organization.objects.create(
-            name=clean_org_name,
-            slug=slug,
-            billing_email=email,
-            plan_tier=OrganizationPlanTier.PRO,
-            subscription_status=OrganizationSubscriptionStatus.TRIALING,
-            trial_ends_at=timezone.now() + timedelta(days=14),
-        )
-
-        user = User.objects.create_user(
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            organization=org,
-            is_staff=True,
-        )
-
-        # Ensure 6 default NOC alert rules are provisioned
-        try:
-            AlertRuleService.ensure_default_rules(org.id)
-        except Exception:
-            pass
-
-        # Audit log registration
-        try:
-            AuditLog.objects.create(
-                organization=org,
-                user=user,
-                action="create",
-                resource_type="organization",
-                resource_id=str(org.id),
-                resource_name=org.name,
-                description=f"Nueva cuenta registrada: {user.email} con plan Pro (14d trial).",
-            )
-        except Exception:
-            pass
-
-        refresh = RefreshToken.for_user(user)
-        return {
-            "access_token": str(refresh.access_token),
-            "refresh_token": str(refresh),
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "is_staff": user.is_staff,
-                "is_superuser": user.is_superuser,
-                "organization": {
-                    "id": str(org.id),
-                    "name": org.name,
-                    "slug": org.slug,
-                    "plan_tier": org.plan_tier,
-                    "subscription_status": org.subscription_status,
-                    "trial_days_remaining": org.trial_days_remaining,
-                },
-            },
-        }
+    def register(email, password, first_name="", last_name="", organization_name="", invitation_token=""):
+        from .beta import register
+        return register(email, password, invitation_token, first_name, last_name, organization_name)

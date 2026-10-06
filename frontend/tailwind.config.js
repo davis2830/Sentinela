@@ -8,31 +8,31 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Background colors from mockup
-        'bg-dark': '#090D11',
+        // Shared CSS tokens apply to workspaces, navigation and portal dialogs.
+        'bg-dark': 'rgb(var(--sentinel-bg-dark, 9 13 17) / <alpha-value>)',
         'bg-main': '#090D11',
-        'bg-card': '#111720',
-        'bg-card-hover': '#17202C',
-        'border-base': '#1E293B',
-        'border-accent': '#263345',
+        'bg-card': 'rgb(var(--sentinel-bg-card, 17 23 32) / <alpha-value>)',
+        'bg-card-hover': 'rgb(var(--sentinel-bg-card-hover, 23 32 44) / <alpha-value>)',
+        'border-base': 'rgb(var(--sentinel-border-base, 30 41 59) / <alpha-value>)',
+        'border-accent': 'rgb(var(--sentinel-border-accent, 38 51 69) / <alpha-value>)',
         
         // Text colors
         'text-main': '#F8FAFC',
-        'text-muted': '#94A3B8',
-        'text-dim': '#64748B',
+        'text-muted': 'rgb(var(--sentinel-text-muted, 148 163 184) / <alpha-value>)',
+        'text-dim': 'rgb(var(--sentinel-text-dim, 100 116 139) / <alpha-value>)',
         
         // Accent colors
-        'accent-green': '#10b981',
+        'accent-green': 'rgb(var(--sentinel-accent-green, 16 185 129) / <alpha-value>)',
         'accent-green-glow': '#34d399',
-        'accent-cyan': '#06B6D4',
+        'accent-cyan': 'rgb(var(--sentinel-accent-cyan, 6 182 212) / <alpha-value>)',
         'accent-cyan-glow': '#22D3EE',
-        'accent-purple': '#8B5CF6',
+        'accent-purple': 'rgb(var(--sentinel-accent-purple, 139 92 246) / <alpha-value>)',
         'accent-blue': '#3B82F6',
-        'accent-red': '#EF4444',
-        'accent-yellow': '#F59E0B',
+        'accent-red': 'rgb(var(--sentinel-accent-red, 239 68 68) / <alpha-value>)',
+        'accent-yellow': 'rgb(var(--sentinel-accent-yellow, 245 158 11) / <alpha-value>)',
       },
       fontFamily: {
-        sans: ['Outfit', 'Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
     },

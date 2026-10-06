@@ -1,4 +1,6 @@
 import logging
+from common.scan_limits import guarded_scan, enqueue_many
+from common.subscriptions import eligible_organization_ids
 from celery import shared_task
 
 from .models import DNSRecord
@@ -7,7 +9,8 @@ from .services import DNSMonitorService
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, name="dns.scan_records")
+@shared_task(bind=True, name="dns.scan_records", soft_time_limit=510, time_limit=540)
+@guarded_scan('dns_monitor.DNSRecord')
 def scan_dns_records(self, record_id):
     """Scan a DNS record for a given record.
 
@@ -18,7 +21,10 @@ def scan_dns_records(self, record_id):
         record_id: UUID string of the DNSRecord.
     """
     try:
-        record = DNSRecord.objects.get(id=record_id)
+        record = DNSRecord.objects.select_related("organization").get(id=record_id)
+        from common.subscriptions import monitoring_allowed
+        if not monitoring_allowed(record.organization):
+            return {"status": "skipped", "reason": "subscription_required"}
     except DNSRecord.DoesNotExist:
         logger.error("DNS record %s not found.", record_id)
         return
@@ -70,9 +76,8 @@ def scan_all_dns_records():
     """
     records = DNSRecord.objects.filter(
         organization__status="active",
-        organization__subscription_status__in=["active", "trialing"],
+        organization_id__in=eligible_organization_ids(),
     )
-    for record in records:
-        scan_dns_records.delay(str(record.id))
+    enqueue_many(records, scan_dns_records)
 
     logger.info("Scheduled DNS scans for %d records.", records.count())

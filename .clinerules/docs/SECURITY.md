@@ -1,18 +1,5 @@
-# Security
+# SECURITY
 
-Aplicar OWASP Top 10.
+> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
 
-Nunca almacenar secretos en el repositorio.
-
-Toda comunicación deberá usar HTTPS.
-
-Implementar:
-
-- JWT
-- Refresh Tokens
-- Rate Limiting
-- Auditoría
-- Roles
-- Permisos
-
-Toda acción administrativa deberá registrarse.
+La documentación mantenida y verificable está en [Centro de documentación](../../docs/README.md). El historial anterior permanece disponible en Git.

@@ -9,6 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend,sentinel_backend,host.docker.internal").split(",") if h.strip()]
+TRUSTED_PROXY_CIDRS = [
+    cidr.strip()
+    for cidr in os.environ.get("TRUSTED_PROXY_CIDRS", "").split(",")
+    if cidr.strip()
+]
 for h in ["[::1]", "::1", "host.docker.internal", "sentinel_backend"]:
     if h not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(h)
@@ -155,7 +160,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "accounts.authentication.SentinelAPITokenAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "accounts.authentication.SentinelJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
@@ -231,6 +236,7 @@ CELERY_TASK_ROUTES = {
 
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
+    "identity-outbox": {"task": "accounts.dispatch_identity_mail", "schedule": 60.0},
     "evaluate-alert-rules-every-30s": {
         "task": "alerts.evaluate_rules",
         "schedule": 30.0,
@@ -244,15 +250,15 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 30.0,
     },
     "run-ssl-checks-every-5m": {
-        "task": "ssl_monitor.check_all",
+        "task": "ssl_monitor.scan_all",
         "schedule": 300.0,
     },
     "run-dns-checks-every-5m": {
-        "task": "dns_monitor.check_all",
+        "task": "dns.scan_all",
         "schedule": 300.0,
     },
     "run-domain-checks-every-1h": {
-        "task": "domain.check_all",
+        "task": "domain.scan_all",
         "schedule": 3600.0,
     },
     "run-security-headers-checks-every-1h": {
@@ -268,7 +274,7 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 60.0,
     },
     "purge-telemetry-every-sunday": {
-        "task": "monitoring.purge_old_telemetry",
+        "task": "monitoring.purge_telemetry",
         "schedule": 86400.0 * 7,  # Every 7 days
     },
 }
@@ -277,6 +283,26 @@ CELERY_BEAT_SCHEDULE = {
 # CORS
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = False
+
+# Blackbox Exporter
+PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "").strip() or ("http://localhost:3001" if DEBUG else "")
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
+TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
+TURNSTILE_HOSTNAMES = [v.strip() for v in os.environ.get("TURNSTILE_HOSTNAMES", "").split(",") if v.strip()]
+ENFORCE_LEGACY_EMAIL_VERIFICATION = os.environ.get("ENFORCE_LEGACY_EMAIL_VERIFICATION", "false").lower() == "true"
+EMAIL_RESEND_COOLDOWN_SECONDS = int(os.environ.get("EMAIL_RESEND_COOLDOWN_SECONDS", "60"))
+EMAIL_RESEND_DAILY_LIMIT = int(os.environ.get("EMAIL_RESEND_DAILY_LIMIT", "5"))
+BETA_GLOBAL_SCANS_PER_MINUTE = int(os.environ.get("BETA_GLOBAL_SCANS_PER_MINUTE", "120"))
+BETA_MAX_PENDING_SCANS = int(os.environ.get("BETA_MAX_PENDING_SCANS", "60"))
+BETA_EMAIL_DOMAIN_ALLOWLIST = [v.strip().lower() for v in os.environ.get("BETA_EMAIL_DOMAIN_ALLOWLIST", "").split(",") if v.strip()]
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Sentinel <no-reply@example.invalid>")
 
 # Blackbox Exporter
 BLACKBOX_EXPORTER_URL = os.environ.get("BLACKBOX_EXPORTER_URL", "http://blackbox_exporter:9115")
