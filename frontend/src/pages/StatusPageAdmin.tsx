@@ -156,7 +156,7 @@ export default function StatusPageAdmin() {
       });
       return response.data?.data as StatusPageConfigData;
     },
-    enabled: pages.length > 0 || !activePageId,
+    enabled: pages.length > 0 && !!activePageId,
   });
 
   // 2. Admin Stats Query
@@ -169,7 +169,7 @@ export default function StatusPageAdmin() {
       return response.data?.data as StatusPageAdminStats;
     },
     refetchInterval: 15000,
-    enabled: pages.length > 0 || !activePageId,
+    enabled: pages.length > 0 && !!activePageId,
   });
 
   // 3. Available Targets Query
@@ -190,7 +190,7 @@ export default function StatusPageAdmin() {
       });
       return (response.data?.data || []) as ScheduledMaintenanceItem[];
     },
-    enabled: pages.length > 0 || !activePageId,
+    enabled: pages.length > 0 && !!activePageId,
   });
 
   // 5. Subscribers List Query
@@ -202,7 +202,7 @@ export default function StatusPageAdmin() {
       });
       return (response.data?.data || []) as StatusPageSubscriberItem[];
     },
-    enabled: pages.length > 0 || !activePageId,
+    enabled: pages.length > 0 && !!activePageId,
   });
 
   // Populate config fields
@@ -466,7 +466,7 @@ export default function StatusPageAdmin() {
               <Plus size={14} />
               Nueva Status Page
             </AdminButton>
-            <a
+            {activePage && <a
               href={publicUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -474,10 +474,16 @@ export default function StatusPageAdmin() {
             >
               <ExternalLink size={14} />
               Ver en Vivo
-            </a>
+            </a>}
           </div>
         }
       />
+
+      {!isLoadingPages && !isPagesError && pages.length === 0 && (
+        <p role="status" className="rounded-xl border border-border-base bg-bg-card p-4 text-sm text-text-main">
+          No hay páginas configuradas. Un administrador puede crear una con «Nueva Status Page» y elegir qué servicios publicar. Nada se publica automáticamente.
+        </p>
+      )}
 
       {/* 2. ACTIVE STATUS PAGE SELECTOR BAR */}
       <div className="bg-bg-card border border-border-base/80 rounded-2xl p-4 shadow-sm font-sans flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -502,7 +508,7 @@ export default function StatusPageAdmin() {
                 Portal Activo:
               </span>
               <h2 className="text-sm font-bold text-text-main">
-                {activePage?.company_name || companyName || 'Cargando...'}
+                {activePage?.company_name || companyName || (isLoadingPages ? 'Cargando...' : 'Sin páginas configuradas')}
               </h2>
               {activePage?.is_default && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">

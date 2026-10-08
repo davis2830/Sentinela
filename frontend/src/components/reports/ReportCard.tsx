@@ -42,7 +42,7 @@ export default function ReportCard({
     switch (type) {
       case 'sla':
         return {
-          label: 'SLA Contractual',
+          label: 'Disponibilidad medida',
           icon: <ShieldCheck size={16} className="text-accent-green" />,
           color: 'text-accent-green',
           bg: 'bg-accent-green/10',
@@ -178,11 +178,11 @@ export default function ReportCard({
         </div>
 
         {/* Metric Card / SLA Gauge */}
-        {report.status === 'completed' && slaVal !== undefined && (
+        {report.status === 'completed' && slaVal != null && (
           <div className="bg-bg-main/60 border border-border-base/70 rounded-xl p-3 mb-4 space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-[11px] text-text-dim uppercase font-semibold">
-                SLA Cumplido
+                Disponibilidad observada
               </span>
               <span className="text-base font-bold font-mono text-accent-green">
                 {slaVal.toFixed(2)}%
@@ -276,7 +276,7 @@ export default function ReportCard({
               <button
                 type="button"
                 onClick={(e) => onExportPDF(report.id, e)}
-                title="Exportar / Imprimir PDF"
+                title="Descargar HTML para imprimir"
                 className="p-1.5 text-text-dim hover:text-sky-400 hover:bg-bg-main rounded-lg transition-colors"
               >
                 <Printer size={15} />

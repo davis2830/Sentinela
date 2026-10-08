@@ -1,9 +1,43 @@
 import csv
 import io
+from html import escape
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 from .models import Report
+from maintenance.sla import eligible_checks
+
+
+def measured_report_data(data):
+    """Sample availability is not proof of continuous or contractual SLA."""
+    targets = data.get('targets', [])
+    for item in targets:
+        if item.get('total_checks') == 0:
+            for key in ('sla_percentage', 'availability_percentage', 'downtime_percentage',
+                        'uptime_percentage', 'avg_latency_ms', 'consumed_downtime_minutes', 'consumed_budget_minutes', 'meets_sla'):
+                if key in item:
+                    item[key] = None
+            if 'burn_rate' in item:
+                item['burn_rate'] = 'unknown'
+    measured = [t for t in targets if t.get('total_checks', 0) > 0]
+    for key, item_key in (('overall_sla', 'sla_percentage'), ('current_sla', 'uptime_percentage')):
+        if key in data:
+            values = [t[item_key] for t in measured if t.get(item_key) is not None]
+            data[key] = round(sum(values) / len(values), 2) if values else None
+    if len(measured) != len(targets) or not measured:
+        for key in ('consumed_downtime_minutes', 'remaining_budget_minutes', 'budget_consumed_percentage',
+                    'consumed_error_budget_minutes', 'remaining_error_budget_minutes', 'consumed_percentage'):
+            if key in data:
+                data[key] = None
+    if 'meeting_sla' in data:
+        data['meeting_sla'] = sum(t.get('meets_sla') is True for t in measured)
+        data['failing_sla'] = sum(t.get('meets_sla') is False for t in measured)
+        data['unmeasured_targets'] = len(targets) - len(measured)
+    data['measurement_basis'] = 'sample_ratio'
+    data['maintenance_exclusion_applied'] = True
+    data['available_statuses'] = ['up', 'slow']
+    data['sla_contractual_verified'] = False
+    return data
 
 
 class ReportService:
@@ -42,15 +76,8 @@ class ReportService:
         else:
             mttr_minutes = 0.0
 
-        # MTTD calculation (Detection lag or default 5 minutes)
-        if incidents.exists():
-            detection_times = []
-            for i in incidents:
-                lag = (i.opened_at - i.created_at).total_seconds() / 60.0
-                detection_times.append(max(lag, 1.0))
-            mttd_minutes = round(sum(detection_times) / len(detection_times), 1)
-        else:
-            mttd_minutes = 0.0
+        # Creation/opening timestamps cannot establish the start of a failure.
+        mttd_minutes = None
 
         return {
             "mttr_minutes": mttr_minutes,
@@ -70,6 +97,13 @@ class ReportService:
         period_end=None,
     ):
         """Create a new report record and immediately trigger data generation."""
+        start = period_start or (timezone.now() - timedelta(days=30))
+        end = period_end or timezone.now()
+        if end <= start or (end - start).total_seconds() > 366 * 86400:
+            raise ValueError('El período debe ser válido y no superar 366 días.')
+        requested_sla = float((parameters or {}).get('sla_target', 99.9))
+        if not 0 < requested_sla <= 100:
+            raise ValueError('El objetivo de disponibilidad debe estar entre 0 y 100%.')
         report = Report.objects.create(
             organization_id=organization_id,
             report_type=report_type,
@@ -92,6 +126,8 @@ class ReportService:
 
         days = int(days)
         target_sla = float(target_sla)
+        if not 1 <= days <= 366 or not 0 < target_sla <= 100:
+            raise ValueError('Usa entre 1 y 366 días y un objetivo mayor a 0 y menor o igual a 100%.')
         period_end = timezone.now()
         period_start = period_end - timedelta(days=days)
         total_period_minutes = days * 24 * 60
@@ -107,8 +143,9 @@ class ReportService:
                 checked_at__gte=period_start,
                 checked_at__lte=period_end,
             )
+            checks = eligible_checks(checks, target.organization_id, target.pk, period_start, period_end)
             total = checks.count()
-            up = checks.filter(status="up").count()
+            up = checks.filter(status__in=("up", "slow")).count()
             down = checks.filter(status="down").count()
             uptime_pct = (up / total * 100.0) if total > 0 else 100.0
             downtime_ratio = 1.0 - (uptime_pct / 100.0)
@@ -162,7 +199,7 @@ class ReportService:
         meeting_sla = sum(1 for t in target_metrics if t["meets_sla"])
         failing_sla = len(target_metrics) - meeting_sla
 
-        return {
+        return measured_report_data({
             "period_days": days,
             "target_sla": target_sla,
             "current_sla": overall_sla,
@@ -176,7 +213,7 @@ class ReportService:
             "meeting_sla": meeting_sla,
             "failing_sla": failing_sla,
             "targets": target_metrics,
-        }
+        })
 
     @staticmethod
     @transaction.atomic
@@ -227,7 +264,7 @@ class ReportService:
                 report.save(update_fields=["status", "error_message"])
                 return False
 
-            report.data = data
+            report.data = measured_report_data(data)
             report.status = Report.Status.COMPLETED
             report.generated_at = timezone.now()
             report.save(update_fields=["data", "status", "generated_at"])
@@ -267,8 +304,9 @@ class SLAReportGenerator:
                 checked_at__gte=period_start,
                 checked_at__lte=period_end,
             )
+            checks = eligible_checks(checks, target.organization_id, target.pk, period_start, period_end)
             total = checks.count()
-            up = checks.filter(status="up").count()
+            up = checks.filter(status__in=("up", "slow")).count()
             down = checks.filter(status="down").count()
             sla_percentage = (up / total * 100.0) if total > 0 else 100.0
             downtime_ratio = 1.0 - (sla_percentage / 100.0)
@@ -343,14 +381,16 @@ class AvailabilityReportGenerator:
                 checked_at__gte=period_start,
                 checked_at__lte=period_end,
             )
+            checks = eligible_checks(checks, target.organization_id, target.pk, period_start, period_end)
             total = checks.count()
-            up = checks.filter(status="up").count()
+            up = checks.filter(status__in=("up", "slow")).count()
             down = checks.filter(status="down").count()
             slow = checks.filter(status="slow").count()
             error = checks.filter(status="error").count()
+            up -= slow  # Keep raw status counts disjoint; slow remains available.
 
-            availability = (up / total * 100) if total > 0 else 100.0
-            downtime_pct = (down / total * 100) if total > 0 else 0.0
+            availability = ((up + slow) / total * 100) if total > 0 else 100.0
+            downtime_pct = ((down + error) / total * 100) if total > 0 else 0.0
 
             results.append({
                 "target_id": str(target.id),
@@ -494,7 +534,8 @@ class TrendsReportGenerator:
             checks = target.checks.filter(
                 checked_at__gte=period_start,
                 checked_at__lte=period_end,
-            ).order_by("checked_at")
+            )
+            checks = eligible_checks(checks, target.organization_id, target.pk, period_start, period_end).order_by("checked_at")
 
             latencies = [c.latency for c in checks if c.latency is not None]
             avg_latency = sum(latencies) / len(latencies) if latencies else 0
@@ -548,12 +589,13 @@ class SummaryReportGenerator:
         total_up = 0
         for t in monitoring_targets:
             c_qs = t.checks.filter(checked_at__gte=period_start, checked_at__lte=period_end)
+            c_qs = eligible_checks(c_qs, org_id, t.pk, period_start, period_end)
             t_cnt = c_qs.count()
-            u_cnt = c_qs.filter(status="up").count()
+            u_cnt = c_qs.filter(status__in=("up", "slow")).count()
             total_checks += t_cnt
             total_up += u_cnt
 
-        overall_sla = round((total_up / total_checks * 100), 2) if total_checks > 0 else 100.0
+        overall_sla = round((total_up / total_checks * 100), 2) if total_checks > 0 else None
 
         return {
             "generated_at": timezone.now().isoformat(),
@@ -571,6 +613,21 @@ class SummaryReportGenerator:
         }
 
 
+class SafeCSVWriter:
+    """Keep user-controlled cells as text rather than spreadsheet formulas."""
+
+    def __init__(self, output):
+        self.writer = csv.writer(output)
+
+    def writerow(self, row):
+        safe = []
+        for value in row:
+            if isinstance(value, str) and value.lstrip().startswith(('=', '+', '-', '@')):
+                value = "'" + value
+            safe.append(value)
+        self.writer.writerow(safe)
+
+
 class ReportExporter:
     """Handles exporting report data into CSV or HTML/PDF formats."""
 
@@ -580,7 +637,7 @@ class ReportExporter:
         output = io.StringIO()
         # UTF-8 BOM to prevent character mangling in Excel
         output.write('\ufeff')
-        writer = csv.writer(output)
+        writer = SafeCSVWriter(output)
 
         writer.writerow(["REPORTE", report.title])
         writer.writerow(["TIPO", report.report_type.upper()])
@@ -705,7 +762,8 @@ class ReportExporter:
         p_end = report.period_end.strftime("%Y-%m-%d %H:%M") if report.period_end else "N/A"
 
         targets = data.get("targets", [])
-        overall_sla = data.get("overall_sla", data.get("summary", {}).get("overall_sla_percentage", 100.0))
+        overall_sla = data.get("overall_sla", data.get("summary", {}).get("overall_sla_percentage"))
+        overall_sla = overall_sla if overall_sla is not None else 'Sin mediciones'
         target_sla = data.get("target_sla", 99.9)
         mttr = data.get("mttr_minutes", data.get("summary", {}).get("mttr_minutes", 0.0))
         mttd = data.get("mttd_minutes", data.get("summary", {}).get("mttd_minutes", 0.0))
@@ -716,16 +774,17 @@ class ReportExporter:
 
         rows_html = ""
         for t in targets:
-            sla_val = t.get('sla_percentage', 100.0)
-            is_pass = sla_val >= float(target_sla)
+            sla_val = t.get('sla_percentage')
+            is_pass = sla_val is not None and sla_val >= float(target_sla)
             badge_bg = "#DCFCE7" if is_pass else "#FEE2E2"
             badge_color = "#15803D" if is_pass else "#B91C1C"
-            badge_text = "CUMPLE" if is_pass else "INCUMPLE"
+            badge_text = 'SIN MEDICIONES' if sla_val is None else ("CUMPLE" if is_pass else "INCUMPLE")
+            sla_val = sla_val if sla_val is not None else '—'
 
             rows_html += f"""
             <tr>
-                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-weight:600; color:#0F172A;">{t.get('target_name', 'Servicio')}</td>
-                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-family:monospace; color:#475569; font-size:12px;">{t.get('endpoint', '-')}</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-weight:600; color:#0F172A;">{escape(str(t.get('target_name', 'Servicio')))}</td>
+                <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-family:monospace; color:#475569; font-size:12px;">{escape(str(t.get('endpoint', '-')))}</td>
                 <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; color:#334155;">{t.get('total_checks', 0):,}</td>
                 <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; font-weight:700; color:#0F172A;">{sla_val}%</td>
                 <td style="padding:10px 14px; border-bottom:1px solid #E2E8F0; text-align:center;">
@@ -740,7 +799,7 @@ class ReportExporter:
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Sentinel - {report.title}</title>
+    <title>Sentinel - {escape(report.title)}</title>
     <style>
         @page {{ size: A4 portrait; margin: 15mm; }}
         body {{
@@ -854,7 +913,7 @@ class ReportExporter:
     <div class="header">
         <div>
             <div class="brand">SENTINEL <span>OBSERVABILIDAD</span></div>
-            <div class="report-title">{report.title}</div>
+            <div class="report-title">{escape(report.title)}</div>
             <div class="report-meta">
                 Período auditado: <strong>{p_start}</strong> &mdash; <strong>{p_end}</strong> | Generado: <strong>{gen_at}</strong>
             </div>
@@ -905,7 +964,7 @@ class ReportExporter:
 
     <div class="footer">
         <div>Sentinel Observability &bull; Plataforma Centralizada de Operaciones</div>
-        <div>Auditoría Criptográfica e Inmutabilidad de Métricas</div>
+        <div>Resumen de métricas registradas por Sentinel</div>
     </div>
 </body>
 </html>"""

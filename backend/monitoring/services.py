@@ -201,7 +201,7 @@ class MonitoringService:
         checks = target.checks.filter(checked_at__gte=since)
 
         total = checks.count()
-        up = checks.filter(status="up").count()
+        up = checks.filter(status__in=("up", "slow")).count()
         percentage = (up / total * 100) if total > 0 else 0.0
 
         return {
@@ -241,7 +241,7 @@ class MonitoringService:
         checks_qs = target.checks.filter(checked_at__gte=since).order_by("checked_at")
 
         total_checks = checks_qs.count()
-        up_checks = checks_qs.filter(status="up").count()
+        up_checks = checks_qs.filter(status__in=("up", "slow")).count()
         down_checks_count = checks_qs.filter(status__in=["down", "error"]).count()
         uptime_pct = round((up_checks / total_checks * 100), 2) if total_checks > 0 else 100.0
 
@@ -282,7 +282,7 @@ class MonitoringService:
                 start = cluster[0]["checked_at"]
                 last_down = cluster[-1]["checked_at"]
                 next_up = (
-                    target.checks.filter(checked_at__gt=last_down, status="up")
+                    target.checks.filter(checked_at__gt=last_down, status__in=("up", "slow"))
                     .order_by("checked_at")
                     .first()
                 )
@@ -326,7 +326,7 @@ class MonitoringService:
             .values("day")
             .annotate(
                 total=Count("id"),
-                up=Count("id", filter=Q(status="up")),
+                up=Count("id", filter=Q(status__in=("up", "slow"))),
                 down=Count("id", filter=Q(status__in=["down", "error"])),
                 avg_lat=Avg("latency"),
             )
@@ -491,7 +491,7 @@ class MonitoringService:
             
             if chk["latency"] is not None:
                 buckets[target_ep]["lats"].append(chk["latency"])
-            if chk["status"] in ("up",):
+            if chk["status"] in ("up", "slow"):
                 buckets[target_ep]["up"] += 1
             else:
                 buckets[target_ep]["down"] += 1

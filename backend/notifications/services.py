@@ -203,6 +203,12 @@ class NotificationService:
         event_type="alert_triggered",
     ):
         """Create a pending notification."""
+        if not NotificationChannel.objects.filter(id=channel_id, organization_id=organization_id).exists():
+            raise ValueError("Canal no encontrado en la organización.")
+        if alert_id:
+            from alerts.models import Alert
+            if not Alert.objects.filter(id=alert_id, organization_id=organization_id).exists():
+                raise ValueError("Alerta no encontrada en la organización.")
         return Notification.objects.create(
             organization_id=organization_id,
             channel_id=channel_id,
@@ -223,7 +229,7 @@ class NotificationService:
         and response HTTP status code.
         """
         try:
-            notification = Notification.objects.select_related("channel").get(id=notification_id)
+            notification = Notification.objects.select_for_update(of=('self',)).select_related("channel").get(id=notification_id)
         except Notification.DoesNotExist:
             logger.error("Notification %s not found.", notification_id)
             return False
@@ -233,7 +239,7 @@ class NotificationService:
             return True
 
         channel = notification.channel
-        if not channel or not channel.enabled:
+        if not channel or not channel.enabled or channel.organization_id != notification.organization_id:
             notification.status = Notification.Status.FAILED
             notification.error_message = "Channel not found or disabled."
             notification.save(update_fields=["status", "error_message"])
@@ -574,12 +580,13 @@ class EmailDeliveryHandler:
             raise ValueError("No recipients configured for email channel.")
 
         smtp_host = config.get("smtp_host")
-        from_email = config.get("from_email") or config.get("smtp_user") or "alertas@sentinel.local"
+        from django.conf import settings
+        from_email = config.get("from_email") or config.get("smtp_user") or settings.DEFAULT_FROM_EMAIL
 
         if smtp_host:
             from django.core.mail import EmailMessage, get_connection
             connection = get_connection(
-                backend="django.core.mail.backends.smtp.EmailBackend",
+                backend="common.safe_smtp.EmailBackend",
                 host=smtp_host,
                 port=int(config.get("smtp_port", 587)),
                 username=config.get("smtp_user"),
@@ -595,9 +602,9 @@ class EmailDeliveryHandler:
                 to=recipients,
                 connection=connection,
             )
-            email.send(fail_silently=False)
+            sent_count = email.send(fail_silently=False)
         else:
-            send_mail(
+            sent_count = send_mail(
                 subject=notification.title,
                 message=notification.message,
                 from_email=from_email,
@@ -605,6 +612,8 @@ class EmailDeliveryHandler:
                 fail_silently=False,
             )
 
+        if sent_count != 1:
+            raise RuntimeError('El servidor de correo no aceptó el mensaje; no se confirmó el envío.')
         duration_ms = int((time.monotonic() - t0) * 1000)
         return (f"Email enviado a {len(recipients)} destinatarios vía {smtp_host or 'SMTP por defecto'}.", 250, duration_ms)
 

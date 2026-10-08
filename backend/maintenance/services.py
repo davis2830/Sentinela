@@ -18,6 +18,20 @@ class MaintenanceWindowService:
     """Service for managing operational maintenance windows, target suppressions, and SLA telemetry."""
 
     @staticmethod
+    def validate_references(organization_id, data):
+        from common.tenant_references import require_relation, require_target, TARGET_MODELS
+        for field, label in (('status_page', 'status_page.StatusPageConfig'),
+                             ('responsible_team', 'users.Team'), ('responsible_user', 'accounts.User')):
+            require_relation(organization_id, data.get(field), label)
+        for target in data.get('targets') or []:
+            kind = target.get('target_type')
+            if kind == 'all' and not target.get('target_id'):
+                continue
+            if kind not in TARGET_MODELS or not target.get('target_id'):
+                raise ValueError('Selecciona un recurso válido o toda la organización.')
+            require_target(organization_id, kind, target['target_id'])
+
+    @staticmethod
     def list_windows(organization_id, status_filter=None, team_id=None, search=None):
         """List maintenance windows for an organization with optional filters."""
         qs = (
@@ -119,6 +133,7 @@ class MaintenanceWindowService:
     @transaction.atomic
     def create_window(organization_id, data, user=None):
         """Create a new maintenance window with associated targets and audit entry."""
+        MaintenanceWindowService.validate_references(organization_id, data)
         targets_data = data.pop("targets", [])
 
         window = MaintenanceWindow.objects.create(
@@ -175,6 +190,7 @@ class MaintenanceWindowService:
     @transaction.atomic
     def update_window(window_id, organization_id, data, user=None):
         """Update an existing maintenance window and optionally refresh targets."""
+        MaintenanceWindowService.validate_references(organization_id, data)
         window = MaintenanceWindow.objects.get(id=window_id, organization_id=organization_id)
 
         targets_data = data.pop("targets", None)

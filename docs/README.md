@@ -5,6 +5,8 @@ Documentación validada contra la rama actual el 2026-10-03.
 - [Inventario de módulos, modelos, rutas y tareas](MODULE_INVENTORY.md)
 - [Flujo de desarrollo](DEV_WORKFLOW.md)
 - [Estrategia y evidencia de pruebas](TESTING_STRATEGY.md)
+- [Auditoría integral de módulos y pendientes beta](BETA_MODULE_AUDIT.md)
+- [Seguimiento de pendientes y baseline de capacidad](BETA_VALIDATION_FOLLOWUP.md)
 - [Dashboards por área y módulos compactos](DASHBOARD.md)
 - [Ficha integral de endpoints HTTP/HTTPS](ENDPOINT_DOSSIER.md)
 - [Suscripciones, onboarding y cobertura por protocolo](SUBSCRIPTIONS_ONBOARDING.md)

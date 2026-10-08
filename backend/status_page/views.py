@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
 from .serializers import (
     StatusPageConfigSerializer,
     StatusPageConfigUpdateSerializer,
@@ -28,7 +29,7 @@ class StatusPageListView(APIView):
     POST /api/v1/status-page/pages/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -70,7 +71,7 @@ class StatusPageDetailView(APIView):
     DELETE /api/v1/status-page/pages/<uuid:page_id>/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, page_id):
         org_id = request.user.organization_id
@@ -109,7 +110,7 @@ class StatusPageSetDefaultView(APIView):
     POST /api/v1/status-page/pages/<uuid:page_id>/set-default/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, page_id):
         org_id = request.user.organization_id
@@ -127,7 +128,7 @@ class StatusPageConfigView(APIView):
     PATCH /api/v1/status-page/config/?page_id=<uuid>
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -143,7 +144,10 @@ class StatusPageConfigView(APIView):
         if not serializer.is_valid():
             return error_response(serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
-        config = StatusPageService.update_config(org_id, serializer.validated_data, page_id=page_id)
+        try:
+            config = StatusPageService.update_config(org_id, serializer.validated_data, page_id=page_id)
+        except ValueError as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
         res_serializer = StatusPageConfigSerializer(config)
         return success_response(res_serializer.data)
 
@@ -154,7 +158,7 @@ class StatusPageStatsView(APIView):
     GET /api/v1/status-page/stats/?page_id=<uuid>
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -169,7 +173,7 @@ class StatusPageAvailableTargetsView(APIView):
     GET /api/v1/status-page/available-targets/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -184,7 +188,7 @@ class MaintenanceListView(APIView):
     POST /api/v1/status-page/maintenances/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -210,7 +214,7 @@ class MaintenanceBulkActionView(APIView):
     POST /api/v1/status-page/maintenances/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -236,7 +240,7 @@ class MaintenanceDetailView(APIView):
     DELETE /api/v1/status-page/maintenances/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def patch(self, request, maintenance_id):
         org_id = request.user.organization_id
@@ -262,7 +266,7 @@ class MaintenanceUpdateView(APIView):
     POST /api/v1/status-page/maintenances/{id}/updates/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, maintenance_id):
         org_id = request.user.organization_id
@@ -289,7 +293,7 @@ class SubscriberListView(APIView):
     GET /api/v1/status-page/subscribers/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -305,7 +309,7 @@ class SubscriberDeleteView(APIView):
     DELETE /api/v1/status-page/subscribers/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def delete(self, request, subscriber_id):
         org_id = request.user.organization_id
@@ -322,7 +326,7 @@ class SubscriberExportCSVView(APIView):
     GET /api/v1/status-page/subscribers/export/?page_id=<uuid>
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id

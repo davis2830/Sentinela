@@ -4,8 +4,8 @@ import { Activity, Clock } from 'lucide-react';
 
 interface UptimeBar90DaysProps {
   history: DayHistoryBlock[];
-  overallPct: number;
-  avgLatencyMs?: number;
+  overallPct: number | null;
+  avgLatencyMs?: number | null;
 }
 
 export default function UptimeBar90Days({
@@ -24,7 +24,7 @@ export default function UptimeBar90Days({
       case 'down':
         return 'bg-rose-500 hover:bg-rose-400';
       default:
-        return 'bg-emerald-500';
+        return 'bg-slate-600 hover:bg-slate-500';
     }
   };
 
@@ -37,7 +37,7 @@ export default function UptimeBar90Days({
       case 'down':
         return 'Interrupción / Caída';
       default:
-        return status;
+        return 'Sin mediciones';
     }
   };
 
@@ -58,7 +58,7 @@ export default function UptimeBar90Days({
                     : 'text-accent-red font-bold'
                 }
               >
-                {hoveredDay.uptime_pct}% ({getStatusLabel(hoveredDay.status)})
+                {hoveredDay.uptime_pct == null ? '—' : `${hoveredDay.uptime_pct}%`} ({getStatusLabel(hoveredDay.status)})
               </span>
               {hoveredDay.total_checks && hoveredDay.total_checks > 0 ? (
                 <span className="text-text-dim text-[10px] hidden sm:inline">
@@ -66,7 +66,7 @@ export default function UptimeBar90Days({
                 </span>
               ) : (
                 <span className="text-text-dim text-[10px] hidden sm:inline">
-                  &bull; Sin anomalías
+                  &bull; Sin mediciones
                 </span>
               )}
             </span>
@@ -78,14 +78,14 @@ export default function UptimeBar90Days({
         </div>
 
         <div className="flex items-center gap-2">
-          {avgLatencyMs !== undefined && avgLatencyMs > 0 && (
+          {avgLatencyMs != null && avgLatencyMs > 0 && (
             <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 font-semibold flex items-center gap-1">
               <Clock size={11} />
               {avgLatencyMs}ms 24h
             </span>
           )}
           <span className="font-bold text-accent-green bg-accent-green/10 border border-accent-green/30 px-2.5 py-0.5 rounded-full text-xs font-mono">
-            {overallPct}% Uptime
+            {overallPct == null ? 'Sin mediciones' : `${overallPct}% Uptime`}
           </span>
         </div>
       </div>

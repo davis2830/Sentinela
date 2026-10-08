@@ -9,9 +9,9 @@ export interface TargetSLAResult {
   total_checks: number;
   up_checks: number;
   down_checks?: number;
-  sla_percentage: number;
-  consumed_downtime_minutes?: number;
-  meets_sla?: boolean;
+  sla_percentage: number | null;
+  consumed_downtime_minutes?: number | null;
+  meets_sla?: boolean | null;
 }
 
 export interface LiveTargetMetric {
@@ -48,20 +48,20 @@ export interface LiveSLAMetrics {
 export interface ReportData {
   period_start?: string;
   period_end?: string;
-  overall_sla?: number;
+  overall_sla?: number | null;
   target_sla?: number;
   allowed_downtime_minutes?: number;
-  consumed_downtime_minutes?: number;
-  remaining_budget_minutes?: number;
-  budget_consumed_percentage?: number;
+  consumed_downtime_minutes?: number | null;
+  remaining_budget_minutes?: number | null;
+  budget_consumed_percentage?: number | null;
   mttr_minutes?: number;
-  mttd_minutes?: number;
+  mttd_minutes?: number | null;
   total_incidents?: number;
   targets?: TargetSLAResult[];
   summary?: {
-    overall_sla_percentage?: number;
+    overall_sla_percentage?: number | null;
     mttr_minutes?: number;
-    mttd_minutes?: number;
+    mttd_minutes?: number | null;
     monitoring_targets?: number;
     ssl_certificates?: number;
     active_alerts?: number;

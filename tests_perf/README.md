@@ -10,6 +10,8 @@ Los resultados existentes son ejecuciones históricas y no deben combinarse ni p
 
 ## Benchmark oficial
 
+Baseline local de lectura del 2026-10-07: 529 solicitudes, 0 errores, p95 28,79 ms y máximo 5 VUs. **No es el benchmark oficial de capacidad global**: usa diez targets deshabilitados, fixtures compartidos y cambios no comprometidos. Véanse [escenario](scenarios/06_beta_read_baseline.js), [salida](reports/beta-read-baseline-20261007.json) y [hardware, dataset y límites](../docs/BETA_VALIDATION_FOLLOWUP.md#baseline-de-capacidad-no-benchmark-oficial).
+
 No hay benchmark oficial vigente después del hardening del 2026-10-03. Para designar uno se debe conservar:
 
 - commit SHA e imagen;

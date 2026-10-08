@@ -99,6 +99,7 @@ export default function PublicStatusPage() {
 
   const isOperational = statusData.system_status === 'operational';
   const isDegraded = statusData.system_status === 'degraded';
+  const isUnknown = statusData.system_status === 'unknown';
 
   // Filter and group services
   const filteredServices = statusData.services.filter((s: ServiceStatusItem) => {
@@ -226,7 +227,7 @@ export default function PublicStatusPage() {
               ? 'bg-emerald-500/[0.07] border-emerald-500/30 text-emerald-400 ring-1 ring-emerald-500/20'
               : isDegraded
               ? 'bg-amber-500/[0.07] border-amber-500/30 text-amber-400 ring-1 ring-amber-500/20'
-              : 'bg-rose-500/[0.07] border-rose-500/30 text-rose-400 ring-1 ring-rose-500/20'
+              : isUnknown ? 'bg-slate-500/[0.07] border-slate-500/30 text-slate-300' : 'bg-rose-500/[0.07] border-rose-500/30 text-rose-400 ring-1 ring-rose-500/20'
           }`}
         >
           <div className="flex items-center gap-4">
@@ -236,14 +237,14 @@ export default function PublicStatusPage() {
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                   : isDegraded
                   ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                  : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                  : isUnknown ? 'bg-slate-500/10 border-slate-500/30 text-slate-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
               }`}
             >
               {isOperational ? (
                 <CheckCircle2 size={32} />
               ) : isDegraded ? (
                 <AlertTriangle size={32} />
-              ) : (
+              ) : isUnknown ? <Info size={32} /> : (
                 <XCircle size={32} />
               )}
             </div>
@@ -264,7 +265,7 @@ export default function PublicStatusPage() {
           </div>
 
           <div className="text-right text-xs text-[#64748B] sm:border-l sm:border-[#1E293B] sm:pl-6">
-            <span>Última verificación:</span>
+            <span>Última consulta:</span>
             <div className="text-[#F8FAFC] font-mono font-bold mt-0.5 text-xs">
               {new Date(statusData.updated_at).toLocaleTimeString('es-ES', {
                 hour: '2-digit',
@@ -285,7 +286,7 @@ export default function PublicStatusPage() {
             <div>
               <span className="text-[11px] font-medium text-[#94A3B8] block">Disponibilidad 90d</span>
               <div className="text-base font-bold text-emerald-400 font-mono">
-                {statusData.global_uptime_pct || 100}%
+                {statusData.global_uptime_pct == null ? 'Sin mediciones' : `${statusData.global_uptime_pct}%`}
               </div>
             </div>
           </div>
@@ -298,7 +299,7 @@ export default function PublicStatusPage() {
             <div>
               <span className="text-[11px] font-medium text-[#94A3B8] block">Latencia Media 24h</span>
               <div className="text-base font-bold text-sky-400 font-mono">
-                {statusData.global_avg_latency_ms ? `${statusData.global_avg_latency_ms}ms` : '< 50ms'}
+                {statusData.global_avg_latency_ms == null ? 'Sin mediciones' : `${statusData.global_avg_latency_ms}ms`}
               </div>
             </div>
           </div>
@@ -543,7 +544,7 @@ export default function PublicStatusPage() {
                                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
                                   service.current_status === 'up'
                                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                    : service.current_status === 'degraded' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : service.current_status === 'unknown' ? 'bg-slate-500/10 text-slate-300 border-slate-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                                 }`}
                               >
                                 {service.current_status === 'up' ? (
@@ -554,7 +555,7 @@ export default function PublicStatusPage() {
                                 ) : (
                                   <>
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                                    Interrupción
+                                    {service.current_status === 'degraded' ? 'Servicio lento' : service.current_status === 'unknown' ? 'Sin mediciones' : 'Interrupción'}
                                   </>
                                 )}
                               </span>

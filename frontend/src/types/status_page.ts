@@ -1,5 +1,5 @@
 export type MaintenanceStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-export type SystemHealthStatus = 'operational' | 'degraded' | 'outage';
+export type SystemHealthStatus = 'operational' | 'degraded' | 'outage' | 'unknown';
 export type AnnouncementType = 'info' | 'warning' | 'critical';
 
 export interface ComponentSettingItem {
@@ -117,8 +117,8 @@ export interface StatusPageAdminStats {
 
 export interface DayHistoryBlock {
   date: string;
-  status: 'up' | 'degraded' | 'down';
-  uptime_pct: number;
+  status: 'up' | 'degraded' | 'down' | 'unknown';
+  uptime_pct: number | null;
   total_checks?: number;
 }
 
@@ -127,9 +127,9 @@ export interface ServiceStatusItem {
   name: string;
   type: 'uptime' | 'api';
   category?: string;
-  current_status: 'up' | 'down';
-  uptime_90_days_pct: number;
-  avg_latency_24h_ms?: number;
+  current_status: 'up' | 'degraded' | 'down' | 'unknown';
+  uptime_90_days_pct: number | null;
+  avg_latency_24h_ms?: number | null;
   history_90_days: DayHistoryBlock[];
 }
 
@@ -141,8 +141,8 @@ export interface PublicStatusData {
   support_email: string;
   system_status: SystemHealthStatus;
   system_status_label: string;
-  global_uptime_pct: number;
-  global_avg_latency_ms?: number;
+  global_uptime_pct: number | null;
+  global_avg_latency_ms?: number | null;
   total_services_count: number;
   operational_services_count: number;
   services: ServiceStatusItem[];

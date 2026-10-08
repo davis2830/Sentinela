@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
 
 from .serializers import (
     ReportBulkActionSerializer,
@@ -20,7 +21,7 @@ class ReportListView(APIView):
     POST /api/v1/reports/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -84,7 +85,7 @@ class ReportLiveSLAMetricsView(APIView):
     GET /api/v1/reports/sla-live/?days=30&target_sla=99.9
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -113,7 +114,7 @@ class ReportBulkActionView(APIView):
     POST /api/v1/reports/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -142,7 +143,7 @@ class ReportDetailView(APIView):
     DELETE /api/v1/reports/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, report_id):
         org_id = request.user.organization_id
@@ -166,29 +167,13 @@ class ReportDetailView(APIView):
             )
 
 
-def _get_authenticated_user(request):
-    if request.user and request.user.is_authenticated:
-        return request.user
-    token = request.query_params.get("token")
-    if token:
-        from rest_framework_simplejwt.tokens import AccessToken
-        from users.models import User
-        try:
-            validated = AccessToken(token)
-            user_id = validated.get("user_id")
-            return User.objects.get(id=user_id)
-        except Exception:
-            pass
-    return None
-
-
 class ReportExportCSVView(APIView):
     """Endpoint for exporting a report to CSV format."""
 
-    permission_classes = ()
+    permission_classes = (IsAuthenticated, IsOrganizationMember)
 
     def get(self, request, report_id):
-        user = _get_authenticated_user(request)
+        user = request.user
         if not user or not user.organization_id:
             return error_response("Authentication credentials were not provided.", status_code=status.HTTP_401_UNAUTHORIZED)
         org_id = user.organization_id
@@ -206,10 +191,10 @@ class ReportExportCSVView(APIView):
 class ReportExportPDFView(APIView):
     """Endpoint for exporting an executive PDF/HTML report document."""
 
-    permission_classes = ()
+    permission_classes = (IsAuthenticated, IsOrganizationMember)
 
     def get(self, request, report_id):
-        user = _get_authenticated_user(request)
+        user = request.user
         if not user or not user.organization_id:
             return error_response("Authentication credentials were not provided.", status_code=status.HTTP_401_UNAUTHORIZED)
         org_id = user.organization_id

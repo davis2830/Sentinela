@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
 from .serializers import (
     MaintenanceWindowSerializer,
     MaintenanceWindowCreateSerializer,
@@ -20,7 +21,7 @@ class MaintenanceWindowStatsView(APIView):
     GET /api/v1/maintenance/stats/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -37,7 +38,7 @@ class MaintenanceWindowBulkActionView(APIView):
     POST /api/v1/maintenance/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -64,7 +65,7 @@ class MaintenanceWindowListView(APIView):
     POST /api/v1/maintenance/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -122,7 +123,7 @@ class MaintenanceWindowDetailView(APIView):
     DELETE /api/v1/maintenance/<id>/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, window_id):
         org_id = request.user.organization_id
@@ -171,7 +172,7 @@ class MaintenanceWindowStartView(APIView):
     POST /api/v1/maintenance/<id>/start/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, window_id):
         org_id = request.user.organization_id
@@ -188,7 +189,7 @@ class MaintenanceWindowCompleteView(APIView):
     POST /api/v1/maintenance/<id>/complete/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, window_id):
         org_id = request.user.organization_id
@@ -205,7 +206,7 @@ class MaintenanceWindowCancelView(APIView):
     POST /api/v1/maintenance/<id>/cancel/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, window_id):
         org_id = request.user.organization_id
@@ -222,7 +223,7 @@ class MaintenanceWindowProgressUpdateView(APIView):
     POST /api/v1/maintenance/<id>/updates/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, window_id):
         org_id = request.user.organization_id

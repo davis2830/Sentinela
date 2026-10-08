@@ -7,6 +7,14 @@ from .models import APICheckResult, APICheckTarget
 class APICheckTargetSerializer(ScanAvailabilitySerializer):
     """Serializer for APICheckTarget model."""
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        user = getattr(self.context.get('request'), 'user', None)
+        if not user or not (user.is_staff or user.is_superuser) or getattr(getattr(self.context.get('request'), 'auth', None), 'scope', None) == 'read':
+            data['request_headers'] = {}
+            data['request_body'] = {}
+        return data
+
     class Meta:
         list_serializer_class = AvailabilityListSerializer
         model = APICheckTarget

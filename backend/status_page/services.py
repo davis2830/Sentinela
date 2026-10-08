@@ -1,12 +1,31 @@
 import uuid
 from datetime import timedelta
 from django.db import transaction
-from django.db.models import Avg, Q
+from django.db.models import Avg, Count, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
+from rest_framework.exceptions import NotFound
 from .models import StatusPageConfig, ScheduledMaintenance, MaintenanceUpdate, StatusPageSubscriber
 from monitoring.models import MonitoringTarget, MonitoringCheck
 from api_checks.models import APICheckTarget, APICheckResult
 from incidents.models import Incident
+
+
+def public_history(model, organization_id, target_ids, start, now, latency_field, healthy):
+    """Aggregate in SQL: query count and row volume do not scale with checks."""
+    base = model.objects.filter(target__organization_id=organization_id, target_id__in=target_ids,
+                                checked_at__gte=start, checked_at__lte=now)
+    days = {}
+    for row in base.annotate(day=TruncDate('checked_at', tzinfo=timezone.get_current_timezone())).values(
+        'target_id', 'day'
+    ).annotate(total=Count('id'), passing=Count('id', filter=Q(status__in=healthy))):
+        days.setdefault(row['target_id'], {})[row['day']] = {
+            'total': row['total'], 'up': row['passing'], 'pass': row['passing'],
+        }
+    latencies = {row['target_id']: row['avg_lat'] for row in base.filter(
+        checked_at__gte=now - timedelta(hours=24), **{latency_field + '__gte': 0}
+    ).values('target_id').annotate(avg_lat=Avg(latency_field))}
+    return days, latencies
 
 
 class StatusPageService:
@@ -15,25 +34,16 @@ class StatusPageService:
     @staticmethod
     def list_status_pages(organization_id):
         """List all Status Pages in the organization with summary KPIs."""
-        # Ensure at least one default config exists
-        default_config = StatusPageConfig.objects.filter(organization_id=organization_id).first()
-        if not default_config:
-            default_config = StatusPageService.get_or_create_config(organization_id)
-
-        # If no page is marked default, mark the first one as default
-        if not StatusPageConfig.objects.filter(organization_id=organization_id, is_default=True).exists():
-            default_config.is_default = True
-            default_config.save(update_fields=["is_default"])
-
-        pages = StatusPageConfig.objects.filter(organization_id=organization_id).order_by("-is_default", "company_name")
+        pages = StatusPageConfig.objects.filter(organization_id=organization_id).annotate(
+            subscriber_count=Count('subscribers', filter=Q(subscribers__is_active=True), distinct=True),
+            maintenance_count=Count('maintenances', filter=Q(maintenances__status__in=['scheduled', 'in_progress']), distinct=True),
+        ).order_by("-is_default", "company_name")
         res = []
         for p in pages:
             settings = p.component_settings or []
             pub_count = sum(1 for s in settings if s.get("is_visible", True))
-            sub_count = p.subscribers.filter(is_active=True).count()
-            maint_count = p.maintenances.filter(
-                status__in=[ScheduledMaintenance.Status.SCHEDULED, ScheduledMaintenance.Status.IN_PROGRESS]
-            ).count()
+            sub_count = p.subscriber_count
+            maint_count = p.maintenance_count
             res.append({
                 "id": str(p.id),
                 "company_name": p.company_name,
@@ -124,31 +134,34 @@ class StatusPageService:
 
     @staticmethod
     def get_or_create_config(organization_id, page_id=None):
-        """Get or create status page configuration for an organization."""
+        """Legacy name: read only. Creating a page requires an explicit POST."""
         if page_id:
             config = StatusPageConfig.objects.filter(organization_id=organization_id, id=page_id).first()
             if config:
                 return config
+            raise NotFound("Status Page no encontrada en la organización.")
 
         config = StatusPageConfig.objects.filter(organization_id=organization_id, is_default=True).first()
         if not config:
             config = StatusPageConfig.objects.filter(organization_id=organization_id).first()
 
         if not config:
-            slug = f"status-{str(organization_id)[:8]}"
-            config = StatusPageConfig.objects.create(
-                organization_id=organization_id,
-                company_name="Servicios de la Empresa",
-                slug=slug,
-                is_public=True,
-                is_default=True,
-            )
+            raise NotFound("Crea una Status Page para configurar su publicación.")
         return config
 
     @staticmethod
     @transaction.atomic
     def update_config(organization_id, data, page_id=None):
         """Update status page configuration."""
+        from common.tenant_references import require_target
+        for component in data.get('component_settings', []):
+            if not isinstance(component, dict) or not component.get('id'):
+                raise ValueError('Componente de publicación inválido.')
+            require_target(organization_id, component.get('target_type', 'uptime'), component['id'])
+        for target_id in data.get('monitored_targets', []):
+            if not (MonitoringTarget.objects.filter(pk=target_id, organization_id=organization_id).exists()
+                    or APICheckTarget.objects.filter(pk=target_id, organization_id=organization_id).exists()):
+                raise ValueError('Componente no encontrado en la organización.')
         config = StatusPageService.get_or_create_config(organization_id, page_id=page_id)
         for key, value in data.items():
             if value is not None:
@@ -199,7 +212,7 @@ class StatusPageService:
         if settings:
             published_count = sum(1 for s in settings if s.get("is_visible", True))
         else:
-            published_count = sum(1 for a in available if a.get("enabled"))
+            published_count = len(set(config.monitored_targets or []) & {a['id'] for a in available if a.get('enabled')})
 
         maintenances_count = ScheduledMaintenance.objects.filter(
             organization_id=organization_id,
@@ -242,9 +255,10 @@ class StatusPageService:
 
         org_id = config.organization_id
         now = timezone.now()
-        start_90_days_ago = now - timedelta(days=90)
-        start_24h_ago = now - timedelta(hours=24)
-        date_list = [(now.date() - timedelta(days=i)) for i in range(89, -1, -1)]
+        today = timezone.localdate(now)
+        date_list = [(today - timedelta(days=i)) for i in range(89, -1, -1)]
+        from datetime import datetime, time
+        start_90_days_ago = timezone.make_aware(datetime.combine(date_list[0], time.min))
 
         # Determine configured components
         settings_map = {}
@@ -253,8 +267,16 @@ class StatusPageService:
                 settings_map[str(cs.get("id"))] = cs
 
         # Fetch targets
-        targets = MonitoringTarget.objects.filter(organization_id=org_id, enabled=True)
-        api_targets = APICheckTarget.objects.filter(organization_id=org_id, enabled=True)
+        targets = MonitoringTarget.objects.filter(organization_id=org_id, enabled=True).select_related('organization')
+        api_targets = APICheckTarget.objects.filter(organization_id=org_id, enabled=True).select_related('organization')
+        # Empty configuration means publish nothing, not all tenant resources.
+        published_ids = set(settings_map) if settings_map else set(config.monitored_targets or [])
+        targets = list(targets.filter(id__in=published_ids))
+        api_targets = list(api_targets.filter(id__in=published_ids))
+        history, latencies = public_history(MonitoringCheck, org_id, [t.pk for t in targets],
+            start_90_days_ago, now, 'latency', ('up', 'slow'))
+        api_history, api_latencies = public_history(APICheckResult, org_id, [t.pk for t in api_targets],
+            start_90_days_ago, now, 'response_time_ms', ('pass', 'ok'))
 
         services_data = []
         overall_outage = False
@@ -272,21 +294,7 @@ class StatusPageService:
             category = c_setting.get("category") if c_setting and c_setting.get("category") else "Websites & Portales Web"
 
             # 90-day checks
-            checks = MonitoringCheck.objects.filter(
-                target=target,
-                checked_at__gte=start_90_days_ago,
-            ).values("checked_at", "status", "latency")
-
-            checks_by_day = {}
-            for c in checks:
-                day_key = c["checked_at"].date()
-                if day_key not in checks_by_day:
-                    checks_by_day[day_key] = {"total": 0, "up": 0, "down": 0}
-                checks_by_day[day_key]["total"] += 1
-                if c["status"] == "up":
-                    checks_by_day[day_key]["up"] += 1
-                else:
-                    checks_by_day[day_key]["down"] += 1
+            checks_by_day = history.get(target.pk, {})
 
             day_blocks = []
             total_up = 0
@@ -301,30 +309,29 @@ class StatusPageService:
                     total_checks += stats["total"]
                     day_checks_count = stats["total"]
                 else:
-                    day_uptime = 100.0
-                    st = "up"
+                    day_uptime = None
+                    st = "unknown"
                     day_checks_count = 0
 
                 day_blocks.append({
                     "date": d.strftime("%Y-%m-%d"),
                     "status": st,
-                    "uptime_pct": round(day_uptime, 2),
+                    "uptime_pct": round(day_uptime, 2) if day_uptime is not None else None,
                     "total_checks": day_checks_count,
                 })
 
-            service_status = "up" if target.last_status == "up" else "down"
+            floor = max(target.interval, target.organization.get_plan_limits()['min_check_interval_seconds'])
+            fresh = target.last_checked_at and timedelta(0) <= now - target.last_checked_at <= timedelta(seconds=floor * 2 + 30)
+            service_status = ({'up': 'up', 'slow': 'degraded', 'down': 'down', 'error': 'down'}.get(
+                target.last_status, 'unknown')) if fresh else 'unknown'
             if service_status == "down":
                 overall_outage = True
 
-            overall_uptime_pct = round((total_up / total_checks * 100), 2) if total_checks > 0 else 100.0
+            overall_uptime_pct = round((total_up / total_checks * 100), 2) if total_checks > 0 else None
 
             # 24h Average Latency
-            latency_24h_res = MonitoringCheck.objects.filter(
-                target=target,
-                checked_at__gte=start_24h_ago,
-                latency__gt=0,
-            ).aggregate(avg_lat=Avg("latency"))
-            avg_latency_ms = round(latency_24h_res["avg_lat"] or 0, 1)
+            latency = latencies.get(target.pk)
+            avg_latency_ms = round(latency, 1) if latency is not None else None
 
             services_data.append({
                 "id": tid_str,
@@ -348,21 +355,7 @@ class StatusPageService:
             display_name = c_setting.get("display_name") if c_setting and c_setting.get("display_name") else api_t.name
             category = c_setting.get("category") if c_setting and c_setting.get("category") else "APIs & Integraciones Backend"
 
-            results = APICheckResult.objects.filter(
-                target=api_t,
-                checked_at__gte=start_90_days_ago,
-            ).values("checked_at", "status", "response_time_ms")
-
-            checks_by_day = {}
-            for r in results:
-                day_key = r["checked_at"].date()
-                if day_key not in checks_by_day:
-                    checks_by_day[day_key] = {"total": 0, "pass": 0, "fail": 0}
-                checks_by_day[day_key]["total"] += 1
-                if r["status"] in ["pass", "ok"]:
-                    checks_by_day[day_key]["pass"] += 1
-                else:
-                    checks_by_day[day_key]["fail"] += 1
+            checks_by_day = api_history.get(api_t.pk, {})
 
             day_blocks = []
             total_pass = 0
@@ -377,30 +370,28 @@ class StatusPageService:
                     total_checks += stats["total"]
                     day_checks_count = stats["total"]
                 else:
-                    day_uptime = 100.0
-                    st = "up"
+                    day_uptime = None
+                    st = "unknown"
                     day_checks_count = 0
 
                 day_blocks.append({
                     "date": d.strftime("%Y-%m-%d"),
                     "status": st,
-                    "uptime_pct": round(day_uptime, 2),
+                    "uptime_pct": round(day_uptime, 2) if day_uptime is not None else None,
                     "total_checks": day_checks_count,
                 })
 
-            api_status = "up" if api_t.last_status in ["pass", "ok"] else "down"
+            floor = max(api_t.check_interval, api_t.organization.get_plan_limits()['min_check_interval_seconds'])
+            fresh = api_t.last_checked_at and timedelta(0) <= now - api_t.last_checked_at <= timedelta(seconds=floor * 2 + 30)
+            api_status = ('up' if api_t.last_status in ['pass', 'ok'] else 'down') if fresh else 'unknown'
             if api_status == "down":
                 overall_outage = True
 
-            overall_uptime_pct = round((total_pass / total_checks * 100), 2) if total_checks > 0 else 100.0
+            overall_uptime_pct = round((total_pass / total_checks * 100), 2) if total_checks > 0 else None
 
             # 24h Average Latency for API
-            api_latency_res = APICheckResult.objects.filter(
-                target=api_t,
-                checked_at__gte=start_24h_ago,
-                response_time_ms__gt=0,
-            ).aggregate(avg_lat=Avg("response_time_ms"))
-            avg_latency_ms = round(api_latency_res["avg_lat"] or 0, 1)
+            latency = api_latencies.get(api_t.pk)
+            avg_latency_ms = round(latency, 1) if latency is not None else None
 
             services_data.append({
                 "id": aid_str,
@@ -435,7 +426,7 @@ class StatusPageService:
                 or (inc.impacted_service and inc.impacted_service.strip().lower() in published_names)
             ]
         else:
-            active_incidents = list(active_incidents_qs)
+            active_incidents = []
 
         incidents_data = [
             {
@@ -464,7 +455,7 @@ class StatusPageService:
                 or (inc.impacted_service and inc.impacted_service.strip().lower() in published_names)
             ][:5]
         else:
-            past_incidents = list(past_incidents_qs[:5])
+            past_incidents = []
 
         past_incidents_data = [
             {
@@ -512,22 +503,24 @@ class StatusPageService:
         # Global Status Summary & High-Level KPIs
         total_services_count = len(services_data)
         operational_services_count = sum(1 for s in services_data if s["current_status"] == "up")
-        avg_uptime = (
-            round(sum(s["uptime_90_days_pct"] for s in services_data) / total_services_count, 2)
-            if total_services_count > 0
-            else 100.0
-        )
+        measured_uptimes = [s['uptime_90_days_pct'] for s in services_data if s['uptime_90_days_pct'] is not None]
+        avg_uptime = round(sum(measured_uptimes) / len(measured_uptimes), 2) if measured_uptimes else None
 
         # Global average latency across all services
-        latencies = [s["avg_latency_24h_ms"] for s in services_data if s["avg_latency_24h_ms"] > 0]
-        global_avg_latency_ms = round(sum(latencies) / len(latencies), 1) if latencies else 0
+        latencies = [s["avg_latency_24h_ms"] for s in services_data if s["avg_latency_24h_ms"] is not None]
+        global_avg_latency_ms = round(sum(latencies) / len(latencies), 1) if latencies else None
 
         if overall_outage:
             system_status = "outage"
             system_status_label = "Interrupción importante de servicio"
-        elif len(active_incidents) > 0 or any(m.status == "in_progress" for m in maintenances):
+        elif len(active_incidents) > 0 or any(m.status == "in_progress" for m in maintenances) or any(
+            s['current_status'] == 'degraded' for s in services_data
+        ):
             system_status = "degraded"
             system_status_label = "Degradación parcial de servicio"
+        elif not services_data or any(s['current_status'] == 'unknown' for s in services_data):
+            system_status = 'unknown'
+            system_status_label = 'Información de monitoreo insuficiente'
         else:
             system_status = "operational"
             system_status_label = "Todos los sistemas operacionales"
@@ -569,6 +562,7 @@ class StatusPageService:
     @staticmethod
     @transaction.atomic
     def create_maintenance(organization_id, data):
+        StatusPageService._validate_maintenance(organization_id, data)
         m = ScheduledMaintenance.objects.create(
             organization_id=organization_id,
             status_page_id=data.get("status_page_id"),
@@ -590,11 +584,31 @@ class StatusPageService:
     @transaction.atomic
     def update_maintenance(maintenance_id, organization_id, data):
         m = ScheduledMaintenance.objects.get(id=maintenance_id, organization_id=organization_id)
+        StatusPageService._validate_maintenance(organization_id, data, m)
+        allowed = {'title', 'description', 'status', 'start_time', 'end_time', 'status_page_id'}
+        if set(data) - allowed:
+            raise ValueError("Campos de mantenimiento no permitidos.")
         for k, v in data.items():
             if v is not None:
                 setattr(m, k, v)
         m.save()
         return m
+
+    @staticmethod
+    def _validate_maintenance(organization_id, data, instance=None):
+        from rest_framework import serializers
+        page_id = data.get('status_page_id', getattr(instance, 'status_page_id', None))
+        if page_id and not StatusPageConfig.objects.filter(pk=page_id, organization_id=organization_id).exists():
+            raise ValueError('Status Page no encontrada en la organización.')
+        start = data.get('start_time', getattr(instance, 'start_time', None))
+        end = data.get('end_time', getattr(instance, 'end_time', None))
+        field = serializers.DateTimeField()
+        if isinstance(start, str):
+            start = data['start_time'] = field.run_validation(start)
+        if isinstance(end, str):
+            end = data['end_time'] = field.run_validation(end)
+        if start is not None and end is not None and end <= start:
+            raise ValueError('La fecha de fin debe ser posterior al inicio.')
 
     @staticmethod
     @transaction.atomic
@@ -638,7 +652,7 @@ class StatusPageService:
     @transaction.atomic
     def subscribe_email(slug, email):
         """Publicly subscribe an email address to status updates."""
-        config = StatusPageConfig.objects.filter(slug=slug).first()
+        config = StatusPageConfig.objects.filter(slug=slug, is_public=True).first()
         if not config:
             raise ValueError("Status Page no encontrada.")
 

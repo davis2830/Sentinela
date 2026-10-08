@@ -48,14 +48,16 @@ class IncidentService:
         actor_name="Sistema",
     ):
         """Create a new incident and record a timeline event."""
+        from common.tenant_references import require_target
+        require_target(organization_id, target_type, target_id)
         assigned_to = None
         assigned_to_name = ""
         if assigned_to_id:
             try:
-                assigned_to = User.objects.get(id=assigned_to_id)
+                assigned_to = User.objects.get(id=assigned_to_id, organization_id=organization_id)
                 assigned_to_name = assigned_to.get_full_name() or assigned_to.email
             except User.DoesNotExist:
-                pass
+                raise ValueError("Usuario no encontrado en la organización.") from None
 
         incident = Incident.objects.create(
             organization_id=organization_id,
@@ -189,7 +191,7 @@ class IncidentService:
 
         if user_id:
             try:
-                user = User.objects.get(id=user_id)
+                user = User.objects.get(id=user_id, organization_id=organization_id)
                 user_name = user.get_full_name() or user.email
                 incident.assigned_to = user
                 incident.assigned_to_name = user_name
@@ -262,9 +264,12 @@ class IncidentService:
 
     @staticmethod
     @transaction.atomic
-    def add_alert(incident_id, alert_id, actor_name="Sistema"):
+    def add_alert(incident_id, alert_id, actor_name="Sistema", organization_id=None):
         """Link an alert to an incident."""
-        incident = Incident.objects.get(id=incident_id)
+        incident = Incident.objects.get(id=incident_id, **({'organization_id': organization_id} if organization_id else {}))
+        from alerts.models import Alert
+        if not Alert.objects.filter(id=alert_id, organization_id=incident.organization_id).exists():
+            raise ValueError('Alerta no encontrada en la organización.')
         incident_alert, created = IncidentAlert.objects.get_or_create(
             incident=incident,
             alert_id=alert_id,

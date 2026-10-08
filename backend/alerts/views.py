@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
 
 from .serializers import (
     AlertRuleCreateSerializer,
@@ -22,7 +23,7 @@ class AlertRuleListView(APIView):
     POST /api/v1/alert-rules/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -64,7 +65,7 @@ class AlertRuleDetailView(APIView):
     DELETE /api/v1/alert-rules/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, rule_id):
         org_id = request.user.organization_id
@@ -115,7 +116,7 @@ class AlertRuleSimulateView(APIView):
     POST /api/v1/alert-rules/simulate/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -146,7 +147,7 @@ class AlertRuleSnoozeView(APIView):
     POST /api/v1/alert-rules/<rule_id>/snooze/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, rule_id):
         org_id = request.user.organization_id
@@ -168,7 +169,7 @@ class AlertRuleEvaluateView(APIView):
     POST /api/v1/alert-rules/evaluate/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         try:
@@ -210,7 +211,7 @@ class AlertListView(APIView):
     GET /api/v1/alerts/?status=active&severity=critical
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -230,7 +231,7 @@ class AlertDetailView(APIView):
     PATCH /api/v1/alerts/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, alert_id):
         org_id = request.user.organization_id
@@ -279,7 +280,7 @@ class AlertSnoozeView(APIView):
     POST /api/v1/alerts/<alert_id>/snooze/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, alert_id):
         org_id = request.user.organization_id
@@ -301,7 +302,7 @@ class AlertBulkAcknowledgeView(APIView):
     POST /api/v1/alerts/acknowledge-all/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -315,7 +316,7 @@ class AlertBulkResolveView(APIView):
     POST /api/v1/alerts/resolve-all/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -329,7 +330,7 @@ class AlertBulkActionView(APIView):
     POST /api/v1/alerts/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -356,7 +357,7 @@ class AlertStatsView(APIView):
     GET /api/v1/alerts/stats/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -370,7 +371,7 @@ class AlertCreateIncidentView(APIView):
     POST /api/v1/alerts/<alert_id>/create-incident/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, alert_id):
         org_id = request.user.organization_id

@@ -21,7 +21,7 @@ export default function ReportTableView(props: ReportTableViewProps) {
     actions={item=>[
       ...(item.status === 'completed' ? [
         {label:'Exportar CSV',readOnly:true,onClick:(event:React.MouseEvent)=>props.onExportCSV(item.id,event)},
-        {label:'Exportar PDF',readOnly:true,onClick:(event:React.MouseEvent)=>props.onExportPDF(item.id,event)},
+        {label:'Descargar HTML',readOnly:true,onClick:(event:React.MouseEvent)=>props.onExportPDF(item.id,event)},
       ] : []),
       {label:'Eliminar',onClick:()=>props.onDelete(item)},
     ]}

@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
 
 from .serializers import (
     NotificationBulkActionSerializer,
@@ -25,12 +26,12 @@ class NotificationChannelListView(APIView):
     POST /api/v1/notifications/channels/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
         channels = NotificationChannelService.list_channels(org_id)
-        serializer = NotificationChannelSerializer(channels, many=True)
+        serializer = NotificationChannelSerializer(channels, many=True, context={'request': request})
         return success_response(serializer.data)
 
     def post(self, request):
@@ -60,7 +61,7 @@ class NotificationChannelListView(APIView):
                 organization_id=org_id,
                 **serializer.validated_data,
             )
-            response_serializer = NotificationChannelSerializer(channel)
+            response_serializer = NotificationChannelSerializer(channel, context={'request': request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -79,13 +80,13 @@ class NotificationChannelDetailView(APIView):
     DELETE /api/v1/notifications/channels/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, channel_id):
         org_id = request.user.organization_id
         try:
             channel = NotificationChannelService.get_channel(channel_id, org_id)
-            serializer = NotificationChannelSerializer(channel)
+            serializer = NotificationChannelSerializer(channel, context={'request': request})
             return success_response(serializer.data)
         except Exception:
             return error_response(
@@ -106,7 +107,7 @@ class NotificationChannelDetailView(APIView):
             channel = NotificationChannelService.update_channel(
                 channel_id, org_id, **serializer.validated_data
             )
-            response_serializer = NotificationChannelSerializer(channel)
+            response_serializer = NotificationChannelSerializer(channel, context={'request': request})
             return success_response(response_serializer.data)
         except Exception:
             return error_response(
@@ -130,7 +131,7 @@ class NotificationChannelBulkActionView(APIView):
     POST /api/v1/notifications/channels/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -157,7 +158,7 @@ class NotificationListView(APIView):
     POST /api/v1/notifications/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -207,7 +208,7 @@ class NotificationDetailView(APIView):
     GET /api/v1/notifications/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, notification_id):
         org_id = request.user.organization_id
@@ -229,7 +230,7 @@ class NotificationRetryView(APIView):
     POST /api/v1/notifications/{id}/retry/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, notification_id):
         org_id = request.user.organization_id
@@ -247,7 +248,7 @@ class NotificationChannelTestView(APIView):
     POST /api/v1/notifications/channels/{id}/test/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, channel_id):
         org_id = request.user.organization_id
@@ -265,7 +266,7 @@ class NotificationTestConnectionView(APIView):
     POST /api/v1/notifications/test-connection/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         serializer = TestChannelConfigSerializer(data=request.data)
@@ -276,6 +277,16 @@ class NotificationTestConnectionView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        from common.subscriptions import require_monitoring
+        from .services import validate_beta_channel
+        require_monitoring(request.user.organization)
+        try:
+            validate_beta_channel(request.user.organization_id, serializer.validated_data['channel_type'], serializer.validated_data['config'])
+        except ValueError as exc:
+            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        if request.user.organization.beta_managed:
+            from accounts.beta import consume_budget
+            consume_budget('beta-notifications', str(request.user.organization_id), 50, 86400)
         result = NotificationService.test_channel_config(
             channel_type=serializer.validated_data["channel_type"],
             config=serializer.validated_data["config"],
@@ -291,7 +302,7 @@ class NotificationStatsView(APIView):
     GET /api/v1/notifications/stats/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -305,7 +316,7 @@ class NotificationExportCsvView(APIView):
     GET /api/v1/notifications/export-csv/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id

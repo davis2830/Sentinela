@@ -145,9 +145,14 @@ export default function ReportsPage() {
   const handleExportPDF = async (reportId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token') || '';
-      const url = `${api.defaults.baseURL || '/api/v1/'}reports/${reportId}/export/pdf/${token ? `?token=${token}` : ''}`;
-      window.open(url, '_blank');
+      // Authenticate through the API client; never put bearer credentials in URLs.
+      const response = await api.get(`reports/${reportId}/export/pdf/`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'text/html' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `reporte_${reportId.slice(0, 8)}.html`;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error al exportar PDF:', err);
     }
@@ -211,7 +216,7 @@ export default function ReportsPage() {
       <NOCPageHeader queryKeys={["reports-list"]}
         title="Reportes SLA & Métricas"
         badgeText="AUDITORÍA & SLA"
-        description="Generación automatizada de informes ejecutivos de cumplimiento de SLA, presupuesto de error SRE, tiempos MTTR / MTTD y exportación directa a PDF y CSV."
+        description="Informes de disponibilidad basados en comprobaciones observadas. Exporta CSV o HTML para imprimir; no equivalen a una certificación de SLA contractual."
         icon={<FileText size={26} />}
         autoRefresh={{
           enabled: autoRefresh.enabled,
@@ -248,7 +253,7 @@ export default function ReportsPage() {
         categoryLabel="Tipo:"
         categories={[
           { id: 'all', label: 'Todos' },
-          { id: 'sla', label: 'SLA Contractual' },
+          { id: 'sla', label: 'Disponibilidad medida' },
           { id: 'availability', label: 'Disponibilidad' },
           { id: 'incidents', label: 'Incidentes' },
           { id: 'trends', label: 'Tendencias' },

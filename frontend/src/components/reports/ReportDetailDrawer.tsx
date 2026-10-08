@@ -44,15 +44,14 @@ export default function ReportDetailDrawer({
   const targets = data.targets || [];
   const incidents = data.incidents || [];
   const targetSla = data.target_sla ?? 99.9;
-  const overallSla = data.overall_sla ?? data.summary?.overall_sla_percentage ?? 100.0;
+  const overallSla = data.overall_sla ?? data.summary?.overall_sla_percentage ?? null;
   const mttr = data.mttr_minutes ?? data.summary?.mttr_minutes ?? 0;
-  const mttd = data.mttd_minutes ?? data.summary?.mttd_minutes ?? 0;
+  const mttd = data.mttd_minutes ?? data.summary?.mttd_minutes ?? 'No disponible';
   const totalIncidents = data.total_incidents ?? data.summary?.open_incidents ?? 0;
 
-  const allowedDowntime = data.allowed_downtime_minutes ?? 43.2;
-  const consumedDowntime = data.consumed_downtime_minutes ?? 0;
-  const remainingBudget = data.remaining_budget_minutes ?? (allowedDowntime - consumedDowntime);
-  const budgetConsumedPct = data.budget_consumed_percentage ?? (allowedDowntime > 0 ? (consumedDowntime / allowedDowntime) * 100 : 0);
+  const allowedDowntime = data.allowed_downtime_minutes ?? '—';
+  const remainingBudget = data.remaining_budget_minutes ?? '—';
+  const budgetConsumedPct = data.budget_consumed_percentage ?? null;
 
   const handleCopyRaw = () => {
     navigator.clipboard.writeText(JSON.stringify(report, null, 2));
@@ -72,7 +71,7 @@ export default function ReportDetailDrawer({
       isOpen={isOpen}
       onClose={onClose}
       title={report.title}
-      subtitle={`Informe oficial de tipo ${report.report_type.toUpperCase()} generado el ${
+      subtitle={`Informe de tipo ${report.report_type.toUpperCase()} generado el ${
         report.generated_at
           ? new Date(report.generated_at).toLocaleString('es-ES')
           : 'Pendiente'
@@ -97,18 +96,18 @@ export default function ReportDetailDrawer({
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold font-mono text-accent-green">
-                  {overallSla.toFixed(2)}%
+                  {overallSla == null ? 'Sin mediciones' : `${overallSla.toFixed(2)}%`}
                 </span>
                 <span className="text-xs text-text-dim font-mono">/ {targetSla}%</span>
               </div>
               <div className="mt-2 flex items-center gap-1 text-xs">
-                {overallSla >= targetSla ? (
+                {overallSla == null ? <span>Sin mediciones suficientes</span> : overallSla >= targetSla ? (
                   <span className="flex items-center gap-1 text-accent-green font-medium">
-                    <CheckCircle2 size={13} /> SLA Contractual Cumplido
+                    <CheckCircle2 size={13} /> Muestras dentro del objetivo
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-accent-red font-medium">
-                    <XCircle size={13} /> Brecha de Incumplimiento
+                    <XCircle size={13} /> Muestras debajo del objetivo
                   </span>
                 )}
               </div>
@@ -133,7 +132,7 @@ export default function ReportDetailDrawer({
                 />
               </div>
               <div className="mt-1 text-[10px] text-text-dim">
-                Consumido: {Number(budgetConsumedPct).toFixed(1)}% del límite
+                Consumido: {budgetConsumedPct == null ? 'Sin mediciones' : `${Number(budgetConsumedPct).toFixed(1)}% del límite`}
               </div>
             </div>
           </div>
@@ -205,7 +204,7 @@ export default function ReportDetailDrawer({
                 </thead>
                 <tbody className="divide-y divide-border-base/30">
                   {targets.map((t) => {
-                    const isPass = t.sla_percentage >= Number(targetSla);
+                    const isPass = t.sla_percentage != null && t.sla_percentage >= Number(targetSla);
                     return (
                       <tr key={t.target_id} className="hover:bg-bg-card-hover/40 transition-colors">
                         <td className="py-2.5 px-3">
@@ -224,7 +223,7 @@ export default function ReportDetailDrawer({
                         </td>
                         <td className="py-2.5 px-3 font-mono font-bold">
                           <span className={isPass ? 'text-accent-green' : 'text-accent-red'}>
-                            {t.sla_percentage.toFixed(2)}%
+                            {t.sla_percentage == null ? 'Sin mediciones' : `${t.sla_percentage.toFixed(2)}%`}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right">
@@ -235,7 +234,7 @@ export default function ReportDetailDrawer({
                                 : 'bg-accent-red/10 text-accent-red border border-accent-red/20'
                             }`}
                           >
-                            {isPass ? 'CUMPLE' : 'INCUMPLE'}
+                            {t.sla_percentage == null ? 'SIN MEDICIONES' : isPass ? 'CUMPLE' : 'INCUMPLE'}
                           </span>
                         </td>
                       </tr>
@@ -324,7 +323,7 @@ export default function ReportDetailDrawer({
         <div className="space-y-4">
           <div className="p-4 rounded-xl bg-bg-main/60 border border-border-base space-y-3">
             <h4 className="text-xs font-semibold text-text-main">
-              Descarga Oficial de Auditoría
+              Exportación del informe
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -341,7 +340,7 @@ export default function ReportDetailDrawer({
                 className="flex items-center justify-center gap-2 py-2.5 px-4 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl font-medium text-xs transition-colors"
               >
                 <Printer size={16} />
-                Imprimir / PDF Ejecutivo
+                HTML para imprimir
               </button>
             </div>
             <p className="text-[11px] text-text-dim">

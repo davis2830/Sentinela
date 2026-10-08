@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
+from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
 
 from .serializers import (
     AddAlertSerializer,
@@ -25,7 +26,7 @@ class IncidentStatsView(APIView):
     GET /api/v1/incidents/stats/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -42,7 +43,7 @@ class IncidentBulkActionView(APIView):
     POST /api/v1/incidents/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -81,7 +82,7 @@ class IncidentListView(APIView):
     POST /api/v1/incidents/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -136,7 +137,7 @@ class IncidentDetailView(APIView):
     DELETE /api/v1/incidents/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, incident_id):
         org_id = request.user.organization_id
@@ -227,7 +228,7 @@ class IncidentRCAView(APIView):
     POST /api/v1/incidents/{id}/rca/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, incident_id):
         org_id = request.user.organization_id
@@ -274,7 +275,7 @@ class IncidentAssignView(APIView):
     POST /api/v1/incidents/{id}/assign/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, incident_id):
         org_id = request.user.organization_id
@@ -309,7 +310,7 @@ class IncidentTimelineView(APIView):
     POST /api/v1/incidents/{id}/timeline/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, incident_id):
         org_id = request.user.organization_id
@@ -354,7 +355,7 @@ class IncidentAlertsView(APIView):
     POST /api/v1/incidents/{id}/alerts/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, incident_id):
         org_id = request.user.organization_id
@@ -381,7 +382,7 @@ class IncidentAlertsView(APIView):
 
         try:
             incident_alert = IncidentService.add_alert(
-                incident_id, serializer.validated_data["alert_id"], actor_name=actor_name
+                incident_id, serializer.validated_data["alert_id"], actor_name=actor_name, organization_id=org_id
             )
             response_serializer = IncidentAlertSerializer(incident_alert)
             return success_response(

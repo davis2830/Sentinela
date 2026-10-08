@@ -251,7 +251,7 @@ class DNSMonitorService:
         old_value = record.value
         now = timezone.now()
 
-        value_changed = old_value != new_value and old_value != ""
+        value_changed = sorted(old_value.splitlines()) != sorted(new_value.splitlines()) and old_value != ""
 
         record.value = new_value
         record.ttl = ttl

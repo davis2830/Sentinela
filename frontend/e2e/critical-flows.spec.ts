@@ -99,6 +99,56 @@ test('login loads the dashboard', async ({ page }) => {
   await expect(page.locator('table')).toHaveCount(0);
 });
 
+test('actual backend rejects Viewer mutations in every management area', async () => {
+  const session = fixtureSessions.get(viewer.email)!;
+  for (const path of ['alert-rules/', 'incidents/', 'maintenance/', 'notifications/channels/', 'reports/', 'status-page/pages/']) {
+    const response = await api.post(path, { headers: { Authorization: `Bearer ${session.access_token}` }, data: {} });
+    expect(response.status(), path).toBe(403);
+  }
+});
+
+test('actual module lists load without mocked backend responses', async ({page}) => {
+  await login(page, admin);
+  const session = fixtureSessions.get(admin.email)!;
+  for (const path of ['monitoring/', 'api-checks/', 'ssl-certificates/', 'dns-records/', 'domains/', 'security-headers/',
+    'agent-probes/', 'alerts/', 'incidents/', 'maintenance/', 'notifications/channels/', 'reports/', 'status-page/pages/', 'audit-logs/']) {
+    const response = await api.get(path, { headers: { Authorization: `Bearer ${session.access_token}` } });
+    expect(response.ok(), path).toBeTruthy();
+    expect((await response.json()).success, path).toBe(true);
+  }
+});
+
+test('empty Status Page requires explicit creation without GET-side publishing', async ({page}) => {
+  let writes = 0;
+  page.on('request', request => {
+    if (request.url().includes('/status-page/') && ['POST','PATCH','DELETE'].includes(request.method())) writes++;
+  });
+  await login(page, admin);
+  await page.goto('/status-page');
+  await expect(page.getByRole('status')).toContainText('Nada se publica automáticamente');
+  await expect(page.getByRole('button', {name: 'Nueva Status Page'})).toBeVisible();
+  await expect(page.getByRole('link', {name: 'Ver en Vivo'})).toHaveCount(0);
+  expect(writes).toBe(0);
+});
+
+test('public Status Page never invents availability or latency when unmeasured', async ({page}) => {
+  await page.route('**/api/v1/status-page/public/audit-ui/', route=>route.fulfill({json:{success:true,data:{
+    company_name:'Audit UI', description:'', logo_url:'', website_url:'', support_email:'',
+    system_status:'unknown', system_status_label:'Información de monitoreo insuficiente',
+    global_uptime_pct:null, global_avg_latency_ms:null, total_services_count:1, operational_services_count:0,
+    services:[{id:'new',name:'Servicio nuevo',type:'uptime',current_status:'unknown',uptime_90_days_pct:null,
+      avg_latency_24h_ms:null,history_90_days:[{date:'2026-10-07',status:'unknown',uptime_pct:null,total_checks:0}]}],
+    active_incidents:[],past_incidents:[],maintenances:[],show_uptime_pct:true,show_latency_24h:true,updated_at:new Date().toISOString(),
+  }}}));
+  await page.goto('/status/audit-ui');
+  await expect(page.getByText('Información de monitoreo insuficiente')).toBeVisible();
+  await expect(page.getByText('Sin mediciones', {exact:true}).first()).toBeVisible();
+  await expect(page.getByText('100%', {exact:true})).toHaveCount(0);
+  await expect(page.getByText('< 50ms', {exact:true})).toHaveCount(0);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});
+
 test('performance separates readable tracks and shows a unified tooltip on desktop and mobile', async ({page}) => {
   await mockDashboard(page); await login(page, admin);
   const chart=page.getByTestId('dashboard-performance');

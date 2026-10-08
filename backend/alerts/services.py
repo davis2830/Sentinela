@@ -724,13 +724,16 @@ class AlertService:
         target_incident = None
         if alert.target_id:
             target_links = IncidentAlert.objects.filter(
-                incident__in=open_incidents
+                incident__in=open_incidents, alert_id__in=Alert.objects.filter(
+                    organization_id=alert.organization_id, target_type=alert.target_type,
+                    target_id=alert.target_id,
+                ).values('id'),
             ).values_list("incident_id", flat=True)
             if target_links.exists():
                 target_incident = Incident.objects.filter(id__in=target_links).first()
 
-        if not target_incident and open_incidents.exists():
-            target_incident = open_incidents.first()
+        if not target_incident and alert.target_id:
+            target_incident = open_incidents.filter(target_type=alert.target_type, target_id=alert.target_id).first()
 
         if target_incident:
             IncidentService.add_alert(target_incident.id, alert.id)
@@ -743,6 +746,8 @@ class AlertService:
                 title=f"Incidente: {alert.title}",
                 description=f"Incidente generado automáticamente por alerta de severidad crítica.\n\nMensaje: {alert.message}",
                 priority=priority,
+                target_type=alert.target_type,
+                target_id=alert.target_id,
             )
             IncidentService.add_alert(incident.id, alert.id)
             return incident

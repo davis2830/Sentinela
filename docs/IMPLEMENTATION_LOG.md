@@ -1,5 +1,19 @@
 # Bitácora de implementación
 
+## 2026-10-07 — Seguimiento de pendientes de auditoría
+
+- Aplicada exclusión tenant-aware de muestras de mantenimiento en reportes SLA/live, disponibilidad y resumen; servicios lentos cuentan como disponibles sin perder estado degradado. Historial público agregado por día/target en SQL, zona horaria activa, consultas constantes y sin muestras futuras.
+- Correo con cero mensajes aceptados queda fallido; concurrencia de dos conexiones PostgreSQL entrega una vez. Correlación automática de incidentes ya no agrupa endpoints distintos. Ciclo caída/alerta/incidente/aviso/recuperación probado con locmem, no proveedor externo.
+- **155/155 Django, 91/91 Chromium, TypeScript/build, check y ausencia de migraciones aprobados**. Workers locales reiniciados y smoke final de broker repetido. pip-audit sin vulnerabilidades conocidas; Trivy fs sin High/Critical en lockfile frontend. Baseline local k6: 529 solicitudes, 0 errores, p95 28,79 ms, hasta 5 VUs; no certifica capacidad de sondeos.
+- Fixtures retirados, auditoría preservada. Sin producción, logs ampliados, commit/push ni CI. [Estado vigente y pendientes externos](BETA_VALIDATION_FOLLOWUP.md).
+
+## 2026-10-07 — Auditoría integral local y correcciones beta
+
+- Endurecidos permisos de Gestión y validación de referencias entre organizaciones. Lectores no reciben secretos de canales ni payloads de API; diagnóstico de canal sujeto a suscripción y restricciones beta. SMTP configurable con TLS, validación de destinos y conexión fijada a IP; entrega con bloqueo de fila.
+- Status Page sin creación/publicación en GET, selección vacía sin publicar y ausencia de mediciones explícita. Reportes sin uptime/MTTD ficticios, rangos acotados, descarga HTML autenticada por cabecera y contenido escapado; CSV neutraliza fórmulas. DNS no registra cambios por reordenamiento.
+- Gates locales: **148/148 Django**, **91/91 Chromium**, TypeScript/build, check Django, ausencia de migraciones nuevas y Compose local válido. Smoke real de reporte y HTTPS por broker/worker. Fixtures retirados, auditoría conservada. npm High aprobado con dos avisos Moderate; pip-audit ausente.
+- No se aprueba beta/producción ni se amplían logs. Se registran pendientes de SLA/mantenimiento, capacidad, integraciones, dependencias y CI en [el informe de auditoría](BETA_MODULE_AUDIT.md).
+
 ## 2026-10-06 — Capas del tooltip de la dona
 
 - Tooltip de salud con capa explícita por encima del botón central y fondo opaco. El porcentaje central no atraviesa el tooltip; la ventana no intercepta eventos del puntero y conserva filtros/restablecimiento.

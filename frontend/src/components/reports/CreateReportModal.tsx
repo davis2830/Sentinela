@@ -129,7 +129,7 @@ export default function CreateReportModal({
   const typeOptions: { type: ReportType; label: string; desc: string; icon: any }[] = [
     {
       type: 'sla',
-      label: 'SLA Contractual',
+      label: 'Disponibilidad medida',
       desc: 'Disponibilidad, Error Budget y cumplimiento de acuerdos SRE',
       icon: <ShieldCheck size={16} className="text-accent-green" />,
     },
@@ -176,7 +176,7 @@ export default function CreateReportModal({
             </div>
             <div>
               <h2 className="text-base font-semibold text-text-main">
-                Generar Informe Oficial de Auditoría
+                Generar informe de métricas
               </h2>
               <p className="text-xs text-text-dim">
                 Cálculo automatizado de métricas SLA, MTTR y Error Budget
@@ -248,7 +248,7 @@ export default function CreateReportModal({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-text-main flex items-center gap-1.5">
                   <ShieldCheck size={14} className="text-accent-green" />
-                  Meta Contractual de SLA (Objetivo)
+                  Objetivo de disponibilidad
                 </label>
                 <span className="text-xs font-mono font-bold text-accent-green">
                   {slaTarget}%
@@ -443,7 +443,7 @@ export default function CreateReportModal({
               ) : (
                 <>
                   <Sparkles size={14} />
-                  Generar Informe Oficial
+                  Generar informe
                 </>
               )}
             </button>
