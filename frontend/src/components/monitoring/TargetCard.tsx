@@ -127,7 +127,7 @@ export default function TargetCard({
 
   return (
     <div
-      className={`group relative bg-bg-card/70 border rounded-xl p-4 cursor-pointer transition-colors duration-200 ${
+      className={`group relative bg-bg-card border rounded-xl p-4 cursor-pointer transition-colors duration-200 ${
         isSelected
           ? 'border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30'
           : 'border-border-base/70 hover:border-accent-green/40 hover:bg-bg-card'

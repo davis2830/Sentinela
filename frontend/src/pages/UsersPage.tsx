@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 
 // NOC Toolkit Components
@@ -115,11 +114,7 @@ export default function UsersPage() {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [isExportingCSV, setIsExportingCSV] = useState(false);
 
-  // Auto-refresh countdown (30s)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 30,
-    initialEnabled: true,
-  });
+  // System workspace: explicit reads, no periodic polling.
 
   // Query: Unified Members & Invitations List
   const {
@@ -127,12 +122,11 @@ export default function UsersPage() {
     isLoading: isLoadingMembers,
     refetch: refetchMembers,
   } = useQuery<TeamMember[]>({
-    queryKey: ['org-members-unified'],
+    queryKey: ['org-members-unified', currentUser?.organization?.id],
     queryFn: async () => {
       const response = await api.get('organizations/members/');
       return (response.data?.data || []) as TeamMember[];
     },
-    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Query: Teams & Squads List
@@ -141,12 +135,11 @@ export default function UsersPage() {
     isLoading: isLoadingTeams,
     refetch: refetchTeams,
   } = useQuery<Team[]>({
-    queryKey: ['teams-list'],
+    queryKey: ['teams-list', currentUser?.organization?.id],
     queryFn: async () => {
       const response = await api.get('users/teams/');
       return (response.data?.data || []) as Team[];
     },
-    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // ================= MUTATIONS =================
@@ -518,16 +511,12 @@ export default function UsersPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* 1. NOC Header */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["org-members-unified","teams-list"]}
         title="Usuarios y Equipos"
         badgeText="SEGURIDAD & ACCESO"
         description="Administración integral de operadores, cuadrillas de trabajo, invitaciones por correo y control de accesos RBAC"
         icon={<Users size={28} />}
-        autoRefresh={{
-          enabled: autoRefresh.enabled,
-          countdown: autoRefresh.countdown,
-          onToggle: autoRefresh.toggle,
-        }}
+
         actions={
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
@@ -693,7 +682,7 @@ export default function UsersPage() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeSection === 'members'
                 ? 'bg-bg-card border border-border-accent text-text-main shadow-xs'
-                : 'text-text-dim hover:text-text-main hover:bg-bg-card/50'
+                : 'text-text-dim hover:text-text-main hover:bg-bg-card-hover'
             }`}
           >
             <Users size={14} className={activeSection === 'members' ? 'text-accent-green' : ''} />
@@ -715,7 +704,7 @@ export default function UsersPage() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeSection === 'teams'
                 ? 'bg-bg-card border border-border-accent text-text-main shadow-xs'
-                : 'text-text-dim hover:text-text-main hover:bg-bg-card/50'
+                : 'text-text-dim hover:text-text-main hover:bg-bg-card-hover'
             }`}
           >
             <Layers size={14} className={activeSection === 'teams' ? 'text-accent-purple' : ''} />

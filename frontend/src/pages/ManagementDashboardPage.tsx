@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { ArrowRight, CalendarDays, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import ReloadDataButton from '../components/common/ReloadDataButton';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
 import { NOCPageHeader } from '../components/common/noc';
 import { activeIncident, unresolvedAlert, recentFailure, managementPending, managementAgenda } from '../utils/managementModel';
@@ -19,21 +19,22 @@ const keys = ['management-alerts','management-incidents','management-maintenance
 const severityLabels: Record<string,string> = {critical:'Críticas',warning:'Advertencias',info:'Informativas'};
 const stateLabels: Record<string,string> = {open:'Abiertos',investigating:'Investigando',identified:'Identificados',mitigated:'Mitigados'};
 const colors = ['#ff7384','#fbbf24','#38d9f5','#b499ff'];
-function useManagementSource<T>(key: string, endpoint: string) {
+function useManagementSource<T>(key: string, endpoint: string, refetchInterval: ReturnType<typeof useAutoRefresh>['refetchInterval']) {
   const organizationId = useAuthStore(s=>s.user?.organization?.id);
   return useQuery<T[]>({queryKey:[key,organizationId,'all'],queryFn:async()=>{
     const response = await api.get(endpoint); const data = response.data?.data;
     if (!Array.isArray(data)) throw new Error('Respuesta no disponible'); return data as T[];
-  },refetchInterval:30000});
+  },refetchInterval});
 }
 export default function ManagementDashboardPage() {
   const navigate = useNavigate();
-  const alerts = useManagementSource<Alert>(keys[0],'alerts/');
-  const incidents = useManagementSource<Incident>(keys[1],'incidents/');
-  const maintenance = useManagementSource<MaintenanceWindow>(keys[2],'maintenance/');
-  const notifications = useManagementSource<NotificationItem>(keys[3],'notifications/?status=failed');
-  const reports = useManagementSource<ReportItem>(keys[4],'reports/');
-  const pages = useManagementSource<StatusPageSummaryItem>(keys[5],'status-page/pages/');
+  const autoRefresh = useAutoRefresh({ intervalSeconds: 30, scopeKey: 'management' });
+  const alerts = useManagementSource<Alert>(keys[0],'alerts/', autoRefresh.refetchInterval);
+  const incidents = useManagementSource<Incident>(keys[1],'incidents/', autoRefresh.refetchInterval);
+  const maintenance = useManagementSource<MaintenanceWindow>(keys[2],'maintenance/', autoRefresh.refetchInterval);
+  const notifications = useManagementSource<NotificationItem>(keys[3],'notifications/?status=failed', autoRefresh.refetchInterval);
+  const reports = useManagementSource<ReportItem>(keys[4],'reports/', autoRefresh.refetchInterval);
+  const pages = useManagementSource<StatusPageSummaryItem>(keys[5],'status-page/pages/', autoRefresh.refetchInterval);
   const sources = [alerts,incidents,maintenance,notifications,reports,pages];
   const now = Date.now();
   const unresolved = alerts.isError ? undefined : alerts.data?.filter(unresolvedAlert);
@@ -53,7 +54,7 @@ export default function ManagementDashboardPage() {
     {label:'Reportes',path:'/reports?status=failed',text:reports.data && !reports.isError ? `${reports.data.filter(r=>recentFailure(r,now)).length} fallidos en 24 h` : 'No disponible'},
   ];
   return <div className="space-y-5 min-w-0" data-testid="management-dashboard">
-    <NOCPageHeader title="Resumen de gestión" description="Pendientes actuales, coordinación operativa y agenda de los próximos siete días." actions={<ReloadDataButton queryKeys={keys} />} />
+    <NOCPageHeader title="Resumen de gestión" description="Pendientes actuales, coordinación operativa y agenda de los próximos siete días." queryKeys={keys} autoRefresh={{enabled:autoRefresh.enabled,countdown:autoRefresh.countdown,onToggle:autoRefresh.toggle}} />
     <CompactModuleSummary items={[
       {label:'Alertas sin resolver',value:unresolved?.length,onClick:()=>navigate('/alerts?status=unresolved')},
       {label:'Incidentes activos',value:active?.length,onClick:()=>navigate('/incidents?status=active')},
@@ -64,12 +65,12 @@ export default function ManagementDashboardPage() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
       <section className="order-2 lg:order-1 lg:col-span-7 dashboard-panel" data-testid="management-alert-chart">
         <h2 className="text-sm font-semibold mb-2">Alertas sin resolver por severidad</h2>
-        {alerts.isLoading ? <div className="h-52 animate-pulse bg-bg-dark rounded-lg" aria-label="Cargando alertas"/> : !unresolved ? <p className="h-52 flex items-center text-sm text-text-muted">Datos no disponibles</p> : unresolved.length===0 ? <p className="h-52 flex items-center text-sm text-text-muted">No hay alertas sin resolver</p> : <ResponsiveContainer width="100%" height={200}><BarChart data={severityData} margin={{left:-20,right:8}}><XAxis dataKey="label" tick={{fill:'#e2e8f0',fontSize:12}}/><YAxis allowDecimals={false} tick={{fill:'#e2e8f0',fontSize:12}}/><Tooltip contentStyle={{background:'#111c2b',borderColor:'#304359',borderRadius:10,color:'#e6edf5'}}/><Bar dataKey="value" name="Alertas" isAnimationActive={false} radius={[5,5,0,0]} onClick={data=>navigate(`/alerts?status=unresolved&severity=${data.key}`)}>{severityData.map((d,i)=><Cell key={d.key} fill={colors[i]} cursor="pointer"/>)}</Bar></BarChart></ResponsiveContainer>}
+        {alerts.isLoading ? <div className="h-52 animate-pulse bg-bg-dark rounded-lg" aria-label="Cargando alertas"/> : !unresolved ? <p className="h-52 flex items-center text-sm text-text-muted">Datos no disponibles</p> : unresolved.length===0 ? <p className="h-52 flex items-center text-sm text-text-muted">No hay alertas sin resolver</p> : <ResponsiveContainer width="100%" height={200}><BarChart data={severityData} margin={{left:-20,right:8}}><XAxis dataKey="label" tick={{fill:'#e2e8f0',fontSize:12}}/><YAxis allowDecimals={false} tick={{fill:'#e2e8f0',fontSize:12}}/><Tooltip contentStyle={{background:'rgb(var(--sentinel-bg-dark))',borderColor:'rgb(var(--sentinel-border-accent))',borderRadius:10,color:'#e6edf5'}}/><Bar dataKey="value" name="Alertas" isAnimationActive={false} radius={[5,5,0,0]} onClick={data=>navigate(`/alerts?status=unresolved&severity=${data.key}`)}>{severityData.map((d,i)=><Cell key={d.key} fill={colors[i]} cursor="pointer"/>)}</Bar></BarChart></ResponsiveContainer>}
         <div className="flex gap-2 flex-wrap">{severityData.map((d,i)=><Link key={d.key} to={`/alerts?status=unresolved&severity=${d.key}`} className="text-xs rounded-lg px-2 py-1 hover:bg-bg-card-hover" style={{color:colors[i]}}>{d.label} {unresolved ? d.value : '—'}</Link>)}</div>
       </section>
       <section className="order-3 lg:order-1 lg:col-span-5 dashboard-panel" data-testid="management-incident-chart">
         <h2 className="text-sm font-semibold mb-2">Incidentes activos por estado</h2>
-        {incidents.isLoading ? <div className="h-52 animate-pulse bg-bg-dark rounded-lg" aria-label="Cargando incidentes"/> : !active ? <p className="h-52 flex items-center text-sm text-text-muted">Datos no disponibles</p> : active.length===0 ? <p className="h-52 flex items-center text-sm text-text-muted">No hay incidentes activos</p> : <div className="relative"><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={stateData.filter(d=>d.value)} dataKey="value" nameKey="label" innerRadius={60} outerRadius={83} paddingAngle={3} isAnimationActive={false} onClick={data=>navigate(`/incidents?status=${data.key}`)}>{stateData.filter(d=>d.value).map(d=><Cell key={d.key} fill={colors[Object.keys(stateLabels).indexOf(d.key)]} cursor="pointer"/>)}</Pie><Tooltip contentStyle={{background:'#111c2b',borderColor:'#304359',borderRadius:10}}/></PieChart></ResponsiveContainer><div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><strong className="text-2xl">{active.length}</strong><span className="text-xs text-text-muted">activos</span></div></div>}
+        {incidents.isLoading ? <div className="h-52 animate-pulse bg-bg-dark rounded-lg" aria-label="Cargando incidentes"/> : !active ? <p className="h-52 flex items-center text-sm text-text-muted">Datos no disponibles</p> : active.length===0 ? <p className="h-52 flex items-center text-sm text-text-muted">No hay incidentes activos</p> : <div className="relative"><ResponsiveContainer width="100%" height={200}><PieChart><Pie stroke="rgb(var(--sentinel-bg-card))" data={stateData.filter(d=>d.value)} dataKey="value" nameKey="label" innerRadius={60} outerRadius={83} paddingAngle={3} isAnimationActive={false} onClick={data=>navigate(`/incidents?status=${data.key}`)}>{stateData.filter(d=>d.value).map(d=><Cell key={d.key} fill={colors[Object.keys(stateLabels).indexOf(d.key)]} cursor="pointer"/>)}</Pie><Tooltip contentStyle={{background:'rgb(var(--sentinel-bg-dark))',borderColor:'rgb(var(--sentinel-border-accent))',borderRadius:10,color:'#f8fafc'}}/></PieChart></ResponsiveContainer><div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><strong className="text-2xl">{active.length}</strong><span className="text-xs text-text-muted">activos</span></div></div>}
         <div className="flex gap-2 flex-wrap">{stateData.map((d,i)=><Link key={d.key} to={`/incidents?status=${d.key}`} className="text-xs rounded-lg px-2 py-1 hover:bg-bg-card-hover" style={{color:colors[i]}}>{d.label} {active ? d.value : '—'}</Link>)}</div>
       </section>
       <section className="order-1 lg:order-2 lg:col-span-7 dashboard-panel" data-testid="management-pending">

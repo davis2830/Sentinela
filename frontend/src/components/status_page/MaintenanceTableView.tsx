@@ -82,7 +82,7 @@ export default function MaintenanceTableView({
   }
 
   return (
-    <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div className="bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>

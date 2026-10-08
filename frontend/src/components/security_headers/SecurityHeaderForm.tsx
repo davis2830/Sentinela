@@ -1,3 +1,5 @@
+import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
+import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type {
@@ -36,6 +38,7 @@ export default function SecurityHeaderForm({
   const [submitting, setSubmitting] = useState(false);
 
   // Live Audit Test state
+  const diagnostic = useConfigurationDiagnostic();
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestHeaderResponse | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export default function SecurityHeaderForm({
     setTestError(null);
 
     try {
-      const response = await api.post('security-headers/test-headers/', {
+      const response = await diagnostic.run('security-headers/test-headers/', {
         url: url.trim(),
       });
       const data = response.data?.data;
@@ -71,6 +74,7 @@ export default function SecurityHeaderForm({
         setTestError(data?.error || 'Error al conectar con la URL para auditar cabeceras.');
       }
     } catch (err: any) {
+      if (diagnostic.isLimit(err)) return;
       setTestError(err?.response?.data?.message || err?.message || 'Error al ejecutar prueba de auditoría.');
     } finally {
       setTesting(false);
@@ -144,16 +148,17 @@ export default function SecurityHeaderForm({
                 onClick={handleTestAudit}
                 disabled={testing || !url.trim()}
                 className="text-xs font-semibold text-accent-green hover:underline flex items-center gap-1 disabled:opacity-40 transition-colors"
-                title="Probar en vivo y auditar cabeceras ahora"
+                title="Probar configuración de cabeceras, sin activar monitoreo"
               >
                 {testing ? (
                   <Loader2 size={12} className="animate-spin" />
                 ) : (
                   <Zap size={12} />
                 )}
-                {testing ? 'Auditando...' : 'Probar en Vivo'}
+                {testing ? 'Auditando...' : 'Probar configuración'}
               </button>
             </div>
+                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
             <div className="relative">
               <input
                 type="text"
@@ -208,19 +213,19 @@ export default function SecurityHeaderForm({
 
               {/* Score & Headers Count Summary */}
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="bg-bg-card/70 border border-border-base/50 rounded-lg p-2">
+                <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
                   <div className="text-[10px] text-text-dim">Puntuación</div>
                   <div className="text-sm font-bold font-mono text-text-main mt-0.5">
                     {testResult.score} / 100
                   </div>
                 </div>
-                <div className="bg-bg-card/70 border border-border-base/50 rounded-lg p-2">
+                <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
                   <div className="text-[10px] text-text-dim">Detectadas</div>
                   <div className="text-sm font-bold font-mono text-emerald-400 mt-0.5">
                     {Object.keys(testResult.headers_found).length} OK
                   </div>
                 </div>
-                <div className="bg-bg-card/70 border border-border-base/50 rounded-lg p-2">
+                <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
                   <div className="text-[10px] text-text-dim">Faltantes</div>
                   <div className={`text-sm font-bold font-mono mt-0.5 ${
                     testResult.headers_missing.length > 0 ? 'text-amber-400' : 'text-emerald-400'

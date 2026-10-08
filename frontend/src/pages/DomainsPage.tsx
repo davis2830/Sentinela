@@ -1,3 +1,5 @@
+import { useConfigurationDiagnostic } from '../hooks/useConfigurationDiagnostic';
+import ConfigurationDiagnosticNotice from '../components/common/ConfigurationDiagnosticNotice';
 import { useLinkedResource } from '../hooks/useLinkedResource';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
@@ -96,6 +98,7 @@ export default function DomainsPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Live Test WHOIS State
+  const diagnostic = useConfigurationDiagnostic();
   const [isTestingWhois, setIsTestingWhois] = useState(false);
   const [testResult, setTestResult] = useState<DomainTestWhoisResult | null>(null);
 
@@ -267,11 +270,12 @@ export default function DomainsPage() {
     }
 
     try {
-      const response = await api.post('domains/test-whois/', {
+      const response = await diagnostic.run('domains/test-whois/', {
         domain: cleanDomain,
       });
       setTestResult(response.data?.data as DomainTestWhoisResult);
     } catch (err: any) {
+      if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,
         domain: cleanDomain,
@@ -433,8 +437,8 @@ export default function DomainsPage() {
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
           intervalSeconds: autoRefresh.intervalSeconds,
-          resetCountdown: autoRefresh.resetCountdown,
           ready: autoRefresh.ready,
+          blockedReason: autoRefresh.blockedReason,
         }}
         actions={
           <>
@@ -548,7 +552,7 @@ export default function DomainsPage() {
                 <div
                   key={domain.id}
                   onClick={() => setSelectedDomain(domain)}
-                  className={`bg-bg-card/95 border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
+                  className={`bg-bg-card border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
                     isSelected
                       ? 'border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40'
                       : 'border-border-base/70'
@@ -1038,10 +1042,11 @@ export default function DomainsPage() {
                   ) : (
                     <>
                       <Zap size={14} className="text-accent-yellow" />
-                      <span>Consultar WHOIS en Vivo</span>
+                      <span>Probar configuración</span>
                     </>
                   )}
                 </button>
+                  <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
               </div>
 
               {/* Test Result Live Preview */}

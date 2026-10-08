@@ -141,7 +141,7 @@ export default function TimelineView({ events }: TimelineViewProps) {
               </p>
 
               {(event.old_value || event.new_value) && (
-                <div className="mt-2 text-[11px] font-mono flex items-center gap-2 text-text-dim bg-bg-card/70 px-2.5 py-1.5 rounded-xl border border-border-base/40">
+                <div className="mt-2 text-[11px] font-mono flex items-center gap-2 text-text-dim bg-bg-card px-2.5 py-1.5 rounded-xl border border-border-base/40">
                   {event.old_value && (
                     <span className="line-through text-accent-red/80">{event.old_value}</span>
                   )}

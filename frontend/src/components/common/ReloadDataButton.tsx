@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
+import DataConsultationAge from './DataConsultationAge';
 import { useAuthStore } from '../../store/authStore';
-export default function ReloadDataButton({ queryKeys, scanIntervalSeconds, onReload }: {
-  queryKeys: string[]; scanIntervalSeconds?: number; onReload?: () => void;
+export default function ReloadDataButton({ queryKeys, scanIntervalSeconds }: {
+  queryKeys: string[]; scanIntervalSeconds?: number;
 }) {
   const organizationId = useAuthStore(s=>s.user?.organization?.id);
   const client = useQueryClient(); const [updatedAt, setUpdatedAt] = useState(0); const [pending, setPending] = useState(false); const [failed, setFailed] = useState(false);
@@ -12,13 +13,13 @@ export default function ReloadDataButton({ queryKeys, scanIntervalSeconds, onRel
     update(); return client.getQueryCache().subscribe(update);
   }, [client, key, organizationId]);
   return <div className="flex items-center gap-2 text-xs text-text-muted">
-    <span title="Última consulta de datos guardados; no es una nueva medición">{updatedAt ? `Consulta ${new Date(updatedAt).toLocaleTimeString()}` : 'Sin consulta'}</span>
+    <DataConsultationAge updatedAt={updatedAt} />
     {failed && <span role="status" className="text-accent-yellow">Datos parciales. Recarga para reintentar.</span>}
     <button type="button" aria-label="Actualizar datos" disabled={pending} onClick={async () => {
       setPending(true);
       try {
         await Promise.all([...queryKeys, 'scan-detail'].map(key => client.refetchQueries({ queryKey: [key, organizationId], type: 'active' }, { throwOnError: true })));
-        onReload?.();
+        // A manual GET never changes the area's automatic deadline.
         const plan = client.getQueryData<{ limits?: { min_check_interval_seconds?: number } }>(['org-subscription', organizationId]);
         const interval = plan ? plan.limits?.min_check_interval_seconds : scanIntervalSeconds;
         const cadence = scanIntervalSeconds && interval && Number.isFinite(interval) && interval > 0

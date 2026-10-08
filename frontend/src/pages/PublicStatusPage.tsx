@@ -59,7 +59,7 @@ export default function PublicStatusPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#090D11] text-[#F8FAFC] flex flex-col items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-bg-dark text-[#F8FAFC] flex flex-col items-center justify-center p-4 font-sans">
         <div className="relative mb-4">
           <div className="w-12 h-12 rounded-full border-2 border-emerald-500/30 border-t-emerald-400 animate-spin" />
           <Activity size={22} className="text-emerald-400 absolute inset-0 m-auto" />
@@ -73,8 +73,8 @@ export default function PublicStatusPage() {
 
   if (isError || !statusData) {
     return (
-      <div className="min-h-screen bg-[#090D11] text-[#F8FAFC] flex flex-col items-center justify-center p-4 font-sans">
-        <div className="bg-[#111720] border border-[#1E293B] rounded-3xl p-8 max-w-md text-center shadow-2xl space-y-4">
+      <div className="min-h-screen bg-bg-dark text-[#F8FAFC] flex flex-col items-center justify-center p-4 font-sans">
+        <div className="bg-bg-card border border-border-base rounded-3xl p-8 max-w-md text-center shadow-2xl space-y-4">
           <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto">
             <XCircle size={32} />
           </div>
@@ -88,7 +88,7 @@ export default function PublicStatusPage() {
           </div>
           <a
             href="/"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#17202C] hover:bg-[#1E293B] border border-[#1E293B] text-xs text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-bg-card-hover hover:bg-bg-card-hover border border-border-base text-xs text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
           >
             Volver al Inicio
           </a>
@@ -129,9 +129,9 @@ export default function PublicStatusPage() {
   };
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-[#090D11] text-[#F8FAFC] font-sans selection:bg-emerald-500 selection:text-black">
+    <div className="h-full w-full overflow-y-auto bg-bg-dark text-[#F8FAFC] font-sans selection:bg-emerald-500 selection:text-black">
       {/* 1. Header Navigation Bar */}
-      <header className="border-b border-[#1E293B]/80 bg-[#111720]/80 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-border-base/80 bg-bg-card backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Logo & Company Title */}
           <div className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export default function PublicStatusPage() {
               <img
                 src={statusData.logo_url}
                 alt={statusData.company_name}
-                className="h-9 w-auto max-w-[140px] rounded-xl object-contain border border-[#1E293B] bg-[#090D11] p-1"
+                className="h-9 w-auto max-w-[140px] rounded-xl object-contain border border-border-base bg-bg-dark p-1"
               />
             ) : (
               <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-sm">
@@ -164,7 +164,7 @@ export default function PublicStatusPage() {
                 href={statusData.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#090D11] border border-[#1E293B] text-[11px] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-dark border border-border-base text-[11px] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
                 title="Visitar sitio oficial"
               >
                 <span>Sitio Oficial</span>
@@ -175,7 +175,7 @@ export default function PublicStatusPage() {
             {statusData.support_email && (
               <a
                 href={`mailto:${statusData.support_email}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#090D11] border border-[#1E293B] text-[11px] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-dark border border-border-base text-[11px] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
                 title="Contactar soporte técnico"
               >
                 <Mail size={12} />
@@ -264,7 +264,7 @@ export default function PublicStatusPage() {
             </div>
           </div>
 
-          <div className="text-right text-xs text-[#64748B] sm:border-l sm:border-[#1E293B] sm:pl-6">
+          <div className="text-right text-xs text-[#64748B] sm:border-l sm:border-border-base sm:pl-6">
             <span>Última consulta:</span>
             <div className="text-[#F8FAFC] font-mono font-bold mt-0.5 text-xs">
               {new Date(statusData.updated_at).toLocaleTimeString('es-ES', {
@@ -279,7 +279,7 @@ export default function PublicStatusPage() {
         {/* High-Level KPI Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* KPI 1: Uptime 90d */}
-          <div className="bg-[#111720]/90 border border-[#1E293B] rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <ShieldCheck size={18} />
             </div>
@@ -292,7 +292,7 @@ export default function PublicStatusPage() {
           </div>
 
           {/* KPI 2: Global Latency 24h */}
-          <div className="bg-[#111720]/90 border border-[#1E293B] rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
               <Clock size={18} />
             </div>
@@ -305,7 +305,7 @@ export default function PublicStatusPage() {
           </div>
 
           {/* KPI 3: Operational Services */}
-          <div className="bg-[#111720]/90 border border-[#1E293B] rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
               <Activity size={18} />
             </div>
@@ -318,7 +318,7 @@ export default function PublicStatusPage() {
           </div>
 
           {/* KPI 4: Maintenances */}
-          <div className="bg-[#111720]/90 border border-[#1E293B] rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
+          <div className="bg-bg-card border border-border-base rounded-2xl p-4 flex items-center gap-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
               <Calendar size={18} />
             </div>
@@ -333,8 +333,8 @@ export default function PublicStatusPage() {
 
         {/* Active Incidents Section */}
         {statusData.active_incidents && statusData.active_incidents.length > 0 && (
-          <div className="bg-[#111720] border border-rose-500/40 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+          <div className="bg-bg-card border border-rose-500/40 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border-base pb-3">
               <h3 className="text-base font-bold text-rose-400 flex items-center gap-2">
                 <AlertTriangle size={18} />
                 Incidentes Operativos en Curso ({statusData.active_incidents.length})
@@ -348,13 +348,13 @@ export default function PublicStatusPage() {
               {statusData.active_incidents.map((inc: any) => (
                 <div
                   key={inc.id}
-                  className="bg-[#090D11] border border-[#1E293B] rounded-2xl p-4 space-y-2"
+                  className="bg-bg-dark border border-border-base rounded-2xl p-4 space-y-2"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h4 className="font-bold text-[#F8FAFC] text-sm">{inc.title}</h4>
                       {inc.impacted_service && (
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-[#111720] text-[10px] text-[#94A3B8] border border-[#1E293B] mt-1">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-bg-card text-[10px] text-[#94A3B8] border border-border-base mt-1">
                           Servicio: {inc.impacted_service}
                         </span>
                       )}
@@ -366,7 +366,7 @@ export default function PublicStatusPage() {
                     {inc.description || 'El equipo de operaciones está conteniendo la incidencia.'}
                   </p>
 
-                  <div className="text-[10px] font-mono text-[#64748B] pt-2 border-t border-[#1E293B]/60">
+                  <div className="text-[10px] font-mono text-[#64748B] pt-2 border-t border-border-base/60">
                     Reportado: {new Date(inc.opened_at).toLocaleString('es-ES')}
                   </div>
                 </div>
@@ -377,8 +377,8 @@ export default function PublicStatusPage() {
 
         {/* Scheduled Maintenances Section */}
         {statusData.maintenances && statusData.maintenances.length > 0 && (
-          <div className="bg-[#111720] border border-amber-500/40 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+          <div className="bg-bg-card border border-amber-500/40 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border-base pb-3">
               <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">
                 <Calendar size={18} />
                 Ventanas de Mantenimiento Programadas ({statusData.maintenances.length})
@@ -390,7 +390,7 @@ export default function PublicStatusPage() {
               {statusData.maintenances.map((m: ScheduledMaintenanceItem) => (
                 <div
                   key={m.id}
-                  className="bg-[#090D11] border border-[#1E293B] rounded-2xl p-4 space-y-3"
+                  className="bg-bg-dark border border-border-base rounded-2xl p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="font-bold text-[#F8FAFC] text-sm">{m.title}</h4>
@@ -409,7 +409,7 @@ export default function PublicStatusPage() {
                     <p className="text-xs text-[#94A3B8] leading-relaxed">{m.description}</p>
                   )}
 
-                  <div className="flex items-center gap-4 text-[11px] font-mono text-[#64748B] pt-2 border-t border-[#1E293B]/60 flex-wrap">
+                  <div className="flex items-center gap-4 text-[11px] font-mono text-[#64748B] pt-2 border-t border-border-base/60 flex-wrap">
                     <span>
                       Inicio:{' '}
                       <strong className="text-[#F8FAFC]">
@@ -427,7 +427,7 @@ export default function PublicStatusPage() {
 
                   {/* Nested Live Updates */}
                   {m.updates && m.updates.length > 0 && (
-                    <div className="pt-2 border-t border-[#1E293B]/40 space-y-2">
+                    <div className="pt-2 border-t border-border-base/40 space-y-2">
                       <span className="text-[10px] uppercase tracking-wider font-semibold text-[#64748B] block">
                         Bitácora de Avance en Vivo:
                       </span>
@@ -435,7 +435,7 @@ export default function PublicStatusPage() {
                         {m.updates.map((up: any) => (
                           <div
                             key={up.id}
-                            className="bg-[#111720]/80 rounded-xl p-2.5 border border-[#1E293B]/60 text-xs"
+                            className="bg-bg-card rounded-xl p-2.5 border border-border-base/60 text-xs"
                           >
                             <div className="flex items-center justify-between text-[10px] text-[#64748B] font-mono mb-0.5">
                               <span className="text-purple-400 font-semibold uppercase">
@@ -458,8 +458,8 @@ export default function PublicStatusPage() {
         )}
 
         {/* Services Grouped by Category */}
-        <div className="bg-[#111720] border border-[#1E293B] rounded-3xl p-6 shadow-xl space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#1E293B] pb-4">
+        <div className="bg-bg-card border border-border-base rounded-3xl p-6 shadow-xl space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-base pb-4">
             <div>
               <h3 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2">
                 <Layers size={18} className="text-emerald-400" />
@@ -478,13 +478,13 @@ export default function PublicStatusPage() {
                 placeholder="Buscar servicio..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#090D11] border border-[#1E293B] rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-emerald-500 font-sans"
+                className="w-full bg-bg-dark border border-border-base rounded-xl pl-9 pr-3 py-1.5 text-xs text-[#F8FAFC] placeholder:text-[#64748B] focus:outline-none focus:border-emerald-500 font-sans"
               />
             </div>
           </div>
 
           {/* Color Legend */}
-          <div className="flex flex-wrap items-center gap-4 bg-[#090D11] p-3 rounded-2xl border border-[#1E293B] text-xs font-mono text-[#94A3B8]">
+          <div className="flex flex-wrap items-center gap-4 bg-bg-dark p-3 rounded-2xl border border-border-base text-xs font-mono text-[#94A3B8]">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> Operacional (&ge;99%)
             </span>
@@ -506,13 +506,13 @@ export default function PublicStatusPage() {
                 return (
                   <div
                     key={category}
-                    className="border border-[#1E293B] rounded-2xl overflow-hidden bg-[#090D11]/50"
+                    className="border border-border-base rounded-2xl overflow-hidden bg-bg-dark/50"
                   >
                     {/* Category Header */}
                     <button
                       type="button"
                       onClick={() => toggleCategory(category)}
-                      className="w-full bg-[#090D11] px-5 py-3.5 flex items-center justify-between border-b border-[#1E293B]/70 text-left hover:bg-[#17202C]/40 transition-colors cursor-pointer"
+                      className="w-full bg-bg-dark px-5 py-3.5 flex items-center justify-between border-b border-border-base/70 text-left hover:bg-bg-card-hover/40 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="font-bold text-[#F8FAFC] text-sm">{category}</span>
@@ -529,7 +529,7 @@ export default function PublicStatusPage() {
 
                     {/* Category Services */}
                     {!isCollapsed && (
-                      <div className="p-5 space-y-6 divide-y divide-[#1E293B]/50">
+                      <div className="p-5 space-y-6 divide-y divide-border-base/50">
                         {servicesList.map((service) => (
                           <div key={service.id} className="pt-6 first:pt-0 space-y-3">
                             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -586,8 +586,8 @@ export default function PublicStatusPage() {
 
         {/* Past Resolved Incidents History (Last 30 Days) */}
         {statusData.past_incidents && statusData.past_incidents.length > 0 && (
-          <div className="bg-[#111720] border border-[#1E293B] rounded-3xl p-6 shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2 border-b border-[#1E293B] pb-3">
+          <div className="bg-bg-card border border-border-base rounded-3xl p-6 shadow-xl space-y-4">
+            <h3 className="text-base font-bold text-[#F8FAFC] flex items-center gap-2 border-b border-border-base pb-3">
               <History size={18} className="text-sky-400" />
               Historial de Incidentes Resueltos (Últimos 30 días)
             </h3>
@@ -595,7 +595,7 @@ export default function PublicStatusPage() {
               {statusData.past_incidents.map((pInc: any) => (
                 <div
                   key={pInc.id}
-                  className="bg-[#090D11] border border-[#1E293B] rounded-2xl p-4 space-y-1.5"
+                  className="bg-bg-dark border border-border-base rounded-2xl p-4 space-y-1.5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-bold text-[#F8FAFC] text-sm">{pInc.title}</h4>
@@ -611,7 +611,7 @@ export default function PublicStatusPage() {
                   <p className="text-xs text-[#94A3B8] leading-relaxed">
                     {pInc.description || 'Incidente resuelto satisfactoriamente.'}
                   </p>
-                  <div className="flex items-center justify-between text-[10px] text-[#64748B] border-t border-[#1E293B]/60 pt-2 font-mono">
+                  <div className="flex items-center justify-between text-[10px] text-[#64748B] border-t border-border-base/60 pt-2 font-mono">
                     <span>Abierto: {new Date(pInc.opened_at).toLocaleDateString('es-ES')}</span>
                     {pInc.closed_at && (
                       <span>Resuelto: {new Date(pInc.closed_at).toLocaleDateString('es-ES')}</span>
@@ -625,7 +625,7 @@ export default function PublicStatusPage() {
       </main>
 
       {/* 3. Public Footer */}
-      <footer className="border-t border-[#1E293B] py-8 mt-12 bg-[#090D11] text-center text-xs font-mono text-[#64748B] space-y-2">
+      <footer className="border-t border-border-base py-8 mt-12 bg-bg-dark text-center text-xs font-mono text-[#64748B] space-y-2">
         <p>
           Powered by <strong className="text-[#F8FAFC]">Sentinel Observability</strong> &bull; Monitorización continua
         </p>

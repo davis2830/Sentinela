@@ -2,6 +2,7 @@ from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
 from common.subscriptions import OperationalAPIView as APIView
+from common.diagnostics import ConfigurationDiagnosticAPIView
 
 from common.responses import error_response, queued_scan_response, success_response
 
@@ -205,7 +206,7 @@ class SSLBulkScanView(APIView):
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class SSLTestConnectionView(APIView):
+class SSLTestConnectionView(ConfigurationDiagnosticAPIView):
     """Endpoint to test SSL connection in real-time before saving.
 
     POST /api/v1/ssl-certificates/test-connection/
@@ -213,7 +214,7 @@ class SSLTestConnectionView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    def perform_diagnostic(self, request):
         domain = request.data.get("domain", "").strip()
         port = request.data.get("port", 443)
         if not domain:

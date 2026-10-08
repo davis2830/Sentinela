@@ -1,4 +1,5 @@
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import AdminButton from '../components/common/AdminButton';
 import { useAuthStore } from '../store/authStore';
 import ReloadDataButton from '../components/common/ReloadDataButton';
@@ -65,6 +66,7 @@ import {
 
 export default function StatusPageAdmin() {
   const organizationId = useAuthStore(state => state.user?.organization?.id);
+  const autoRefresh = useAutoRefresh({ intervalSeconds: 30, scopeKey: 'management' });
 
   const queryClient = useQueryClient();
 
@@ -108,6 +110,7 @@ export default function StatusPageAdmin() {
   // Multi-Status Pages Query
   const { data: pages = [], isLoading: isLoadingPages, isError: isPagesError } = useQuery<StatusPageSummaryItem[]>({
     queryKey: ['status-page-pages', organizationId],
+    refetchInterval: autoRefresh.refetchInterval,
     queryFn: async () => {
       const response = await api.get('status-page/pages/');
       return (response.data?.data || []) as StatusPageSummaryItem[];
@@ -168,7 +171,7 @@ export default function StatusPageAdmin() {
       });
       return response.data?.data as StatusPageAdminStats;
     },
-    refetchInterval: 15000,
+    refetchInterval: autoRefresh.refetchInterval,
     enabled: pages.length > 0 && !!activePageId,
   });
 
@@ -184,6 +187,7 @@ export default function StatusPageAdmin() {
   // 4. Maintenances List Query
   const { data: maintenances = [], isLoading: isLoadingMaint } = useQuery<ScheduledMaintenanceItem[]>({
     queryKey: ['status-page-maintenances', organizationId, activePageId],
+    refetchInterval: autoRefresh.refetchInterval,
     queryFn: async () => {
       const response = await api.get('status-page/maintenances/', {
         params: activePageId ? { page_id: activePageId } : {},
@@ -196,6 +200,7 @@ export default function StatusPageAdmin() {
   // 5. Subscribers List Query
   const { data: subscribers = [] } = useQuery<StatusPageSubscriberItem[]>({
     queryKey: ['status-page-subscribers', organizationId, activePageId],
+    refetchInterval: autoRefresh.refetchInterval,
     queryFn: async () => {
       const response = await api.get('status-page/subscribers/', {
         params: activePageId ? { page_id: activePageId } : {},
@@ -442,7 +447,7 @@ export default function StatusPageAdmin() {
   return (
     <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader queryKeys={["status-page-pages","status-page-config","status-page-stats","status-page-maintenances","status-page-subscribers","status-page-available-targets"]}
+      <NOCPageHeader autoRefresh={{enabled:autoRefresh.enabled,countdown:autoRefresh.countdown,onToggle:autoRefresh.toggle}} queryKeys={["status-page-pages","status-page-stats","status-page-maintenances","status-page-subscribers"]}
         title="Administración de Status Page"
         badgeText="ESTADO PÚBLICO"
         description="Portales de transparencia multi-empresa, publicación de componentes, mantenimientos y suscriptores."

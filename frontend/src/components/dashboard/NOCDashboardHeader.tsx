@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Clock3, Pause, Radio, RefreshCw } from 'lucide-react';
+import { Bell, Clock3, RefreshCw } from 'lucide-react';
 import { formatTime } from '../../utils/date';
 import type { FreshnessState } from '../../utils/dashboardFreshness';
+import AutomaticRefreshControl from '../common/AutomaticRefreshControl';
+import DataConsultationAge from '../common/DataConsultationAge';
 
 interface Props {
   onRefreshAll: () => void;
@@ -12,11 +14,12 @@ interface Props {
   onTimeRangeChange: (range: Props['timeRange']) => void;
   hasTelemetryError: boolean;
   lastSampleAt: string | null;
+  lastConsultedAt: number;
   freshnessState: FreshnessState;
-  autoRefresh: { enabled: boolean; countdown: number; toggle: () => void };
+  autoRefresh: { enabled: boolean; countdown: number; toggle: () => void; ready?: boolean; blockedReason?: string };
 }
 
-function NOCDashboardHeader({ onRefreshAll, isRefreshing, activeAlertsCount, timeRange, onTimeRangeChange, hasTelemetryError, lastSampleAt, freshnessState, autoRefresh }: Props) {
+function NOCDashboardHeader({ onRefreshAll, isRefreshing, activeAlertsCount, timeRange, onTimeRangeChange, hasTelemetryError, lastSampleAt, lastConsultedAt, freshnessState, autoRefresh }: Props) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(() => formatTime(new Date()));
   useEffect(() => {
@@ -34,15 +37,14 @@ function NOCDashboardHeader({ onRefreshAll, isRefreshing, activeAlertsCount, tim
         <span role="status" className={`flex items-center gap-1.5 ${statusColor}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{status}</span>
         <span title={lastSampleAt ? new Date(lastSampleAt).toLocaleString('es-GT') : undefined}>{lastSampleAt ? `Última señal ${new Date(lastSampleAt).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}` : 'Esperando primera señal'}</span>
         <span className="hidden items-center gap-1.5 xl:inline-flex"><Clock3 size={11} />{currentTime}</span>
+        <DataConsultationAge updatedAt={lastConsultedAt} />
       </div>
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex rounded-lg border border-border-base bg-bg-card/60 p-0.5" aria-label="Período de telemetría">
+      <div className="flex rounded-lg border border-border-base bg-bg-card p-0.5" aria-label="Período de telemetría">
         {(['1h', '6h', '24h', '7d'] as const).map((range) => <button key={range} type="button" aria-pressed={timeRange === range} onClick={() => onTimeRangeChange(range)} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${timeRange === range ? 'bg-accent-green/15 text-accent-green' : 'text-text-muted hover:text-text-main'}`}>{range}</button>)}
       </div>
-      <button type="button" onClick={autoRefresh.toggle} aria-label={autoRefresh.enabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'} aria-pressed={autoRefresh.enabled} title={autoRefresh.enabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'} className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[11px] ${autoRefresh.enabled ? 'text-accent-green' : 'text-text-muted'}`}>
-        {autoRefresh.enabled ? <Radio size={13} /> : <Pause size={13} />}{autoRefresh.enabled ? `${autoRefresh.countdown}s` : 'Pausado'}
-      </button>
+      <AutomaticRefreshControl {...autoRefresh} onToggle={autoRefresh.toggle} />
       <button type="button" onClick={onRefreshAll} disabled={isRefreshing} aria-label="Actualizar datos" title="Consultar resultados guardados sin ejecutar nuevos sondeos" className="inline-flex items-center gap-2 rounded-lg border border-border-base px-3 py-2 text-xs text-text-muted hover:border-border-accent hover:text-text-main disabled:opacity-50"><RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} /><span className="hidden sm:inline">Actualizar</span></button>
       <button type="button" onClick={() => navigate('/alerts')} aria-label={`Ver alertas (${activeAlertsCount})`} className="relative rounded-lg p-2 text-text-muted hover:bg-bg-card hover:text-text-main"><Bell size={16} />{activeAlertsCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-accent-red px-1 text-[9px] text-white">{activeAlertsCount}</span>}</button>
     </div>

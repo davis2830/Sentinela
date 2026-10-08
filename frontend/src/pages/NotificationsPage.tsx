@@ -96,9 +96,9 @@ export default function NotificationsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [logStatusFilter, setLogStatusFilter] = useUrlFilter('status', ["all","sent","failed"] as const);
 
-  // Auto-refresh hook (20s countdown)
+  // Shared Management clock; no independent notification timer.
   const autoRefresh = useAutoRefresh({
-    intervalSeconds: 20,
+    scopeKey: 'management', intervalSeconds: 30,
     initialEnabled: true,
   });
 

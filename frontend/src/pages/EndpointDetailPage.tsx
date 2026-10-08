@@ -5,7 +5,7 @@ import { ArrowLeft, ExternalLink, Globe, ShieldCheck, AlertTriangle, Clock } fro
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
-import { formatRefreshCountdown } from '../hooks/useAutoRefresh';
+import AutomaticRefreshControl from '../components/common/AutomaticRefreshControl';
 import ScanAction from '../components/common/ScanAction';
 import ReloadDataButton from '../components/common/ReloadDataButton';
 import LatencyChart from '../components/monitoring/LatencyChart';
@@ -59,7 +59,7 @@ function CoverageEditor({module,section,onSaved,allowed}:{module:CoverageModule;
   </section>;
 }
 
-function ResourceHistory({module,resource,interval}:{module:CoverageModule;resource:CoverageResource;interval:number|false}) {
+function ResourceHistory({module,resource,interval}:{module:CoverageModule;resource:CoverageResource;interval:ReturnType<typeof useConnectivityRefresh>['refetchInterval']}) {
   const org=useAuthStore(s=>s.user?.organization?.id);
   const enabled=module==='dns'||module==='security';
   const query=useQuery<Record<string,unknown>[]>({queryKey:['endpoint-resource-history',org,module,resource.id],queryFn:async()=>{
@@ -131,7 +131,7 @@ export default function EndpointDetailPage() {
     <header className="space-y-3 border-b border-border-base pb-4">
       <Link to={back} className="inline-flex items-center gap-2 text-sm text-text-muted"><ArrowLeft size={16}/>Volver al listado</Link>
       <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><h1 className="flex items-center gap-2 text-xl font-semibold"><Globe size={22} className="text-accent-cyan"/>{target.name}</h1><p className="mt-2 text-sm text-text-muted break-all">{target.endpoint}</p><p className="mt-2 text-xs text-text-muted">{state} · {effectiveInterval==null?'Frecuencia no disponible':`cada ${effectiveInterval>=60?`${effectiveInterval/60} min`:`${effectiveInterval} s`}`} · {target.runner_type==='agent'?`Sentinine: ${target.agent_probe_name||'Agente asignado'}`:'Sentinel Cloud'} · Última medición: {date(target.last_checked_at)}</p></div>
-        <div className="flex flex-wrap items-center gap-3"><button type="button" disabled={!refresh.ready} onClick={refresh.toggle} className="text-xs text-accent-green border border-accent-green/30 rounded-full px-3 py-2" title="Solo consulta datos guardados">{refresh.enabled?`En vivo: ${formatRefreshCountdown(refresh.countdown)}`:'Lectura automática pausada'}</button><ReloadDataButton queryKeys={['endpoint-target','endpoint-coverage','endpoint-timeseries','endpoint-checks','endpoint-resource-history']} scanIntervalSeconds={refresh.intervalSeconds} onReload={refresh.resetCountdown}/></div>
+        <div className="flex flex-wrap items-center gap-3"><AutomaticRefreshControl {...refresh} onToggle={refresh.toggle} /><ReloadDataButton queryKeys={['endpoint-target','endpoint-coverage','endpoint-timeseries','endpoint-checks','endpoint-resource-history']} scanIntervalSeconds={refresh.intervalSeconds}/></div>
       </div>
       <ScanAction route="monitoring" resource={target} pending={pending.has(`monitoring:${target.id}`)} onScan={()=>scan('monitoring',target)}/>
     </header>

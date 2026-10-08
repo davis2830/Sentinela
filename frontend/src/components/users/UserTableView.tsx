@@ -103,7 +103,7 @@ export default function UserTableView({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/60">
+            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
               <th className="py-3 px-3.5 w-10">
                 <button
                   type="button"

@@ -11,10 +11,10 @@ export default {
         // Shared CSS tokens apply to workspaces, navigation and portal dialogs.
         'bg-dark': 'rgb(var(--sentinel-bg-dark, 9 13 17) / <alpha-value>)',
         'bg-main': '#090D11',
-        'bg-card': 'rgb(var(--sentinel-bg-card, 17 23 32) / <alpha-value>)',
-        'bg-card-hover': 'rgb(var(--sentinel-bg-card-hover, 23 32 44) / <alpha-value>)',
-        'border-base': 'rgb(var(--sentinel-border-base, 30 41 59) / <alpha-value>)',
-        'border-accent': 'rgb(var(--sentinel-border-accent, 38 51 69) / <alpha-value>)',
+        'bg-card': 'rgb(var(--sentinel-bg-card, 16 24 32) / <alpha-value>)',
+        'bg-card-hover': 'rgb(var(--sentinel-bg-card-hover, 22 32 43) / <alpha-value>)',
+        'border-base': 'rgb(var(--sentinel-border-base, 38 51 64) / <alpha-value>)',
+        'border-accent': 'rgb(var(--sentinel-border-accent, 64 80 96) / <alpha-value>)',
         
         // Text colors
         'text-main': '#F8FAFC',

@@ -2,6 +2,7 @@ from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
 from common.subscriptions import OperationalAPIView as APIView
+from common.diagnostics import ConfigurationDiagnosticAPIView
 
 from common.responses import error_response, queued_scan_response, success_response
 
@@ -211,7 +212,7 @@ class APICheckBulkScanView(APIView):
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class APICheckTestRequestView(APIView):
+class APICheckTestRequestView(ConfigurationDiagnosticAPIView):
     """Endpoint to test an API endpoint in real time before creating or updating.
 
     POST /api/v1/api-checks/test-request/
@@ -219,7 +220,7 @@ class APICheckTestRequestView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    def perform_diagnostic(self, request):
         url = request.data.get("url", "").strip()
         if not url:
             return error_response(

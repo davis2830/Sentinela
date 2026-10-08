@@ -311,7 +311,7 @@ export default function Sidebar() {
                                   `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     isActive
                                       ? 'bg-bg-card text-accent-green font-semibold border-l-2 border-accent-green'
-                                      : 'text-text-muted hover:bg-bg-card/70 hover:text-text-main'
+                                      : 'text-text-muted hover:bg-bg-card-hover hover:text-text-main'
                                   }`
                                 }
                               >
@@ -385,7 +385,7 @@ export default function Sidebar() {
                                   `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     isActive
                                       ? 'bg-bg-card text-accent-green font-semibold border-l-2 border-accent-green'
-                                      : 'text-text-muted hover:bg-bg-card/70 hover:text-text-main'
+                                      : 'text-text-muted hover:bg-bg-card-hover hover:text-text-main'
                                   }`
                                 }
                               >

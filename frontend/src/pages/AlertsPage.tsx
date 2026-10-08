@@ -111,9 +111,9 @@ export default function AlertsPage() {
     type: 'success' | 'info' | 'error';
   } | null>(null);
 
-  // Auto-refresh hook (15s countdown)
+  // Shared area clock; only stored data is consulted.
   const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
+    scopeKey: 'management', intervalSeconds: 30,
     initialEnabled: true,
   });
 
@@ -677,7 +677,7 @@ export default function AlertsPage() {
 
       {/* 4. SUB-ACTIONS BAR FOR ALERTS */}
       {activeTab === 'alerts' && (
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-bg-card/95 border border-border-base/70 p-3.5 rounded-2xl shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-bg-card border border-border-base/70 p-3.5 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 flex-wrap text-xs">
             {/* Multi-select all checkbox */}
             {filteredAlerts.length > 0 && (
@@ -858,7 +858,7 @@ export default function AlertsPage() {
                   <div
                     key={alert.id}
                     onClick={() => setSelectedAlert(alert)}
-                    className={`bg-bg-card/95 border rounded-2xl p-4 sm:p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm cursor-pointer group ${
+                    className={`bg-bg-card border rounded-2xl p-4 sm:p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm cursor-pointer group ${
                       isSelected
                         ? 'border-accent-green/60 bg-accent-green/5'
                         : alert.is_flapping
@@ -1142,7 +1142,7 @@ export default function AlertsPage() {
                 return (
                   <div
                     key={rule.id}
-                    className="bg-bg-card/95 border border-border-base/70 rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between group shadow-sm"
+                    className="bg-bg-card border border-border-base/70 rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between group shadow-sm"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-3">
@@ -1437,7 +1437,7 @@ export default function AlertsPage() {
                     {Object.entries(selectedAlert.metadata).map(([key, val]) => (
                       <div
                         key={key}
-                        className="bg-bg-card/70 border border-border-base/40 rounded-xl p-2.5"
+                        className="bg-bg-card border border-border-base/40 rounded-xl p-2.5"
                       >
                         <span className="text-text-dim block text-[10px] uppercase truncate">
                           {key.replace(/_/g, ' ')}

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Radio, Pause } from 'lucide-react';
+import AutomaticRefreshControl from '../AutomaticRefreshControl';
 import ReloadDataButton from '../ReloadDataButton';
-import { formatRefreshCountdown } from '../../../hooks/useAutoRefresh';
+
 
 export interface NOCPageHeaderProps {
   title: string;
@@ -13,8 +13,8 @@ export interface NOCPageHeaderProps {
     countdown: number;
     onToggle: () => void;
     intervalSeconds?: number;
-    resetCountdown?: () => void;
     ready?: boolean;
+    blockedReason?: string;
   };
   actions?: React.ReactNode;
   queryKeys?: string[];
@@ -51,31 +51,9 @@ export default function NOCPageHeader({
       </div>
 
       <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-        {autoRefresh && (
-          <button
-            type="button"
-            onClick={autoRefresh.onToggle}
-            aria-label={autoRefresh.enabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'}
-            disabled={autoRefresh.ready === false}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium transition-colors ${
-              autoRefresh.enabled
-                ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
-                : 'bg-bg-dark/80 border-border-base/80 text-text-dim'
-            }`}
-            title="Recarga automática de datos guardados, no ejecuta sondeos. La frecuencia sigue el plan."
-          >
-            {autoRefresh.enabled ? (
-              <Radio size={13} className="animate-pulse text-accent-green" />
-            ) : (
-              <Pause size={13} />
-            )}
-            <span>
-              {autoRefresh.ready === false ? 'Frecuencia no disponible' : autoRefresh.enabled ? `En vivo: ${formatRefreshCountdown(autoRefresh.countdown)}` : 'Pausado'}
-            </span>
-          </button>
-        )}
+        {autoRefresh && <AutomaticRefreshControl {...autoRefresh} />}
 
-        {queryKeys && <ReloadDataButton queryKeys={queryKeys} scanIntervalSeconds={autoRefresh?.ready === false ? undefined : autoRefresh?.intervalSeconds} onReload={autoRefresh?.resetCountdown} />}
+        {queryKeys && <ReloadDataButton queryKeys={queryKeys} scanIntervalSeconds={autoRefresh?.ready === false ? undefined : autoRefresh?.intervalSeconds} />}
         {actions}
       </div>
     </div>

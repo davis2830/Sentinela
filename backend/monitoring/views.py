@@ -2,6 +2,7 @@ from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
 from common.subscriptions import OperationalAPIView as APIView
+from common.diagnostics import ConfigurationDiagnosticAPIView
 
 from common.client_ip import get_client_ip
 from common.responses import error_response, queued_scan_response, success_response
@@ -548,11 +549,11 @@ import socket
 import time
 
 
-class TestConnectionView(APIView):
+class TestConnectionView(ConfigurationDiagnosticAPIView):
     """Diagnose and test target connection on the fly without persistence."""
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    def perform_diagnostic(self, request):
         endpoint = request.data.get("endpoint", "").strip()
         target_type = request.data.get("target_type", "http").lower()
         http_method = request.data.get("http_method", "GET").upper()

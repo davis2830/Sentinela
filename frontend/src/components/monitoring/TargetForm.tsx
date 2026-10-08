@@ -1,3 +1,5 @@
+import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
+import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -229,6 +231,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [requestBody, setRequestBody] = useState(target?.request_body || '');
 
   // Live test diagnostic state
+  const diagnostic = useConfigurationDiagnostic();
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{
     status: string;
@@ -363,7 +366,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
         }
       }
 
-      const res = await api.post('/monitoring/test-connection/', {
+      const res = await diagnostic.run('/monitoring/test-connection/', {
         endpoint: targetEndpoint,
         target_type: targetType,
         http_method: httpMethod,
@@ -375,6 +378,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
       setTestResult(res.data?.data || null);
     } catch (err: any) {
+      if (diagnostic.isLimit(err)) return;
       setTestResult({
         status: 'down',
         message: err.response?.data?.message || 'Error al contactar el servidor de diagnóstico.',
@@ -459,9 +463,9 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-7 py-5 border-b border-border-base/60 bg-bg-card/95 backdrop-blur flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-accent-green/10 border border-accent-green/25 flex items-center justify-center shadow-inner">
+        <div className="px-7 py-5 border-b border-border-base/60 bg-bg-card backdrop-blur flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 basis-full sm:basis-auto sm:flex-1 items-center gap-3.5">
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-accent-green/10 border border-accent-green/25 flex items-center justify-center shadow-inner">
               <Activity className="text-accent-green" size={22} />
             </div>
             <div>
@@ -474,7 +478,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="ml-auto flex shrink-0 items-center gap-2.5">
             {/* Clean Templates Dropdown in Header */}
             {!target && (
               <div className="relative" ref={templatesRef}>
@@ -495,7 +499,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </button>
 
                 {showTemplates && (
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-bg-card/95 backdrop-blur-md border border-border-base/80 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-bg-card backdrop-blur-md border border-border-base/80 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-3 py-1.5 text-xs font-semibold text-text-dim">
                       Plantillas Preconfiguradas
                     </div>
@@ -616,7 +620,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               }`}
             >
               <Activity size={14} />
-              {isHttpType ? '3. Diagnóstico en Vivo' : '2. Diagnóstico en Vivo'}
+              {isHttpType ? '3. Prueba' : '2. Prueba'}
             </button>
           </div>
         </div>
@@ -1197,7 +1201,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-text-main flex items-center gap-2">
-                      <Play size={14} className="text-accent-green" /> Diagnóstico de Conexión en Vivo
+                      <Play size={14} className="text-accent-green" /> Prueba de configuración
                     </h3>
                     <p className="text-xs text-text-muted mt-0.5">
                       Verifica que el endpoint responda adecuadamente antes de darlo de alta en el sistema.
@@ -1210,9 +1214,10 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     className="px-4 py-2 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all flex items-center gap-2 disabled:opacity-50 shadow-md shadow-accent-green/10"
                   >
                     {testingConnection ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} />}
-                    {testingConnection ? 'Probando...' : 'Ejecutar Test Ahora'}
+                    {testingConnection ? 'Probando...' : 'Probar configuración'}
                   </button>
                 </div>
+                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
 
                 <div className="text-xs bg-bg-dark/80 p-3.5 rounded-xl border border-border-base/60 space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -1277,12 +1282,12 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleTestConnection}
+                onClick={() => setActiveTab('diagnostic')}
                 disabled={testingConnection}
                 className="px-4 py-2 border border-accent-green/40 bg-accent-green/10 text-accent-green text-xs font-semibold rounded-full hover:bg-accent-green/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
               >
                 {testingConnection ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} />}
-                Test Rápido
+                Probar configuración
               </button>
             </div>
 

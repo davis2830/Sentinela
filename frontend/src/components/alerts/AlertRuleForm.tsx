@@ -448,7 +448,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                     {simulateResult.matching_targets.map((mt, i) => (
                       <div
                         key={i}
-                        className="p-2 bg-bg-card/70 border border-border-base/40 rounded-lg flex items-center justify-between gap-2"
+                        className="p-2 bg-bg-card border border-border-base/40 rounded-lg flex items-center justify-between gap-2"
                       >
                         <span className="font-bold text-text-main truncate">{mt.name}</span>
                         <span className="text-amber-400 shrink-0 font-semibold">{mt.current_value}</span>

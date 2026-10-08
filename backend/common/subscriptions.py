@@ -66,35 +66,13 @@ class OperationalAPIView(APIView):
             org = request.user.organization
             if org.beta_managed and org.plan_tier == "free" and request.method == "POST":
                 from accounts.beta import consume_budget
-                if '/test-' in request.path:
-                    consume_budget("beta-diagnostics", str(org.pk), 20, 86400)
-                elif request.path.rstrip('/').rsplit('/', 1)[-1] in (
+                if request.path.rstrip('/').rsplit('/', 1)[-1] in (
                     "monitoring", "api-checks", "ssl-certificates", "dns-records", "domains", "security-headers"
                 ):
                     consume_budget("beta-resource-creation", str(org.pk), 10, 86400)
-            # Live diagnostics are real outbound scans too. One shared allowance
-            # per organization prevents bypassing cadence by changing test URLs.
-            if request.method == 'POST' and '/test-' in request.path:
-                from types import SimpleNamespace
-                from common.scan_limits import reserve, start
-                resource = SimpleNamespace(
-                    organization=request.user.organization, organization_id=request.user.organization_id,
-                    pk='diagnostic', _meta=SimpleNamespace(label_lower='common.diagnostic'),
-                    refresh_from_db=lambda: None,
-                )
-                token = reserve(resource)
-                if start(resource, token):
-                    self.diagnostic_reservation = (resource, token)
 
     def handle_exception(self, exc):
         from common.scan_limits import ScanLimited, limited_response
         if isinstance(exc, ScanLimited):
             return limited_response(exc)
         return super().handle_exception(exc)
-
-    def finalize_response(self, request, response, *args, **kwargs):
-        reservation = getattr(self, 'diagnostic_reservation', None)
-        if reservation:
-            from common.scan_limits import finish
-            finish(*reservation)
-        return super().finalize_response(request, response, *args, **kwargs)

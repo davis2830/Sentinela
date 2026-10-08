@@ -17,7 +17,7 @@ import QuickStartWizardModal from '../components/onboarding/QuickStartWizardModa
 import TrialStatusBanner from '../components/common/TrialStatusBanner';
 import TwoFactorReminderBanner from '../components/common/TwoFactorReminderBanner';
 import { NOCDrawer } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
 import { latestTimestamp, scheduledFreshness } from '../utils/dashboardFreshness';
 import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import { useAuthStore } from '../store/authStore';
@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const canManage = Boolean(user?.is_staff);
-  const autoRefresh = useAutoRefresh({ intervalSeconds: 30 });
+  const autoRefresh = useConnectivityRefresh();
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   const [filters, setFilters] = useState<DashboardFilterState>({ view: 'attention', health: null, module: null });
   const [selectedItem, setSelectedItem] = useState<DashboardAttentionItem | null>(null);
@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
   const queryOptions = { refetchInterval: autoRefresh.refetchInterval };
   const monitoringQuery = useQuery<MonitoringTarget[]>({ queryKey: ['dash-monitoring', user?.organization?.id], queryFn: async () => listFromResponse<MonitoringTarget>(await api.get('monitoring/')), ...queryOptions });
-  const subscriptionQuery = useQuery({ queryKey: ['subscription-summary', user?.organization?.id], queryFn: async () => (await api.get('organizations/current/subscription/')).data?.data, ...queryOptions });
+  const subscriptionQuery = autoRefresh.subscriptionQuery;
   const onboardingKey = `sentinel_onboarding:${user?.id}`;
   const canSetup = canManage && subscriptionQuery.isSuccess && subscriptionQuery.data?.monitoring_allowed === true;
   useEffect(() => {
@@ -161,11 +161,11 @@ export default function DashboardPage() {
 
   const refetchAll = useCallback(async () => {
     setIsRefreshing(true);
-    const results = await Promise.all(queryList.map((query) => query.refetch()));
+    const results = await Promise.all([...queryList, subscriptionQuery].map((query) => query.refetch()));
     const failed = results.some((result) => result.isError);
-    notify(failed ? 'Actualización parcial: uno o más módulos no respondieron.' : 'Telemetría actualizada correctamente.', failed ? 'error' : 'success');
+    notify(failed ? 'Actualización parcial: uno o más módulos no respondieron.' : 'Datos guardados consultados; no se ejecutaron sondeos.', failed ? 'error' : 'success');
     setIsRefreshing(false);
-  }, [queryList, notify]);
+  }, [queryList, subscriptionQuery, notify]);
 
   const scanMutation = useMutation({
     mutationFn: async (item: DashboardAttentionItem) => {
@@ -195,7 +195,7 @@ export default function DashboardPage() {
   const openModule = (path: string) => navigate(path);
 
   return <div className="space-y-3 pb-6" data-testid="dashboard-page">
-    <NOCDashboardHeader onRefreshAll={refetchAll} isRefreshing={isRefreshing} activeAlertsCount={source.alerts.length} timeRange={timeRange} onTimeRangeChange={setTimeRange} hasTelemetryError={hasTelemetryError} lastSampleAt={lastSampleAt} freshnessState={headerFreshness.state} autoRefresh={autoRefresh} />
+    <NOCDashboardHeader lastConsultedAt={Math.max(0, ...queryList.map(query => query.dataUpdatedAt))} onRefreshAll={refetchAll} isRefreshing={isRefreshing} activeAlertsCount={source.alerts.length} timeRange={timeRange} onTimeRangeChange={setTimeRange} hasTelemetryError={hasTelemetryError} lastSampleAt={lastSampleAt} freshnessState={headerFreshness.state} autoRefresh={autoRefresh} />
 
     {notification && <div role="status" className={`fixed right-5 top-5 z-[70] flex max-w-sm items-center gap-3 rounded-xl border px-4 py-3 shadow-2xl ${notification.type === 'success' ? 'border-accent-green/40 bg-bg-card text-accent-green' : notification.type === 'error' ? 'border-accent-red/40 bg-bg-card text-accent-red' : 'border-accent-blue/40 bg-bg-card text-accent-blue'}`}>{notification.type === 'success' ? <CheckCircle2 size={16} /> : notification.type === 'error' ? <AlertTriangle size={16} /> : <Info size={16} />}<span className="text-xs text-text-main">{notification.message}</span><button type="button" onClick={() => setNotification(null)}><X size={14} /></button></div>}
 
@@ -204,7 +204,7 @@ export default function DashboardPage() {
 
     {canSetup && !isStateLoading && operationalItems.length === 0 && !hasTelemetryError && <div className="rounded-2xl border border-accent-green/30 bg-gradient-to-r from-accent-green/10 to-bg-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-green"><Sparkles size={12} />Primeros pasos</span><h3 className="mt-1 text-lg font-bold text-text-main">Activa la observabilidad de tu infraestructura</h3><p className="mt-1 text-xs text-text-muted">Agrega un sitio, API o servicio para comenzar a recibir estado operativo.</p></div><button type="button" onClick={() => setShowQuickStartWizard(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-green px-5 py-2.5 text-xs font-bold text-black"><Rocket size={16} />Crear primer monitor</button></div>}
 
-    <NOCExecutiveKpis healthScore={healthScore} totalTargets={operationalItems.length} healthyTargets={healthCounts.healthy} downTargets={healthCounts.down} unknownTargets={healthCounts.unknown} availability={performanceQuery.data?.summary.avg_uptime ?? null} avgLatencyMs={performanceQuery.data?.summary.avg_latency ?? null} attentionCount={attentionItems.length} criticalAttentionCount={criticalCount} activeIncidentsCount={source.incidents.length} telemetryPoints={performanceQuery.data?.points} isLoading={isStateLoading} />
+    <NOCExecutiveKpis healthScore={healthScore} totalTargets={operationalItems.length} healthyTargets={healthCounts.healthy} degradedTargets={healthCounts.degraded} downTargets={healthCounts.down} unknownTargets={healthCounts.unknown} availability={performanceQuery.data?.summary.avg_uptime ?? null} avgLatencyMs={performanceQuery.data?.summary.avg_latency ?? null} attentionCount={attentionItems.length} criticalAttentionCount={criticalCount} activeIncidentsCount={source.incidents.length} telemetryPoints={performanceQuery.data?.points} isLoading={isStateLoading} />
 
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
       <div className="order-1 xl:order-4 xl:col-span-7 min-w-0"><NOCOperationalInbox items={visibleItems} total={visibleItems.length} filters={filters} loading={isStateLoading} partialError={hasTelemetryError} canManage={canManage} pendingKey={pendingKey} onViewChange={(view) => setFilters((current) => ({ ...current, view }))} onClearHealth={() => setHealthFilter(null)} onClearModule={() => setModuleFilter(null)} onSelect={setSelectedItem} onScan={(item) => scanMutation.mutate(item)} onAcknowledge={(item) => acknowledgeMutation.mutate(item)} onNavigate={openModule} /></div>

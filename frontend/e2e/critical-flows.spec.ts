@@ -141,6 +141,7 @@ test('public Status Page never invents availability or latency when unmeasured',
     active_incidents:[],past_incidents:[],maintenances:[],show_uptime_pct:true,show_latency_24h:true,updated_at:new Date().toISOString(),
   }}}));
   await page.goto('/status/audit-ui');
+  await expect(page.locator('.bg-bg-card').first()).toHaveCSS('background-color','rgb(16, 24, 32)');
   await expect(page.getByText('Información de monitoreo insuficiente')).toBeVisible();
   await expect(page.getByText('Sin mediciones', {exact:true}).first()).toBeVisible();
   await expect(page.getByText('100%', {exact:true})).toHaveCount(0);
@@ -314,8 +315,7 @@ test('desktop charts fit the first viewport with account notices', async ({ page
   await page.screenshot({ path: 'test-results/dashboard-compact-desktop.png' });
   await page.getByRole('button', { name: '1h', exact: true }).click();
   await expect(page.getByRole('button', { name: '1h', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Pausar auto-refresco' }).click();
-  await expect(page.getByRole('button', { name: 'Activar auto-refresco' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Activar auto-refresco' })).toBeDisabled();
 });
 
 test('dashboard filters the attention inbox and opens the unified drawer', async ({ page }) => {
@@ -404,7 +404,7 @@ test('onboarding explains redirects without following the destination', async ({
   await page.route('**/api/v1/monitoring/test-connection/', route => route.fulfill({ json: { data: { status: 'down', status_code: 308, latency_ms: 184, message: 'Código inesperado', redirect_location: 'http://127.0.0.1/private' } } }));
   await login(page, admin);
   await page.getByPlaceholder('https://miempresa.com o api.servicio.cl').fill('https://example.com');
-  await page.getByRole('button', { name: 'Probar en Vivo' }).click();
+  await page.getByRole('button', { name: 'Probar configuración' }).click();
   const dialog = page.getByRole('dialog', { name: 'Inicio guiado' });
   await expect(dialog).toContainText('Esta página te envía a otra dirección');
   await expect(dialog.getByText('HTTP 308.', { exact: false })).not.toBeVisible();
@@ -437,12 +437,12 @@ test('redirect suggestion requires an explicit new test before being verified', 
   });
   await login(page, admin);
   await page.getByPlaceholder('https://miempresa.com o api.servicio.cl').fill('https://example.com/');
-  await page.getByRole('button', { name: 'Probar en Vivo' }).click();
+  await page.getByRole('button', { name: 'Probar configuración' }).click();
   await page.getByRole('button', { name: 'Usar esta dirección', exact: true }).click();
   await expect(page.getByPlaceholder('https://miempresa.com o api.servicio.cl')).toHaveValue('https://www.example.com/');
   expect(tests).toBe(1);
   await expect(page.getByText('Conexión verificada exitosamente', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Probar en Vivo' }).click();
+  await page.getByRole('button', { name: 'Probar configuración' }).click();
   await expect(page.getByText('Conexión verificada exitosamente', { exact: true })).toBeVisible();
   expect(tests).toBe(2);
 });
@@ -493,6 +493,193 @@ test('refresh only reads data and manual scans display the plan cooldown', async
   expect(scanRequests).toBe(1);
 });
 
+test('automatic refresh is discreet and keeps its countdown in the tooltip',async({page})=>{
+  await mockDashboard(page); await login(page,admin);
+  const control=page.getByTestId('automatic-refresh-control');
+  await expect(control).toHaveText('Actualización automática activa');
+  await expect(control).toHaveAttribute('title',/Próxima consulta en/);
+  await expect(page.getByText(/^Datos consultados hace/)).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+});
+
+for(const setup of [
+  {path:'/monitoring',button:'Nuevo Target',placeholder:'https://mi-servicio.com',endpoint:'monitoring/test-connection/',data:{status:'up',message:'OK',latency_ms:42}},
+  {path:'/ssl',button:'Nuevo Certificado',placeholder:'ej. api.tuempresa.com',endpoint:'ssl-certificates/test-connection/',data:{is_valid:true,domain:'example.com',port:443}},
+  {path:'/dns',button:'Nuevo Registro',placeholder:'ej. api.empresa.com o mail.empresa.com',endpoint:'dns-records/test-resolution/',data:{success:true,domain:'example.com',record_type:'A',values:['203.0.113.1']}},
+  {path:'/domains',button:'Registrar Dominio',placeholder:'ej. empresa.com o micoope.com.gt',endpoint:'domains/test-whois/',data:{success:true,domain:'example.com',name_servers:[],status:[]}},
+  {path:'/api-checks',button:'Nuevo API Check',placeholder:'ej. https://api.micoope.com.gt/v1/health',endpoint:'api-checks/test-request/',data:{success:true,status_code:200,headers:{},body:{ok:true},is_json:true,size_bytes:10,response_time_ms:42}},
+  {path:'/security-headers',button:'Nuevo Endpoint',placeholder:'ej. https://portal.miempresa.com',endpoint:'security-headers/test-headers/',data:{success:true,http_status:200,headers_found:{},headers_missing:[],info_leaks:{},grade:'A',score:100,response_time_ms:42}},
+]) test(`configuration preview ${setup.path} clearly distinguishes reuse and rate limits`,async({page})=>{
+  await mockDashboard(page); await login(page,admin); await page.goto(setup.path);
+  await page.getByRole('button',{name:setup.button,exact:true}).click();
+  await page.getByPlaceholder(setup.placeholder,{exact:true}).fill(setup.path==='/monitoring'||setup.path==='/api-checks'||setup.path==='/security-headers'?'https://example.com':'example.com');
+  if(setup.path==='/monitoring')await page.getByRole('button',{name:'Probar configuración',exact:true}).click();
+  let tests=0;
+  await page.route(`**/api/v1/${setup.endpoint}`,route=>{
+    tests++;
+    return route.fulfill(tests===3 ? {status:429,json:{message:'Has realizado varias pruebas seguidas. Puedes guardar el monitor ahora o volver a probar en 20 segundos.',errors:{code:'DIAGNOSTIC_RATE',retry_after_seconds:20}}} : {json:{data:setup.data,diagnostic:{cached:tests===2,checked_at:new Date().toISOString()}}});
+  });
+  const testButton=page.getByRole('button',{name:'Probar configuración',exact:true}).first();
+  await testButton.click();
+  const notice=page.getByTestId('configuration-diagnostic-notice');
+  await expect(notice).toContainText('Configuración probada');
+  await testButton.click();
+  await expect(notice).toContainText('Resultado reciente reutilizado');
+  await testButton.click();
+  await expect(notice).toContainText('Guardar sigue disponible');
+  await expect(page.getByRole('status').filter({hasText:'Has realizado varias pruebas seguidas.'})).toHaveCount(1);
+  await expect(page.locator('button[type="submit"]').last()).toBeEnabled();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:`test-results/configuration-preview-${setup.path.slice(1)}.png`});
+});
+
+test('saved API details do not expose a preview bypass of the scan cooldown',async({page})=>{
+  await mockDashboard(page); await login(page,admin); await page.goto('/api-checks');
+  await page.getByRole('row',{name:'Checkout API',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Comprobar ahora',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Test en Vivo|Lanzar Petición/})).toHaveCount(0);
+});
+
+test('API preview requires explicit confirmation for a mutating method and never retries automatically',async({page})=>{
+  await mockDashboard(page); await login(page,admin); await page.goto('/api-checks');
+  await page.getByRole('button',{name:'Nuevo API Check',exact:true}).click();
+  await page.getByPlaceholder('ej. https://api.micoope.com.gt/v1/health').fill('https://example.com');
+  await page.locator('select').filter({has:page.locator('option[value="POST"]')}).selectOption('POST');
+  let posts=0;
+  await page.route('**/api/v1/api-checks/test-request/',route=>{
+    posts++;
+    expect(route.request().postDataJSON().confirm_side_effects).toBe(true);
+    return route.fulfill({json:{data:{success:true,status_code:200,headers:{},body:{ok:true},is_json:true,size_bytes:10,response_time_ms:42}}});
+  });
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.getByRole('button',{name:'Probar configuración',exact:true}).click();
+  await expect(page.getByTestId('configuration-diagnostic-notice')).toContainText('Prueba cancelada');
+  expect(posts).toBe(0);
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Probar configuración',exact:true}).click();
+  await expect.poll(()=>posts).toBe(1);
+  await page.waitForTimeout(500);
+  expect(posts).toBe(1);
+});
+
+test('onboarding can continue and save after the configuration preview budget is exhausted',async({page})=>{
+  await mockDashboard(page);
+  let created=0;
+  await page.route('**/api/v1/monitoring/',route=>{
+    if(route.request().method()==='POST')created++;
+    return route.fulfill({json:{data:route.request().method()==='GET'?[]:{id:'configuration-preview-new'}}});
+  });
+  await page.route('**/api/v1/monitoring/test-connection/',route=>route.fulfill({status:429,json:{message:'Puedes guardar el monitor ahora o volver a probar en 20 segundos.',errors:{code:'DIAGNOSTIC_RATE',retry_after_seconds:20}}}));
+  await page.route('**/api/v1/monitoring/configuration-preview-new/scan/',route=>route.fulfill({status:202,json:{data:{status:'queued',task_id:'initial-check'}}}));
+  await login(page,admin);
+  await page.getByPlaceholder('https://miempresa.com o api.servicio.cl').fill('https://example.com');
+  await page.getByRole('button',{name:'Probar configuración',exact:true}).click();
+  await expect(page.getByTestId('configuration-diagnostic-notice')).toContainText('Guardar sigue disponible');
+  await page.getByRole('button',{name:'Siguiente: Cobertura'}).click();
+  await page.getByRole('button',{name:'Lanzar Monitoreo (1-Clic)'}).click();
+  await expect.poll(()=>created).toBe(1);
+});
+
+async function areaDeadline(page: Page, area: string) {
+  return page.evaluate(area => {
+    const key = Object.keys(sessionStorage).find(key => key.startsWith('sentinel:refresh:') && key.endsWith(`:${area}`));
+    return key ? JSON.parse(sessionStorage.getItem(key)!).nextAt as number : null;
+  }, area);
+}
+
+for (const floor of [60, 300]) for (const failed of [false, true]) {
+  test(`manual GET preserves shared ${floor}s deadline even when failed=${failed}`, async ({page}) => {
+    await mockDashboard(page);
+    await page.route('**/api/v1/organizations/current/subscription/', route => route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:floor}}}}));
+    await login(page,admin); await page.clock.install();
+    await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+    const deadline = await areaDeadline(page,'connectivity');
+    await page.clock.fastForward(12000);
+    await page.goto('/monitoring');
+    await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+    expect(await areaDeadline(page,'connectivity')).toBe(deadline);
+    let scans = 0;
+    page.on('request', r => { if(r.method()==='POST' && /\/scan(?:-all)?\/$/.test(new URL(r.url()).pathname)) scans++; });
+    if(failed) await page.route('**/api/v1/monitoring/',route=>route.fulfill({status:503,json:{detail:'unavailable'}}));
+    await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Actualizar datos',exact:true})).toBeEnabled();
+    expect(await areaDeadline(page,'connectivity')).toBe(deadline);
+    await page.goto('/ssl');
+    await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+    expect(await areaDeadline(page,'connectivity')).toBe(deadline);
+    expect(scans).toBe(0);
+  });
+}
+
+test('failed plan revalidation suspends reads without changing the Pro deadline',async({page})=>{
+  await mockDashboard(page);
+  let fail=false;
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill(fail ? {status:503,json:{detail:'unavailable'}} : {json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:60}}}}));
+  await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
+  await expect(page.getByTestId('automatic-refresh-control')).toContainText('Actualización automática');
+  const deadline=await areaDeadline(page,'connectivity');
+  fail=true;
+  await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Actualizar datos',exact:true})).toBeEnabled();
+  await expect(page.getByTestId('automatic-refresh-control')).toBeDisabled();
+  expect(await areaDeadline(page,'connectivity')).toBe(deadline);
+  fail=false;
+  await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
+  await expect(page.getByTestId('automatic-refresh-control')).toBeEnabled();
+  expect(await areaDeadline(page,'connectivity')).toBe(deadline);
+});
+
+for(const path of ['/alerts','/incidents','/maintenance','/notifications','/reports','/status-page']) test(`Management ${path} shares a thirty second deadline and does not poll inactive Connectivity`, async ({page}) => {
+  await mockDashboard(page); await login(page,admin); await page.clock.install();
+  await page.goto('/gestion');
+  await expect(page.getByTestId('automatic-refresh-control')).toContainText('Actualización automática');
+  const deadline = await areaDeadline(page,'management');
+  await page.clock.fastForward(10000);
+  await page.goto(path);
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /(?:19|20) s/);
+  expect(await areaDeadline(page,'management')).toBe(deadline);
+  let areaReads=0, monitoringReads=0;
+  page.on('request',r=>{if(r.method()==='GET'){const path=new URL(r.url()).pathname;if(path.startsWith('/api/v1/'))areaReads++;if(path==='/api/v1/monitoring/')monitoringReads++;}});
+  await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Actualizar datos',exact:true})).toBeEnabled();
+  expect(await areaDeadline(page,'management')).toBe(deadline);
+  const before=areaReads;
+  await page.clock.fastForward(21000);
+  await expect.poll(()=>areaReads).toBeGreaterThan(before);
+  expect(monitoringReads).toBe(0);
+});
+
+for(const path of ['/users','/audit-logs']) test(`System ${path} only refreshes explicitly`,async({page})=>{
+  await mockDashboard(page); await login(page,admin); await page.clock.install(); await page.goto(path);
+  await expect(page.getByRole('button',{name:'Actualizar datos',exact:true})).toBeVisible();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveCount(0);
+  let reads=0;
+  page.on('request',r=>{if(r.method()==='GET'&&r.url().includes('/api/v1/'))reads++;});
+  await page.clock.fastForward(310000);
+  expect(reads).toBe(0);
+  await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
+  await expect.poll(()=>reads).toBeGreaterThan(0);
+});
+
+test('hidden screen skips reads and resumes without catch-up bursts',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:60}}}}));
+  await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
+  await expect(page.getByTestId('automatic-refresh-control')).toBeVisible();
+  let reads=0;
+  page.on('request',r=>{if(r.method()==='GET'&&new URL(r.url()).pathname==='/api/v1/monitoring/')reads++;});
+  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'}));
+  await page.clock.fastForward(190000);
+  expect(reads).toBe(0);
+  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'}));
+  await page.clock.fastForward(1000);
+  await expect.poll(()=>reads).toBe(1);
+  await page.clock.fastForward(1000);
+  expect(reads).toBe(1);
+});
+
 for (const module of ['monitoring', 'api-checks', 'ssl-certificates', 'dns-records', 'domains', 'security-headers']) {
   const routePath = { monitoring: '/monitoring', 'api-checks': '/api-checks', 'ssl-certificates': '/ssl', 'dns-records': '/dns', domains: '/domains', 'security-headers': '/security-headers' }[module];
   test(`Free ${module} reads every five minutes, not every fifteen seconds`, async ({ page }) => {
@@ -509,11 +696,11 @@ for (const module of ['monitoring', 'api-checks', 'ssl-certificates', 'dns-recor
       if (r.method() === 'POST' && /\/scan(?:-all)?\/$/.test(new URL(r.url()).pathname)) scans++;
     });
     await page.goto(routePath!);
-    await expect(page.getByText(/^En vivo: (5:00|4:5\d) min$/)).toBeVisible();
+    await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /(5:00|4:5\d) min$/);
     await expect.poll(() => reads).toBeGreaterThan(0);
     const initialReads = reads;
     await page.clock.fastForward(16_000);
-    await expect(page.getByText(/^En vivo: 4:4\d min$/)).toBeVisible();
+    await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:4\d min$/);
     expect(reads).toBe(initialReads);
     await page.clock.fastForward(285_000);
     await expect.poll(() => reads).toBeGreaterThan(initialReads);
@@ -523,6 +710,118 @@ for (const module of ['monitoring', 'api-checks', 'ssl-certificates', 'dns-recor
   });
 }
 
+for(const path of ['/monitoring','/ssl','/dns','/domains','/api-checks','/security-headers']) {
+  test(`persistent live clock resumes ${path} without resetting or scanning`, async ({page}) => {
+    await mockDashboard(page);
+    await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:300}}}}));
+    await login(page,admin);
+    await page.clock.install();
+    let scans=0;
+    page.on('request',r=>{if(r.method()==='POST'&&/\/scan(?:-all)?\/$/.test(new URL(r.url()).pathname))scans++;});
+    await page.goto(path);
+    await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+    const deadline=()=>page.evaluate(p=>{
+      const key=Object.keys(sessionStorage).find(key=>key.startsWith('sentinel:refresh:')&&key.endsWith(':connectivity'));
+      return key?JSON.parse(sessionStorage.getItem(key)!).nextAt:null;
+    },path);
+    const initial=await deadline();
+    await page.clock.fastForward(20000);
+    await page.getByRole('link',{name:'Dashboard',exact:true}).click();
+    await page.clock.fastForward(20000);
+    await page.goto(path);
+    await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:[12]\d min$/);
+    expect(await deadline()).toBe(initial);
+    await page.reload();
+    await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:[12]\d min$/);
+    expect(await deadline()).toBe(initial);
+    expect(scans).toBe(0);
+  });
+}
+
+test('Pro live clock polls at the preserved deadline after navigation',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:60}}}}));
+  await login(page,admin); await page.clock.install();
+  let reads=0;
+  page.on('request',r=>{if(r.method()==='GET'&&new URL(r.url()).pathname==='/api/v1/monitoring/')reads++;});
+  await page.goto('/monitoring');
+  await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+  await page.clock.fastForward(20000);
+  await page.getByRole('link',{name:'Dashboard',exact:true}).click();
+  await page.clock.fastForward(10000);
+  await page.getByRole('link',{name:'Uptime & Latencia',exact:true}).click();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /[23]\d s$/);
+  const before=reads;
+  await page.clock.fastForward(31000);
+  await expect.poll(()=>reads).toBeGreaterThan(before);
+});
+
+test('paused live clock remains paused on return and resumes the existing cycle',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:300}}}}));
+  await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
+  await page.getByRole('button',{name:'Pausar auto-refresco'}).click();
+  await page.getByRole('link',{name:'Dashboard',exact:true}).click();
+  await page.clock.fastForward(40000);
+  await page.getByRole('link',{name:'Uptime & Latencia',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Activar auto-refresco'})).toHaveText('Actualización automática pausada');
+  await page.getByRole('button',{name:'Activar auto-refresco'}).click();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:[12]\d min$/);
+});
+
+test('inactive subscription disables live polling despite valid plan metadata',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:false,limits:{min_check_interval_seconds:60}}}}));
+  await login(page,admin); await page.clock.install();
+  let reads=0;
+  page.on('request',r=>{if(r.method()==='GET'&&new URL(r.url()).pathname==='/api/v1/monitoring/')reads++;});
+  await page.goto('/monitoring');
+  await expect(page.getByRole('button',{name:'Activar auto-refresco'})).toHaveText('Suscripción no vigente');
+  await expect(page.getByRole('button',{name:'Activar auto-refresco'})).toBeDisabled();
+  const initial=reads;
+  await page.clock.fastForward(120000);
+  expect(reads).toBe(initial);
+});
+
+test('live clock revalidates a changed plan automatically without scans',async({page})=>{
+  await mockDashboard(page);
+  let floor=60;
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:floor}}}}));
+  await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /(1:00 min|5\d s)$/);
+  floor=300;
+  await page.clock.fastForward(61000);
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:5\d min$/);
+});
+
+test('return after missed live cycles skips catch-up bursts and preserves phase',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:300}}}}));
+  await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
+  await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+  await page.clock.fastForward(20000);
+  await page.getByRole('link',{name:'Monitoreo SSL',exact:true}).click();
+  await page.clock.fastForward(720000);
+  let reads=0;
+  page.on('request',r=>{if(r.method()==='GET'&&new URL(r.url()).pathname==='/api/v1/monitoring/')reads++;});
+  await page.getByRole('link',{name:'Uptime & Latencia',exact:true}).click();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /2:[34]\d min$/);
+  await expect.poll(()=>reads).toBe(1);
+  await page.clock.fastForward(1000);
+  expect(reads).toBe(1);
+});
+
+test('live pause and deadline are isolated between users in the same tenant',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:300}}}}));
+  await login(page,admin); await page.goto('/monitoring');
+  await page.getByRole('button',{name:'Pausar auto-refresco'}).click();
+  await login(page,viewer); await page.goto('/monitoring');
+  await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /(5:00|4:5\d) min$/);
+  expect(await page.evaluate(()=>Object.keys(sessionStorage).filter(key=>key.startsWith('sentinel:refresh:')&&key.endsWith(':connectivity')).length)).toBe(2);
+});
+
 test('Pro refresh follows the sixty second floor and updates after a plan change', async ({ page }) => {
   await mockDashboard(page);
   let floor = 60;
@@ -531,10 +830,10 @@ test('Pro refresh follows the sixty second floor and updates after a plan change
   } }));
   await login(page, admin);
   await page.goto('/monitoring');
-  await expect(page.getByText(/^En vivo: (1:00 min|5\d s)$/)).toBeVisible();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /(1:00 min|5\d s)$/);
   floor = 300;
   await page.getByRole('button', { name: 'Actualizar datos', exact: true }).click();
-  await expect(page.getByText(/^En vivo: (5:00|4:5\d) min$/)).toBeVisible();
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /(5:00|4:5\d) min$/);
 });
 
 test('missing cadence metadata disables automatic polling rather than assuming fifteen seconds', async ({ page }) => {
@@ -545,6 +844,16 @@ test('missing cadence metadata disables automatic polling rather than assuming f
   await expect(page.getByText('Frecuencia no disponible', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Activar auto-refresco' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Actualizar datos', exact: true })).toBeEnabled();
+});
+
+test('missing operational permission fails closed despite a valid cadence',async({page})=>{
+  await mockDashboard(page);
+  await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{limits:{min_check_interval_seconds:60}}}}));
+  await login(page,admin);
+  await expect(page.getByTestId('automatic-refresh-control')).toHaveText('Frecuencia no disponible');
+  await expect(page.getByTestId('automatic-refresh-control')).toBeDisabled();
+  await page.goto('/monitoring');
+  await expect(page.getByTestId('automatic-refresh-control')).toBeDisabled();
 });
 
 test('empty administrator onboarding respects opt-outs and shows completion', async ({ page }) => {
@@ -701,6 +1010,8 @@ test('Monitoring vivid palette separates brand and health with shared portal tok
   await page.getByRole('button',{name:'Lista',exact:true}).click();
   await page.getByRole('row',{name:'Public Web',exact:true}).first().click();
   await expect(page.getByRole('dialog',{name:'Public Web'})).toHaveCSS('--sentinel-accent-cyan','56 217 245');
+  await expect(page.getByRole('dialog',{name:'Public Web'})).toHaveCSS('background-color','rgb(16, 24, 32)');
+  await expect(page.getByRole('dialog',{name:'Public Web'})).toHaveCSS('border-left-color','rgb(38, 51, 64)');
   await page.screenshot({path:'test-results/monitoring-vivid-drawer.png'});
   await page.keyboard.press('Escape');
   await page.goto('/api-checks');
@@ -718,6 +1029,12 @@ test('shared vivid palette and near-white secondary text reach all module groups
     await page.goto(path);
     await expect(page.locator('main')).toBeVisible();
     const text=page.locator('main .text-text-muted').first();
+    await expect(page.locator('main')).toHaveCSS('--sentinel-bg-card','16 24 32');
+    await expect(page.locator('main')).toHaveCSS('--sentinel-bg-card-hover','22 32 43');
+    await expect(page.locator('main')).toHaveCSS('--sentinel-border-base','38 51 64');
+    await expect(page.locator('main')).toHaveCSS('--sentinel-border-accent','64 80 96');
+    const surface=page.locator('main .bg-bg-card, main .dashboard-panel').first();
+    if(await surface.count()) await expect(surface).toHaveCSS('background-color','rgb(16, 24, 32)');
     await expect(text).toHaveCSS('color','rgb(226, 232, 240)');
     const dim=page.locator('main .text-text-dim:not(input):not(select):not(textarea)').first();
     if (await dim.count()) await expect(dim).toHaveCSS('color','rgb(203, 213, 225)');
@@ -730,6 +1047,54 @@ test('shared vivid palette and near-white secondary text reach all module groups
   expect(await page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
   await page.screenshot({path:'test-results/shared-palette-gestion-mobile.png'});
 });
+
+test('authentication uses the shared opaque graphite surface', async ({page}) => {
+  await page.goto('/login');
+  await expect(page.locator('.bg-bg-card.rounded-3xl').first()).toHaveCSS('background-color','rgb(16, 24, 32)');
+  await page.screenshot({path:'test-results/graphite-auth-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/graphite-auth-mobile.png'});
+});
+
+for(const scenario of [
+  {name:'degraded without outages',states:['up','slow'],color:'rgb(251, 191, 36)',score:'50%'},
+  {name:'outages',states:['up','slow','down'],color:'rgb(255, 115, 132)',score:'33%'},
+  {name:'healthy',states:['up','up'],color:'rgb(74, 222, 128)',score:'100%'},
+  {name:'unknown resources',states:['up','unknown'],color:'rgb(226, 232, 240)',score:'50%'},
+  {name:'degraded and unknown',states:['slow','unknown'],color:'rgb(251, 191, 36)',score:'0%'},
+  {name:'empty',states:[],color:'rgb(226, 232, 240)',score:'—'},
+  {name:'partial failure',states:['up'],color:'rgb(226, 232, 240)',score:'—',failure:true},
+]) {
+  test(`graphite dashboard health agrees for ${scenario.name}`, async ({page}) => {
+    await page.setViewportSize({width:1440,height:900});
+    await mockDashboard(page);
+    for(const path of ['api-checks/','ssl-certificates/','domains/','dns-records/','security-headers/','agent-probes/']) {
+      await page.route(`**/api/v1/${path}*`,route=>route.fulfill({status:scenario.failure&&path==='security-headers/'?500:200,json:{success:true,data:[]}}));
+    }
+    const now=new Date().toISOString();
+    await page.route('**/api/v1/monitoring/',route=>route.fulfill({json:{success:true,data:scenario.states.map((state,index)=>({
+      id:`tone-${index}`,name:`Tone ${index}`,target_type:'https',endpoint:'https://example.com',enabled:true,interval:300,
+      last_status:state==='unknown'?null:state,last_checked_at:state==='unknown'?null:now,
+      last_latency:state==='slow'?600:100,runner_type:'cloud',created_at:now,updated_at:now,
+    }))}}));
+    await login(page,viewer);
+    await expect(page.getByTestId('dashboard-health-score')).toHaveText(scenario.score);
+    await expect(page.getByTestId('dashboard-health-score')).toHaveCSS('color',scenario.color);
+    await expect(page.getByTestId('dashboard-kpi-health-score')).toHaveCSS('color',scenario.color);
+    await expect(page.getByTestId('dashboard-kpi-health-score')).toHaveText(scenario.score==='—'?'Sin datos':scenario.score);
+    await expect(page.getByTestId('dashboard-health-donut')).toHaveCSS('background-color','rgb(16, 24, 32)');
+    await expect(page.getByTestId('dashboard-performance')).toHaveCSS('background-color','rgb(16, 24, 32)');
+    await expect(page.getByTestId('dashboard-performance').locator('.recharts-cartesian-grid-horizontal line').first()).toHaveCSS('stroke','rgb(38, 51, 64)');
+    if(scenario.name==='degraded without outages') {
+      await page.screenshot({path:'test-results/graphite-dashboard-desktop.png'});
+      await page.setViewportSize({width:390,height:844});
+      await page.getByTestId('dashboard-health-donut').scrollIntoViewIfNeeded();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+      await page.screenshot({path:'test-results/graphite-dashboard-mobile.png'});
+    }
+  });
+}
 
 test('Monitoring vivid palette remains usable on mobile and filters keep their labels', async ({page}) => {
   await page.setViewportSize({width:390,height:844});

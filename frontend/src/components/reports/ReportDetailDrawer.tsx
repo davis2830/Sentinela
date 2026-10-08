@@ -194,7 +194,7 @@ export default function ReportDetailDrawer({
             <div className="border border-border-base rounded-xl overflow-hidden bg-bg-main/60">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-border-base text-text-dim bg-bg-card/50">
+                  <tr className="border-b border-border-base text-text-dim bg-bg-card">
                     <th className="py-2.5 px-3">Servicio / Endpoint</th>
                     <th className="py-2.5 px-3">Tipo</th>
                     <th className="py-2.5 px-3">Chequeos</th>
@@ -258,7 +258,7 @@ export default function ReportDetailDrawer({
             <div className="border border-border-base rounded-xl overflow-hidden bg-bg-main/60">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-border-base text-text-dim bg-bg-card/50">
+                  <tr className="border-b border-border-base text-text-dim bg-bg-card">
                     <th className="py-2.5 px-3">Incidente</th>
                     <th className="py-2.5 px-3">Prioridad</th>
                     <th className="py-2.5 px-3">Estado</th>

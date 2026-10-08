@@ -74,7 +74,7 @@ export default function IncidentCard({
   return (
     <div
       onClick={onClick}
-      className={`bg-bg-card/95 border rounded-2xl p-5 transition-all flex flex-col justify-between group shadow-sm cursor-pointer hover:border-accent-green/50 ${
+      className={`bg-bg-card border rounded-2xl p-5 transition-all flex flex-col justify-between group shadow-sm cursor-pointer hover:border-accent-green/50 ${
         isSelected
           ? 'border-accent-green bg-accent-green/[0.03] ring-1 ring-accent-green/40'
           : incident.priority === 'critical' && incident.status !== 'resolved' && incident.status !== 'closed'

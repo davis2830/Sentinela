@@ -2,6 +2,7 @@ from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
 from common.subscriptions import OperationalAPIView as APIView
+from common.diagnostics import ConfigurationDiagnosticAPIView
 
 from common.responses import error_response, queued_scan_response, success_response
 
@@ -208,7 +209,7 @@ class DNSBulkScanView(APIView):
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class DNSTestResolutionView(APIView):
+class DNSTestResolutionView(ConfigurationDiagnosticAPIView):
     """Endpoint to test DNS query resolution in real-time before saving.
 
     POST /api/v1/dns-records/test-resolution/
@@ -216,7 +217,7 @@ class DNSTestResolutionView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    def perform_diagnostic(self, request):
         domain = request.data.get("domain", "").strip()
         record_type = request.data.get("record_type", "A").strip().upper()
         if not domain:

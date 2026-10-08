@@ -583,8 +583,8 @@ header {
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
           intervalSeconds: autoRefresh.intervalSeconds,
-          resetCountdown: autoRefresh.resetCountdown,
           ready: autoRefresh.ready,
+          blockedReason: autoRefresh.blockedReason,
         }}
         actions={
           <>
@@ -693,7 +693,7 @@ header {
                 <div
                   key={target.id}
                   onClick={() => setSelectedTarget(target)}
-                  className={`bg-bg-card/95 border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
+                  className={`bg-bg-card border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
                     isSelected
                       ? 'border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40'
                       : 'border-border-base/70'

@@ -1,5 +1,40 @@
 # Bitácora de implementación
 
+## 2026-10-07 — Consulta discreta y diagnósticos independientes
+
+- Control común sin cuenta atrás permanente; siguiente consulta en tooltip y antigüedad de lectura separada de la última medición real. Se conserva el ciclo por área y la recarga manual sin reinicio.
+- «Probar configuración» opcional en seis módulos y onboarding. Presupuesto independiente transaccional: 3/min por organización, Free 20/día, pago 100/día (techo operativo configurable), global 60/min y cuatro simultáneas, una por organización. No modifica cuotas comerciales, históricos ni intervalos de recursos guardados.
+- Reutilización cifrada de resultados seguros durante 30 s con fecha explícita, aislamiento HMAC, caché opcional y presupuestos de BD obligatorios. Métodos HTTP potencialmente mutantes exigen confirmación, sin reutilización/reintentos automáticos. Preservados SSRF, suscripción y RBAC.
+- Límites informativos sin bloquear guardar ni duplicar avisos. Retirada la petición inmediata del detalle de APIs; historial incorporado al ciclo compartido. Ajustado encabezado móvil de creación de targets para evitar texto estrecho.
+- Gates locales: **171/171 Django**, **136/136 Chromium**, TypeScript/Vite y validación Compose. Quince regresiones backend y diez UI nuevas. Un fallo intermitente de carga de ficha móvil en una ejecución anterior pasó aislado y en la repetición completa. Capturas móviles revisadas; fixtures retirados, auditoría conservada.
+- Sin migraciones, dependencias nuevas, cambios de cuentas reales, commit, push o despliegue. Flake8 no disponible en el contenedor; auditorías de dependencias no repetidas. CI remoto, producción y pendientes externos continúan pendientes.
+
+## 2026-10-07 — Política de consulta profesional por área
+
+- Conectividad comparte ciclo contractual backend entre dashboard, seis módulos y ficha de endpoint: Free 300 s / Pro 60 s. Gestión comparte 30 s entre resumen y seis módulos; corregido también el antiguo intervalo de 20 s de Notificaciones. Sistema conserva consultas iniciales/manuales, sin polling periódico.
+- Eliminada la capacidad de reiniciar el reloj mediante recarga manual. Control común `Actualización automática`, pausa persistente por usuario/tenant/área y consultas limitadas a fuentes activas; pestaña oculta sin polling ni ráfagas al regresar.
+- Metadatos operativos incompletos o fallidos detienen lectura automática. Un fallo temporal del GET de suscripción conserva la cadencia conocida y el plazo; recuperación mediante recarga, sin ejecutar sondeos. Fecha de consulta separada de última señal real.
+- Configuración editable de Status Page excluida del refresco automático/general para no sobrescribir borradores. Usuarios, auditoría y plataforma usan claves de consulta particionadas por organización.
+- Quince regresiones Chromium nuevas: recarga exitosa/fallida Free/Pro, fallo/recuperación del plan, seis módulos de Gestión, Sistema, pestaña oculta y permiso operativo ausente. Se mantienen tests backend de cooldown, reservas, permisos, concurrencia, 202/429 y GET sin mutaciones.
+- Gates locales: **156/156 Django**, **126/126 Chromium**, TypeScript/build aprobado. Capturas desktop/móvil revisadas y fixtures aislados retirados, auditoría conservada. No se hicieron migraciones, dependencias nuevas, commit, push ni despliegue. CI remoto, producción y pendientes externos permanecen pendientes.
+- Esta política sustituye la variante anterior por ruta y el reinicio manual del ciclo; la entrada siguiente conserva la evidencia histórica.
+
+## 2026-10-07 — Contador En vivo persistente y sincronizado
+
+- Corregido el reinicio al desmontar módulos: próxima consulta y pausa conservadas por usuario, tenant y ruta en almacenamiento de sesión de la pestaña.
+- Sustituidos temporizadores de polling independientes por un reloj compartido con el contador, limitado a consultas activas registradas por la pantalla. Se saltan ciclos ausentes sin ráfagas y se evitan consultas automáticas en pestaña oculta.
+- Conectividad toma Free 300 s / Pro 60 s del backend y revalida suscripción en el mismo ciclo. `scan_availability`, reservas y cooldown de cada recurso siguen siendo autoridad del backend; GET no ejecuta sondeos ni renueva tiempos de espera.
+- Doce pruebas Chromium nuevas: seis módulos al navegar/recargar, Pro en deadline conservado, pausa, suscripción no vigente, cambio de plan automático, ciclos ausentes e aislamiento entre usuarios. Una regresión Django nueva verifica GET repetidos sin cambiar deadline/medición/reservas para Free, Pro e intervalo más lento.
+- Gates locales aprobados: **156/156 Django**, **111/111 Chromium**, TypeScript/build. Fixtures aislados retirados y auditoría conservada; sin commit, push o despliegue. CI remoto y pendientes externos siguen pendientes.
+
+## 2026-10-07 — Superficies grafito uniformes
+
+- Centralizados paneles `#101820`, hover `#16202B`, bordes/rejilla `#263340` y bordes destacados `#405060`; fondo general y textos claros preservados.
+- Eliminadas superficies antiguas directas en Status Page, tooltips, SVG y estilos de tablas. Paneles sólidos en Conectividad, Gestión, Sistema, autenticación y portales; franjas compactas mantienen gradiente discreto.
+- Dona y KPI usan una única regla semántica de salud, sin modificar mediciones, conteos ni filtros.
+- Gates locales: TypeScript/build aprobado, Django **155/155**, Chromium **99/99**; revisión de capturas desktop 1440×900 y móvil 390×844. No se repitieron auditorías de dependencias en este cambio visual.
+- Sin cambios backend, contratos, migraciones o dependencias; sin commit, push ni despliegue. CI remoto y pendientes externos permanecen pendientes.
+
 ## 2026-10-07 — Seguimiento de pendientes de auditoría
 
 - Aplicada exclusión tenant-aware de muestras de mantenimiento en reportes SLA/live, disponibilidad y resumen; servicios lentos cuentan como disponibles sin perder estado degradado. Historial público agregado por día/target en SQL, zona horaria activa, consultas constantes y sin muestras futuras.

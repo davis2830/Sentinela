@@ -50,6 +50,26 @@ class ScanAvailabilityTests(TestCase):
         lease = ScanLease(next_allowed_at=self.now + timedelta(seconds=900))
         self.assertEqual(availability(self.target, self.admin, lease, self.now)['retry_after_seconds'], 900)
 
+    def test_reentering_modules_does_not_renew_the_scan_deadline(self):
+        for plan, interval, elapsed, remaining in [('free', 60, 90, 210), ('pro', 60, 10, 50), ('pro', 600, 10, 590)]:
+            with self.subTest(plan=plan, interval=interval):
+                self.org.plan_tier = plan
+                self.org.save()
+                self.target.interval = interval
+                self.target.last_checked_at = self.now - timedelta(seconds=elapsed)
+                self.target.save()
+                with patch('common.scan_serializers.timezone.now', return_value=self.now), patch('monitoring.tasks.run_monitoring_check.delay') as send:
+                    for _ in range(3):
+                        listing = self.client.get('/api/v1/monitoring/').data['data'][0]['scan_availability']
+                        detail = self.client.get(f'/api/v1/monitoring/{self.target.pk}/').data['data']['scan_availability']
+                        self.assertEqual(listing, detail)
+                        self.assertEqual(detail['retry_after_seconds'], remaining)
+                        self.assertEqual(detail['next_allowed_at'], (self.now + timedelta(seconds=remaining)).isoformat())
+                    send.assert_not_called()
+                self.target.refresh_from_db()
+                self.assertEqual(self.target.last_checked_at, self.now - timedelta(seconds=elapsed))
+                self.assertFalse(ScanLease.objects.exists())
+
     def test_get_is_read_only_tenant_isolated_and_contains_no_reservation_secrets(self):
         other = Organization.objects.create(name='Other', slug='other-availability')
         foreign = MonitoringTarget.objects.create(organization=other, name='Foreign', endpoint='https://example.com')

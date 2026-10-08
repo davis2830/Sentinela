@@ -2,6 +2,7 @@ from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
 from common.subscriptions import OperationalAPIView as APIView
+from common.diagnostics import ConfigurationDiagnosticAPIView
 
 from common.responses import error_response, queued_scan_response, success_response
 
@@ -205,7 +206,7 @@ class SecurityHeaderBulkScanView(APIView):
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class SecurityHeaderTestView(APIView):
+class SecurityHeaderTestView(ConfigurationDiagnosticAPIView):
     """Endpoint to test security headers in real time before saving.
 
     POST /api/v1/security-headers/test-headers/
@@ -213,7 +214,7 @@ class SecurityHeaderTestView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
-    def post(self, request):
+    def perform_diagnostic(self, request):
         url = request.data.get("url", "").strip()
         if not url:
             return error_response(

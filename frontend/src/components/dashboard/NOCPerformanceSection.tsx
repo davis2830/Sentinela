@@ -20,7 +20,7 @@ interface Props {
 }
 const finite = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? value : null;
 const number = (value: number) => value.toLocaleString('es', { maximumFractionDigits: value > 0 && value < 0.01 ? 6 : 2 });
-const colors = { uptime: '#00d4aa', latency: '#38d9f5', volume: '#b499ff', grid: '#304359', text: '#e2e8f0' };
+const colors = { uptime: '#00d4aa', latency: '#38d9f5', volume: '#b499ff', grid: 'rgb(var(--sentinel-border-base))', text: '#e2e8f0' };
 
 function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isLoading, isError }: Props) {
   const id = useId().replace(/:/g, '');

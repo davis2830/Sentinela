@@ -151,7 +151,7 @@ export default function TargetDetailDrawer({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drawer Header */}
-        <div className="sticky top-0 bg-bg-card/95 backdrop-blur border-b border-border-base px-6 py-4 z-10 flex items-center justify-between">
+        <div className="sticky top-0 bg-bg-card backdrop-blur border-b border-border-base px-6 py-4 z-10 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-accent-green/10 border border-accent-green/30 flex items-center justify-center shrink-0">
               <Icon className="text-accent-green" size={20} />

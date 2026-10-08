@@ -3,7 +3,8 @@ import AdminButton from '../common/AdminButton';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
-import type { APICheckTarget, APICheckResult, APITestRequestResult } from '../../types/api_checks';
+import { useConnectivityRefresh } from '../../hooks/useConnectivityRefresh';
+import type { APICheckTarget, APICheckResult } from '../../types/api_checks';
 import StatusBadge from '../common/StatusBadge';
 import { NOCDrawer } from '../common/noc';
 import {
@@ -20,7 +21,6 @@ import {
   Loader2,
   Copy,
   Check,
-  Zap,
   Terminal,
   AlertTriangle,
   FileCode,
@@ -45,12 +45,9 @@ export default function APICheckDetailDrawer({
   onEdit,
   onDelete,
 }: APICheckDetailDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'results' | 'quick_test' | 'schema' | 'config'>('results');
+  const [activeTab, setActiveTab] = useState<'results' | 'schema' | 'config'>('results');
   const [copiedCurl, setCopiedCurl] = useState(false);
-
-  // Quick Live Test State inside Drawer
-  const [isTestingLive, setIsTestingLive] = useState(false);
-  const [quickTestResult, setQuickTestResult] = useState<APITestRequestResult | null>(null);
+  const autoRefresh = useConnectivityRefresh();
 
   const { data: results, isLoading: isLoadingResults } = useQuery({
     queryKey: ['api-check-results', target?.id],
@@ -60,7 +57,7 @@ export default function APICheckDetailDrawer({
       return (response.data?.data || []) as APICheckResult[];
     },
     enabled: !!target && isOpen,
-    refetchInterval: 15000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   if (!target) return null;
@@ -83,33 +80,6 @@ export default function APICheckDetailDrawer({
     navigator.clipboard.writeText(curl);
     setCopiedCurl(true);
     setTimeout(() => setCopiedCurl(false), 2000);
-  };
-
-  const handleExecuteQuickTest = async () => {
-    setIsTestingLive(true);
-    setQuickTestResult(null);
-    try {
-      const response = await api.post('api-checks/test-request/', {
-        url: target.url,
-        method: target.method,
-        headers: target.request_headers || {},
-        body: target.request_body || {},
-      });
-      setQuickTestResult(response.data?.data as APITestRequestResult);
-    } catch (err: any) {
-      setQuickTestResult({
-        success: false,
-        status_code: null,
-        response_time_ms: null,
-        headers: {},
-        body: null,
-        is_json: false,
-        size_bytes: 0,
-        error: err.response?.data?.message || err.message || 'Error al conectar con el endpoint.',
-      });
-    } finally {
-      setIsTestingLive(false);
-    }
   };
 
   const quickKpis = (
@@ -174,7 +144,6 @@ export default function APICheckDetailDrawer({
 
   const tabs = [
     { id: 'results', label: 'Historial & Métricas', icon: <Activity size={13} /> },
-    { id: 'quick_test', label: 'Test en Vivo', icon: <Zap size={13} /> },
     { id: 'schema', label: 'Validación Schema', icon: <Code2 size={13} /> },
     { id: 'config', label: 'Configuración HTTP', icon: <Settings size={13} /> },
   ];
@@ -231,7 +200,7 @@ export default function APICheckDetailDrawer({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
+                    <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
                       <th className="py-2.5 px-3.5">Hora</th>
                       <th className="py-2.5 px-3">Estado</th>
                       <th className="py-2.5 px-3">HTTP</th>
@@ -243,7 +212,7 @@ export default function APICheckDetailDrawer({
                   </thead>
                   <tbody className="divide-y divide-border-base/40 font-mono">
                     {results.map((res: APICheckResult) => (
-                      <tr key={res.id} className="hover:bg-bg-card/60 transition-colors">
+                      <tr key={res.id} className="hover:bg-bg-card-hover transition-colors">
                         <td className="py-2.5 px-3.5 text-text-muted text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1.5">
                             <Clock size={12} className="text-text-dim" />
@@ -303,84 +272,6 @@ export default function APICheckDetailDrawer({
               </p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* TAB 2: QUICK TEST IN DRAWER */}
-      {activeTab === 'quick_test' && (
-        <div className="space-y-4 font-sans">
-          <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-semibold text-text-main flex items-center gap-1.5">
-                  <Zap size={14} className="text-accent-yellow" />
-                  Prueba de Ejecución Inmediata
-                </h4>
-                <p className="text-[11px] text-text-dim mt-0.5">
-                  Dispara una petición HTTP directa contra el endpoint sin esperar el ciclo Celery.
-                </p>
-              </div>
-              <AdminButton
-                type="button"
-                onClick={handleExecuteQuickTest}
-                disabled={isTestingLive}
-                className="px-4 py-2 bg-accent-green text-black font-semibold rounded-full text-xs flex items-center gap-1.5 hover:bg-accent-green/90 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
-              >
-                {isTestingLive ? (
-                  <>
-                    <Loader2 className="animate-spin" size={14} />
-                    <span>Conectando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap size={14} />
-                    <span>Lanzar Petición</span>
-                  </>
-                )}
-              </AdminButton>
-            </div>
-
-            {quickTestResult && (
-              <div
-                className={`p-3.5 rounded-xl border text-xs animate-in fade-in duration-200 ${
-                  quickTestResult.success
-                    ? 'bg-accent-green/10 border-accent-green/30'
-                    : 'bg-accent-red/10 border-accent-red/30'
-                }`}
-              >
-                <div className="flex items-center justify-between pb-2 border-b border-border-base/50">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-text-main">Status:</span>
-                    <span
-                      className={`font-mono font-bold px-2 py-0.5 rounded-full text-[11px] ${
-                        quickTestResult.status_code && quickTestResult.status_code < 400
-                          ? 'bg-accent-green/20 text-accent-green'
-                          : 'bg-accent-red/20 text-accent-red'
-                      }`}
-                    >
-                      HTTP {quickTestResult.status_code ?? 'N/A'}
-                    </span>
-                  </div>
-                  {quickTestResult.response_time_ms !== null && (
-                    <span className="font-mono text-text-muted text-[11px]">
-                      Latencia: {quickTestResult.response_time_ms} ms
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-2 space-y-1">
-                  <div className="text-[11px] text-text-dim font-mono">Payload de Respuesta:</div>
-                  <pre className="p-3 bg-bg-dark rounded-xl border border-border-base/60 font-mono text-[11px] text-text-main max-h-48 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">
-                    {quickTestResult.success
-                      ? typeof quickTestResult.body === 'object'
-                        ? JSON.stringify(quickTestResult.body, null, 2)
-                        : String(quickTestResult.body || 'Sin cuerpo de respuesta.')
-                      : quickTestResult.error}
-                  </pre>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       )}
 

@@ -1,3 +1,5 @@
+import { useConfigurationDiagnostic } from '../hooks/useConfigurationDiagnostic';
+import ConfigurationDiagnosticNotice from '../components/common/ConfigurationDiagnosticNotice';
 import { useLinkedResource } from '../hooks/useLinkedResource';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
@@ -90,6 +92,7 @@ export default function DNSRecordsPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Live Test Resolution State
+  const diagnostic = useConfigurationDiagnostic();
   const [isTestingResolution, setIsTestingResolution] = useState(false);
   const [testResult, setTestResult] = useState<DNSTestResolutionResult | null>(null);
 
@@ -263,12 +266,13 @@ export default function DNSRecordsPage() {
     }
 
     try {
-      const response = await api.post('dns-records/test-resolution/', {
+      const response = await diagnostic.run('dns-records/test-resolution/', {
         domain: cleanDomain,
         record_type: recordTypeInput,
       });
       setTestResult(response.data?.data as DNSTestResolutionResult);
     } catch (err: any) {
+      if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,
         domain: cleanDomain,
@@ -430,8 +434,8 @@ export default function DNSRecordsPage() {
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
           intervalSeconds: autoRefresh.intervalSeconds,
-          resetCountdown: autoRefresh.resetCountdown,
           ready: autoRefresh.ready,
+          blockedReason: autoRefresh.blockedReason,
         }}
         actions={
           <>
@@ -519,11 +523,11 @@ export default function DNSRecordsPage() {
       ) : filteredRecords && filteredRecords.length > 0 ? (
         viewMode === 'table' ? (
           /* Compact NOC Table View */
-          <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
+          <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
+                  <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
                     <th scope="col" className="py-3 px-3.5 w-10">
                       <button
                         type="button"
@@ -748,7 +752,7 @@ export default function DNSRecordsPage() {
                 <div
                   key={record.id}
                   onClick={() => setSelectedRecord(record)}
-                  className={`bg-bg-card/95 border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
+                  className={`bg-bg-card border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
                     isSelected
                       ? 'border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40'
                       : 'border-border-base/70'
@@ -1224,11 +1228,12 @@ export default function DNSRecordsPage() {
                   ) : (
                     <>
                       <Zap size={14} className="text-accent-yellow" />
-                      <span>Resolver DNS en Vivo</span>
+                      <span>Probar configuración</span>
                     </>
                   )}
                 </button>
               </div>
+                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
 
               {/* Test Result Live Preview */}
               {testResult && (

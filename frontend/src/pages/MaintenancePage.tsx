@@ -51,7 +51,7 @@ export default function MaintenancePage() {
   const [viewMode, setViewMode] = usePersistentViewMode('maintenance', 'table');
 
   // Auto-refresh hook (30s interval)
-  const autoRefresh = useAutoRefresh({ intervalSeconds: 30 });
+  const autoRefresh = useAutoRefresh({ scopeKey: 'management', intervalSeconds: 30 });
 
   // 1. Fetch Maintenance Windows List
   const {

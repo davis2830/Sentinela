@@ -1,3 +1,5 @@
+import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
+import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -65,6 +67,7 @@ export default function QuickStartWizardModal({
   }, [isOpen, subData?.plan_tier, minAllowedInterval]);
 
   // Live Test State
+  const diagnostic = useConfigurationDiagnostic();
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -149,7 +152,7 @@ export default function QuickStartWizardModal({
 
     const formatted = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
     try {
-      const res = await api.post('/monitoring/test-connection/', {
+      const res = await diagnostic.run('/monitoring/test-connection/', {
         endpoint: formatted,
         target_type: formatted.startsWith('https') ? 'https' : 'http',
         timeout: 8,
@@ -174,6 +177,7 @@ export default function QuickStartWizardModal({
         }
       }
     } catch (err: any) {
+      if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,
         message: err.response?.data?.message || 'No se pudo contactar el endpoint.',
@@ -285,9 +289,10 @@ export default function QuickStartWizardModal({
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-accent-green/10 border border-accent-green/40 text-accent-green hover:bg-accent-green/20 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {isTesting ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-                    <span>Probar en Vivo</span>
+                    <span>Probar configuración</span>
                   </button>
                 </div>
+                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
                 <p className="text-[11px] text-text-dim mt-1.5">
                   Ingresa tu portal web, API pública o microservicio cloud.
                 </p>

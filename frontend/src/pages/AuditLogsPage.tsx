@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
@@ -10,7 +11,6 @@ import {
   NOCToolbar,
   NOCDrawer,
 } from '../components/common/noc';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import {
   ShieldAlert,
   Clock,
@@ -37,24 +37,19 @@ interface AuditLogItem {
 }
 
 export default function AuditLogsPage() {
+  const organizationId = useAuthStore(s => s.user?.organization?.id);
   const [moduleFilter, setModuleFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
 
   const { data: auditLogs, isLoading } = useQuery<AuditLogItem[]>({
-    queryKey: ['audit-logs', moduleFilter],
+    queryKey: ['audit-logs', organizationId, moduleFilter],
     queryFn: async () => {
       const param = moduleFilter ? `?module=${moduleFilter}` : '';
       const response = await api.get(`audit-logs/${param}`);
       return (response.data?.data || []) as AuditLogItem[];
     },
-    refetchInterval: autoRefresh.refetchInterval,
   });
 
   const allLogs = auditLogs || [];
@@ -82,16 +77,12 @@ export default function AuditLogsPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-300 font-sans">
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["audit-logs"]}
         title="Logs de Auditoría"
         badgeText="SECURITY AUDIT"
         description="Historial inmutable de auditoría para trazabilidad de eventos, cambios de configuración y accesos al sistema."
         icon={<ShieldAlert size={26} />}
-        autoRefresh={{
-          enabled: autoRefresh.enabled,
-          countdown: autoRefresh.countdown,
-          onToggle: autoRefresh.toggle,
-        }}
+
       />
 
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
@@ -203,11 +194,11 @@ export default function AuditLogsPage() {
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
       ) : filteredLogs && filteredLogs.length > 0 ? (
-        <div className="bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
+                <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
                   <th className="py-3 px-4">Fecha y Hora</th>
                   <th className="py-3 px-4">Usuario / Actor</th>
                   <th className="py-3 px-4">Módulo</th>

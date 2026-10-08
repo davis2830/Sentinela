@@ -94,7 +94,7 @@ export default function DowntimeIncidentsLog({
                   </div>
                 </div>
 
-                <div className="bg-bg-card/70 border border-border-base/50 rounded-lg p-2.5 mt-2 flex items-start gap-2.5 text-xs font-mono text-text-muted">
+                <div className="bg-bg-card border border-border-base/50 rounded-lg p-2.5 mt-2 flex items-start gap-2.5 text-xs font-mono text-text-muted">
                   <XCircle size={15} className="text-accent-red shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
                     <div className="text-text-main font-semibold break-all">

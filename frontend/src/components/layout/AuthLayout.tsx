@@ -141,7 +141,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               </picture>
 
               {/* Floating Status Badge: SERVIDORES */}
-              <div className="absolute top-[30%] left-[18%] flex items-center gap-2 bg-bg-card/90 backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
+              <div className="absolute top-[30%] left-[18%] flex items-center gap-2 bg-bg-card backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
                 <div>
                   <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase font-sans">Servidores</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
@@ -155,7 +155,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               </div>
 
               {/* Floating Status Badge: APIs */}
-              <div className="absolute top-[15%] right-[22%] flex items-center gap-2 bg-bg-card/90 backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
+              <div className="absolute top-[15%] right-[22%] flex items-center gap-2 bg-bg-card backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
                 <div>
                   <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase font-sans">APIs</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
@@ -169,7 +169,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               </div>
 
               {/* Floating Status Badge: BASES DE DATOS */}
-              <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 bg-bg-card/90 backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
+              <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 bg-bg-card backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
                 <div>
                   <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase font-sans">Bases de datos</div>
                   <div className="flex items-center gap-1.5 mt-0.5">

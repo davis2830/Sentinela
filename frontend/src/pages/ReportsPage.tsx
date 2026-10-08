@@ -53,9 +53,9 @@ export default function ReportsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  // Auto-refresh hook (15s countdown)
+  // Shared area clock; only stored data is consulted.
   const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
+    scopeKey: 'management', intervalSeconds: 30,
     initialEnabled: true,
   });
 

@@ -1,8 +1,24 @@
 # Dashboards por área y módulos compactos
 
+## Consulta discreta y pruebas de configuración — 2026-10-07
+
+El control común muestra «Actualización automática activa/pausada», sin un contador permanente. El plazo de la siguiente consulta aparece en su tooltip. «Datos consultados hace…» describe la lectura de la interfaz, no la última medición real. La recarga manual no ejecuta sondeos ni mueve el ciclo compartido: Conectividad conserva Free 300 s / Pro 60 s y Gestión 30 s. El historial del detalle de APIs también usa ese ciclo, no un timer independiente de 15 s.
+
+Los formularios de Monitoring, API, SSL, DNS, dominios y cabeceras, así como el onboarding, ofrecen «Probar configuración». Es opcional, no genera históricos ni altera el cooldown de recursos guardados. Un límite se explica en el formulario y no bloquea guardar. Se retiró la petición inmediata del detalle de APIs; allí solo queda «Comprobar ahora», sujeto al backend. Véase [política de diagnósticos](SUBSCRIPTIONS_ONBOARDING.md#pruebas-de-configuración-independientes--2026-10-07).
+
+Evidencia local: Django **171/171**, Chromium **136/136**, TypeScript/Vite y Compose aprobados. Diez regresiones UI nuevas comprueban control discreto, seis formularios, confirmación HTTP, onboarding y ausencia del bypass en APIs. Una ejecución anterior falló intermitentemente al cargar la ficha móvil; el caso aislado y la repetición completa posterior pasaron. Capturas móviles revisadas; cuentas y telemetría de prueba aisladas. No certifica CI remoto ni producción.
+
 El Centro de Conectividad conserva `/dashboard` como destino después del login y del onboarding. Muestra estado actual, tendencias y contexto operativo de Web, API, TCP, SSL, DNS, dominios, Security Headers y Sentinine. El Resumen de gestión en `/gestion` concentra coordinación operativa sin sustituir los módulos especializados. Sistema mantiene su organización actual.
 
 El onboarding se abre para administradores sin monitores y con habilitación operativa. Una prueba vencida no puede crear recursos ni ejecutar scans; el aviso explica la contratación y la confirmación de pago pendientes. Véase [suscripciones, onboarding y cobertura](SUBSCRIPTIONS_ONBOARDING.md).
+
+## Paleta uniforme de superficies — 2026-10-07
+
+Los tokens de `frontend/src/index.css` y sus respaldos Tailwind definen fondo `#090D11`, panel `#101820`, hover `#16202B`, borde/rejilla `#263340` y borde destacado `#405060`. Paneles, tablas, formularios y portales usan superficies sólidas; la franja compacta conserva un gradiente sutil entre panel y hover. Autenticación y Status Page pública reutilizan los mismos tokens. No se modificaron tipografía, layouts, acentos, colores configurables ni estados semánticos.
+
+Dona y KPI comparten `dashboardHealthTone`: datos incompletos, porcentaje ausente o cero recursos → neutro; caídas → rojo; degradación sin caídas → ámbar; recursos desconocidos sin caídas/degradación → neutro; todos saludables → verde. Se preservan porcentajes y conteos. La regla no deduce salud por umbrales de porcentaje.
+
+Validación local: TypeScript/Vite aprobado, Django **155/155** y Playwright Chromium **99/99**. Ocho casos nuevos cubren autenticación y siete escenarios de salud; se ampliaron comprobaciones CSS efectivas de superficies, bordes y rejilla en dashboards, módulos, drawer y Status Page pública. Capturas revisadas en 1440×900 y 390×844. Telemetría simulada mediante fixtures aislados: no certifica datos productivos ni cumplimiento global de accesibilidad. CI remoto, pendientes externos y producción siguen pendientes.
 
 ## Jerarquía de información
 
@@ -40,7 +56,7 @@ Cada tarjeta abre un drawer unificado con resumen, última señal, valores relev
 
 Actividad operativa combina estados recientes, alertas, incidentes y `audit-logs/?limit=25`. Admite filtros `Todo`, `Operación` y `Cambios`, muestra hasta ocho eventos y respeta el período temporal.
 
-Todas las fuentes se actualizan cada 30 segundos. Un fallo parcial no derriba el dashboard: se conserva la información disponible, se muestra una advertencia y el origen ausente permanece como no disponible.
+Las fuentes de Conectividad comparten la cadencia contractual del plan (Free 300 s / Pro 60 s), consultando únicamente las fuentes activas de la pantalla. Un fallo parcial no derriba el dashboard: se conserva la información disponible, se muestra una advertencia y el origen ausente permanece como no disponible.
 
 ## Resumen de gestión
 
@@ -66,13 +82,15 @@ SSL, DNS, dominios, API Checks y Security Headers usan el mismo estilo de barra,
 
 `Actualizar datos` recarga solo las consultas activas de la pantalla y organización. La hora de consulta no representa una nueva medición. No hay controles de sondeo masivo en cabeceras o barras de selección; los endpoints existentes siguen protegidos por el backend.
 
-En los seis módulos de Conectividad, `En vivo` y el polling GET siguen el mínimo contractual de la suscripción (Free 5 min, Pro 60 s), no 15 segundos. La recarga manual muestra que no ejecutó un sondeo. El contador es de consulta de resultados, no de la próxima medición individual; el recurso conserva su programación y cooldown. Sin metadatos válidos no se activa el polling. Los dashboards conservan su lectura global de 30 segundos.
+`Actualización automática` comparte un ciclo por usuario, organización y área dentro de la pestaña. Conectividad incluye su dashboard, seis módulos y ficha de endpoint; usa el mínimo contractual vigente del backend (Free 5 min, Pro 60 s). Gestión comparte 30 s entre resumen y seis módulos; Sistema no tiene polling periódico. La Status Page pública conserva su lectura anónima de 30 s. La recarga manual consulta solo resultados guardados y nunca mueve el plazo automático, ni al fallar. El contador es de consulta, no de la próxima medición individual: cada recurso conserva su programación y cooldown. Sin metadatos o permisos operativos válidos, la lectura automática se deshabilita y la recarga permite reintentar. Un error temporal de suscripción conserva la cadencia conocida sin afirmar disponibilidad.
 
 Los GET de Monitoring, API Checks, SSL, DNS, dominios y Security Headers incluyen `scan_availability`, de solo lectura. La precedencia es suscripción, permisos, pausa, Sentinine, reserva pendiente, cooldown y disponible. Solo cooldown devuelve `next_allowed_at` y `retry_after_seconds`; pendiente no promete una fecha de finalización. GET no crea reservas y las listas cargan reservas por lote. Tokens de solo lectura reciben `read_only`.
 
 `Comprobar ahora` aparece únicamente para administradores en el detalle. Si falta disponibilidad o falla su consulta, queda deshabilitado con recarga disponible. El contador es informativo: cada POST continúa validando admisión y puede devolver 429 por concurrencia. Free respeta 300 s y Pro 60 s, además de intervalos configurados más lentos.
 
 ## Implementación y evidencia local
+
+- 2026-10-07: política compartida por área; pausa y plazo persistentes por usuario/organización/área en `sessionStorage`. Navegar, regresar, recargar la página o consultar manualmente no inicia un nuevo ciclo. Solo la pantalla montada consulta sus fuentes; la pestaña oculta no hace polling, y se omiten ciclos vencidos sin ráfagas. La suscripción se revalida en el mismo ciclo. Se separan hora de consulta y última medición. Status Page no refresca automáticamente su configuración editable ni la incluye en la recarga general, para preservar borradores. Si el navegador bloquea almacenamiento, no se garantiza persistencia entre pantallas. Gates locales: **156/156 Django**, **126/126 Chromium**, TypeScript/build aprobado. CI remoto y producción pendientes.
 
 - Piloto visual de Uptime & Latencia aprobado y extendido el 2026-10-05 a los módulos de Conectividad, Gestión y Sistema, navegación y portales de formularios/detalles. Marca emerald, Online verde y latencia cyan; textos secundarios blanco suave `#E2E8F0`, auxiliares `#CBD5E1`. Las gráficas de ambos dashboards conservan su semántica y filtros con colores más vivos. Sin cambios de permisos, cadencia por plan ni scans.
 - Últimos gates locales de extensión: Django 105/105, Chromium 76/76 y TypeScript/Vite aprobados; estilos comprobados en 17 rutas y revisión visual 1440×900 y 390×844. Contraste probado para texto secundario de tabla en fixture, no certificación global. CI y producción pendientes.

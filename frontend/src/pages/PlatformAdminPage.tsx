@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import type { PlatformStats, PlatformOrganization } from '../types/platform_admin';
 import { useAuthStore } from '../store/authStore';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import {
   NOCPageHeader,
   NOCKpiGrid,
@@ -53,25 +52,20 @@ export default function PlatformAdminPage() {
   const [selectedForPlan, setSelectedForPlan] = useState<PlatformOrganization | null>(null);
   const [inspectedOrgId, setInspectedOrgId] = useState<string | null>(null);
 
-  // Auto-refresh hook (15s countdown)
-  const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
-    initialEnabled: true,
-  });
+  // Shared area clock; only stored data is consulted.
 
   // Query: Stats
   const { data: stats, isLoading: isLoadingStats } = useQuery<PlatformStats>({
-    queryKey: ['platform-admin-stats'],
+    queryKey: ['platform-admin-stats', user?.organization?.id],
     queryFn: async () => {
       const res = await api.get('/platform-admin/stats/');
       return res.data?.data;
     },
-    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Query: Organizations List
   const { data: organizations, isLoading: isLoadingOrgs } = useQuery<PlatformOrganization[]>({
-    queryKey: ['platform-admin-orgs', searchTerm, planFilter, statusFilter],
+    queryKey: ['platform-admin-orgs', user?.organization?.id, searchTerm, planFilter, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchTerm) params.set('search', searchTerm);
@@ -80,7 +74,6 @@ export default function PlatformAdminPage() {
       const res = await api.get(`/platform-admin/organizations/?${params.toString()}`);
       return res.data?.data || [];
     },
-    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Toggle Status Mutation (Suspend/Reactivate)
@@ -131,16 +124,12 @@ export default function PlatformAdminPage() {
     <div className="space-y-6 animate-in fade-in duration-300 font-sans pb-10">
       <BetaAdminPanel />
       {/* 1. TOP HEADER */}
-      <NOCPageHeader
+      <NOCPageHeader queryKeys={["platform-admin-stats","platform-admin-orgs"]}
         title="Torre de Control de Plataforma"
         badgeText="SUPERADMIN CONSOLE"
         description="Centro de mando de organizaciones corporativas, gestión de planes, métricas financieras y salud de la plataforma."
         icon={<Crown size={26} className="text-accent-yellow" />}
-        autoRefresh={{
-          enabled: autoRefresh.enabled,
-          countdown: autoRefresh.countdown,
-          onToggle: autoRefresh.toggle,
-        }}
+
         actions={
           <>
             <button

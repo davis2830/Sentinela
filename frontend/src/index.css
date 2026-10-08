@@ -7,7 +7,7 @@
 .compact-summary-item { display:flex; align-items:center; gap:10px; padding:6px 14px; border-radius:8px; font-size:12px; color:rgb(var(--sentinel-text-muted)); }
 .compact-summary-item strong { color:#e6edf5; font-size:14px; font-variant-numeric:tabular-nums; }
 .compact-summary-item[aria-pressed="true"] { background:rgb(var(--sentinel-accent-green) / .12); color:rgb(var(--sentinel-accent-green)); }
-.compact-summary-status { gap:4px; padding:5px; border:1px solid #243140; border-radius:12px; background:linear-gradient(110deg, #101922, #0d141c); }
+.compact-summary-status { gap:4px; padding:5px; border:1px solid rgb(var(--sentinel-border-base)); border-radius:12px; background:linear-gradient(110deg, rgb(var(--sentinel-bg-card-hover)), rgb(var(--sentinel-bg-card))); }
 .compact-summary-status .compact-summary-item { --summary-tone:#8fbed7; flex:1 1 100px; min-width:0; gap:9px; padding:7px 11px; border:1px solid transparent; border-radius:8px; color:rgb(var(--sentinel-text-muted)); transition:background-color .15s, border-color .15s; }
 .compact-summary-status .summary-icon { color:var(--summary-tone); flex-shrink:0; }
 .compact-summary-status .compact-summary-item strong { margin-left:auto; min-width:25px; padding:2px 6px; border-radius:6px; background:#ffffff06; color:var(--summary-tone); font-size:15px; line-height:22px; text-align:center; font-weight:600; }
@@ -16,10 +16,10 @@
 /* Shared palette also reaches dialogs rendered into document.body. */
 :root {
   --sentinel-bg-dark:9 13 17;
-  --sentinel-bg-card:17 28 43;
-  --sentinel-bg-card-hover:23 42 59;
-  --sentinel-border-base:48 67 89;
-  --sentinel-border-accent:64 87 112;
+  --sentinel-bg-card:16 24 32;
+  --sentinel-bg-card-hover:22 32 43;
+  --sentinel-border-base:38 51 64;
+  --sentinel-border-accent:64 80 96;
   --sentinel-text-muted:226 232 240;
   --sentinel-text-dim:203 213 225;
   --sentinel-accent-green:0 212 170;
@@ -28,12 +28,12 @@
   --sentinel-accent-yellow:251 191 36;
   --sentinel-accent-red:255 115 132;
   --monitoring-latency:#38d9f5;
-  --monitoring-chart-grid:#304359;
+  --monitoring-chart-grid:rgb(var(--sentinel-border-base));
   --monitoring-chart-label:#cbd5e1;
 }
 :where(body) .compact-summary-status {
   border-color:rgb(var(--sentinel-border-base));
-  background:linear-gradient(110deg, #142235, #101c2a);
+  background:linear-gradient(110deg, rgb(var(--sentinel-bg-card-hover)), rgb(var(--sentinel-bg-card)));
   gap:6px;
   padding:6px;
 }
@@ -84,12 +84,12 @@
 :where(body) .bg-rose-500\/10 { background-color:rgb(255 115 132 / .12); }
 :where(body) .bg-rose-500\/20 { background-color:rgb(255 115 132 / .18); }
 :where(body) .border-rose-500\/30 { border-color:rgb(255 115 132 / .4); }
-:where(body) [data-testid="connectivity-table"] thead { background-color:#172538; }
-:where(body) [data-testid="connectivity-table"] tbody tr:hover { background-color:#192d40; }
-.compact-resource-list { border:1px solid rgb(var(--sentinel-border-base)); border-radius:14px; background:rgb(var(--sentinel-bg-card) / .8); min-width:0; }
+:where(body) [data-testid="connectivity-table"] thead { background-color:rgb(var(--sentinel-bg-card-hover)); }
+:where(body) [data-testid="connectivity-table"] tbody tr:hover { background-color:rgb(var(--sentinel-bg-card-hover)); }
+.compact-resource-list { border:1px solid rgb(var(--sentinel-border-base)); border-radius:14px; background:rgb(var(--sentinel-bg-card)); min-width:0; }
 .compact-resource-row { display:grid; grid-template-columns:18px minmax(160px,1.5fr) minmax(90px,.7fr) minmax(100px,1fr) 40px; align-items:center; gap:16px; padding:12px 16px; border-bottom:1px solid rgb(var(--sentinel-border-base) / .5); min-width:0; }
 .compact-resource-row:last-child { border-bottom:0; }
-.compact-resource-row:hover { background:rgba(148,163,184,.04); }
+.compact-resource-row:hover { background:rgb(var(--sentinel-bg-card-hover)); }
 .resource-meta { overflow-wrap:anywhere; }
 .compact-workspace .text-\[9px\], .compact-workspace .text-\[10px\], .compact-workspace .text-\[11px\], [data-testid="dashboard-page"] .text-\[9px\], [data-testid="dashboard-page"] .text-\[10px\], [data-testid="dashboard-page"] .text-\[11px\], [role="dialog"] .text-\[10px\], [role="dialog"] .text-\[11px\] { font-size:12px; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid #34d399; outline-offset:3px; }
@@ -218,11 +218,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #1E293B;
+    background: rgb(var(--sentinel-border-base));
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #334155;
+    background: rgb(var(--sentinel-border-accent));
   }
 }
 
@@ -232,7 +232,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 
   .metric-panel {
-    @apply bg-bg-card/60 border border-border-base/60 rounded-xl px-4 py-3 flex flex-col justify-between;
+    @apply bg-bg-card border border-border-base/60 rounded-xl px-4 py-3 flex flex-col justify-between;
     min-height: 108px;
   }
   .input-base {

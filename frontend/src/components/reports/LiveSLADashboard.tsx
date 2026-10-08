@@ -259,7 +259,7 @@ export default function LiveSLADashboard({ refetchInterval }: LiveSLADashboardPr
             <div className="mt-3 overflow-x-auto border border-border-base/60 rounded-xl bg-bg-main/70">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-border-base text-text-dim bg-bg-card/50">
+                  <tr className="border-b border-border-base text-text-dim bg-bg-card">
                     <th className="py-2.5 px-3">Servicio</th>
                     <th className="py-2.5 px-3">Tipo</th>
                     <th className="py-2.5 px-3">Disponibilidad</th>

@@ -226,14 +226,14 @@ export default function LatencyChart({
                   </linearGradient>
                 </defs>
 
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--monitoring-chart-grid, #1E293B)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--monitoring-chart-grid, #263340)" vertical={false} />
 
                 <XAxis
                   dataKey="label"
                   stroke="var(--monitoring-chart-label, #64748B)"
                   tick={{ fontSize: 12, fill: 'var(--monitoring-chart-label, #64748B)', fontFamily: 'monospace' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#1E293B' }}
+                  axisLine={{ stroke: 'rgb(var(--sentinel-border-base))' }}
                   interval="preserveStartEnd"
                   minTickGap={40}
                 />
@@ -242,7 +242,7 @@ export default function LatencyChart({
                   stroke="var(--monitoring-chart-label, #64748B)"
                   tick={{ fontSize: 12, fill: 'var(--monitoring-chart-label, #64748B)', fontFamily: 'monospace' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#1E293B' }}
+                  axisLine={{ stroke: 'rgb(var(--sentinel-border-base))' }}
                   domain={[0, yDomainMax]}
                   unit="ms"
                 />
@@ -320,7 +320,7 @@ export default function LatencyChart({
                             cy={cy}
                             r={3.5}
                             fill="#F59E0B"
-                            stroke="#111720"
+                            stroke="rgb(var(--sentinel-bg-card))"
                             strokeWidth={1.5}
                           />
                         );

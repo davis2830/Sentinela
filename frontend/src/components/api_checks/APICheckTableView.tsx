@@ -61,11 +61,11 @@ export default function APICheckTableView({
   };
 
   return (
-    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card/95 border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
+    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card/50">
+            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
               {/* Checkbox select all */}
               <th scope="col" className="py-3 px-3.5 w-10">
                 <button

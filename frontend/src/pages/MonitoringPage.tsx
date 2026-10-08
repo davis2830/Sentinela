@@ -5,7 +5,7 @@ import AdminButton from '../components/common/AdminButton';
 import { useAuthStore } from '../store/authStore';
 import ReloadDataButton from '../components/common/ReloadDataButton';
 import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
-import { formatRefreshCountdown } from '../hooks/useAutoRefresh';
+import AutomaticRefreshControl from '../components/common/AutomaticRefreshControl';
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -35,7 +35,6 @@ import {
   Play,
   CheckSquare,
   AlertTriangle,
-  Radio,
   Server,
 } from 'lucide-react';
 
@@ -52,7 +51,7 @@ export default function MonitoringPage() {
 
   const [scanningId, setScanningId] = useState<string | null>(null);
   const autoRefresh = useConnectivityRefresh();
-  const { subscription, enabled: autoRefreshEnabled, countdown, setEnabled: setAutoRefreshEnabled } = autoRefresh;
+  const { subscription } = autoRefresh;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","up","down","slow","disabled"] as const);
   const [protocolFilter, setProtocolFilter] = useUrlFilter('type', ["all","http","https","tcp","dns","api","ssl"] as const);
@@ -311,23 +310,9 @@ export default function MonitoringPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-          {/* Auto-refresh indicator & toggle */}
-          <button
-            onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
-            aria-label={autoRefreshEnabled ? 'Pausar auto-refresco' : 'Activar auto-refresco'}
-            disabled={!autoRefresh.ready}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-medium transition-colors ${
-              autoRefreshEnabled
-                ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
-                : 'bg-bg-dark/80 border-border-base/80 text-text-dim'
-            }`}
-            title="Recarga automática de datos guardados, no ejecuta sondeos. La frecuencia sigue el plan."
-          >
-            {autoRefreshEnabled ? <Radio size={12} className="animate-pulse text-accent-green" /> : <Pause size={12} />}
-            {!autoRefresh.ready ? 'Frecuencia no disponible' : autoRefreshEnabled ? `En vivo: ${formatRefreshCountdown(countdown)}` : 'Pausado'}
-          </button>
+          <AutomaticRefreshControl {...autoRefresh} onToggle={autoRefresh.toggle} />
 
-          <ReloadDataButton queryKeys={["monitoring-targets","agent-probes","org-subscription","target-timeseries"]} scanIntervalSeconds={autoRefresh.ready ? autoRefresh.intervalSeconds : undefined} onReload={autoRefresh.resetCountdown} />
+          <ReloadDataButton queryKeys={["monitoring-targets","agent-probes","org-subscription","target-timeseries"]} scanIntervalSeconds={autoRefresh.ready ? autoRefresh.intervalSeconds : undefined} />
 
 
           <button

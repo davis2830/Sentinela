@@ -111,9 +111,9 @@ export default function IncidentsPage() {
   const [assigneeState, setAssigneeState] = useState('');
   const [teamAssigneeState, setTeamAssigneeState] = useState('');
 
-  // Auto-refresh hook (15s countdown)
+  // Shared area clock; only stored data is consulted.
   const autoRefresh = useAutoRefresh({
-    intervalSeconds: 15,
+    scopeKey: 'management', intervalSeconds: 30,
     initialEnabled: true,
   });
 
@@ -185,7 +185,7 @@ export default function IncidentsPage() {
       return (response.data?.data || []) as IncidentTimelineEvent[];
     },
     enabled: !!selectedIncident,
-    refetchInterval: 10000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Linked alerts query for selected incident
@@ -197,7 +197,7 @@ export default function IncidentsPage() {
       return (response.data?.data || []) as IncidentAlert[];
     },
     enabled: !!selectedIncident,
-    refetchInterval: 10000,
+    refetchInterval: autoRefresh.refetchInterval,
   });
 
   // Mutations

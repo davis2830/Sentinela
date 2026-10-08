@@ -20,7 +20,7 @@ export default function RedirectNotice({ location, endpoint, statusCode, onUseAd
       <p className="break-all"><span className="font-semibold text-text-main">Dirección indicada por el sitio: </span>{address || location}</p>
       {address && <>
         <button type="button" onClick={() => onUseAddress(address!)} className="rounded-lg border border-amber-400/40 px-3 py-2 font-semibold text-amber-200 hover:bg-amber-400/10">Usar esta dirección</button>
-        <p>Esto solo cambia el campo. Después pulsa «Probar en Vivo» para comprobar la nueva dirección.</p>
+        <p>Esto solo cambia el campo. Después pulsa «Probar configuración» para comprobar la nueva dirección.</p>
       </>}
       <details className="pt-1">
         <summary className="cursor-pointer text-text-muted">Detalles técnicos</summary>

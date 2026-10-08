@@ -328,8 +328,8 @@ export default function APIChecksPage() {
           countdown: autoRefresh.countdown,
           onToggle: autoRefresh.toggle,
           intervalSeconds: autoRefresh.intervalSeconds,
-          resetCountdown: autoRefresh.resetCountdown,
           ready: autoRefresh.ready,
+          blockedReason: autoRefresh.blockedReason,
         }}
         actions={
           <>

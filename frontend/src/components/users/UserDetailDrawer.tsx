@@ -423,7 +423,7 @@ export default function UserDetailDrawer({
                       className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
                         isChecked
                           ? 'bg-bg-card border-accent-blue shadow-xs'
-                          : 'bg-bg-card/50 border-border-base hover:border-border-accent'
+                          : 'bg-bg-card border-border-base hover:border-border-accent'
                       } ${member.is_invitation ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">

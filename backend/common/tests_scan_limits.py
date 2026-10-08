@@ -107,7 +107,7 @@ class ScanLimitTests(TestCase):
                 enqueue_scan(self.target, run_monitoring_check)
         self.assertIsNotNone(reserve(self.target))
 
-    def test_live_diagnostic_is_also_limited(self):
+    def test_configuration_diagnostics_have_an_independent_shared_budget(self):
         with patch('common.security.validate_safe_public_url'), patch('common.safe_http.request') as connect:
             connect.return_value.status_code = 200
             connect.return_value.is_redirect = False
@@ -115,8 +115,12 @@ class ScanLimitTests(TestCase):
             first = self.client.post('/api/v1/monitoring/test-connection/', {'endpoint': 'https://example.com', 'target_type': 'https'}, format='json')
             second = self.client.post('/api/v1/monitoring/test-connection/', {'endpoint': 'https://other.example.com', 'target_type': 'https'}, format='json')
             self.assertEqual(first.status_code, 200)
-            self.assertEqual(second.status_code, 429)
-            connect.assert_called_once()
+            third = self.client.post('/api/v1/monitoring/test-connection/', {'endpoint': 'https://third.example.com', 'target_type': 'https'}, format='json')
+            fourth = self.client.post('/api/v1/monitoring/test-connection/', {'endpoint': 'https://fourth.example.com', 'target_type': 'https'}, format='json')
+            self.assertEqual(second.status_code, 200)
+            self.assertEqual(third.status_code, 200)
+            self.assertEqual(fourth.status_code, 429)
+            self.assertEqual(connect.call_count, 3)
 
     def test_agent_heartbeat_and_result_duplicates_obey_reservation(self):
         probe = AgentProbe.objects.create(organization=self.org, name='Local', token_hash='b' * 64)

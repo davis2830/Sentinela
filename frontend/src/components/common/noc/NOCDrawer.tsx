@@ -140,7 +140,7 @@ export default function NOCDrawer({
 
         {/* Optional Footer Actions */}
         {footerActions && (
-          <div className="p-4 border-t border-border-base bg-bg-card/95 shrink-0 flex flex-wrap items-center justify-end gap-2.5">
+          <div className="p-4 border-t border-border-base bg-bg-card shrink-0 flex flex-wrap items-center justify-end gap-2.5">
             {footerActions}
           </div>
         )}
