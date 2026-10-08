@@ -99,6 +99,155 @@ test('login loads the dashboard', async ({ page }) => {
   await expect(page.locator('table')).toHaveCount(0);
 });
 
+test('performance separates readable tracks and shows a unified tooltip on desktop and mobile', async ({page}) => {
+  await mockDashboard(page); await login(page, admin);
+  const chart=page.getByTestId('dashboard-performance');
+  await expect(chart.getByRole('img',{name:'Latencia histórica en milisegundos'})).toBeVisible();
+  await expect(chart.getByRole('img',{name:'Disponibilidad histórica de cero a cien por ciento'})).toBeVisible();
+  await expect(chart).toContainText('2/min');
+  await expect(chart).not.toContainText('undefined');
+  await expect(chart).not.toContainText('Sin mediciones en este período');
+  const dot=await chart.locator('.recharts-area-dot').first().boundingBox();
+  const bar=await chart.locator('.recharts-bar-rectangle').first().boundingBox();
+  expect(Math.abs((dot!.x+dot!.width/2)-(bar!.x+bar!.width/2))).toBeLessThan(2);
+  for(const [name,point] of [
+    ['Latencia histórica en milisegundos','.recharts-area-dot'],
+    ['Disponibilidad histórica de cero a cien por ciento','.recharts-line-dot'],
+    ['Comprobaciones por minuto y eje de tiempo','.recharts-bar-rectangle'],
+  ]) {
+    const track=chart.getByRole('img',{name});
+    await track.scrollIntoViewIfNeeded();
+    const mark=await track.locator(point).first().boundingBox();
+    // A synchronized active dot can cover the underlying dot; move the real
+    // pointer to that position instead of asking Playwright to hit the base SVG.
+    await page.mouse.move(mark!.x+mark!.width/2,mark!.y+mark!.height/2);
+    await expect(page.getByTestId('performance-tooltip')).toHaveCount(1);
+    await expect(track.getByTestId('performance-tooltip')).toContainText('Comprobaciones');
+    await expect(chart.locator('.recharts-tooltip-cursor')).toHaveCount(3);
+  }
+  await chart.screenshot({path:'test-results/performance-single-tooltip.png'});
+  await page.mouse.move(0,0);
+  await expect(page.getByTestId('performance-tooltip')).toHaveCount(0);
+  // Keyboard focus must show only the focused track's information as well.
+  const latency=chart.getByRole('img',{name:'Latencia histórica en milisegundos'});
+  await latency.locator('svg.recharts-surface').focus();await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('performance-tooltip')).toHaveCount(1);
+  await expect(latency.getByTestId('performance-tooltip')).toBeVisible();
+  await page.getByRole('button',{name:'1h',exact:true}).focus();
+  await expect(page.getByTestId('performance-tooltip')).toHaveCount(0);
+  await chart.screenshot({path:'test-results/performance-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(()=>page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
+  await chart.scrollIntoViewIfNeeded();
+  // Axis labels remain inside their SVG, including the full 100% label.
+  await expect(chart.locator('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value').first()).toBeVisible();
+  for(const tick of await chart.locator('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value').all()) {
+    const box=await tick.boundingBox();const svg=await tick.locator('xpath=ancestor::*[local-name()="svg"]').boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(svg!.x); expect(box!.x+box!.width).toBeLessThanOrEqual(svg!.x+svg!.width);
+  }
+  await chart.screenshot({path:'test-results/performance-mobile.png'});
+});
+
+test('performance empty, missing-rate and failed responses do not show fabricated curves', async ({page}) => {
+  await mockDashboard(page);
+  let mode='empty';
+  await page.route('**/api/v1/monitoring/global-performance/**',route=>route.fulfill({status:mode==='error'?500:200,json:{data:{summary:{total_checks:mode==='empty'?0:2},points:[{time:'12:00',timestamp:Date.now(),uptime:100,latency:120,checks:mode==='empty'?0:2}]}}}));
+  await login(page,admin);const chart=page.getByTestId('dashboard-performance');
+  await expect(chart).toContainText('Sin mediciones en este período');
+  await expect(chart.locator('svg.recharts-surface')).toHaveCount(0);
+  mode='missing'; await page.reload();
+  await expect(chart).toContainText('Promedio no disponible');
+  await expect(chart).toContainText('El ritmo de comprobaciones no está disponible');
+  await expect(chart).not.toContainText('undefined');
+  mode='error';await page.reload();
+  await expect(chart).toContainText('Telemetría no disponible');
+  await expect(chart.locator('svg.recharts-surface')).toHaveCount(0);
+});
+
+test('performance retains measured points and time ticks across long sparse ranges', async ({page}) => {
+  await mockDashboard(page);
+  await page.route('**/api/v1/monitoring/global-performance/**',route=>{
+    const period=new URL(route.request().url()).searchParams.get('period')||'24h';
+    const slots=period==='7d'?28:24;const step=(period==='7d'?6:period==='6h'?0.25:period==='1h'?0.05:1)*3600000;
+    const now=Date.now();
+    const points=Array.from({length:slots+1},(_,index)=>({timestamp:now-(slots-index)*step,time:'hora',uptime:index>=slots-3?100:null,latency:index>=slots-3?250:null,checks:index>=slots-3?5:0,checks_per_minute:index>=slots-3?0.08:0}));
+    return route.fulfill({json:{data:{period,summary:{total_checks:20,avg_uptime:100,avg_latency:250,checks_per_minute:0.02},points}}});
+  });
+  await login(page,admin);const chart=page.getByTestId('dashboard-performance');
+  for(const period of ['24h','1h','6h','7d']) {
+    await page.getByRole('button',{name:period,exact:true}).click();
+    await expect(chart).toContainText('Monitoring · '+period);
+    await expect(chart.locator('.recharts-area-dot')).toHaveCount(4);
+    await expect(chart.locator('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value').first()).toBeVisible();
+    const bar=await chart.locator('.recharts-bar-rectangle').last().boundingBox();expect(bar!.height).toBeGreaterThan(1);
+  }
+  await page.getByRole('button',{name:'24h',exact:true}).click();
+  await chart.screenshot({path:'test-results/performance-sparse-24h.png'});
+});
+
+test('health and module charts show all states and preserve keyboard filters',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});await mockDashboard(page);await login(page,admin);
+  const donut=page.getByTestId('dashboard-health-donut');
+  await donut.locator('.recharts-pie-sector').first().hover({position:{x:60,y:30}});
+  const tip=donut.getByTestId('dashboard-health-tooltip');
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText('Saludables');
+  await expect(tip.locator('xpath=..')).toHaveCSS('z-index','30');
+  await expect(tip.locator('xpath=..')).toHaveCSS('pointer-events','none');
+  // Compare paint order where the tooltip overlaps the center: the tooltip
+  // must paint above the reset button, without disabling that button.
+  await expect(tip).toHaveCSS('background-color','rgb(9, 13, 17)');
+  expect(await tip.evaluate(element=>{
+    const center=element.closest('section')!.querySelector('[data-testid="dashboard-donut-reset"]')!;
+    const a=element.getBoundingClientRect(),b=center.getBoundingClientRect();
+    const left=Math.max(a.left,b.left),right=Math.min(a.right,b.right),top=Math.max(a.top,b.top),bottom=Math.min(a.bottom,b.bottom);
+    if(right<=left||bottom<=top)return false;
+    const wrapper=element.parentElement!;const previous=wrapper.style.pointerEvents;
+    try {
+      wrapper.style.pointerEvents='auto';
+      return element.contains(document.elementFromPoint((left+right)/2,(top+bottom)/2));
+    } finally {wrapper.style.pointerEvents=previous;}
+  })).toBe(true);
+  await donut.screenshot({path:'test-results/health-tooltip-desktop.png'});
+  await page.mouse.move(0,0);
+  await expect(donut.getByTestId('dashboard-health-unknown')).toContainText('0');
+  await expect(donut.getByTestId('dashboard-donut-reset')).toContainText('25%');
+  const degraded=donut.getByTestId('dashboard-health-degraded');await degraded.focus();await page.keyboard.press('Space');
+  await expect(degraded).toHaveAttribute('aria-pressed','true');
+  await page.getByTestId('dashboard-donut-reset').click();
+  await expect(degraded).toHaveAttribute('aria-pressed','false');
+  await expect(page.getByTestId('dashboard-module-web').getByRole('img')).toHaveAttribute('aria-label',/Caídos: 1/);
+  await expect(page.getByTestId('dashboard-module-tcp')).toContainText('Sin recursos');
+  await page.screenshot({path:'test-results/dashboard-charts-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(()=>page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
+  await donut.locator('.recharts-pie-sector').first().hover({position:{x:60,y:30}});
+  await expect(tip).toBeVisible();
+  await expect(tip.locator('xpath=..')).toHaveCSS('z-index','30');
+  await donut.screenshot({path:'test-results/health-tooltip-mobile.png'});
+  await page.mouse.move(0,0);
+  await donut.screenshot({path:'test-results/dashboard-health-mobile.png'});
+});
+
+test('health charts never invent resources or interpret missing endpoints as healthy',async({page})=>{
+  await mockDashboard(page);
+  let mode='empty';
+  for(const path of ['monitoring','api-checks','ssl-certificates','domains','dns-records','security-headers','agent-probes']) {
+    await page.route('**/api/v1/'+path+'/',route=>route.fulfill({status:mode==='failed'&&path==='security-headers'?500:200,json:{data:mode==='unknown'&&path==='monitoring'?[{id:'unmeasured',name:'No measurements yet',target_type:'https',endpoint:'https://example.com',enabled:true,interval:300,last_checked_at:null,last_status:null}]:[]}}));
+  }
+  await login(page,viewer);const donut=page.getByTestId('dashboard-health-donut');
+  await expect(donut).toContainText('Todavía no hay recursos configurados');
+  await expect(donut.getByTestId('dashboard-health-unknown')).toContainText('0');
+  await expect(donut.getByTestId('dashboard-health-healthy')).toBeDisabled();
+  mode='unknown';await page.reload();
+  await expect(donut.getByTestId('dashboard-health-unknown')).toContainText('1');
+  await expect(page.getByTestId('dashboard-module-web')).toContainText('Sin mediciones completas');
+  mode='failed';await page.reload();
+  await expect(donut).toContainText('Estado incompleto');
+  await expect(donut.getByTestId('dashboard-health-healthy')).toBeDisabled();
+  await expect(page.getByTestId('dashboard-module-security')).toContainText('No disponible');
+});
+
 test('desktop charts fit the first viewport with account notices', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockDashboard(page);

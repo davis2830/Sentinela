@@ -139,8 +139,8 @@ class GlobalPerformanceTests(TestCase):
 
     def test_empty_period_has_no_availability_or_latency(self):
         result = MonitoringService.get_organization_global_performance(self.org.id, "1h")
-        self.assertEqual(result["summary"]["avg_uptime"], 100.0)
-        self.assertEqual(result["summary"]["avg_latency"], 0)
+        self.assertIsNone(result["summary"]["avg_uptime"])
+        self.assertIsNone(result["summary"]["avg_latency"])
         self.assertEqual(result["summary"]["total_checks"], 0)
         self.assertTrue(all(point["requests"] == 0 for point in result["points"]))
 

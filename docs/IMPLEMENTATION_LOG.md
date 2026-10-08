@@ -1,5 +1,29 @@
 # Bitácora de implementación
 
+## 2026-10-06 — Capas del tooltip de la dona
+
+- Tooltip de salud con capa explícita por encima del botón central y fondo opaco. El porcentaje central no atraviesa el tooltip; la ventana no intercepta eventos del puntero y conserva filtros/restablecimiento.
+- Ampliada la prueba de gráficos existente: hover del segmento, fondo opaco, orden real de capas donde se cruza con el centro, filtros y capturas desktop/móvil. Sin aumento del conteo.
+- Gates locales: Django **120/120**, Chromium **87/87** y TypeScript/build Vite aprobados. Fixtures aislados retirados conservando auditoría. CI y producción pendientes; sin cambios backend ni frecuencia de sondeo.
+
+## 2026-10-06 — Tooltip único en rendimiento global
+
+- Las tres franjas mantienen el cursor temporal sincronizado, pero solo la franja con puntero o foco de teclado muestra el contenido del tooltip. Al salir o perder foco se oculta, sin desactivar los indicadores sincronizados ni cambiar mediciones.
+- Ampliada la regresión existente para recorrer latencia, disponibilidad y volumen: exactamente un tooltip en la franja activa, tres indicadores temporales, ausencia de tooltip al salir y foco/ArrowRight de teclado. Captura local del resultado y regresiones desktop/móvil conservadas.
+- Revalidación local: Django **120/120**, Playwright Chromium **87/87** y TypeScript/build Vite aprobados. Fixtures aislados retirados conservando auditoría; CI y producción pendientes. Sin cambios backend, migraciones o frecuencia de sondeo; flake8 no se repitió.
+
+## 2026-10-06 — Rangos largos y gráficos de estado
+
+- Reproducido el bug de 24 h con 25 buckets y horas repetidas: cero puntos renderizados pese a tener mediciones. El eje categórico se sustituyó por coordenadas de timestamp completas en los tres paneles, con dominio compartido y ticks explícitos. Regresión de 1 h / 6 h / 24 h / 7 d con series dispersas, barras y etiquetas visibles. Se conservan huecos sin datos y se informa la cantidad de intervalos medidos.
+- Dona con cuatro controles permanentes, conteos, porcentajes, texto auxiliar de 12 px y porcentaje saludable en el centro. Estados vacíos sin recurso ficticio y consultas parciales sin score global ni filtros engañosos. Barras por módulo segmentadas por salud real; errores, carga, ausencia de recursos y falta de medición diferenciados. Filtros por teclado y atributos accesibles conservados.
+- Gates locales: Django **120/120**, Playwright Chromium **87/87**, TypeScript/build Vite y revisión visual 1440×900 / 390×844 aprobados. Tres regresiones UI nuevas; corregidos selectores para las etiquetas SVG de Recharts, evitando aserciones vacías. No cambia el sondeo, planes, endpoints, permisos o base de datos. Fixtures aislados retirados, auditoría preservada; CI y producción pendientes. Sin nueva ejecución de flake8.
+
+## 2026-10-06 — Rendimiento global legible y telemetría coherente
+
+- Sustituida la superposición de dos áreas y ejes por tres franjas alineadas: latencia, disponibilidad y comprobaciones/minuto. Tooltip compartido, fecha completa, referencias fuera de las curvas, tipografía auxiliar de 12 px y etiquetas sin recortes en desktop/móvil. Se mantienen períodos y controles del dashboard.
+- Corregida la discrepancia backend/frontend: puntos con `checks` y `checks_per_minute`, promedio del período y alias `requests` conservado. Tasas con duración observada de buckets parciales; latencia/disponibilidad nulas en intervalos sin mediciones, sin 100% artificial ni arrastre de valores. Checks futuros excluidos y cache versionada para no servir el contrato anterior. Sin migración ni nuevos sondeos.
+- Gates locales: Django **120/120**, Chromium **84/84** y TypeScript/Vite aprobados. Tres regresiones backend nuevas y dos flujos UI; alineación temporal verificada también después del ajuste final. Revisión visual desktop/móvil y primer viewport del dashboard preservado. Fixtures aislados retirados, auditoría preservada; CI y producción pendientes. No se repitió flake8.
+
 ## 2026-10-05 — Ficha integral HTTP/HTTPS
 
 - Nueva página `/monitoring/:targetId` desde el drawer de Monitoring: resumen, disponibilidad/rendimiento, SSL/TLS, DNS, dominio/WHOIS, seguridad web, actividad y configuración. Mantiene filtros al volver, navegación por tabs, paleta compartida y adaptación desktop/móvil.

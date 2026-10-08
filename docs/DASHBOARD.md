@@ -13,12 +13,20 @@ La cabecera usa una barra compacta con período y controles de refresco. Los avi
 La interfaz usa Plus Jakarta Sans como fuente principal. JetBrains Mono se reserva para datos técnicos; los KPIs usan números tabulares de la fuente principal. Los componentes compartidos de resumen reducen su altura y espaciado también en los módulos. En móvil, el menú lateral inicia contraído y se despliega sobre el contenido.
 
 - Cuatro KPIs resumen salud actual, disponibilidad del período, latencia promedio y elementos que requieren atención.
-- Rendimiento global combina disponibilidad, latencia y volumen de checks con umbrales visuales de degradación.
-- La dona clasifica recursos como saludables, degradados, caídos o sin datos. Cada segmento filtra la bandeja; el centro restablece el filtro.
-- Las barras de Web, API, TCP, SSL, DNS, dominios, seguridad y Sentinine filtran por módulo.
+- Rendimiento global presenta latencia, disponibilidad y comprobaciones/minuto en tres franjas con el mismo eje temporal y tooltip compartido. No superpone escalas ni áreas; los porcentajes completos caben en móvil. Referencias visuales: 500 ms de latencia y disponibilidad inferior a 99%; no son un SLO contractual.
+- La dona clasifica recursos como saludables, degradados, caídos o sin datos. Muestra siempre los cuatro estados con conteos y porcentajes, incluido cero; cada segmento o control filtra la bandeja y el centro restablece el filtro. El centro presenta el porcentaje saludable con color semántico, no un score sin unidad. Sin recursos se muestra un aro neutro, no un segmento ficticio de un recurso. Si falla una fuente, se advierte estado incompleto y se deshabilitan los filtros de salud sin afirmar un porcentaje global.
+- Las barras de Web, API, TCP, SSL, DNS, dominios, seguridad y Sentinine filtran por módulo y desglosan proporciones saludables, degradadas, caídas y sin datos. Los controles admiten teclado y `aria-pressed`; los segmentos tienen descripción accesible. Sin recursos, consulta pendiente y fallo del módulo tienen textos distintos; una fuente fallida no se presenta como cero ni saludable.
 - En móvil, la bandeja de atención aparece antes que las gráficas analíticas.
 
 El período `1h / 6h / 24h / 7d` afecta rendimiento y actividad. La bandeja conserva el estado actual para no ocultar incidentes activos fuera de la ventana elegida.
+
+La gráfica de rendimiento usa exclusivamente históricos de Monitoring, no sondeos SSL/DNS/WHOIS ni resultados de API Checks nativos. `global-performance/` entrega `checks` y `checks_per_minute` por intervalo, y el promedio de comprobaciones/minuto del período en `summary`. Se mantiene `requests` como alias de compatibilidad. Los buckets inicial y actual usan su duración observada real; las tasas conservan seis decimales para no redondear a cero volúmenes pequeños. Horas sin checks tienen disponibilidad y latencia `null`, sin rellenado de 100% ni arrastre de latencias anteriores. Un período vacío o una consulta fallida muestra un estado explícito sin curvas. Metadatos de volumen ausentes se presentan como no disponibles, nunca `undefined`.
+
+El eje X usa timestamps completos como coordenadas, no etiquetas horarias como categorías: las horas repetidas de días diferentes no eliminan las series de 24 h o 7 días. Los tres paneles comparten dominio temporal; el tooltip muestra la fecha completa. Una leyenda auxiliar informa cuántos intervalos contienen mediciones. No se recorta el período para esconder horas vacías ni se conectan puntos a través de huecos.
+
+Los indicadores del cursor permanecen sincronizados en las tres franjas, pero solo se presenta un tooltip: en la franja que tiene el puntero o el foco de teclado. Al abandonar esa franja se oculta su contenido, evitando ventanas repetidas con los mismos datos.
+
+El tooltip de la dona utiliza fondo opaco y una capa superior al botón central. El porcentaje y las etiquetas del centro no atraviesan su contenido; la ventana no captura clics y se conservan los filtros y el restablecimiento.
 
 ## Bandeja de atención
 

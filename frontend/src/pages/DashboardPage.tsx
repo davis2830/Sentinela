@@ -144,11 +144,12 @@ export default function DashboardPage() {
 
   const services = useMemo(() => {
     const keys: Array<Exclude<DashboardModuleFilter, 'alerts'>> = ['web', 'api', 'tcp', 'ssl', 'dns', 'domain', 'security', 'agent'];
+    const queries = {web:monitoringQuery,api:apiQuery,tcp:monitoringQuery,ssl:sslQuery,dns:dnsQuery,domain:domainQuery,security:securityQuery,agent:agentsQuery};
     return Object.fromEntries(keys.map((key) => {
       const resources = operationalItems.filter((item) => item.module === key);
-      return [key, { count: resources.filter((item) => item.health === 'healthy').length, total: resources.length, attention: resources.filter(isAttentionItem).length } satisfies ServiceCategoryMetric];
+      return [key, { count: resources.filter((item) => item.health === 'healthy').length, total: resources.length, attention: resources.filter(isAttentionItem).length, degraded:resources.filter(item=>item.health==='degraded').length, down:resources.filter(item=>item.health==='down').length, unknown:resources.filter(item=>item.health==='unknown').length, unavailable:queries[key].isError, loading:queries[key].isLoading } satisfies ServiceCategoryMetric];
     })) as Record<Exclude<DashboardModuleFilter, 'alerts'>, ServiceCategoryMetric>;
-  }, [operationalItems]);
+  }, [operationalItems,monitoringQuery.isError,monitoringQuery.isLoading,apiQuery.isError,apiQuery.isLoading,sslQuery.isError,sslQuery.isLoading,dnsQuery.isError,dnsQuery.isLoading,domainQuery.isError,domainQuery.isLoading,securityQuery.isError,securityQuery.isLoading,agentsQuery.isError,agentsQuery.isLoading]);
 
   const lastSampleAt = latestTimestamp([
     ...source.monitoring.map((item) => item.last_checked_at), ...source.apiChecks.map((item) => item.last_checked_at), ...source.ssl.map((item) => item.last_scanned_at), ...source.domains.map((item) => item.last_scanned_at), ...source.dns.map((item) => item.last_scanned_at), ...source.security.map((item) => item.last_checked_at), ...source.agents.map((item) => item.last_heartbeat),

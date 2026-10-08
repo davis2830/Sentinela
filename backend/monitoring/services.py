@@ -430,7 +430,7 @@ class MonitoringService:
         """Calculate real aggregate timeseries metrics and breakdown per service for the NOC Dashboard."""
         period = (period or "24h").strip().lower()
         from django.core.cache import cache
-        cache_key = f"noc_perf_{organization_id}_{period}"
+        cache_key = f"noc_perf_v2_{organization_id}_{period}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -461,7 +461,8 @@ class MonitoringService:
 
         checks_qs = MonitoringCheck.objects.filter(
             target__organization_id=organization_id,
-            checked_at__gte=since
+            checked_at__gte=since,
+            checked_at__lte=now,
         ).values("checked_at", "latency", "status")
 
         start_epoch = int(since.timestamp() // slot_seconds * slot_seconds)
@@ -497,7 +498,6 @@ class MonitoringService:
 
         import datetime as dt_mod
         points = []
-        last_valid_latency = 0
         all_latencies = []
         total_up = 0
         total_down = 0
@@ -510,23 +510,26 @@ class MonitoringService:
             total_down += b["down"]
             if lats:
                 avg_l = round(sum(lats) / len(lats), 1)
-                last_valid_latency = avg_l
                 all_latencies.extend(lats)
             else:
-                avg_l = last_valid_latency
+                avg_l = None
 
-            uptime = round((b["up"] / t) * 100, 2) if t > 0 else 100.0
+            uptime = round((b["up"] / t) * 100, 2) if t > 0 else None
+            # First and current buckets may cover less than a full slot.
+            observed_seconds = max(1, min(ep + slot_seconds, end_epoch) - max(ep, since.timestamp()))
             points.append({
                 "timestamp": ep * 1000,
                 "time": dt.strftime(label_fmt),
                 "uptime": uptime,
                 "latency": avg_l,
                 "requests": t,
+                "checks": t,
+                "checks_per_minute": round(t * 60 / observed_seconds, 6),
             })
 
         total_checks = total_up + total_down
-        global_avg_uptime = round((total_up / total_checks * 100), 2) if total_checks > 0 else 100.0
-        global_avg_latency = round(sum(all_latencies) / len(all_latencies)) if all_latencies else 0
+        global_avg_uptime = round((total_up / total_checks * 100), 2) if total_checks > 0 else None
+        global_avg_latency = round(sum(all_latencies) / len(all_latencies)) if all_latencies else None
 
         # Subservices real data
         # 1. Web targets (HTTP/HTTPS)
@@ -582,6 +585,7 @@ class MonitoringService:
                 "avg_latency": global_avg_latency,
                 "total_requests": total_checks,
                 "total_checks": total_checks,
+                "checks_per_minute": round(total_checks * 60 / period_seconds, 6),
                 "estimated_rps": rps_str,
             },
             "points": points,
