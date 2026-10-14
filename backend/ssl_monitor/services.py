@@ -206,6 +206,8 @@ class SSLMonitorService:
             cert.port = port
             cert.save(update_fields=["port"])
 
+        if not created:
+            return cert
         try:
             from .tasks import scan_ssl_certificate
             scan_ssl_certificate.delay(str(cert.id))

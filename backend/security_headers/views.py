@@ -49,7 +49,7 @@ class SecurityHeaderTargetListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "security_headers")
+
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -74,7 +74,7 @@ class SecurityHeaderTargetListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -114,7 +114,7 @@ class SecurityHeaderTargetDetailView(APIView):
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
-                str(exc),
+                exc,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -148,7 +148,7 @@ class SecurityHeaderTargetScanView(APIView):
         except ScanLimited as exc:
             return limited_response(exc)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SecurityHeaderResultListView(APIView):
@@ -203,7 +203,7 @@ class SecurityHeaderBulkScanView(APIView):
             from .models import SecurityHeaderTarget
             return success_response(enqueue_many(SecurityHeaderTarget.objects.filter(organization_id=request.user.organization_id), scan_security_headers))
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SecurityHeaderTestView(ConfigurationDiagnosticAPIView):
@@ -253,4 +253,4 @@ class SecurityHeaderBulkActionView(APIView):
             res = SecurityHeadersService.bulk_action(org_id, action, target_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

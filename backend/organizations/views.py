@@ -7,7 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from audit.services import AuditService
-from common.permissions import IsSuperUser
+from common.permissions import IsSuperUser, IsOrganizationMember, IsAdminOrReadOnly
+from common.membership import check_member_capacity, guard_admin_removal
+from accounts.beta import public_link, control_lock
 from common.responses import error_response, success_response
 
 from .models import Organization
@@ -17,7 +19,7 @@ from .serializers import (
     OrganizationSerializer,
     OrganizationUpdateSerializer,
 )
-from .services import OrganizationService, QuotaService
+from .services import OrganizationService, QuotaService, QuotaExceededException
 
 
 class OrganizationListView(APIView):
@@ -57,7 +59,7 @@ class OrganizationListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -83,7 +85,11 @@ class OrganizationDetailView(APIView):
             )
 
     def patch(self, request, organization_id):
-        serializer = OrganizationUpdateSerializer(data=request.data)
+        try:
+            current_org = OrganizationService.get_organization(organization_id)
+        except Organization.DoesNotExist:
+            return error_response('Organization not found.', status_code=404)
+        serializer = OrganizationUpdateSerializer(data=request.data, context={'organization': current_org})
         if not serializer.is_valid():
             return error_response(
                 "Invalid input.",
@@ -179,6 +185,7 @@ class OrganizationMembersView(APIView):
 
         return success_response(data)
 
+    @transaction.atomic
     def post(self, request):
         if not (request.user.is_staff or request.user.is_superuser):
             return error_response(
@@ -187,8 +194,14 @@ class OrganizationMembersView(APIView):
             )
 
         org_id = request.user.organization_id
-        email = request.data.get("email", "").strip().lower()
-        role = request.data.get("role", "member")
+        from rest_framework import serializers
+        from accounts.beta import check_email, normalize_email
+        try:
+            email = normalize_email(serializers.EmailField().run_validation(request.data.get("email")))
+            check_email(email)
+            role = serializers.ChoiceField(choices=("admin", "member", "viewer")).run_validation(request.data.get("role", "member"))
+        except (ValueError, serializers.ValidationError) as exc:
+            return error_response("Correo o rol inválido.", errors=getattr(exc, "detail", None), status_code=400)
         first_name = request.data.get("first_name", "")
         last_name = request.data.get("last_name", "")
 
@@ -201,11 +214,14 @@ class OrganizationMembersView(APIView):
 
         from .models import InvitationToken, Organization
         from .services import QuotaExceededException, QuotaService
-        org = Organization.objects.get(id=org_id)
+        control_lock()
+        org = Organization.objects.select_for_update().get(id=org_id)
+        from common.subscriptions import require_monitoring
+        require_monitoring(org)
 
         # Check team members quota
         try:
-            QuotaService.check_quota(org, "team_members")
+            check_member_capacity(org, replace_email=email)
         except QuotaExceededException as qe:
             return error_response(
                 str(qe),
@@ -240,7 +256,11 @@ class OrganizationMembersView(APIView):
             last_name=last_name,
         )
 
-        invite_link = f"http://localhost:3001/accept-invitation?token={inv_token.token}"
+        try:
+            invite_link = public_link("accept-invitation", inv_token.token)
+        except ValueError:
+            transaction.set_rollback(True)
+            return error_response("No se pudo crear el enlace. El administrador debe configurar PUBLIC_APP_URL correctamente.", status_code=503)
 
         # 3. Send email with magic link
         try:
@@ -307,8 +327,9 @@ class OrganizationMemberDetailView(APIView):
     DELETE /api/v1/organizations/members/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
+    @transaction.atomic
     def delete(self, request, user_id):
         if not (request.user.is_staff or request.user.is_superuser):
             return error_response(
@@ -328,6 +349,10 @@ class OrganizationMemberDetailView(APIView):
         try:
             target_user = User.objects.get(id=user_id, organization_id=org_id)
             target_email = target_user.email
+            try:
+                guard_admin_removal(org_id, [user_id])
+            except ValueError as exc:
+                return error_response(exc, status_code=400)
             target_user.delete()
             AuditService.log(
                 action="delete",
@@ -367,6 +392,7 @@ class OrganizationMemberResendInviteView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @transaction.atomic
     def post(self, request, user_id):
         if not (request.user.is_staff or request.user.is_superuser):
             return error_response(
@@ -378,7 +404,17 @@ class OrganizationMemberResendInviteView(APIView):
         from .models import InvitationToken, Organization
 
         try:
-            inv = InvitationToken.objects.get(id=user_id, organization_id=org_id)
+            control_lock()
+            org = Organization.objects.select_for_update().get(pk=org_id)
+            inv = InvitationToken.objects.select_for_update().get(id=user_id, organization_id=org_id)
+            if inv.is_used:
+                return error_response("La invitación ya fue utilizada.", status_code=400)
+            from common.subscriptions import require_monitoring
+            require_monitoring(org)
+            try:
+                check_member_capacity(org, invitation=inv)
+            except QuotaExceededException as exc:
+                return error_response(exc)
         except InvitationToken.DoesNotExist:
             return error_response(
                 "Invitación no encontrada o el usuario ya está registrado.",
@@ -404,7 +440,11 @@ class OrganizationMemberResendInviteView(APIView):
         inv.is_used = False
         inv.save()
 
-        invite_link = f"http://localhost:3001/accept-invitation?token={inv.token}"
+        try:
+            invite_link = public_link("accept-invitation", inv.token)
+        except ValueError:
+            transaction.set_rollback(True)
+            return error_response("No se pudo crear el enlace. El administrador debe configurar PUBLIC_APP_URL correctamente.", status_code=503)
         org_name = inv.organization.name or "Sentinel"
 
         try:
@@ -455,8 +495,9 @@ class OrganizationMemberBulkActionView(APIView):
     POST /api/v1/organizations/members/bulk-action/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
+    @transaction.atomic
     def post(self, request):
         org_id = request.user.organization_id
         action = request.data.get("action")
@@ -475,6 +516,13 @@ class OrganizationMemberBulkActionView(APIView):
         current_user_id = str(request.user.id)
         safe_ids = [mid for mid in member_ids if str(mid) != current_user_id]
 
+        from rest_framework import serializers
+        safe_ids = [serializers.UUIDField().run_validation(mid) for mid in safe_ids]
+        if action in ("deactivate", "delete"):
+            try:
+                guard_admin_removal(org_id, safe_ids)
+            except ValueError as exc:
+                return error_response(exc, status_code=400)
         affected_count = 0
 
         if action == "activate":
@@ -610,9 +658,15 @@ class ValidateInvitationView(APIView):
     """
 
     permission_classes = (AllowAny,)
+    authentication_classes = ()
 
     def get(self, request):
-        token_str = request.query_params.get("token")
+        return self.validate_token(request.query_params.get("token"))
+
+    def post(self, request):
+        return self.validate_token(request.data.get("token"))
+
+    def validate_token(self, token_str):
         if not token_str:
             return error_response("El token de invitación es requerido.", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -641,6 +695,7 @@ class AcceptInvitationView(APIView):
     """
 
     permission_classes = (AllowAny,)
+    authentication_classes = ()
 
     @transaction.atomic
     def post(self, request):
@@ -655,7 +710,10 @@ class AcceptInvitationView(APIView):
 
         from .models import InvitationToken
         try:
-            inv = InvitationToken.objects.select_for_update().get(token=token_str)
+            control_lock()
+            ref = InvitationToken.objects.get(token=token_str)
+            org = Organization.objects.select_for_update().get(pk=ref.organization_id)
+            inv = InvitationToken.objects.select_for_update().get(pk=ref.pk)
             if not inv.is_valid():
                 return error_response("El enlace de invitación ha expirado o ya fue utilizado.", status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -679,6 +737,10 @@ class AcceptInvitationView(APIView):
             if existing_user:
                 return error_response("Ya existe una cuenta. Inicia sesión y solicita la gestión de acceso al administrador; este enlace no cambiará tu contraseña ni tu organización.", status_code=400)
             else:
+                try:
+                    check_member_capacity(org, invitation=inv)
+                except QuotaExceededException as exc:
+                    return error_response(exc)
                 user = User.objects.create_user(
                     email=email,
                     password=password,
@@ -750,7 +812,7 @@ class OrganizationCurrentView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = OrganizationUpdateSerializer(data=request.data, partial=True)
+        serializer = OrganizationUpdateSerializer(data=request.data, partial=True, context={"organization": org})
         if not serializer.is_valid():
             return error_response(
                 "Datos de configuración inválidos.",
@@ -853,7 +915,7 @@ class OrganizationChangePlanView(APIView):
                 org.id, new_tier, is_superuser=is_superuser
             )
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
         # Audit log for billing & plan change
         try:

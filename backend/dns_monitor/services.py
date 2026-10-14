@@ -170,6 +170,8 @@ class DNSMonitorService:
             domain=clean_domain,
             record_type=record_type,
         )
+        if not created:
+            return record
         try:
             from .tasks import scan_dns_records
             scan_dns_records.delay(str(record.id))

@@ -73,7 +73,7 @@ class MaintenanceWindowService:
             from status_page.models import ScheduledMaintenance, StatusPageConfig, MaintenanceUpdate
 
             if window.publish_to_status_page:
-                target_page = window.status_page
+                target_page = window.status_page or (window.status_page_maintenance.status_page if window.status_page_maintenance else None)
                 if not target_page:
                     target_page = (
                         StatusPageConfig.objects.filter(
@@ -85,7 +85,7 @@ class MaintenanceWindowService:
                         window.status_page = target_page
                         window.save(update_fields=["status_page"])
 
-                if not target_page:
+                if not target_page and not window.status_page_maintenance:
                     return
 
                 status_val = window.status
@@ -126,8 +126,9 @@ class MaintenanceWindowService:
                     window.status_page_maintenance = None
                     window.save(update_fields=["status_page_maintenance"])
                     sm.delete()
-        except Exception as e:
-            logger.error(f"Error synchronizing maintenance {window.id} to status page: {e}")
+        except Exception:
+            logger.error("Maintenance publication failed for %s", window.id)
+            raise
 
     @staticmethod
     @transaction.atomic
@@ -234,10 +235,7 @@ class MaintenanceWindowService:
         window = MaintenanceWindow.objects.get(id=window_id, organization_id=organization_id)
         title = window.title
         if window.status_page_maintenance:
-            try:
-                window.status_page_maintenance.delete()
-            except Exception:
-                pass
+            window.status_page_maintenance.delete()
         window.delete()
 
         AuditLog.objects.create(
@@ -393,38 +391,12 @@ class MaintenanceWindowService:
         count = windows.count()
         user_name = (user.get_full_name() if user else None) or getattr(user, "email", "Operador")
 
-        if action == "start":
-            for w in windows:
-                w.status = MaintenanceWindow.Status.IN_PROGRESS
-                w.save(update_fields=["status"])
-                MaintenanceWindowUpdate.objects.create(
-                    maintenance_window=w,
-                    message="Mantenimiento iniciado en lote.",
-                    status=w.status,
-                    actor_name=user_name,
-                )
-        elif action == "complete":
-            for w in windows:
-                w.status = MaintenanceWindow.Status.COMPLETED
-                w.save(update_fields=["status"])
-                MaintenanceWindowUpdate.objects.create(
-                    maintenance_window=w,
-                    message="Mantenimiento completado en lote.",
-                    status=w.status,
-                    actor_name=user_name,
-                )
-        elif action == "cancel":
-            for w in windows:
-                w.status = MaintenanceWindow.Status.CANCELLED
-                w.save(update_fields=["status"])
-                MaintenanceWindowUpdate.objects.create(
-                    maintenance_window=w,
-                    message="Mantenimiento cancelado en lote.",
-                    status=w.status,
-                    actor_name=user_name,
-                )
-        elif action == "delete":
-            windows.delete()
+        transitions = {"start": MaintenanceWindowService.start_window, "complete": MaintenanceWindowService.complete_window,
+                       "cancel": MaintenanceWindowService.cancel_window, "delete": MaintenanceWindowService.delete_window}
+        if action not in transitions:
+            raise ValueError("Acción de mantenimiento no válida.")
+        for window_id in list(windows.values_list("pk", flat=True)):
+            transitions[action](window_id, organization_id, user)
 
         AuditLog.objects.create(
             organization_id=organization_id,

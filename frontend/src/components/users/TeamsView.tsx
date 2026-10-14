@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { Team } from '../../types/users';
 import {
@@ -55,7 +56,7 @@ export default function TeamsView({
 
         <div className="flex items-center justify-center gap-3 flex-wrap pt-2">
           {onSeedDefaults && (
-            <button
+            <AdminButton
               type="button"
               onClick={onSeedDefaults}
               disabled={isSeeding}
@@ -63,17 +64,17 @@ export default function TeamsView({
             >
               {isSeeding ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
               Aprovisionar Cuadrillas Sugeridas (4 Squads)
-            </button>
+            </AdminButton>
           )}
 
-          <button
+          <AdminButton
             type="button"
             onClick={onCreateTeam}
             className="inline-flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
           >
             <Plus size={15} />
             Crear Primer Equipo Manualmente
-          </button>
+          </AdminButton>
         </div>
       </div>
     );
@@ -88,7 +89,7 @@ export default function TeamsView({
         </span>
         <div className="flex items-center gap-2">
           {onSeedDefaults && (
-            <button
+            <AdminButton
               type="button"
               onClick={onSeedDefaults}
               disabled={isSeeding}
@@ -96,16 +97,16 @@ export default function TeamsView({
             >
               {isSeeding ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
               Sugeridas
-            </button>
+            </AdminButton>
           )}
-          <button
+          <AdminButton
             type="button"
             onClick={onCreateTeam}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-green text-black text-xs font-bold rounded-full hover:bg-accent-green/90 transition-all shadow-sm shadow-accent-green/20"
           >
             <Plus size={14} />
             Nuevo Equipo
-          </button>
+          </AdminButton>
         </div>
       </div>
 
@@ -140,22 +141,22 @@ export default function TeamsView({
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
+                    <AdminButton
                       type="button"
                       onClick={() => onEditTeam(t)}
                       title="Editar equipo"
                       className="p-1.5 text-text-dim hover:text-sky-400 hover:bg-bg-main rounded-lg transition-colors"
                     >
                       <Edit2 size={13} />
-                    </button>
-                    <button
+                    </AdminButton>
+                    <AdminButton
                       type="button"
                       onClick={() => onDeleteTeam(t)}
                       title="Eliminar equipo"
                       className="p-1.5 text-text-dim hover:text-accent-red hover:bg-bg-main rounded-lg transition-colors"
                     >
                       <Trash2 size={13} />
-                    </button>
+                    </AdminButton>
                   </div>
                 </div>
 
@@ -268,14 +269,14 @@ export default function TeamsView({
                   <Eye size={13} className="text-accent-green" />
                   Inspeccionar
                 </button>
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => onManageMembers(t)}
                   title="Añadir o remover miembros"
                   className="p-2 bg-bg-main hover:bg-bg-card-hover border border-border-base text-text-dim hover:text-text-main rounded-xl transition-colors shrink-0"
                 >
                   <UserPlus size={13} />
-                </button>
+                </AdminButton>
               </div>
             </div>
           );

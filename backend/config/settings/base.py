@@ -301,6 +301,7 @@ DIAGNOSTIC_PAID_DAILY = int(os.environ.get("DIAGNOSTIC_PAID_DAILY", "100"))
 DIAGNOSTIC_GLOBAL_PER_MINUTE = int(os.environ.get("DIAGNOSTIC_GLOBAL_PER_MINUTE", "60"))
 DIAGNOSTIC_MAX_CONCURRENT = int(os.environ.get("DIAGNOSTIC_MAX_CONCURRENT", "4"))
 DIAGNOSTIC_CACHE_SECONDS = int(os.environ.get("DIAGNOSTIC_CACHE_SECONDS", "30"))
+RETENTION_PLAN_CAP_ENFORCED = os.environ.get('RETENTION_PLAN_CAP_ENFORCED', 'false').lower() == 'true'
 BETA_EMAIL_DOMAIN_ALLOWLIST = [v.strip().lower() for v in os.environ.get("BETA_EMAIL_DOMAIN_ALLOWLIST", "").split(",") if v.strip()]
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")

@@ -127,6 +127,7 @@ class SecurityHeadersService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation('security_headers')
     def get_or_create_target(organization_id, name, url):
         """Get or auto-create security header target for monitoring targets."""
         if not url or url in ("http://localhost", "http://127.0.0.1"):

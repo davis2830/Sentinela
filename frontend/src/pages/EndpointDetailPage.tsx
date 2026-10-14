@@ -107,7 +107,7 @@ export default function EndpointDetailPage() {
     }
   };
   if(targetQuery.isLoading)return <div role="status" className="animate-pulse rounded-xl bg-bg-card p-8">Cargando ficha del endpoint…</div>;
-  if(targetQuery.isError||!target)return <div className="dashboard-panel space-y-4"><h1 className="text-xl font-semibold">Endpoint no disponible</h1><p className="text-text-muted">No se pudo consultar o no pertenece a tu organización.</p><button onClick={()=>targetQuery.refetch()} className="text-accent-green">Reintentar</button><Link to="/monitoring" className="block text-sm text-accent-cyan">Volver a Monitoring</Link></div>;
+  if(targetQuery.isError||!target)return <div className="dashboard-panel space-y-4"><h1 className="text-xl font-semibold">{(targetQuery.error as {response?:{status?:number}})?.response?.status===404?'Endpoint no encontrado':'Endpoint no disponible'}</h1><p className="text-text-muted">{(targetQuery.error as {response?:{status?:number}})?.response?.status===404?'El recurso fue eliminado o no está disponible para tu organización.':'No se pudo consultar. Puedes volver a intentarlo.'}</p><button onClick={()=>targetQuery.refetch()} className="text-accent-green">Reintentar</button><Link to="/monitoring" className="block text-sm text-accent-cyan">Volver a Monitoring</Link></div>;
   const effectiveInterval=refresh.ready?Math.max(target.interval,refresh.intervalSeconds):null;
   const state=!target.enabled?'Pausado':!target.last_checked_at?'Sin mediciones':({up:'Operacional',down:'Caído',error:'Error',slow:'Degradado'}[target.last_status||'']||'Sin datos');
   const problems:string[]=[];

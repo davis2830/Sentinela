@@ -1,3 +1,5 @@
+import { useConnectivityRefresh } from '../../hooks/useConnectivityRefresh';
+import { useAuthStore } from '../../store/authStore';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
@@ -16,17 +18,20 @@ interface ChecksListProps {
 }
 
 export default function ChecksList({ targetId }: ChecksListProps) {
+  const refresh = useConnectivityRefresh();
+  const organizationId = useAuthStore(s => s.user?.organization?.id);
   const [limit, setLimit] = useState(20);
 
-  const { data: checks, isLoading } = useQuery({
-    queryKey: ['monitoring-checks', targetId, limit],
+  const { data: checks, isLoading, isError } = useQuery({
+    queryKey: ['monitoring-checks', organizationId, targetId, limit],
     queryFn: async () => {
       const response = await api.get(`/monitoring-targets/${targetId}/checks/`, {
         params: { limit },
       });
       return response.data?.data || [];
     },
-    refetchInterval: 15000,
+    refetchInterval: refresh.refetchInterval,
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {
@@ -36,6 +41,8 @@ export default function ChecksList({ targetId }: ChecksListProps) {
       </div>
     );
   }
+
+  if (isError) return <p role="alert" className="text-text-muted">Datos no disponibles. No pudimos cargar el historial.</p>;
 
   if (!checks || checks.length === 0) {
     return (

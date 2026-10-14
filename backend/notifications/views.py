@@ -48,7 +48,7 @@ class NotificationChannelListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "notification_channels")
+
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -68,7 +68,7 @@ class NotificationChannelListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -198,7 +198,7 @@ class NotificationListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -239,7 +239,7 @@ class NotificationRetryView(APIView):
             serializer = NotificationSerializer(notification)
             return success_response(serializer.data)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class NotificationChannelTestView(APIView):
@@ -257,7 +257,7 @@ class NotificationChannelTestView(APIView):
             serializer = NotificationSerializer(notification)
             return success_response(serializer.data)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class NotificationTestConnectionView(APIView):
@@ -283,7 +283,7 @@ class NotificationTestConnectionView(APIView):
         try:
             validate_beta_channel(request.user.organization_id, serializer.validated_data['channel_type'], serializer.validated_data['config'])
         except ValueError as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
         if request.user.organization.beta_managed:
             from accounts.beta import consume_budget
             consume_budget('beta-notifications', str(request.user.organization_id), 50, 86400)

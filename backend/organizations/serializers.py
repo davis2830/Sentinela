@@ -103,7 +103,7 @@ class OrganizationUpdateSerializer(serializers.Serializer):
 
     # Retention & Compliance
     metrics_retention_days = serializers.IntegerField(
-        min_value=7, max_value=3650, required=False
+        min_value=1, max_value=365, required=False
     )
     audit_logs_retention_days = serializers.IntegerField(
         min_value=30, max_value=3650, required=False
@@ -118,6 +118,15 @@ class OrganizationUpdateSerializer(serializers.Serializer):
     )
     require_2fa = serializers.BooleanField(required=False)
     allowed_ip_ranges = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_metrics_retention_days(self, value):
+        org = self.context.get('organization')
+        if not org:
+            raise serializers.ValidationError('No se pudo verificar el límite de tu plan.')
+        maximum = org.get_plan_limits()['metrics_retention_days']
+        if value > maximum:
+            raise serializers.ValidationError(f'Tu plan permite hasta {maximum} días de telemetría.')
+        return value
 
 
 class OrganizationChangePlanSerializer(serializers.Serializer):

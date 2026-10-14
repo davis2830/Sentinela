@@ -1,3 +1,5 @@
+import { useAuthStore } from '../../store/authStore';
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { TeamMember } from '../../types/users';
 import {
@@ -213,7 +215,9 @@ export default function UserCard({
             Pendiente
           </span>
         ) : (
-          <button
+          <>
+          {!useAuthStore.getState().user?.is_staff && !useAuthStore.getState().user?.is_superuser && <span>{member.is_active ? 'Activo' : 'Desactivado'}</span>}
+          <AdminButton
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -228,7 +232,8 @@ export default function UserCard({
           >
             <Power size={10} />
             {member.is_active ? 'Activo' : 'Desactivado'}
-          </button>
+          </AdminButton>
+          </>
         )}
 
         {/* Action icons */}
@@ -246,7 +251,7 @@ export default function UserCard({
           </button>
 
           {isPending && (
-            <button
+            <AdminButton
               type="button"
               onClick={() => onResendInvite(member)}
               disabled={isResending}
@@ -254,21 +259,21 @@ export default function UserCard({
               className="p-1.5 text-text-dim hover:text-amber-400 hover:bg-bg-main rounded-lg transition-colors"
             >
               <Send size={15} className={isResending ? 'animate-spin' : ''} />
-            </button>
+            </AdminButton>
           )}
 
           {!isPending && (
-            <button
+            <AdminButton
               type="button"
               onClick={() => onEdit(member)}
               title="Editar usuario"
               className="p-1.5 text-text-dim hover:text-sky-400 hover:bg-bg-main rounded-lg transition-colors"
             >
               <Edit2 size={15} />
-            </button>
+            </AdminButton>
           )}
 
-          <button
+          <AdminButton
             type="button"
             onClick={() => onDelete(member)}
             disabled={isSelf}
@@ -278,7 +283,7 @@ export default function UserCard({
             }`}
           >
             <Trash2 size={15} />
-          </button>
+          </AdminButton>
         </div>
       </div>
     </div>

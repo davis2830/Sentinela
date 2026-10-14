@@ -154,7 +154,7 @@ export default function ReportsPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error al exportar PDF:', err);
+      console.error('Error al exportar informe HTML:', err);
     }
   };
 
@@ -216,7 +216,7 @@ export default function ReportsPage() {
       <NOCPageHeader queryKeys={["reports-list"]}
         title="Reportes SLA & Métricas"
         badgeText="AUDITORÍA & SLA"
-        description="Informes de disponibilidad basados en comprobaciones observadas. Exporta CSV o HTML para imprimir; no equivalen a una certificación de SLA contractual."
+        description="Informes de disponibilidad basados en comprobaciones observadas. Exporta CSV o Informe imprimible (HTML); no equivalen a una certificación de SLA contractual."
         icon={<FileText size={26} />}
         autoRefresh={{
           enabled: autoRefresh.enabled,

@@ -9,6 +9,23 @@ from .models import Alert, AlertRule
 logger = logging.getLogger(__name__)
 
 
+CONDITIONS_BY_TYPE = {
+    "monitoring": {"status_down", "response_time_above", "uptime_below"},
+    "ssl": {"ssl_expiring", "ssl_grade_below", "ssl_invalid"},
+    "dns": {"dns_changed", "dns_latency_above"},
+    "domain": {"domain_expiring", "domain_unlocked"},
+    "api_check": {"api_check_failed", "api_latency_above"},
+    "security_headers": {"security_score_below", "security_leak_detected"},
+}
+
+
+def validate_rule_reference(org_id, kind, condition, target_id):
+    from common.tenant_references import require_target
+    if condition not in CONDITIONS_BY_TYPE.get(kind, set()):
+        raise ValueError("La condición no corresponde al tipo de recurso.")
+    require_target(org_id, kind, target_id)
+
+
 class AlertRuleService:
     """Service for alert rule management.
 
@@ -43,6 +60,7 @@ class AlertRuleService:
         auto_resolve=True,
     ):
         """Create a new alert rule."""
+        validate_rule_reference(organization_id, target_type, condition, target_id)
         return AlertRule.objects.create(
             organization_id=organization_id,
             name=name,
@@ -61,8 +79,10 @@ class AlertRuleService:
     def update_rule(rule_id, organization_id, **fields):
         """Update an existing alert rule."""
         rule = AlertRule.objects.get(id=rule_id, organization_id=organization_id)
+        validate_rule_reference(organization_id, fields.get("target_type", rule.target_type),
+            fields.get("condition", rule.condition), fields.get("target_id", rule.target_id))
         for field, value in fields.items():
-            if value is not None:
+            if value is not None or field == "target_id":
                 setattr(rule, field, value)
         rule.save()
         return rule

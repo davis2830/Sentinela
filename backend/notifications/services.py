@@ -1,3 +1,4 @@
+from common.beta_quota import beta_creation
 import csv
 from datetime import datetime
 import io
@@ -83,6 +84,7 @@ class NotificationChannelService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation('notification_channels')
     def create_channel(
         organization_id,
         name,

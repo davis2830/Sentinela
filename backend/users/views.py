@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from common.responses import error_response, success_response
-from common.permissions import IsAdminOrReadOnly, IsOrgAdmin
+from common.permissions import IsAdminOrReadOnly, IsOrgAdmin, IsOrganizationMember
 from accounts.models import User
 
 from .models import Role, Team
@@ -28,7 +28,7 @@ class UserListView(APIView):
     POST /api/v1/users/
     """
 
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -72,7 +72,7 @@ class UserListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -84,7 +84,7 @@ class UserDetailView(APIView):
     DELETE /api/v1/users/{id}/
     """
 
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, user_id):
         org_id = request.user.organization_id
@@ -92,10 +92,12 @@ class UserDetailView(APIView):
             user = UserService.get_user(user_id, org_id)
             serializer = UserListSerializer(user)
             return success_response(serializer.data)
-        except Exception:
+        except User.DoesNotExist:
             return error_response(
                 "User not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+        except ValueError as exc:
+            return error_response(exc, status_code=400)
 
     def patch(self, request, user_id):
         org_id = request.user.organization_id
@@ -122,12 +124,16 @@ class UserDetailView(APIView):
             )
             response_serializer = UserListSerializer(user)
             return success_response(response_serializer.data)
-        except Exception:
+        except User.DoesNotExist:
             return error_response(
                 "User not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+        except ValueError as exc:
+            return error_response(exc, status_code=400)
 
     def delete(self, request, user_id):
+        if str(request.user.pk) == str(user_id):
+            return error_response('No puedes eliminar tu propia cuenta.', status_code=400)
         org_id = request.user.organization_id
         try:
             target_user = UserService.get_user(user_id, org_id)
@@ -143,10 +149,12 @@ class UserDetailView(APIView):
                 description=f"El usuario {request.user.email} eliminó la cuenta {target_email}.",
             )
             return success_response({"detail": "User deleted."})
-        except Exception:
+        except User.DoesNotExist:
             return error_response(
                 "User not found.", status_code=status.HTTP_404_NOT_FOUND
             )
+        except ValueError as exc:
+            return error_response(exc, status_code=400)
 
 
 class UserRoleView(APIView):
@@ -174,7 +182,7 @@ class UserRoleView(APIView):
             return error_response("User or role not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
     def delete(self, request, user_id, role_id):
@@ -185,7 +193,7 @@ class UserRoleView(APIView):
             return error_response("User or role not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -196,7 +204,7 @@ class RoleListView(APIView):
     POST /api/v1/roles/
     """
 
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -227,7 +235,7 @@ class RoleListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -239,7 +247,7 @@ class RoleDetailView(APIView):
     DELETE /api/v1/roles/{id}/
     """
 
-    permission_classes = (IsAdminOrReadOnly,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, role_id):
         org_id = request.user.organization_id
@@ -305,7 +313,7 @@ class TeamListView(APIView):
     POST /api/v1/users/teams/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request):
         org_id = request.user.organization_id
@@ -377,7 +385,7 @@ class TeamDetailView(APIView):
     DELETE /api/v1/users/teams/{id}/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def get(self, request, team_id):
         org_id = request.user.organization_id
@@ -478,7 +486,7 @@ class TeamSeedDefaultsView(APIView):
     POST /api/v1/users/teams/seed-defaults/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -542,7 +550,7 @@ class TeamMembersView(APIView):
     POST /api/v1/users/teams/{id}/members/
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, IsOrganizationMember, IsAdminOrReadOnly)
 
     def post(self, request, team_id):
         org_id = request.user.organization_id

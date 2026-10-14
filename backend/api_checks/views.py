@@ -44,7 +44,7 @@ class APICheckTargetListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "api_checks")
+
                 if "check_interval" in serializer.validated_data:
                     QuotaService.check_min_interval(request.user.organization, serializer.validated_data["check_interval"])
             except QuotaExceededException as qe:
@@ -67,7 +67,7 @@ class APICheckTargetListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -156,7 +156,7 @@ class APICheckTargetScanView(APIView):
         except ScanLimited as exc:
             return limited_response(exc)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class APICheckResultListView(APIView):
@@ -209,7 +209,7 @@ class APICheckBulkScanView(APIView):
             from .models import APICheckTarget
             return success_response(enqueue_many(APICheckTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_api_check))
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class APICheckTestRequestView(ConfigurationDiagnosticAPIView):
@@ -270,4 +270,4 @@ class APICheckBulkActionView(APIView):
             res = APICheckService.bulk_action(org_id, action, target_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

@@ -99,6 +99,7 @@ class APICheckService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation('api_checks')
     def get_or_create_api_target(organization_id, name, url, method="GET"):
         """Get or auto-create API check target for monitoring targets."""
         if not url or url in ("http://localhost", "http://127.0.0.1"):

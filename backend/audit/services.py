@@ -32,9 +32,8 @@ class AuditService:
         """
         qs = AuditLog.objects.all()
 
-        if organization_id:
-            from django.db.models import Q
-            qs = qs.filter(Q(organization_id=organization_id) | Q(organization_id__isnull=True))
+        if organization_id is not None:
+            qs = qs.filter(organization_id=organization_id)
         if action:
             qs = qs.filter(action=action)
         if module:

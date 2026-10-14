@@ -50,7 +50,7 @@ export interface UptimeStats {
   hours: number;
   total_checks: number;
   up_checks: number;
-  uptime_percentage: number;
+  uptime_percentage: number | null;
 }
 
 export interface CreateTargetData {
@@ -102,11 +102,11 @@ export interface TimeseriesPoint {
 export interface DailyAvailabilityItem {
   date: string;
   label: string;
-  uptime_percentage: number;
+  uptime_percentage: number | null;
   total_checks: number;
   down_checks: number;
   status: 'operational' | 'degraded' | 'down' | 'no_data';
-  avg_latency: number;
+  avg_latency: number | null;
 }
 
 export interface DowntimeIncident {
@@ -121,16 +121,16 @@ export interface DowntimeIncident {
 }
 
 export interface TimeseriesSummary {
-  uptime_percentage: number;
+  uptime_percentage: number | null;
   total_checks: number;
   up_checks: number;
   down_checks: number;
-  avg_latency: number;
-  p50_latency: number;
-  p90_latency: number;
-  p99_latency: number;
-  max_latency: number;
-  min_latency: number;
+  avg_latency: number | null;
+  p50_latency: number | null;
+  p90_latency: number | null;
+  p99_latency: number | null;
+  max_latency: number | null;
+  min_latency: number | null;
   total_downtime_seconds: number;
   incidents_count: number;
 }

@@ -276,7 +276,7 @@ export default function ReportCard({
               <button
                 type="button"
                 onClick={(e) => onExportPDF(report.id, e)}
-                title="Descargar HTML para imprimir"
+                title="Informe imprimible (HTML)"
                 className="p-1.5 text-text-dim hover:text-sky-400 hover:bg-bg-main rounded-lg transition-colors"
               >
                 <Printer size={15} />

@@ -21,7 +21,9 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         total = 0
         for organization in Organization.objects.iterator():
-            days = max(int(organization.metrics_retention_days or 90), 1)
+            from common.retention_policy import retention_policy
+            policy = retention_policy(organization)
+            days = policy["planned_days"] if dry_run else policy["applied_days"]
             cutoff = timezone.now() - timedelta(days=days)
             querysets = {
                 "monitoring_checks": MonitoringCheck.objects.filter(target__organization=organization, checked_at__lt=cutoff),
@@ -37,7 +39,7 @@ class Command(BaseCommand):
                     for queryset in querysets.values():
                         queryset.delete()
             self.stdout.write(
-                f"org={organization.id} retention_days={days} "
+                f"org={organization.id} retention_days={days} configured_days={policy['configured_days']} cap_enforced={policy['cap_enforced']} review_required={policy['review_required']} "
                 + " ".join(f"{name}={count}" for name, count in counts.items())
             )
 

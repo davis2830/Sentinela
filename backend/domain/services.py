@@ -166,6 +166,8 @@ class DomainService:
             organization_id=organization_id,
             domain=clean_domain,
         )
+        if not created:
+            return domain_info
         try:
             from .tasks import scan_whois
             scan_whois.delay(str(domain_info.id))

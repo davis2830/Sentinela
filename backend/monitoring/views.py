@@ -97,7 +97,7 @@ class MonitoringTargetListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -295,7 +295,7 @@ class MonitoringTargetScanView(APIView):
             return limited_response(exc)
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -416,7 +416,7 @@ class MonitoringTargetBulkScanView(APIView):
             from .models import MonitoringTarget
             return success_response(enqueue_many(MonitoringTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_monitoring_check))
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 import csv
@@ -453,7 +453,7 @@ class MonitoringTargetExportView(APIView):
 
             return response
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowListView(APIView):
@@ -473,7 +473,7 @@ class MaintenanceWindowListView(APIView):
             serializer = MaintenanceWindowSerializer(windows, many=True)
             return success_response(serializer.data)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, target_id):
         org_id = request.user.organization_id
@@ -496,7 +496,7 @@ class MaintenanceWindowListView(APIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowDetailView(APIView):
@@ -528,7 +528,7 @@ class MaintenanceWindowDetailView(APIView):
         except MaintenanceWindow.DoesNotExist:
             return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, window_id):
         try:
@@ -542,7 +542,7 @@ class MaintenanceWindowDetailView(APIView):
         except MaintenanceWindow.DoesNotExist:
             return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 import socket
@@ -770,7 +770,7 @@ class AgentProbeDetailView(APIView):
             AgentProbeService.delete_probe(probe_id, org_id)
             return success_response({"message": "Agente satélite eliminado exitosamente."})
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+            return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
 
 
 class AgentProbeHeartbeatView(APIView):

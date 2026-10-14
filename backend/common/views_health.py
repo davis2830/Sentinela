@@ -1,123 +1,97 @@
-"""
-Health Check and Meta-Observability Views for Sentinel NOC
-==========================================================
-Provides external Dead Man's Snitch and internal SLA probes
-verifying active connectivity and latency for:
-  - PostgreSQL 16
-  - Redis Distributed Cache
-  - Celery Message Broker & Workers
-"""
-
+"""Bounded readiness: every required dependency must be available."""
 import time
-import logging
+from concurrent.futures import ThreadPoolExecutor, wait
+from threading import Lock
 from django.conf import settings
 from django.core.cache import cache
-from django.db import connection
+from django.db import connections
 from django.utils import timezone
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-logger = logging.getLogger(__name__)
+_pool = ThreadPoolExecutor(max_workers=5, thread_name_prefix='readiness')
+_probe_lock = Lock()
+_flight = None
+_workers_lock = Lock()
+_worker_result = (0, False)
+
+
+def database_ready():
+    db = connections['default']
+    try:
+        if db.vendor == 'postgresql':
+            db.settings_dict = {**db.settings_dict, 'OPTIONS': {
+                **db.settings_dict.get('OPTIONS', {}),
+                'connect_timeout': 1, 'options': '-c statement_timeout=1000',
+            }}
+        with db.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            return cursor.fetchone()[0] == 1
+    finally:
+        db.close()
+
+
+def cache_ready():
+    key = '_sentinel_readiness'
+    cache.set(key, 'ready', timeout=10)
+    return cache.get(key) == 'ready'
+
+
+def broker_ready():
+    from config.celery import app
+    with app.connection_for_read(connect_timeout=1) as broker:
+        broker.ensure_connection(max_retries=0, timeout=1)
+    return True
+
+
+def workers_ready():
+    global _worker_result
+    from config.celery import app
+    with _workers_lock:
+        until, result = _worker_result
+        if time.monotonic() < until:
+            return result
+        result = bool(app.control.inspect(timeout=1).ping())
+        _worker_result = (time.monotonic() + 5, result)
+        return result
+
+
+def probe(function):
+    started = time.perf_counter()
+    try:
+        healthy = function()
+    except Exception:
+        healthy = False
+    return {'status': 'healthy' if healthy else 'unhealthy',
+            'latency_ms': round((time.perf_counter() - started) * 1000, 2)}
 
 
 class HealthCheckView(APIView):
-    """
-    Public health probe for Sentinel NOC platform.
-    Designed for external monitoring (Dead Man's Snitch, UptimeRobot, Kubernetes liveness/readiness).
-    Returns 200 OK when core components are responsive, or 503 Service Unavailable when degraded.
-    """
-
     permission_classes = (AllowAny,)
-    authentication_classes = ()  # Bypass JWT to allow external snitches without tokens
+    authentication_classes = ()
+    # Cache failure must reach readiness, not fail earlier in cache-backed throttling.
+    throttle_classes = ()
 
     def get(self, request):
-        overall_healthy = True
-        components = {}
-
-        # 1. Check Database (PostgreSQL 16)
-        db_start = time.perf_counter()
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1;")
-                cursor.fetchone()
-            db_latency_ms = round((time.perf_counter() - db_start) * 1000, 2)
-            components["database"] = {
-                "status": "healthy",
-                "latency_ms": db_latency_ms,
-                "engine": "PostgreSQL 16",
-            }
-        except Exception as exc:
-            db_latency_ms = round((time.perf_counter() - db_start) * 1000, 2)
-            overall_healthy = False
-            logger.error("Health check failed on Database: %s", exc)
-            components["database"] = {
-                "status": "unhealthy",
-                "latency_ms": db_latency_ms,
-                "error": str(exc),
-            }
-
-        # 2. Check Redis Cache
-        redis_start = time.perf_counter()
-        try:
-            test_key = "_sentinel_healthcheck_ping"
-            cache.set(test_key, "pong", timeout=10)
-            cached_val = cache.get(test_key)
-            redis_latency_ms = round((time.perf_counter() - redis_start) * 1000, 2)
-            if cached_val == "pong":
-                components["redis_cache"] = {
-                    "status": "healthy",
-                    "latency_ms": redis_latency_ms,
-                    "role": "Distributed Cache & Session Store",
-                }
-            else:
-                overall_healthy = False
-                components["redis_cache"] = {
-                    "status": "unhealthy",
-                    "latency_ms": redis_latency_ms,
-                    "error": "Cache write/read mismatch",
-                }
-        except Exception as exc:
-            redis_latency_ms = round((time.perf_counter() - redis_start) * 1000, 2)
-            overall_healthy = False
-            logger.error("Health check failed on Redis Cache: %s", exc)
-            components["redis_cache"] = {
-                "status": "unhealthy",
-                "latency_ms": redis_latency_ms,
-                "error": str(exc),
-            }
-
-        # 3. Check Celery Broker Connectivity
-        celery_start = time.perf_counter()
-        try:
-            from config.celery import app as celery_app
-            with celery_app.connection_for_read() as conn:
-                conn.ensure_connection(max_retries=1, timeout=2.0)
-            celery_latency_ms = round((time.perf_counter() - celery_start) * 1000, 2)
-            components["celery_broker"] = {
-                "status": "healthy",
-                "latency_ms": celery_latency_ms,
-                "role": "Task Queue Broker",
-            }
-        except Exception as exc:
-            celery_latency_ms = round((time.perf_counter() - celery_start) * 1000, 2)
-            # Celery broker degradation is logged; if Redis is up it's usually transient
-            components["celery_broker"] = {
-                "status": "degraded",
-                "latency_ms": celery_latency_ms,
-                "error": str(exc),
-            }
-
-        status_code = status.HTTP_200_OK if overall_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
-
-        payload = {
-            "status": "healthy" if overall_healthy else "degraded",
-            "service": "Sentinel NOC Platform",
-            "version": "1.0.0",
-            "timestamp": timezone.now().isoformat(),
-            "environment": "production" if not settings.DEBUG else "development",
-            "components": components,
-        }
-
-        return Response(payload, status=status_code)
+        checks = {'database': database_ready, 'redis_cache': cache_ready,
+                  'celery_broker': broker_ready, 'celery_workers': workers_ready}
+        components = {name: {'status': 'unhealthy'} for name in checks}
+        global _flight
+        # Concurrent requests share one in-flight probe instead of false 503s
+        # or an unbounded queue when a dependency hangs.
+        with _probe_lock:
+            if _flight is None or all(future.done() for future in _flight.values()):
+                _flight = {name: _pool.submit(probe, fn) for name, fn in checks.items()}
+            futures = dict(_flight)
+        done, _ = wait(futures.values(), timeout=3.5)
+        for name, future in futures.items():
+            if future in done:
+                components[name] = future.result()
+        components['database']['engine'] = 'PostgreSQL 16'
+        healthy = all(item['status'] == 'healthy' for item in components.values())
+        return Response({'status': 'healthy' if healthy else 'degraded',
+                         'service': 'Sentinel NOC Platform', 'version': '1.0.0',
+                         'timestamp': timezone.now().isoformat(),
+                         'environment': 'development' if settings.DEBUG else 'production',
+                         'components': components}, status=200 if healthy else 503)

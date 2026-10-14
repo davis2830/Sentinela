@@ -1,3 +1,4 @@
+import AdminButton from '../components/common/AdminButton';
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -533,32 +534,32 @@ export default function UsersPage() {
               Exportar CSV
             </button>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() => setTeamModal({ isOpen: true, team: null })}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-bg-card border border-border-base text-text-main hover:border-accent-purple/50 hover:bg-bg-card-hover transition-all"
             >
               <Layers size={13} className="text-accent-purple" />
               Nuevo Equipo
-            </button>
+            </AdminButton>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() => setUserModal({ isOpen: true, mode: 'invite', member: null })}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold bg-accent-green text-black hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
             >
               <Send size={13} />
               Invitar por Correo (SMTP)
-            </button>
+            </AdminButton>
 
-            <button
+            <AdminButton
               type="button"
               onClick={() => setUserModal({ isOpen: true, mode: 'direct', member: null })}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-bg-card border border-border-base text-text-main hover:border-accent-blue/50 hover:bg-bg-card-hover transition-all"
             >
               <UserPlus size={13} className="text-accent-blue" />
               Crear Usuario
-            </button>
+            </AdminButton>
           </div>
         }
       />
@@ -783,27 +784,27 @@ export default function UsersPage() {
             itemLabel="integrante"
             actions={
               <>
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => handleBulkAction('activate')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition-all border border-accent-green/30"
                 >
                   <Power size={12} /> Habilitar Cuentas
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type="button"
                   onClick={() => handleBulkAction('deactivate')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-accent-yellow/10 text-accent-yellow hover:bg-accent-yellow/20 transition-all border border-accent-yellow/30"
                 >
                   <Power size={12} /> Suspender Cuentas
-                </button>
-                <button
+                </AdminButton>
+                <AdminButton
                   type="button"
                   onClick={() => handleBulkAction('delete')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-accent-red/10 text-accent-red hover:bg-accent-red/20 transition-all border border-accent-red/30"
                 >
                   <Trash2 size={12} /> Eliminar / Revocar
-                </button>
+                </AdminButton>
               </>
             }
           />

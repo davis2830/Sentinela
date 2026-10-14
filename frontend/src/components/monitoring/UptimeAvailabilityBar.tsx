@@ -4,12 +4,12 @@ import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react';
 
 interface UptimeAvailabilityBarProps {
   days: DailyAvailabilityItem[];
-  uptimePercentage?: number;
+  uptimePercentage?: number | null;
 }
 
 export default function UptimeAvailabilityBar({
   days,
-  uptimePercentage = 100,
+  uptimePercentage = null,
 }: UptimeAvailabilityBarProps) {
   const [hoveredDay, setHoveredDay] = useState<DailyAvailabilityItem | null>(null);
 
@@ -22,14 +22,14 @@ export default function UptimeAvailabilityBar({
             <span>Disponibilidad Diaria (Últimos 30 días)</span>
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
-                uptimePercentage >= 99
+                uptimePercentage === null ? 'text-text-muted border border-border-base' : uptimePercentage >= 99
                   ? 'bg-accent-green/10 text-accent-green border border-accent-green/30'
                   : uptimePercentage >= 95
                   ? 'bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30'
                   : 'bg-accent-red/10 text-accent-red border border-accent-red/30'
               }`}
             >
-              {uptimePercentage.toFixed(2)}%
+              {uptimePercentage === null ? 'Sin mediciones' : `${uptimePercentage.toFixed(2)}%`}
             </span>
           </div>
           <p className="text-[11px] text-text-dim mt-0.5">
@@ -120,7 +120,7 @@ export default function UptimeAvailabilityBar({
                         : 'text-accent-green'
                     }`}
                   >
-                    {hoveredDay.status === 'no_data'
+                    {hoveredDay.status === 'no_data' || hoveredDay.uptime_percentage === null
                       ? 'Sin datos de monitoreo'
                       : `${hoveredDay.uptime_percentage.toFixed(2)}% disponibilidad`}
                   </span>
@@ -136,7 +136,7 @@ export default function UptimeAvailabilityBar({
                       ) : (
                         <span className="text-accent-green">Sin interrupciones</span>
                       )}
-                      {hoveredDay.avg_latency > 0 && (
+                      {hoveredDay.avg_latency !== null && hoveredDay.avg_latency > 0 && (
                         <span>Latencia media: {hoveredDay.avg_latency}ms</span>
                       )}
                     </>

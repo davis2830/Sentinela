@@ -42,7 +42,7 @@ class DomainListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "domains")
+
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -65,7 +65,7 @@ class DomainListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -106,7 +106,7 @@ class DomainDetailView(APIView):
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
     def delete(self, request, domain_id):
@@ -138,7 +138,7 @@ class DomainScanView(APIView):
         except ScanLimited as exc:
             return limited_response(exc)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DomainExpiringSoonView(APIView):
@@ -200,7 +200,7 @@ class DomainBulkScanView(APIView):
             from .models import DomainInfo
             return success_response(enqueue_many(DomainInfo.objects.filter(organization_id=request.user.organization_id), scan_whois))
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DomainTestWhoisView(ConfigurationDiagnosticAPIView):
@@ -243,4 +243,4 @@ class DomainBulkActionView(APIView):
             res = DomainService.bulk_action(org_id, action, domain_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

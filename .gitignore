@@ -120,3 +120,4 @@ pnpm-debug.log*
 # Browser validation artifacts
 frontend/test-results/
 frontend/playwright-report/
+frontend/test-results-audit/

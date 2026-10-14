@@ -184,30 +184,30 @@ export default function LatencyChart({
           <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
             <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Latencia promedio general">
               <span className="text-text-muted">AVG:</span>
-              <span className="font-bold" style={{color:'var(--monitoring-latency, #10b981)'}}>{summary.avg_latency}ms</span>
+              <span className="font-bold" style={{color:'var(--monitoring-latency, #10b981)'}}>{summary.avg_latency === null ? '—' : `${summary.avg_latency}ms`}</span>
             </div>
             <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Percentil 50 (Mediana habitual)">
               <span className="text-text-muted">P50:</span>
-              <span className="font-bold text-accent-blue">{summary.p50_latency}ms</span>
+              <span className="font-bold text-accent-blue">{summary.p50_latency === null ? '—' : `${summary.p50_latency}ms`}</span>
             </div>
             <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Percentil 90">
               <span className="text-text-muted">P90:</span>
-              <span className="font-bold text-accent-yellow">{summary.p90_latency}ms</span>
+              <span className="font-bold text-accent-yellow">{summary.p90_latency === null ? '—' : `${summary.p90_latency}ms`}</span>
             </div>
             <div
               className={`border px-2.5 py-1 rounded-lg flex items-center gap-1 ${
-                summary.p99_latency > 500
+                summary.p99_latency !== null && summary.p99_latency > 500
                   ? 'bg-accent-red/10 border-accent-red/40 text-accent-red'
                   : 'bg-bg-dark border-border-base text-accent-yellow'
               }`}
               title="Percentil 99 (Pico del 1% de chequeos más lentos)"
             >
               <span className="text-text-muted">P99:</span>
-              <span className="font-bold">{summary.p99_latency}ms</span>
+              <span className="font-bold">{summary.p99_latency === null ? '—' : `${summary.p99_latency}ms`}</span>
             </div>
             <div className="bg-bg-dark border border-border-base px-2.5 py-1 rounded-lg flex items-center gap-1" title="Pico máximo registrado">
               <span className="text-text-muted">MAX:</span>
-              <span className="font-bold text-text-main">{summary.max_latency}ms</span>
+              <span className="font-bold text-text-main">{summary.max_latency === null ? '—' : `${summary.max_latency}ms`}</span>
             </div>
           </div>
         </div>

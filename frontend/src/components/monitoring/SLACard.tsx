@@ -14,8 +14,9 @@ export default function SLACard({
   onPeriodChange,
   summary,
 }: SLACardProps) {
-  const uptimePct = summary.uptime_percentage;
-  const isCompliant = uptimePct >= 99.0;
+  const uptimePct = summary.total_checks > 0 && typeof summary.uptime_percentage === 'number' && Number.isFinite(summary.uptime_percentage) ? summary.uptime_percentage : null;
+  const hasMeasurements = uptimePct !== null;
+  const isCompliant = hasMeasurements && uptimePct >= 99.0;
   const incidentsCount = summary.incidents_count;
   const totalDowntimeSeconds = summary.total_downtime_seconds;
 
@@ -95,22 +96,22 @@ export default function SLACard({
             <span>% Disponibilidad SLA</span>
             <ShieldCheck
               size={14}
-              className={isCompliant ? 'text-accent-green' : 'text-accent-red'}
+              className={!hasMeasurements ? 'text-text-muted' : isCompliant ? 'text-accent-green' : 'text-accent-red'}
             />
           </span>
           <div
             className={`text-2xl font-bold font-mono mt-1 ${
-              uptimePct >= 99
+              !hasMeasurements ? 'text-text-muted' : uptimePct >= 99
                 ? 'text-accent-green'
                 : uptimePct >= 95
                 ? 'text-accent-yellow'
                 : 'text-accent-red'
             }`}
           >
-            {uptimePct.toFixed(2)}%
+            {uptimePct === null ? '—' : `${uptimePct.toFixed(2)}%`}
           </div>
           <div className="text-[10px] text-text-dim mt-1 font-mono">
-            {isCompliant ? 'Cumple meta SLA (≥99%)' : 'Desviación de meta SLA'}
+            {!hasMeasurements ? 'Sin mediciones' : isCompliant ? 'Cumple meta SLA (≥99%)' : 'Desviación de meta SLA'}
           </div>
         </div>
 
@@ -142,7 +143,7 @@ export default function SLACard({
             {summary.up_checks.toLocaleString()}
           </div>
           <div className="text-[10px] text-text-dim mt-1 font-mono">
-            {summary.down_checks === 0 ? 'Sin fallos registrados' : `${summary.up_checks} respuestas OK`}
+            {!hasMeasurements ? 'Sin mediciones' : summary.down_checks === 0 ? 'Sin fallos registrados' : `${summary.up_checks} respuestas OK`}
           </div>
         </div>
 
@@ -172,7 +173,7 @@ export default function SLACard({
             {incidentsCount}
           </div>
           <div className="text-[10px] text-text-dim mt-1 font-mono">
-            {incidentsCount > 0
+            {!hasMeasurements ? 'Sin mediciones' : incidentsCount > 0
               ? `${downtimeFormatted} fuera de servicio`
               : '0 eventos de interrupción'}
           </div>

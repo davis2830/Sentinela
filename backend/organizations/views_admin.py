@@ -30,12 +30,7 @@ class PlatformStatsView(APIView):
         thirty_days_ago = now - timedelta(days=30)
 
         # Plan price map in USD
-        PLAN_PRICES = {
-            OrganizationPlanTier.FREE: 0,
-            OrganizationPlanTier.PRO: 29,
-            OrganizationPlanTier.BUSINESS: 99,
-            OrganizationPlanTier.ENTERPRISE: 299,
-        }
+        PLAN_PRICES = {tier: plan.get("price_monthly_usd") for tier, plan in PLAN_LIMITS.items()}
 
         all_orgs = Organization.objects.all()
         total_orgs = all_orgs.count()
@@ -54,12 +49,19 @@ class PlatformStatsView(APIView):
 
         # Calculate MRR (exclude trialing or cancelled, include active/paid)
         mrr = 0
+        quoted = 0
         for org in all_orgs:
             if org.subscription_status in [
                 OrganizationSubscriptionStatus.ACTIVE,
                 OrganizationSubscriptionStatus.PAST_DUE,
             ]:
-                mrr += PLAN_PRICES.get(org.plan_tier, 0)
+                price = org.get_plan_limits().get("price_monthly_usd")
+                if org.beta_managed and org.plan_tier == "business":
+                    price = None
+                if price is None:
+                    quoted += 1
+                else:
+                    mrr += price
 
         arr = mrr * 12
 
@@ -82,6 +84,8 @@ class PlatformStatsView(APIView):
         return success_response({
             "financials": {
                 "mrr_usd": mrr,
+                "is_estimate": True,
+                "quoted_organizations": quoted,
                 "arr_usd": arr,
                 "currency": "USD",
             },

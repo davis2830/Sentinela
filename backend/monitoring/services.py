@@ -243,7 +243,7 @@ class MonitoringService:
         total_checks = checks_qs.count()
         up_checks = checks_qs.filter(status__in=("up", "slow")).count()
         down_checks_count = checks_qs.filter(status__in=["down", "error"]).count()
-        uptime_pct = round((up_checks / total_checks * 100), 2) if total_checks > 0 else 100.0
+        uptime_pct = round((up_checks / total_checks * 100), 2) if total_checks > 0 else None
 
         # Extract latencies for percentiles and stats
         raw_checks = list(checks_qs.values("id", "status", "latency", "checked_at", "details"))
@@ -263,7 +263,7 @@ class MonitoringService:
             p90 = _get_pct(90)
             p99 = _get_pct(99)
         else:
-            avg_latency = max_latency = min_latency = p50 = p90 = p99 = 0
+            avg_latency = max_latency = min_latency = p50 = p90 = p99 = None
 
         # Incidents clustering: group down/error checks within 3x interval
         down_checks = [c for c in raw_checks if c["status"] in ("down", "error")]
@@ -341,7 +341,7 @@ class MonitoringService:
                 t = d["total"]
                 u = d["up"]
                 dw = d["down"]
-                day_uptime = round((u / t * 100), 2) if t > 0 else 100.0
+                day_uptime = round((u / t * 100), 2) if t > 0 else None
                 day_status = (
                     "down"
                     if dw > 0
@@ -349,7 +349,7 @@ class MonitoringService:
                 )
                 avg_l = round(d["avg_lat"]) if d["avg_lat"] else 0
             else:
-                day_uptime = 100.0
+                day_uptime = None
                 t = 0
                 dw = 0
                 day_status = "no_data"
@@ -617,6 +617,7 @@ class AgentProbeService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation('private_agents')
     def create_probe(organization_id, name):
         from .models import AgentProbe
         raw_token, token_hash = AgentProbe.generate_token()
@@ -698,6 +699,8 @@ class AgentProbeService:
         from common.subscriptions import require_monitoring
         require_monitoring(probe.organization)
         from .models import MonitoringCheck, MonitoringTarget
+        from .agent_payload import validated_results
+        results = validated_results(results)
         ingested = 0
         now = timezone.now()
         for item in results:

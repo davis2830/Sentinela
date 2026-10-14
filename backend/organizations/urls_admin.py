@@ -1,4 +1,5 @@
 from django.urls import path
+from audit.views import PlatformAuditLogListView
 from .views_admin import (
     PlatformStatsView,
     PlatformOrganizationListView,
@@ -10,6 +11,7 @@ from .views_admin import (
 )
 
 urlpatterns = [
+    path('audit-logs/', PlatformAuditLogListView.as_view(), name='platform-audit-logs'),
     path("stats/", PlatformStatsView.as_view(), name="platform-stats"),
     path("organizations/", PlatformOrganizationListView.as_view(), name="platform-orgs-list"),
     path("organizations/<uuid:org_id>/", PlatformOrganizationDetailView.as_view(), name="platform-org-detail"),

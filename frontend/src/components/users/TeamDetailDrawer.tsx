@@ -1,3 +1,5 @@
+import { useAuthStore } from '../../store/authStore';
+import AdminButton from '../common/AdminButton';
 import React, { useState, useEffect } from 'react';
 import type { Team, TeamMember, UpdateTeamPayload } from '../../types/users';
 import type { MonitoringTarget } from '../../types/monitoring';
@@ -283,15 +285,15 @@ export default function TeamDetailDrawer({
 
           {/* Quick Actions Footer in Tab */}
           <div className="pt-2 flex items-center justify-between border-t border-border-base">
-            <button
+            <AdminButton
               type="button"
               onClick={() => onEditTeam(team)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-bg-card border border-border-base text-text-main hover:bg-bg-card-hover transition-colors"
             >
               <Edit2 size={13} className="text-accent-blue" />
               Editar Detalles del Equipo
-            </button>
-            <button
+            </AdminButton>
+            <AdminButton
               type="button"
               onClick={() => {
                 onDeleteTeam(team);
@@ -301,7 +303,7 @@ export default function TeamDetailDrawer({
             >
               <Trash2 size={13} />
               Eliminar Equipo
-            </button>
+            </AdminButton>
           </div>
         </div>
       )}
@@ -310,7 +312,7 @@ export default function TeamDetailDrawer({
       {activeTab === 'members' && (
         <div className="space-y-6">
           {/* Add Member Bar */}
-          {candidateMembers.length > 0 && (
+          {candidateMembers.length > 0 && (useAuthStore.getState().user?.is_staff || useAuthStore.getState().user?.is_superuser) && (
             <div className="p-3.5 rounded-2xl bg-bg-card border border-border-base flex items-center gap-2.5">
               <select
                 value={selectedNewMemberId}
@@ -324,7 +326,7 @@ export default function TeamDetailDrawer({
                   </option>
                 ))}
               </select>
-              <button
+              <AdminButton
                 type="button"
                 onClick={handleAddMember}
                 disabled={!selectedNewMemberId || isUpdatingMembers}
@@ -332,7 +334,7 @@ export default function TeamDetailDrawer({
               >
                 {isUpdatingMembers ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}
                 Añadir
-              </button>
+              </AdminButton>
             </div>
           )}
 
@@ -398,7 +400,7 @@ export default function TeamDetailDrawer({
 
                       <div className="flex items-center gap-2 shrink-0">
                         {!isLead && (
-                          <button
+                          <AdminButton
                             type="button"
                             onClick={() => handleSetLead(m.id)}
                             disabled={isUpdatingMembers}
@@ -407,9 +409,9 @@ export default function TeamDetailDrawer({
                           >
                             <Crown size={13} />
                             <span className="hidden sm:inline text-[11px]">Hacer Lead</span>
-                          </button>
+                          </AdminButton>
                         )}
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() => handleRemoveMember(m.id)}
                           disabled={isUpdatingMembers}
@@ -417,7 +419,7 @@ export default function TeamDetailDrawer({
                           className="p-1.5 text-text-dim hover:text-accent-red hover:bg-bg-main rounded-lg transition-colors"
                         >
                           <UserMinus size={14} />
-                        </button>
+                        </AdminButton>
                       </div>
                     </div>
                   );

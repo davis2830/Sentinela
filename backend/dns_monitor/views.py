@@ -44,7 +44,7 @@ class DNSRecordListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "dns_records")
+
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -68,7 +68,7 @@ class DNSRecordListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -106,7 +106,7 @@ class DNSRecordDetailView(APIView):
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
     def delete(self, request, record_id):
@@ -138,7 +138,7 @@ class DNSRecordScanView(APIView):
         except ScanLimited as exc:
             return limited_response(exc)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DNSChangeHistoryView(APIView):
@@ -206,7 +206,7 @@ class DNSBulkScanView(APIView):
             from .models import DNSRecord
             return success_response(enqueue_many(DNSRecord.objects.filter(organization_id=request.user.organization_id), scan_dns_records))
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DNSTestResolutionView(ConfigurationDiagnosticAPIView):
@@ -250,4 +250,4 @@ class DNSBulkActionView(APIView):
             res = DNSMonitorService.bulk_action(org_id, action, record_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

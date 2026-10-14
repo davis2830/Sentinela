@@ -340,7 +340,7 @@ export default function ReportDetailDrawer({
                 className="flex items-center justify-center gap-2 py-2.5 px-4 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl font-medium text-xs transition-colors"
               >
                 <Printer size={16} />
-                HTML para imprimir
+                Informe imprimible (HTML)
               </button>
             </div>
             <p className="text-[11px] text-text-dim">

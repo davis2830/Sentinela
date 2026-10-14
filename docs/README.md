@@ -1,11 +1,13 @@
 # Centro de documentación de Sentinel
 
-Documentación validada contra la rama actual el 2026-10-03.
+Índice actualizado con la corrección local del 2026-10-13; la evidencia histórica se conserva por fecha.
 
 - [Inventario de módulos, modelos, rutas y tareas](MODULE_INVENTORY.md)
 - [Flujo de desarrollo](DEV_WORKFLOW.md)
 - [Estrategia y evidencia de pruebas](TESTING_STRATEGY.md)
 - [Auditoría integral de módulos y pendientes beta](BETA_MODULE_AUDIT.md)
+- [Auditoría por módulo del 2026-10-12 y hallazgos priorizados](SYSTEM_AUDIT_2026-10-12.md)
+- [Corrección de los 19 hallazgos, evidencia local y gates externos](AUDIT_REMEDIATION_2026-10-13.md)
 - [Seguimiento de pendientes y baseline de capacidad](BETA_VALIDATION_FOLLOWUP.md)
 - [Dashboards por área y módulos compactos](DASHBOARD.md)
 - [Ficha integral de endpoints HTTP/HTTPS](ENDPOINT_DOSSIER.md)

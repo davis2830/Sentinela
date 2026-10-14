@@ -149,7 +149,7 @@ export default function PlatformAdminPage() {
       <NOCKpiGrid columns={4}>
         {/* KPI 1: MRR Estimado */}
         <NOCKpiCard
-          title="MRR Estimado"
+          title="MRR estimado (no cobrado)"
           icon={<DollarSign size={16} className="text-accent-green" />}
           badge={{
             text: `ARR: $${(stats?.financials.arr_usd || 0).toLocaleString()} USD`,

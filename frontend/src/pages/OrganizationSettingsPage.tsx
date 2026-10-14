@@ -211,7 +211,7 @@ export default function OrganizationSettingsPage() {
       sla_target_percentage: parseFloat(slaTarget) || 99.90,
       alert_flapping_threshold: Number(flappingThreshold),
       default_scan_interval_seconds: Number(defaultInterval),
-      metrics_retention_days: Number(metricsRetention),
+      ...(Number(metricsRetention) !== orgData?.metrics_retention_days ? {metrics_retention_days: Number(metricsRetention)} : {}),
       audit_logs_retention_days: Number(auditRetention),
       resolved_incidents_retention_days: Number(incidentsRetention),
       session_timeout_minutes: Number(sessionTimeout),
@@ -582,7 +582,7 @@ export default function OrganizationSettingsPage() {
           <div className="bg-bg-card border border-border-base rounded-2xl p-6 shadow-sm">
             <h3 className="text-base font-bold text-text-main mb-4 flex items-center gap-2">
               <Database size={18} className="text-accent-green" />
-              Retención Histórica & Auditoría (ISO 27001 / SOC 2)
+              Retención histórica y auditoría
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
@@ -591,14 +591,15 @@ export default function OrganizationSettingsPage() {
                 </label>
                 <input
                   type="number"
-                  min="7"
-                  max="365"
+                  min="1"
+                  max={Math.max(subData?.limits.metrics_retention_days ?? 1, orgData?.metrics_retention_days ?? 1)}
                   value={metricsRetention}
                   onChange={(e) => setMetricsRetention(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
                 <p className="text-[11px] text-text-dim mt-1.5">
-                  Retención tenant-aware de históricos de telemetría en PostgreSQL.
+                  Configurada: {orgData?.metrics_retention_days ?? '—'} días. Límite del plan: {subData?.limits.metrics_retention_days ?? '—'} días. Purga aplicada: {subData?.retention_policy?.applied_days ?? '—'} días.
+                    {subData?.retention_policy?.review_required && ' Ajuste histórico pendiente de revisión y respaldo; no se ha activado automáticamente.'}
                 </p>
               </div>
 

@@ -46,8 +46,8 @@ class UserService:
         control_lock()
         org = Organization.objects.select_for_update().get(pk=organization_id)
         require_monitoring(org)
-        if org.beta_managed and User.objects.filter(organization=org).count() >= org.get_plan_limits()["max_team_members"]:
-            raise ValueError("El plan no permite más integrantes. Consulta Planes.")
+        from common.membership import check_member_capacity
+        check_member_capacity(org)
         email = normalize_email(email)
         check_email(email)
         if User.objects.filter(email__iexact=email).exists():
@@ -72,7 +72,12 @@ class UserService:
     @transaction.atomic
     def update_user(user_id, organization_id, **fields):
         """Update an existing user."""
+        from organizations.models import Organization
+        Organization.objects.select_for_update().get(pk=organization_id)
         user = User.objects.get(id=user_id, organization_id=organization_id)
+        if fields.get('is_active') is False or ('role' in fields and fields['role'] != 'admin' and not user.is_superuser):
+            from common.membership import guard_admin_removal
+            guard_admin_removal(organization_id, [user_id])
         if "email" in fields and fields["email"] != user.email:
             raise ValueError("El integrante debe confirmar el cambio desde su perfil.")
         
@@ -89,7 +94,11 @@ class UserService:
     @transaction.atomic
     def delete_user(user_id, organization_id):
         """Delete a user from an organization."""
+        from organizations.models import Organization
+        Organization.objects.select_for_update().get(pk=organization_id)
         user = User.objects.get(id=user_id, organization_id=organization_id)
+        from common.membership import guard_admin_removal
+        guard_admin_removal(organization_id, [user_id])
         user.delete()
 
     @staticmethod

@@ -1,3 +1,4 @@
+from common.beta_quota import beta_creation
 import uuid
 from datetime import timedelta
 from django.db import transaction
@@ -64,6 +65,7 @@ class StatusPageService:
 
     @staticmethod
     @transaction.atomic
+    @beta_creation('status_pages')
     def create_status_page(organization_id, data):
         """Create a new status page for an enterprise client or brand."""
         slug = data["slug"].strip().lower()

@@ -42,7 +42,7 @@ class SSLCertificateListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "ssl_certificates")
+
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -66,7 +66,7 @@ class SSLCertificateListView(APIView):
             )
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -109,7 +109,7 @@ class SSLCertificateDetailView(APIView):
             return success_response(serializer.data)
         except Exception as exc:
             return error_response(
-                str(exc), status_code=status.HTTP_400_BAD_REQUEST
+                exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
     def delete(self, request, certificate_id):
@@ -141,7 +141,7 @@ class SSLCertificateScanView(APIView):
         except ScanLimited as exc:
             return limited_response(exc)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SSLExpiringSoonView(APIView):
@@ -203,7 +203,7 @@ class SSLBulkScanView(APIView):
             from .models import SSLCertificate
             return success_response(enqueue_many(SSLCertificate.objects.filter(organization_id=request.user.organization_id), scan_ssl_certificate))
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SSLTestConnectionView(ConfigurationDiagnosticAPIView):
@@ -254,4 +254,4 @@ class SSLBulkActionView(APIView):
             res = SSLMonitorService.bulk_action(org_id, action, certificate_ids)
             return success_response(res)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

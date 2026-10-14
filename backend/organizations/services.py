@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.db import transaction
+from django.utils import timezone
 from common.subscriptions import monitoring_allowed
 
 from .models import (
@@ -39,79 +40,59 @@ class QuotaService:
         limits = organization.get_plan_limits()
 
         # 1. Monitoring Targets
-        try:
-            MonitoringTarget = apps.get_model("monitoring", "MonitoringTarget")
-            targets_count = MonitoringTarget.objects.filter(organization=organization).count()
-        except Exception:
-            targets_count = 0
+        MonitoringTarget = apps.get_model("monitoring", "MonitoringTarget")
+        targets_count = MonitoringTarget.objects.filter(organization=organization).count()
+
 
         # 2. SSL Certificates
-        try:
-            SSLCertificate = apps.get_model("ssl_monitor", "SSLCertificate")
-            ssl_count = SSLCertificate.objects.filter(organization=organization).count()
-        except Exception:
-            ssl_count = 0
+        SSLCertificate = apps.get_model("ssl_monitor", "SSLCertificate")
+        ssl_count = SSLCertificate.objects.filter(organization=organization).count()
+
 
         # 3. API Checks
-        try:
-            APICheck = apps.get_model("api_checks", "APICheck")
-            api_count = APICheck.objects.filter(organization=organization).count()
-        except Exception:
-            api_count = 0
+        APICheck = apps.get_model("api_checks", "APICheckTarget")
+        api_count = APICheck.objects.filter(organization=organization).count()
+
 
         # 4. Status Pages
-        try:
-            StatusPage = apps.get_model("status_page", "StatusPage")
-            status_pages_count = StatusPage.objects.filter(organization=organization).count()
-        except Exception:
-            status_pages_count = 0
+        StatusPage = apps.get_model("status_page", "StatusPageConfig")
+        status_pages_count = StatusPage.objects.filter(organization=organization).count()
+
 
         # 5. Team Members (active users + pending invitations)
-        try:
-            User = apps.get_model("accounts", "User")
-            InvitationToken = apps.get_model("organizations", "InvitationToken")
-            active_users = User.objects.filter(organization=organization).count()
-            pending_invites = InvitationToken.objects.filter(
-                organization=organization, is_used=False
-            ).count()
-            members_count = active_users + pending_invites
-        except Exception:
-            members_count = 0
+        User = apps.get_model("accounts", "User")
+        InvitationToken = apps.get_model("organizations", "InvitationToken")
+        active_users = User.objects.filter(organization=organization).count()
+        pending_invites = InvitationToken.objects.filter(
+            organization=organization, is_used=False, expires_at__gt=timezone.now()
+        ).count()
+        members_count = active_users + pending_invites
+
 
         # 6. Private Agents (Probes)
-        try:
-            AgentProbe = apps.get_model("monitoring", "AgentProbe")
-            agents_count = AgentProbe.objects.filter(organization=organization).count()
-        except Exception:
-            agents_count = 0
+        AgentProbe = apps.get_model("monitoring", "AgentProbe")
+        agents_count = AgentProbe.objects.filter(organization=organization).count()
+
 
         # 7. DNS Records
-        try:
-            DNSRecord = apps.get_model("dns_monitor", "DNSRecord")
-            dns_count = DNSRecord.objects.filter(organization=organization).count()
-        except Exception:
-            dns_count = 0
+        DNSRecord = apps.get_model("dns_monitor", "DNSRecord")
+        dns_count = DNSRecord.objects.filter(organization=organization).count()
+
 
         # 8. Monitored Domains (WHOIS)
-        try:
-            DomainInfo = apps.get_model("domain", "DomainInfo")
-            domains_count = DomainInfo.objects.filter(organization=organization).count()
-        except Exception:
-            domains_count = 0
+        DomainInfo = apps.get_model("domain", "DomainInfo")
+        domains_count = DomainInfo.objects.filter(organization=organization).count()
+
 
         # 9. Security Headers Targets
-        try:
-            SecurityHeaderTarget = apps.get_model("security_headers", "SecurityHeaderTarget")
-            sec_headers_count = SecurityHeaderTarget.objects.filter(organization=organization).count()
-        except Exception:
-            sec_headers_count = 0
+        SecurityHeaderTarget = apps.get_model("security_headers", "SecurityHeaderTarget")
+        sec_headers_count = SecurityHeaderTarget.objects.filter(organization=organization).count()
+
 
         # 10. Notification Channels
-        try:
-            NotificationChannel = apps.get_model("notifications", "NotificationChannel")
-            channels_count = NotificationChannel.objects.filter(organization=organization).count()
-        except Exception:
-            channels_count = 0
+        NotificationChannel = apps.get_model("notifications", "NotificationChannel")
+        channels_count = NotificationChannel.objects.filter(organization=organization).count()
+
 
         def build_metric(current, limit):
             limit_val = limit if limit is not None else 9999
@@ -154,7 +135,9 @@ class QuotaService:
                 if plan["tier"] == "business":
                     plan.update(price_monthly_usd=None, name="Business / Cotización")
 
+        from common.retention_policy import retention_policy
         return {
+            "retention_policy": retention_policy(organization),
             "plan_tier": organization.plan_tier,
             "beta_managed": organization.beta_managed,
             "monitoring_allowed": monitoring_allowed(organization),
@@ -180,7 +163,7 @@ class QuotaService:
         metric = summary["usage"].get(resource_type)
 
         if not metric:
-            return True
+            raise ValueError('Tipo de cuota desconocido; alta rechazada.')
 
         if metric["is_exceeded"]:
             resource_labels = {
@@ -294,13 +277,19 @@ class OrganizationService:
             plan_tier=plan_tier,
             subscription_status=OrganizationSubscriptionStatus.ACTIVE if plan_tier == "free" else OrganizationSubscriptionStatus.TRIALING,
             default_scan_interval_seconds=PLAN_LIMITS[plan_tier]["min_check_interval_seconds"],
+            metrics_retention_days=PLAN_LIMITS[plan_tier]["metrics_retention_days"],
         )
 
     @staticmethod
     @transaction.atomic
     def update_organization(organization_id, **fields):
         """Update an existing organization."""
-        organization = Organization.objects.get(id=organization_id)
+        organization = Organization.objects.select_for_update().get(id=organization_id)
+        if "metrics_retention_days" in fields and fields["metrics_retention_days"] is not None:
+            value = fields["metrics_retention_days"]
+            maximum = organization.get_plan_limits()["metrics_retention_days"]
+            if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
+                raise ValueError(f"Tu plan permite entre 1 y {maximum} días de telemetría.")
         for field, value in fields.items():
             if value is not None:
                 setattr(organization, field, value)

@@ -1,3 +1,5 @@
+import { useAuthStore } from '../../store/authStore';
+import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { TeamMember } from '../../types/users';
 import {
@@ -256,7 +258,9 @@ export default function UserTableView({
                         Invitación Pendiente
                       </span>
                     ) : (
-                      <button
+                      <>
+                      {!useAuthStore.getState().user?.is_staff && !useAuthStore.getState().user?.is_superuser && <span>{m.is_active ? 'Activo' : 'Desactivado'}</span>}
+                      <AdminButton
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -278,7 +282,8 @@ export default function UserTableView({
                       >
                         <Power size={11} />
                         {m.is_active ? 'Activo' : 'Desactivado'}
-                      </button>
+                      </AdminButton>
+                      </>
                     )}
                   </td>
 
@@ -308,7 +313,7 @@ export default function UserTableView({
 
                       {/* Resend Invitation (if pending) */}
                       {isPending && (
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() => onResendInvite(m)}
                           disabled={resendingId === m.id}
@@ -316,23 +321,23 @@ export default function UserTableView({
                           className="p-1.5 text-text-dim hover:text-amber-400 hover:bg-bg-main rounded-lg transition-colors"
                         >
                           <Send size={15} className={resendingId === m.id ? 'animate-spin' : ''} />
-                        </button>
+                        </AdminButton>
                       )}
 
                       {/* Edit (if not invitation) */}
                       {!isPending && (
-                        <button
+                        <AdminButton
                           type="button"
                           onClick={() => onEdit(m)}
                           title="Editar usuario y roles"
                           className="p-1.5 text-text-dim hover:text-sky-400 hover:bg-bg-main rounded-lg transition-colors"
                         >
                           <Edit2 size={15} />
-                        </button>
+                        </AdminButton>
                       )}
 
                       {/* Delete / Revoke */}
-                      <button
+                      <AdminButton
                         type="button"
                         onClick={() => onDelete(m)}
                         disabled={isSelf}
@@ -348,7 +353,7 @@ export default function UserTableView({
                         }`}
                       >
                         <Trash2 size={15} />
-                      </button>
+                      </AdminButton>
                     </div>
                   </td>
                 </tr>

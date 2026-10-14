@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { ShieldCheck, Lock, Building, CheckCircle, CheckCircle2, AlertCircle, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function AcceptInvitationPage() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('token') || new URLSearchParams(window.location.search).get('token'));
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -26,6 +25,7 @@ export default function AcceptInvitationPage() {
   const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
+    window.history.replaceState(window.history.state, '', window.location.pathname);
     if (!token) {
       setErrorMsg('El enlace de invitación no contiene un token válido.');
       setLoading(false);
@@ -34,7 +34,7 @@ export default function AcceptInvitationPage() {
 
     const validateToken = async () => {
       try {
-        const response = await api.get(`organizations/invitations/validate/?token=${encodeURIComponent(token)}`);
+        const response = await api.post('organizations/invitations/validate/', { token });
         setInvData(response.data?.data);
       } catch (err: any) {
         setErrorMsg(err.response?.data?.message || err.response?.data?.detail || 'El enlace de invitación es inválido o ha expirado.');

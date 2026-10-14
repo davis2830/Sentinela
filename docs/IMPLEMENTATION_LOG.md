@@ -1,5 +1,18 @@
 # Bitácora de implementación
 
+## 2026-10-13 — Corrección de 19 hallazgos de auditoría
+
+- Guard de secretos en plantillas/CI y auditoría tenant exacta; logs globales solo en administración de plataforma. Parámetros de consulta validados.
+- Permisos administrativos tempranos en miembros/equipos; Viewer sin mutaciones. Último administrador efectivo protegido y cupos de integrantes con reservas de invitación, incluso bajo concurrencia.
+- Admisión común beta/no beta dentro de transacción y bloqueo tenant; conteos reales de APIs y Status Page, infraestructura fail-closed y reutilización sin cupo/escaneo inicial duplicado.
+- Retención nueva alineada a contrato; política histórica conserva configuración porque `RETENTION_PLAN_CAP_ENFORCED=false`. Dry-run contractual disponible, sin activar purgas agresivas.
+- Lotes Sentinine validados de forma atómica, sentinel HTTP 0 compatible; readiness consistente y acotado con worker, consultas concurrentes compartidas y sin errores sensibles.
+- Invitaciones PUBLIC_APP_URL/fragmento con rollback de configuración inválida; mantenimientos masivos sincronizados; referencias/condiciones de alertas validadas en PATCH completo.
+- Monitoring nullable sin SLA ficticio, detalle/historial en reloj compartido, 404 accesible, MRR estimado desde catálogo e informe HTML etiquetado correctamente.
+- Gates locales: **234/234 Django**, **144/144 Chromium**, TypeScript/Vite, Compose y guard de secretos. Reproducciones originales integradas y 34 regresiones nuevas. Intermitencias/fallos previos y correcciones del harness registrados, sin límites relajados ni casos silenciados.
+- Sin migraciones, datos reales eliminados, commit, push o despliegue. Rotación SMTP, exposición histórica/remota, activación de retención con respaldo, CI y producción pendientes; no se autoriza apertura de beta.
+- [Detalle por hallazgo y evidencia](AUDIT_REMEDIATION_2026-10-13.md).
+
 ## 2026-10-07 — Consulta discreta y diagnósticos independientes
 
 - Control común sin cuenta atrás permanente; siguiente consulta en tooltip y antigüedad de lectura separada de la última medición real. Se conserva el ciclo por área y la recarga manual sin reinicio.

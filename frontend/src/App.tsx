@@ -1,3 +1,4 @@
+import NotFoundPage from './pages/NotFoundPage';
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -151,6 +152,7 @@ export default function App() {
                 }
               />
             </Route>
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

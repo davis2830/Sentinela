@@ -375,6 +375,9 @@ class BetaTests(TestCase):
         self.assertEqual(DisposableDomainPolicy.objects.get(pk=1).version, "test-1")
 
     def test_member_created_by_admin_must_verify(self):
+        # Member verification needs an available contractual seat; Free has one.
+        self.org.plan_tier = "pro"
+        self.org.save(update_fields=["plan_tier"])
         from users.services import UserService
         user = UserService.create_user("new-member@example.test", "Member-Test-123!", self.org.pk)
         self.assertTrue(AuthService.login(user.email, "Member-Test-123!")["requires_email_verification"])

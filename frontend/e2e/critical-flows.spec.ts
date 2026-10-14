@@ -380,6 +380,21 @@ test('mobile dashboard keeps attention ahead of analytical charts', async ({ pag
 });
 
 test('an administrator creates a monitoring target', async ({ page }) => {
+  const targetName = `E2E Public Target ${suffix}`;
+  const fixtureHeaders = {Authorization: `Bearer ${fixtureSessions.get(admin.email)!.access_token}`};
+  // Repeated local runs may retain this test's own disabled fixture. Never touch other resources.
+  const previous = await api.get('monitoring/', {headers: fixtureHeaders});
+  expect(previous.ok()).toBeTruthy();
+  for (const target of (await previous.json()).data.filter((target: {name:string}) => target.name === targetName)) {
+    expect(target.enabled, 'Only this test’s disabled fixture can be retired').toBe(false);
+    expect((await api.delete(`monitoring/${target.id}/`, {headers: fixtureHeaders})).ok()).toBeTruthy();
+  }
+  // This verifies persistence, not external monitoring. Never enqueue cloud coverage from a fixture.
+  await page.route('**/api/v1/monitoring/', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const response = await route.fetch({postData:{...route.request().postDataJSON(),enabled:false,related_modules:[]}});
+    return route.fulfill({response});
+  });
   await login(page, admin);
   const skip = page.getByRole('button', { name: 'Omitir por ahora' });
   if (await skip.isVisible()) await skip.click();
@@ -389,7 +404,6 @@ test('an administrator creates a monitoring target', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Guardián Sentinine (Privado)' })).toBeVisible();
   await expect(page.locator('form')).not.toContainText('🌐');
   await expect(page.locator('form')).not.toContainText('🐕');
-  const targetName = `E2E Public Target ${suffix}`;
   await page.getByPlaceholder('ej: DNS Corporativo LDAP / Portal Clientes').fill(targetName);
   await page.getByPlaceholder('https://mi-servicio.com').fill('https://example.com');
   await page.locator('form').getByRole('button', { name: 'Crear Target' }).click();
@@ -633,6 +647,8 @@ test('failed plan revalidation suspends reads without changing the Pro deadline'
 
 for(const path of ['/alerts','/incidents','/maintenance','/notifications','/reports','/status-page']) test(`Management ${path} shares a thirty second deadline and does not poll inactive Connectivity`, async ({page}) => {
   await mockDashboard(page); await login(page,admin); await page.clock.install();
+  // Assert virtual elapsed time, not machine load during navigation.
+  await page.clock.pauseAt(new Date(Date.now()+1000));
   await page.goto('/gestion');
   await expect(page.getByTestId('automatic-refresh-control')).toContainText('Actualización automática');
   const deadline = await areaDeadline(page,'management');

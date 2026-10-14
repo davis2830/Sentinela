@@ -67,7 +67,17 @@ export interface PlanLimitInfo {
   rca_postmortem: boolean;
 }
 
+export interface RetentionPolicy {
+  configured_days: number;
+  contractual_days: number;
+  applied_days: number;
+  planned_days: number;
+  cap_enforced: boolean;
+  review_required: boolean;
+}
+
 export interface SubscriptionSummary {
+  retention_policy?: RetentionPolicy;
   beta_managed?: boolean;
   monitoring_allowed?: boolean;
   plan_tier: 'free' | 'pro' | 'business' | 'enterprise';

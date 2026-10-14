@@ -47,7 +47,7 @@ class StatusPageListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
-                QuotaService.check_quota(request.user.organization, "status_pages")
+
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
@@ -60,7 +60,7 @@ class StatusPageListView(APIView):
             res_serializer = StatusPageConfigSerializer(page)
             return success_response(res_serializer.data, status_code=status.HTTP_201_CREATED)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class StatusPageDetailView(APIView):
@@ -80,7 +80,7 @@ class StatusPageDetailView(APIView):
             serializer = StatusPageConfigSerializer(page)
             return success_response(serializer.data)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+            return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, page_id):
         org_id = request.user.organization_id
@@ -93,7 +93,7 @@ class StatusPageDetailView(APIView):
             res_serializer = StatusPageConfigSerializer(page)
             return success_response(res_serializer.data)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, page_id):
         org_id = request.user.organization_id
@@ -101,7 +101,7 @@ class StatusPageDetailView(APIView):
             StatusPageService.delete_status_page(org_id, page_id)
             return success_response({"message": "Status Page eliminada correctamente."})
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class StatusPageSetDefaultView(APIView):
@@ -118,7 +118,7 @@ class StatusPageSetDefaultView(APIView):
             page = StatusPageService.set_default_status_page(org_id, page_id)
             return success_response({"message": f"'{page.company_name}' es ahora la Status Page principal."})
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class StatusPageConfigView(APIView):
@@ -147,7 +147,7 @@ class StatusPageConfigView(APIView):
         try:
             config = StatusPageService.update_config(org_id, serializer.validated_data, page_id=page_id)
         except ValueError as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
         res_serializer = StatusPageConfigSerializer(config)
         return success_response(res_serializer.data)
 
@@ -230,7 +230,7 @@ class MaintenanceBulkActionView(APIView):
             )
             return success_response(result)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceDetailView(APIView):
@@ -249,7 +249,7 @@ class MaintenanceDetailView(APIView):
             serializer = ScheduledMaintenanceSerializer(m)
             return success_response(serializer.data)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, maintenance_id):
         org_id = request.user.organization_id
@@ -257,7 +257,7 @@ class MaintenanceDetailView(APIView):
             StatusPageService.delete_maintenance(maintenance_id, org_id)
             return success_response(status_code=status.HTTP_204_NO_CONTENT)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceUpdateView(APIView):
@@ -284,7 +284,7 @@ class MaintenanceUpdateView(APIView):
             res_serializer = MaintenanceUpdateSerializer(update)
             return success_response(res_serializer.data, status_code=status.HTTP_201_CREATED)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SubscriberListView(APIView):
@@ -317,7 +317,7 @@ class SubscriberDeleteView(APIView):
             StatusPageService.remove_subscriber(org_id, subscriber_id)
             return success_response(status_code=status.HTTP_204_NO_CONTENT)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SubscriberExportCSVView(APIView):
@@ -364,7 +364,7 @@ class PublicStatusPageView(APIView):
         except ValueError as v_err:
             return error_response(str(v_err), status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return error_response(exc, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PublicSubscribeView(APIView):
@@ -390,7 +390,7 @@ class PublicSubscribeView(APIView):
         except ValueError as v_err:
             return error_response(str(v_err), status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class PublicUnsubscribeView(APIView):
@@ -413,4 +413,4 @@ class PublicUnsubscribeView(APIView):
         except ValueError as v_err:
             return error_response(str(v_err), status_code=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

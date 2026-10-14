@@ -27,6 +27,19 @@ def error_response(message, errors=None, status_code=status.HTTP_400_BAD_REQUEST
         "errors": []
     }
     """
+    from rest_framework.exceptions import APIException
+    if isinstance(message, APIException):
+        return Response(message.detail, status=message.status_code)
+    from organizations.services import QuotaExceededException
+    if isinstance(message, QuotaExceededException):
+        status_code = status.HTTP_403_FORBIDDEN
+        errors = {'code': 'QUOTA_EXCEEDED', 'resource': message.resource_type,
+                  'limit': message.limit, 'plan': message.plan_tier}
+    if isinstance(message, Exception):
+        if getattr(message, 'code', None) == 'LAST_ADMIN_REQUIRED':
+            status_code = status.HTTP_400_BAD_REQUEST
+            errors = {'code': 'LAST_ADMIN_REQUIRED'}
+        message = str(message)
     payload = {"success": False, "message": message}
     if errors is not None:
         payload["errors"] = errors

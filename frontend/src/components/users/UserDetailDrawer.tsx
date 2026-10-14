@@ -1,3 +1,4 @@
+import AdminButton from '../common/AdminButton';
 import React, { useState, useEffect } from 'react';
 import type { TeamMember, Team, UpdateUserPayload } from '../../types/users';
 import NOCDrawer, { NOCDrawerTab } from '../common/noc/NOCDrawer';
@@ -247,7 +248,7 @@ export default function UserDetailDrawer({
                   </p>
                 </div>
               </div>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => onResendInvite(member)}
                 disabled={isResending}
@@ -255,7 +256,7 @@ export default function UserDetailDrawer({
               >
                 {isResending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                 Reenviar Magic Link
-              </button>
+              </AdminButton>
             </div>
           )}
 
@@ -362,7 +363,7 @@ export default function UserDetailDrawer({
               ].map((roleOption) => {
                 const isSelected = selectedRole === roleOption.id;
                 return (
-                  <button
+                  <AdminButton
                     key={roleOption.id}
                     type="button"
                     disabled={member.is_invitation}
@@ -385,7 +386,7 @@ export default function UserDetailDrawer({
                       )}
                     </div>
                     <p className="text-[11px] text-text-dim leading-snug">{roleOption.desc}</p>
-                  </button>
+                  </AdminButton>
                 );
               })}
             </div>
@@ -415,7 +416,7 @@ export default function UserDetailDrawer({
                 {availableTeams.map((team) => {
                   const isChecked = selectedTeamIds.includes(team.id);
                   return (
-                    <button
+                    <AdminButton
                       key={team.id}
                       type="button"
                       disabled={member.is_invitation}
@@ -449,7 +450,7 @@ export default function UserDetailDrawer({
                       >
                         {isChecked && <Check size={12} />}
                       </div>
-                    </button>
+                    </AdminButton>
                   );
                 })}
               </div>
@@ -468,7 +469,7 @@ export default function UserDetailDrawer({
                   Los cambios se aplican de forma inmediata.
                 </span>
               )}
-              <button
+              <AdminButton
                 type="button"
                 onClick={handleSaveRoleTeams}
                 disabled={isSavingRoleTeams}
@@ -483,7 +484,7 @@ export default function UserDetailDrawer({
                     <Save size={13} /> Guardar Cambios
                   </>
                 )}
-              </button>
+              </AdminButton>
             </div>
           )}
         </div>
@@ -568,7 +569,7 @@ export default function UserDetailDrawer({
                 <span className="text-xs text-text-muted">
                   {member.is_active ? 'La cuenta está activa' : 'La cuenta está suspendida temporalmente'}
                 </span>
-                <button
+                <AdminButton
                   type="button"
                   onClick={() => onToggleActive(member)}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -579,7 +580,7 @@ export default function UserDetailDrawer({
                 >
                   <Power size={13} />
                   {member.is_active ? 'Suspender Acceso' : 'Habilitar Acceso'}
-                </button>
+                </AdminButton>
               </div>
             )}
           </div>
@@ -594,7 +595,7 @@ export default function UserDetailDrawer({
               <p className="text-xs text-text-muted">
                 Si el destinatario no recibió el correo de bienvenida o el token expiró, puedes despachar un nuevo token magic link a <span className="font-mono text-text-main">{member.email}</span>.
               </p>
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => onResendInvite(member)}
                 disabled={isResending}
@@ -602,7 +603,7 @@ export default function UserDetailDrawer({
               >
                 {isResending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                 Reenviar Magic Link Ahora
-              </button>
+              </AdminButton>
             </div>
           )}
 
@@ -623,7 +624,7 @@ export default function UserDetailDrawer({
                 No puedes eliminar tu propia cuenta de usuario en esta sesión activa.
               </div>
             ) : (
-              <button
+              <AdminButton
                 type="button"
                 onClick={() => {
                   onDelete(member);
@@ -633,7 +634,7 @@ export default function UserDetailDrawer({
               >
                 <Trash2 size={13} />
                 {member.is_invitation ? 'Revocar Invitación' : 'Eliminar Usuario'}
-              </button>
+              </AdminButton>
             )}
           </div>
         </div>

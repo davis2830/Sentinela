@@ -1,5 +1,7 @@
 export interface PlatformStats {
   financials: {
+    is_estimate: boolean;
+    quoted_organizations: number;
     mrr_usd: number;
     arr_usd: number;
     currency: string;
