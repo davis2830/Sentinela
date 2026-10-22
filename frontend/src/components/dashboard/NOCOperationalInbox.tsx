@@ -69,7 +69,7 @@ function NOCOperationalInbox({
   const visible = items.slice(0, 10);
 
   return (
-    <section className="bg-bg-card border border-border-base rounded-2xl p-5 md:p-6 shadow-sm h-full" data-testid="dashboard-attention-inbox">
+    <section id="dashboard-inbox" style={{scrollMarginTop:80}} className="bg-bg-card border border-border-base rounded-2xl p-5 md:p-6 shadow-sm h-full" data-testid="dashboard-attention-inbox">
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">

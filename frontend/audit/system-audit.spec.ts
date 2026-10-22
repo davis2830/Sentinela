@@ -23,21 +23,17 @@ async function session(page: Page, role = 'viewer') {
   await page.route('**/api/v1/audit-logs/**', r=>r.fulfill({json:{success:true,data:[]}}));
 }
 
+const moduleRoutes = ['/dashboard','/gestion','/monitoring','/ssl','/dns','/domains','/api-checks',
+  '/security-headers','/alerts','/incidents','/maintenance','/status-page','/notifications',
+  '/reports','/organization','/users','/profile','/audit-logs'];
 for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
-  test(`read-only module smoke ${viewport.width}x${viewport.height}`, async ({page}) => {
+  for (const route of moduleRoutes) test(`read-only module smoke ${viewport.width}x${viewport.height} ${route}`, async ({page}) => {
     await session(page); await page.setViewportSize(viewport);
     const errors: string[] = [];
     page.on('pageerror', error=>errors.push(error.message));
-    for (const route of ['/dashboard','/gestion','/monitoring','/ssl','/dns','/domains','/api-checks',
-      '/security-headers','/alerts','/incidents','/maintenance','/status-page','/notifications',
-      '/reports','/organization','/users','/profile','/audit-logs']) {
-      await test.step(route, async()=>{
-        await page.goto(route);
-        await expect(page.locator('h1').first()).toBeVisible();
-        await page.waitForTimeout(300);
-        expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),route).toBe(true);
-      });
-    }
+    await page.goto(route, {waitUntil:'domcontentloaded'});
+    await expect(page.locator('h1').first()).toBeVisible();
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth), {message:route}).toBe(true);
     expect(errors).toEqual([]);
   });
 }
@@ -69,7 +65,7 @@ async function monitoringFixture(page: Page, healthy = false) {
     : {status:500,json:{message:'Controlled unavailable'}}));
   await page.goto('/monitoring');
   await page.getByRole('row',{name:'Audit unmeasured',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Métricas & SLA',exact:true})).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'Audit unmeasured'})).toBeVisible();
 }
 
 test('failed resource history never claims 100 percent availability', async({page})=>{

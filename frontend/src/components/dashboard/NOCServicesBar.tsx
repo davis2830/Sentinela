@@ -6,7 +6,7 @@ export interface ServiceCategoryMetric { count:number; total:number; attention:n
 interface Props { services:Record<Exclude<DashboardModuleFilter,'alerts'>,ServiceCategoryMetric>; selectedModule:DashboardModuleFilter|null; onModuleSelect:(module:DashboardModuleFilter|null)=>void }
 const meta={
   web:{name:'Web',icon:Globe},api:{name:'API',icon:Code2},tcp:{name:'TCP',icon:Server},ssl:{name:'SSL',icon:Lock},
-  dns:{name:'DNS',icon:Network},domain:{name:'Dominios',icon:Waypoints},security:{name:'Seguridad',icon:ShieldCheck},agent:{name:'Sentinine',icon:Bot},
+  dns:{name:'DNS',icon:Network},domain:{name:'Dominios',icon:Waypoints},security:{name:'Seguridad',icon:ShieldCheck},agent:{name:'Senti9',icon:Bot},
 } as const;
 const states=[{name:'Saludables',color:'#4ade80'},{name:'Degradados',color:'#fbbf24'},{name:'Caídos',color:'#ff7384'},{name:'Sin datos',color:'#94a3b8'}];
 function NOCServicesBar({services,selectedModule,onModuleSelect}:Props) {

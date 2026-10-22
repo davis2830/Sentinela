@@ -114,7 +114,7 @@ const moduleMeta: Record<DashboardModuleFilter, { label: string; path: string }>
   dns: { label: 'DNS', path: '/dns' },
   domain: { label: 'Dominios', path: '/domains' },
   security: { label: 'Seguridad', path: '/security-headers' },
-  agent: { label: 'Sentinine', path: '/monitoring' },
+  agent: { label: 'Senti9', path: '/monitoring' },
   alerts: { label: 'Alertas', path: '/alerts' },
 };
 
@@ -178,7 +178,7 @@ export function buildDashboardItems(source: DashboardSourceData): DashboardAtten
           { label: 'Tipo', value: target.target_type.toUpperCase() },
           { label: 'Última medición', value: displayDate(target.last_checked_at) },
           { label: 'Latencia', value: target.last_latency != null ? `${Math.round(target.last_latency)} ms` : 'Sin datos' },
-          { label: 'Ejecución', value: target.runner_type === 'agent' ? 'Sentinine' : 'Cloud' },
+          { label: 'Ejecución', value: target.runner_type === 'agent' ? 'Senti9' : 'Cloud' },
         ],
         raw: target,
       }),
@@ -346,7 +346,7 @@ export function buildDashboardItems(source: DashboardSourceData): DashboardAtten
         type: 'agent',
         module: 'agent',
         title: agent.name,
-        subtitle: agent.hostname || agent.ip_address || 'Agente Sentinine',
+        subtitle: agent.hostname || agent.ip_address || 'Agente Senti9',
         severity: online ? 'healthy' : 'critical',
         health: online ? 'healthy' : 'down',
         statusLabel: online ? 'En línea' : 'Agente offline',

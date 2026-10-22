@@ -87,7 +87,7 @@ export default function CreateProbeModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-bold text-text-main">
-                  {createdProbe ? 'Guardián Sentinine Registrado' : 'Conectar Nuevo Guardián Sentinine'}
+                  {createdProbe ? 'Guardián Senti9 Registrado' : 'Conectar Nuevo Guardián Senti9'}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
                   LAN / ON-PREMISE
@@ -125,7 +125,7 @@ export default function CreateProbeModal({
           >
             <div>
               <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Nombre Descriptivo del Sentinine / Datacenter *
+                Nombre Descriptivo del Senti9 / Datacenter *
               </label>
               <input
                 type="text"
@@ -136,7 +136,7 @@ export default function CreateProbeModal({
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-purple"
               />
               <p className="text-[11px] text-text-dim mt-1.5">
-                Identifica la ubicación física o red interna donde correrá este guardián Sentinine.
+                Identifica la ubicación física o red interna donde correrá este guardián Senti9.
               </p>
             </div>
 
@@ -146,7 +146,7 @@ export default function CreateProbeModal({
                 <span>Seguridad Saliente Exclusiva (Outbound Only)</span>
               </div>
               <p className="leading-relaxed text-text-dim text-[11px]">
-                El agente Sentinine no requiere abrir puertos entrantes en tu firewall. Se conecta a Sentinel mediante HTTPS saliente para solicitar tareas y reportar los chequeos locales de tu red privada.
+                El agente Senti9 no requiere abrir puertos entrantes en tu firewall. Se conecta a Sentinel mediante HTTPS saliente para solicitar tareas y reportar los chequeos locales de tu red privada.
               </p>
             </div>
 
@@ -178,9 +178,9 @@ export default function CreateProbeModal({
             <div className="p-4 rounded-2xl bg-accent-purple/10 border border-accent-purple/30 text-accent-purple flex items-center gap-3 text-xs">
               <CheckCircle2 size={18} className="shrink-0" />
               <div>
-                <div className="font-bold">¡Guardián Sentinine {createdProbe.name} listo para iniciar!</div>
+                <div className="font-bold">¡Guardián Senti9 {createdProbe.name} listo para iniciar!</div>
                 <div className="text-[11px] text-accent-purple/80 mt-0.5">
-                  Ejecuta el siguiente comando en tu servidor local para iniciar la telemetría.
+                  Guarda el token en un archivo privado y reemplaza REEMPLAZAR_RUTA_TOKEN por su ruta absoluta antes de ejecutar el comando.
                 </div>
               </div>
             </div>
@@ -190,7 +190,7 @@ export default function CreateProbeModal({
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                   <Terminal size={14} className="text-accent-cyan" />
-                  Comando Docker Oficial (1-Clic)
+                  Plantilla Docker · Token por archivo
                 </label>
                 <button
                   onClick={() => handleCopy(createdProbe.docker_command || '', false)}
@@ -219,7 +219,7 @@ export default function CreateProbeModal({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                  Token Secreto de Sentinine (X-Probe-Token)
+                  Token Secreto de Senti9 (X-Probe-Token)
                 </label>
                 <button
                   onClick={() => handleCopy(createdProbe.raw_token || '', true)}
@@ -248,9 +248,9 @@ export default function CreateProbeModal({
             <div className="p-4 rounded-2xl bg-white/5 border border-border-base text-xs space-y-2">
               <div className="font-semibold text-text-main">¿Qué ocurre a continuación?</div>
               <ol className="list-decimal list-inside space-y-1 text-text-dim text-[11px] leading-relaxed">
-                <li>El contenedor Sentinine se iniciará en segundo plano en tu servidor o red local.</li>
+                <li>El contenedor Senti9 se iniciará en segundo plano en tu servidor o red local.</li>
                 <li>Emitirá latidos (heartbeat) salientes a Sentinel y cambiará su estado a <strong className="text-accent-green">Online</strong>.</li>
-                <li>Ahora podrás seleccionar este Sentinine al crear o editar cualquier objetivo de monitoreo LAN.</li>
+                <li>Ahora podrás seleccionar este Senti9 al crear o editar cualquier objetivo de monitoreo LAN.</li>
               </ol>
             </div>
 

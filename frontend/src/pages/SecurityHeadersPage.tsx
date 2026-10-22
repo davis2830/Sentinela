@@ -1,3 +1,4 @@
+import { securityTone, measuredAt } from '../utils/endpointPresentation';
 import { useLinkedResource } from '../hooks/useLinkedResource';
 import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
@@ -63,7 +64,7 @@ import {
   Search,
 } from 'lucide-react';
 
-type GradeFilterType = 'all' | 'grade_a' | 'grade_bc' | 'grade_df';
+type GradeFilterType = 'all' | 'grade_a' | 'grade_bc' | 'grade_df' | 'healthy' | 'warning' | 'critical' | 'unmeasured';
 type DrawerTabType = 'audit' | 'remediation' | 'leaks_raw' | 'history';
 type ServerSnippetType = 'nginx' | 'apache' | 'caddy' | 'cloudflare' | 'iis';
 
@@ -128,7 +129,7 @@ export default function SecurityHeadersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingTarget, setEditingTarget] = useState<SecurityHeaderTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SecurityHeaderTarget | null>(null);
-  const [gradeFilter, setGradeFilter] = useUrlFilter('grade', ["all","grade_a","grade_bc","grade_df"] as const);
+  const [gradeFilter, setGradeFilter] = useUrlFilter('grade', ["all","grade_a","grade_bc","grade_df","healthy","warning","critical","unmeasured"] as const);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = usePersistentViewMode('security_headers', 'table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -354,7 +355,7 @@ export default function SecurityHeadersPage() {
 
   const calculateGrade = (score: number | null): SecurityGrade | null => {
     if (score === null) return null;
-    if (score >= 90) return 'A+';
+    if (score >= 95) return 'A+';
     if (score >= 80) return 'A';
     if (score >= 70) return 'B';
     if (score >= 60) return 'C';
@@ -365,16 +366,11 @@ export default function SecurityHeadersPage() {
   // KPI Calculations
   const allTargets = targets || [];
   const totalCount = stats?.total || allTargets.length;
-  const gradeACount =
-    stats?.grade_a ||
-    allTargets.filter((t: SecurityHeaderTarget) => t.last_score !== null && t.last_score >= 80).length;
-  const gradeBCCount =
-    stats?.grade_bc ||
-    allTargets.filter((t: SecurityHeaderTarget) => t.last_score !== null && t.last_score >= 60 && t.last_score < 80).length;
-  const gradeDFCount =
-    stats?.grade_df ||
-    allTargets.filter((t: SecurityHeaderTarget) => t.last_score === null || t.last_score < 60).length;
-  const infoLeaksCount =
+  const healthTone = (t:SecurityHeaderTarget) => !measuredAt(t as unknown as Record<string,unknown>) ? 'muted' : securityTone(t.last_score)==='success'&&t.info_leak_detected?'warning':securityTone(t.last_score);
+  const gradeACount = stats?.healthy ?? allTargets.filter(t=>healthTone(t)==='success').length;
+  const gradeBCCount = stats?.warning ?? allTargets.filter(t=>healthTone(t)==='warning').length;
+  const gradeDFCount = stats?.critical ?? allTargets.filter(t=>healthTone(t)==='danger').length;
+  const unmeasuredCount = stats?.unmeasured ?? allTargets.filter(t=>healthTone(t)==='muted').length;  const infoLeaksCount =
     stats?.info_leaks_count ?? allTargets.filter((t) => t.info_leak_detected).length;
 
   const optimalRate =
@@ -391,6 +387,10 @@ export default function SecurityHeadersPage() {
     if (!matchesSearch) return false;
 
     const score = t.last_score;
+    if (gradeFilter === 'healthy') return healthTone(t)==='success';
+    if (gradeFilter === 'warning') return healthTone(t)==='warning';
+    if (gradeFilter === 'critical') return healthTone(t)==='danger';
+    if (gradeFilter === 'unmeasured') return healthTone(t)==='muted';
     if (gradeFilter === 'grade_a') return score !== null && score >= 80;
     if (gradeFilter === 'grade_bc') return score !== null && score >= 60 && score < 80;
     if (gradeFilter === 'grade_df') return score === null || score < 60;
@@ -614,8 +614,8 @@ header {
       {/* 2. NOC COMMAND CENTER: KPI STRIP */}
       <CompactModuleSummary variant="status" items={[
         {label:'Sitios',value:targets ? totalCount : null,icon:Shield,tone:'neutral'},
-        {label:'Grado A / A+',value:targets ? gradeACount : null,icon:ShieldCheck,tone:'success'},
-        {label:'Grado D / F',value:targets ? gradeDFCount : null,icon:ShieldAlert,tone:'danger'},
+        {label:'Score ≥70 sin fugas',value:targets ? gradeACount : null,icon:ShieldCheck,tone:'success'},
+        {label:'Score <50',value:targets ? gradeDFCount : null,icon:ShieldAlert,tone:'danger'},
         {label:'Fugas',value:targets ? infoLeaksCount : null,icon:Eye,tone:'warning'}
       ]} />
 
@@ -628,9 +628,10 @@ header {
         onViewModeChange={setViewMode}
         statusPills={[
           { id: 'all', label: 'Todos', count: totalCount, variant: 'all' },
-          { id: 'grade_a', label: 'Grado A / A+', count: gradeACount, variant: 'success' },
-          { id: 'grade_bc', label: 'Grado B / C', count: gradeBCCount, variant: 'warning' },
-          { id: 'grade_df', label: 'Grado D / F', count: gradeDFCount, variant: 'danger' },
+          { id: 'unmeasured', label: 'Sin medición', count: unmeasuredCount, variant: 'all' },
+          { id: 'healthy', label: 'Score ≥70 sin fugas', count: gradeACount, variant: 'success' },
+          { id: 'warning', label: 'Score 50–69 o fugas', count: gradeBCCount, variant: 'warning' },
+          { id: 'critical', label: 'Score <50', count: gradeDFCount, variant: 'danger' },
         ]}
         selectedStatus={gradeFilter}
         onStatusChange={(st) => setGradeFilter(st as GradeFilterType)}
@@ -785,28 +786,14 @@ header {
                       <div className="flex justify-between border-b border-border-base/40 pb-1.5 font-sans">
                         <span className="text-text-dim font-medium">Puntuación:</span>
                         <span
-                          className={`font-mono font-bold ${
-                            target.last_score !== null && target.last_score >= 80
-                              ? 'text-accent-green'
-                              : target.last_score !== null && target.last_score >= 60
-                              ? 'text-amber-400'
-                              : 'text-rose-400'
-                          }`}
+                          className="font-mono font-bold ui-tone" data-tone={healthTone(target)}
                         >
                           {target.last_score !== null ? `${target.last_score} / 100` : 'Sin evaluar'}
                         </span>
                       </div>
                       <div className="flex justify-between font-sans">
                         <span className="text-text-dim font-medium">Latencia:</span>
-                        <span className={`font-mono font-semibold ${
-                          target.last_response_time_ms === null || target.last_response_time_ms === undefined
-                            ? 'text-text-dim'
-                            : target.last_response_time_ms < 400
-                            ? 'text-accent-green'
-                            : target.last_response_time_ms < 1000
-                            ? 'text-accent-yellow'
-                            : 'text-accent-red'
-                        }`}>
+                        <span className="font-mono font-semibold text-text-muted">
                           {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined
                             ? `${target.last_response_time_ms} ms`
                             : '-'}

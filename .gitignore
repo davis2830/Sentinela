@@ -1,6 +1,7 @@
 # ============================================
 # Environment & Secrets
 # ============================================
+/.secrets/
 .env
 .env.*
 !.env.example
@@ -27,6 +28,8 @@ wheels/
 # Django
 *.log
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 db.sqlite3
 db.sqlite3-journal
 staticfiles/
@@ -89,6 +92,7 @@ vite.config.ts.timestamp-*
 *.seed
 *.pid.lock
 .dockerignore
+!frontend/.dockerignore
 
 # ============================================
 # OS files

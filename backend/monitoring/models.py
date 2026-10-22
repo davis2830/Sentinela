@@ -30,6 +30,8 @@ class AgentProbe(OrganizationOwnedModel):
         default=ProbeStatus.OFFLINE,
     )
     last_heartbeat = models.DateTimeField(null=True, blank=True)
+    operational_snapshot = models.JSONField(null=True, blank=True)
+    telemetry_received_at = models.DateTimeField(null=True, blank=True)
     ip_address = models.CharField(max_length=45, blank=True, default="")
     hostname = models.CharField(max_length=255, blank=True, default="")
     version = models.CharField(max_length=20, default="1.0.0")
@@ -53,6 +55,15 @@ class AgentProbe(OrganizationOwnedModel):
         raw_token = f"snt_live_{secrets.token_urlsafe(32)}"
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         return raw_token, token_hash
+
+
+class AgentExecution(OrganizationOwnedModel):
+    """Protocol v2 receipt ledger; IDs are also the originating scan lease token."""
+    probe = models.ForeignKey(AgentProbe, on_delete=models.CASCADE)
+    target = models.ForeignKey('MonitoringTarget', on_delete=models.CASCADE)
+    payload = models.JSONField(default=dict)
+    expires_at = models.DateTimeField(db_index=True)
+    accepted_at = models.DateTimeField(null=True)
 
 
 class MonitoringTarget(OrganizationOwnedModel):

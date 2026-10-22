@@ -1,10 +1,10 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm install --legacy-peer-deps && npm install react-is@^18.3.1 --legacy-peer-deps
+RUN npm ci
 
 COPY . .
 

@@ -1,162 +1,17 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { DailyAvailabilityItem } from '../../types/monitoring';
-import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react';
-
-interface UptimeAvailabilityBarProps {
-  days: DailyAvailabilityItem[];
-  uptimePercentage?: number | null;
-}
-
-export default function UptimeAvailabilityBar({
-  days,
-  uptimePercentage = null,
-}: UptimeAvailabilityBarProps) {
-  const [hoveredDay, setHoveredDay] = useState<DailyAvailabilityItem | null>(null);
-
-  return (
-    <div className="bg-bg-card border border-border-base rounded-xl p-5 mb-6 shadow-xl">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <div>
-          <div className="font-bold text-sm text-text-main flex items-center gap-2">
-            <span>Disponibilidad Diaria (Últimos 30 días)</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
-                uptimePercentage === null ? 'text-text-muted border border-border-base' : uptimePercentage >= 99
-                  ? 'bg-accent-green/10 text-accent-green border border-accent-green/30'
-                  : uptimePercentage >= 95
-                  ? 'bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30'
-                  : 'bg-accent-red/10 text-accent-red border border-accent-red/30'
-              }`}
-            >
-              {uptimePercentage === null ? 'Sin mediciones' : `${uptimePercentage.toFixed(2)}%`}
-            </span>
-          </div>
-          <p className="text-[11px] text-text-dim mt-0.5">
-            Registro visual por día del estado de disponibilidad y eventos de interrupción
-          </p>
-        </div>
-
-        {/* Legend */}
-        <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono text-text-muted">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-accent-green" />
-            <span>Operacional</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-accent-yellow" />
-            <span>Degradado</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-xs bg-accent-red" />
-            <span>Caída</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 30-Day Blocks Row */}
-      <div className="relative">
-        <div className="flex items-center gap-1 sm:gap-1.5 py-2">
-          {days.map((day) => {
-            let bgClass = 'bg-accent-green';
-            if (day.status === 'down') {
-              bgClass = 'bg-accent-red';
-            } else if (day.status === 'degraded') {
-              bgClass = 'bg-accent-yellow';
-            } else if (day.status === 'no_data') {
-              bgClass = 'bg-border-accent/40';
-            }
-
-            const isHovered = hoveredDay?.date === day.date;
-
-            return (
-              <div
-                key={day.date}
-                className="flex-1 relative group py-1"
-                onMouseEnter={() => setHoveredDay(day)}
-                onMouseLeave={() => setHoveredDay(null)}
-              >
-                <div
-                  className={`h-9 w-full rounded-sm transition-all duration-200 cursor-pointer ${bgClass} ${
-                    isHovered ? 'scale-110 ring-2 ring-text-main shadow-lg z-20' : 'opacity-90 hover:opacity-100'
-                  }`}
-                />
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Hover Tooltip Floating Card */}
-        {hoveredDay && (
-          <div className="mt-2 p-3 bg-bg-dark border border-border-base rounded-xl shadow-2xl flex items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3">
-              {hoveredDay.status === 'operational' ? (
-                <div className="w-7 h-7 rounded-lg bg-accent-green/10 border border-accent-green/30 flex items-center justify-center text-accent-green">
-                  <CheckCircle2 size={16} />
-                </div>
-              ) : hoveredDay.status === 'down' ? (
-                <div className="w-7 h-7 rounded-lg bg-accent-red/10 border border-accent-red/30 flex items-center justify-center text-accent-red">
-                  <XCircle size={16} />
-                </div>
-              ) : hoveredDay.status === 'degraded' ? (
-                <div className="w-7 h-7 rounded-lg bg-accent-yellow/10 border border-accent-yellow/30 flex items-center justify-center text-accent-yellow">
-                  <AlertTriangle size={16} />
-                </div>
-              ) : (
-                <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-text-dim">
-                  <HelpCircle size={16} />
-                </div>
-              )}
-
-              <div>
-                <div className="font-bold text-xs text-text-main flex items-center gap-2">
-                  <span>{hoveredDay.label}</span>
-                  <span
-                    className={`font-mono text-[11px] ${
-                      hoveredDay.status === 'down'
-                        ? 'text-accent-red'
-                        : hoveredDay.status === 'degraded'
-                        ? 'text-accent-yellow'
-                        : 'text-accent-green'
-                    }`}
-                  >
-                    {hoveredDay.status === 'no_data' || hoveredDay.uptime_percentage === null
-                      ? 'Sin datos de monitoreo'
-                      : `${hoveredDay.uptime_percentage.toFixed(2)}% disponibilidad`}
-                  </span>
-                </div>
-                <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-3 font-mono">
-                  {hoveredDay.status !== 'no_data' && (
-                    <>
-                      <span>Chequeos: {hoveredDay.total_checks}</span>
-                      {hoveredDay.down_checks > 0 ? (
-                        <span className="text-accent-red font-semibold">
-                          Caídas detectadas: {hoveredDay.down_checks}
-                        </span>
-                      ) : (
-                        <span className="text-accent-green">Sin interrupciones</span>
-                      )}
-                      {hoveredDay.avg_latency !== null && hoveredDay.avg_latency > 0 && (
-                        <span>Latencia media: {hoveredDay.avg_latency}ms</span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-[10px] text-text-dim font-mono">
-              {hoveredDay.date}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer Range Labels */}
-      <div className="flex items-center justify-between text-[11px] font-mono text-text-dim mt-2 pt-2 border-t border-border-base/40">
-        <span>Hace 30 días</span>
-        <span>Hoy</span>
-      </div>
-    </div>
-  );
+import { uptimeTone, finite, formatMetric } from '../../utils/endpointPresentation';
+interface Props { days:DailyAvailabilityItem[]; uptimePercentage?:number|null }
+export default function UptimeAvailabilityBar({days}:Props) {
+ const [selected,setSelected]=useState<DailyAvailabilityItem|null>(null);
+ const total=days.reduce((n,d)=>n+d.total_checks,0);const failed=days.reduce((n,d)=>n+d.down_checks,0);
+ const uptime=total>0?(total-failed)*100/total:null;
+ const tone=(d:DailyAvailabilityItem)=>!d.total_checks||d.status==='no_data'?'muted':d.status==='down'?'danger':d.status==='degraded'?'warning':d.status==='operational'?'success':'muted';
+ return <section className="ui-card space-y-3" aria-label="Disponibilidad diaria de 30 días">
+ <header className="flex flex-wrap justify-between items-center gap-2"><h3 className="font-semibold text-sm">Disponibilidad diaria · 30 días</h3><span className="ui-status" data-tone={uptimeTone(uptime)}>{uptime==null?'Sin mediciones':`${formatMetric(uptime,2)}%`}</span></header>
+ <p className="text-xs text-text-muted">Verde: operacional · Amarillo: lentitud · Rojo: hubo fallos · Gris: sin datos</p>
+ <div className="flex gap-1">{days.map(d=><button type="button" key={d.date} aria-label={`${d.label}: ${!d.total_checks?'Sin datos':d.status==='down'?'Hubo fallos':d.status==='degraded'?'Degradado':'Operacional'}`} onFocus={()=>setSelected(d)} onMouseEnter={()=>setSelected(d)} onClick={()=>setSelected(d)} className="min-w-0 flex-1 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-green rounded" data-tone={tone(d)}><span className="block h-9 rounded-sm" style={{backgroundColor:'rgb(var(--ui-tone))',opacity:tone(d)==='muted'?.2:.85}}/></button>)}</div>
+ {selected&&<div className="text-xs border-t border-border-base pt-3 space-y-1" aria-live="polite"><p className="font-semibold">{selected.label} · {selected.date}</p><p className="ui-tone" data-tone={uptimeTone(selected.uptime_percentage)}>{!selected.total_checks||selected.uptime_percentage==null?'Sin mediciones':`${formatMetric(selected.uptime_percentage,2)}% disponible por comprobaciones`}</p>{selected.total_checks>0&&<p>{selected.total_checks} comprobaciones · {selected.down_checks} fallidas{finite(selected.avg_latency)?` · ${formatMetric(selected.avg_latency)} ms de media`:''}</p>}</div>}
+ <footer className="flex justify-between text-xs text-text-dim"><span>Hace 30 días</span><span>Hoy</span></footer>
+ </section>;
 }

@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from api_checks.models import APICheckResult
 from dns_monitor.models import DNSChangeHistory
-from monitoring.models import MonitoringCheck
+from monitoring.models import MonitoringCheck, AgentExecution
 from organizations.models import Organization
 from security_headers.models import SecurityHeaderResult
 
@@ -30,6 +30,7 @@ class Command(BaseCommand):
                 "api_check_results": APICheckResult.objects.filter(target__organization=organization, checked_at__lt=cutoff),
                 "security_header_results": SecurityHeaderResult.objects.filter(target__organization=organization, checked_at__lt=cutoff),
                 "dns_change_history": DNSChangeHistory.objects.filter(record__organization=organization, changed_at__lt=cutoff),
+                "agent_execution_receipts": AgentExecution.objects.filter(organization=organization, expires_at__lt=timezone.now()),
             }
             counts = {name: queryset.count() for name, queryset in querysets.items()}
             org_total = sum(counts.values())

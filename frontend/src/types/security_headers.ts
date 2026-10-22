@@ -65,6 +65,7 @@ export interface SecurityHeaderResult {
 
 export interface SecurityHeaderStats {
   total: number;
+  healthy?:number; warning?:number; critical?:number; unmeasured?:number;
   grade_a: number;
   grade_bc: number;
   grade_df: number;

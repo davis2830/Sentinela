@@ -7,7 +7,7 @@ and network boundary checks for monitoring targets and API checks.
 
 import ipaddress
 import socket
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import ParseResult, urlparse, unquote
 from rest_framework.exceptions import ValidationError
 
 
@@ -60,11 +60,14 @@ CLOUD_METADATA_HOSTS = {
 
 def is_ip_restricted(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address, allow_private: bool = False) -> tuple[bool, str]:
     """Check if an IP address falls into restricted or dangerous ranges."""
+    mapped = getattr(ip_obj, 'ipv4_mapped', None)
+    if mapped:
+        return is_ip_restricted(mapped, allow_private=allow_private)
     # Always block loopback and cloud metadata link-local regardless of allow_private
     if ip_obj.is_loopback:
         return True, "No se permiten direcciones de loopback (127.0.0.1 / localhost)."
     
-    if ip_obj.is_link_local or str(ip_obj) == "169.254.169.254":
+    if ip_obj.is_link_local or str(ip_obj).split('%')[0] in ("169.254.169.254", "fd00:ec2::254"):
         return True, "Acceso prohibido: La dirección IP 169.254.169.254 o link-local es un vector crítico de seguridad (Cloud Metadata)."
 
     if ip_obj.is_unspecified or ip_obj.is_multicast:
@@ -99,6 +102,7 @@ def is_ip_restricted(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address, allo
 def _validate_and_resolve_endpoint(
     endpoint: str,
     allow_private: bool = False,
+    resolve_dns: bool = True,
 ) -> tuple[str, ParseResult, tuple[str, ...]]:
     """
     Validate that an endpoint (URL, hostname, or IP:port) is safe against SSRF attacks.
@@ -119,6 +123,14 @@ def _validate_and_resolve_endpoint(
         raise ValidationError("El endpoint no puede estar vacío.")
 
     raw = endpoint.strip()
+    if any(c.isspace() for c in raw):
+        raise ValidationError('El destino no puede contener espacios.')
+    if '://' not in raw:
+        try:
+            ipaddress.IPv6Address(raw)
+            raw = f'[{raw}]'
+        except ValueError:
+            pass
 
     # Prepend scheme if missing (e.g. 'example.com:443') for urlparse
     if "://" not in raw:
@@ -131,23 +143,25 @@ def _validate_and_resolve_endpoint(
     except Exception as exc:
         raise ValidationError(f"Formato de endpoint inválido: {str(exc)}")
 
-    hostname = (parsed.hostname or "").lower().strip()
+    hostname = unquote(parsed.hostname or "").lower().strip()
     if not hostname:
         raise ValidationError("No se pudo determinar el nombre de host o dirección IP del endpoint.")
 
     if parsed.scheme not in ("http", "https"):
         raise ValidationError("Solo se permiten destinos HTTP o HTTPS.")
-    if parsed.username or parsed.password:
+    if parsed.username is not None or parsed.password is not None:
         raise ValidationError("No se permiten credenciales embebidas en la URL.")
     try:
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        port = parsed.port if parsed.port is not None else (443 if parsed.scheme == "https" else 80)
+        if parsed.netloc.endswith(':'):
+            raise ValueError('Puerto vacío.')
     except ValueError as exc:
         raise ValidationError("El puerto del destino no es válido.") from exc
     if not 1 <= port <= 65535:
         raise ValidationError("El puerto del destino debe estar entre 1 y 65535.")
 
     # Check against known dangerous cloud metadata hostnames
-    if hostname in CLOUD_METADATA_HOSTS:
+    if hostname.rstrip('.') in CLOUD_METADATA_HOSTS:
         raise ValidationError(
             f"El destino '{hostname}' es una dirección protegida o metadata interna prohibida."
         )
@@ -162,6 +176,18 @@ def _validate_and_resolve_endpoint(
     except ValueError:
         # It's a domain name / hostname, proceed to DNS resolution check
         pass
+
+    if not resolve_dns:
+        if not allow_private:
+            raise ValidationError('La nube requiere resolución y validación de todas las IP.')
+        import re
+        try:
+            encoded = hostname.rstrip('.').encode('idna')
+        except UnicodeError as exc:
+            raise ValidationError('Hostname no válido.') from exc
+        if len(encoded) > 253 or not all(re.fullmatch(rb'[A-Za-z0-9_-]{1,63}', label) for label in encoded.split(b'.')):
+            raise ValidationError('Hostname no válido.')
+        return raw, parsed, ()  # Only the assigned private agent can resolve this LAN name.
 
     # Resolve hostname to verify underlying IP addresses (DNS Rebinding / SSRF protection)
     try:
@@ -191,6 +217,12 @@ def validate_safe_target_endpoint(endpoint: str, allow_private: bool = False) ->
     return raw
 
 
+def validate_agent_target_endpoint(endpoint: str) -> str:
+    """Validate configuration syntax; the agent pins and checks resolved LAN IPs."""
+    raw, _, _ = _validate_and_resolve_endpoint(endpoint, allow_private=True, resolve_dns=False)
+    return raw
+
+
 def resolve_safe_target_endpoint(
     endpoint: str,
     allow_private: bool = False,
@@ -200,7 +232,7 @@ def resolve_safe_target_endpoint(
         endpoint,
         allow_private=allow_private,
     )
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    port = parsed.port if parsed.port is not None else (443 if parsed.scheme == "https" else 80)
     return raw, parsed.hostname or "", port, resolved_ips
 
 

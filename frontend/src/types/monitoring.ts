@@ -30,12 +30,14 @@ export interface MonitoringTarget {
 }
 
 export interface RecentCheckItem {
+  diagnostic?:string|null; applied_max_latency_ms?:number|null;
   status: 'up' | 'down' | 'slow' | 'error';
   latency: number | null;
   checked_at: string;
 }
 
 export interface MonitoringCheck {
+  diagnostic?:string|null; applied_max_latency_ms?:number|null;
   id: string;
   target: string;
   status: 'up' | 'down' | 'slow' | 'error';
@@ -93,7 +95,7 @@ export interface TimeseriesPoint {
   label: string;
   latency: number | null;
   max_latency: number | null;
-  status: 'up' | 'down' | 'slow';
+  status: 'up' | 'down' | 'slow' | 'no_data';
   is_down: boolean;
   down_count: number;
   total_count: number;

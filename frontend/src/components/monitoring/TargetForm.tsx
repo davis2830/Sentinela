@@ -1,4 +1,5 @@
 import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
+import { tcpParts, tcpEndpoint } from '../../utils/networkEndpoint';
 import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -204,11 +205,11 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
   const [tcpHost, setTcpHost] = useState('');
   const [tcpPort, setTcpPort] = useState('80');
 
-  // Auto-detect private LAN IPs and automatically select Sentinine runner
+  // Auto-detect private LAN IPs and automatically select Senti9 runner
   useEffect(() => {
     const raw = targetType === 'tcp' ? tcpHost : endpoint;
-    const clean = raw.replace(/^https?:\/\//, '').split(':')[0].trim();
-    const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost|127\.)/.test(clean);
+    const clean = tcpParts(raw).host;
+    const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost|127\.|f[cd][0-9a-f]{2}:)/i.test(clean);
     if (isPrivate && runnerType === 'cloud' && probes.length > 0 && !target) {
       setRunnerType('agent');
       if (!agentProbeId && probes[0]) {
@@ -258,17 +259,17 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
   // Initialize TCP fields from endpoint if editing TCP
   useEffect(() => {
-    if (target?.target_type === 'tcp' && target.endpoint.includes(':')) {
-      const parts = target.endpoint.split(':');
-      setTcpHost(parts[0]);
-      setTcpPort(parts[1] || '80');
+    if (target?.target_type === 'tcp') {
+      const parts = tcpParts(target.endpoint);
+      setTcpHost(parts.host);
+      setTcpPort(parts.port);
     }
   }, [target]);
 
   // Keep endpoint in sync if TCP mode
   const getActualEndpoint = () => {
     if (targetType === 'tcp') {
-      return `${tcpHost.trim()}:${tcpPort.trim()}`;
+      return tcpEndpoint(tcpHost,tcpPort);
     }
     return endpoint.trim();
   };
@@ -279,10 +280,10 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
     setError('');
 
     // If switching to TCP and endpoint has a port, parse it
-    if (type === 'tcp' && endpoint.includes(':')) {
-      const [h, p] = endpoint.split(':');
-      setTcpHost(h);
-      setTcpPort(p || '80');
+    if (type === 'tcp' && endpoint.trim()) {
+      const parts=tcpParts(endpoint);
+      setTcpHost(parts.host);
+      setTcpPort(parts.port);
     } else if (type === 'https' && (!endpoint || endpoint === 'http://')) {
       setEndpoint('https://');
     } else if (type === 'http' && (!endpoint || endpoint === 'https://')) {
@@ -722,7 +723,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </div>
               </div>
 
-              {/* Execution Runner: Sentinel Cloud vs Sentinine LAN */}
+              {/* Execution Runner: Sentinel Cloud vs Senti9 LAN */}
               <div className="bg-bg-dark/40 border border-border-base/80 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
@@ -770,7 +771,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   >
                     <Server size={18} className={runnerType === 'agent' ? 'text-accent-purple' : 'text-text-dim'} />
                     <div>
-                      <div className="font-semibold text-sm text-text-main">Guardián Sentinine (Privado)</div>
+                      <div className="font-semibold text-sm text-text-main">Guardián Senti9 (Privado)</div>
                       <div className="text-xs text-text-muted mt-0.5">Sondeo dentro de tu red LAN o VPC</div>
                     </div>
                   </button>
@@ -779,14 +780,14 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 {runnerType === 'agent' && (
                   <div className="pt-2 animate-in fade-in space-y-2">
                     <label className="block text-xs font-medium text-accent-purple flex items-center justify-between">
-                      <span>Selecciona el Guardián Sentinine Responsable *</span>
+                      <span>Selecciona el Guardián Senti9 Responsable *</span>
                       <span className="text-[10px] text-text-dim">
                         {probes.filter((p) => p.is_online).length} online de {probes.length}
                       </span>
                     </label>
                     {probes.length === 0 ? (
                       <div className="p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-xl text-accent-yellow text-xs flex items-center justify-between">
-                        <span>No tienes guardianes Sentinine registrados en tu organización.</span>
+                        <span>No tienes guardianes Senti9 registrados en tu organización.</span>
                       </div>
                     ) : (
                       <select
@@ -795,7 +796,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         required={runnerType === 'agent'}
                         className="w-full bg-bg-dark/90 border border-accent-purple/40 rounded-xl px-3 py-2 text-xs text-text-main font-mono focus:outline-none focus:ring-1 focus:ring-accent-purple"
                       >
-                        <option value="">-- Seleccionar Guardián Sentinine --</option>
+                        <option value="">-- Seleccionar Guardián Senti9 --</option>
                         {probes.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name} ({p.is_online ? '● Online' : '○ Offline'}) — {p.hostname || p.ip_address || 'LAN'}
@@ -889,7 +890,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               {/* Interval & Presets */}
               {!target && <div className="rounded-xl border border-border-base p-3 text-xs text-text-muted">
                 <label className="flex items-center gap-2"><input type="checkbox" checked={autoCoverage} onChange={(event) => setAutoCoverage(event.target.checked)} />Añadir cobertura compatible con el protocolo</label>
-                <p className="mt-2 text-text-dim">{runnerType === 'agent' ? 'Sentinine: sin recursos cloud adicionales.' : targetType === 'https' ? 'HTTPS: SSL, DNS (si es un dominio) y cabeceras.' : targetType === 'http' ? 'HTTP: DNS (si es un dominio) y cabeceras; sin SSL.' : targetType === 'dns' ? 'DNS: registro A; sin SSL ni WHOIS.' : targetType === 'ssl' ? 'SSL: certificado en el puerto indicado.' : 'TCP y API: solo este monitor, sin recursos adicionales.'} WHOIS y API Checks avanzados se configuran por separado. Puedes desactivar esta cobertura.</p>
+                <p className="mt-2 text-text-dim">{runnerType === 'agent' ? 'Senti9: sin recursos cloud adicionales.' : targetType === 'https' ? 'HTTPS: SSL, DNS (si es un dominio) y cabeceras.' : targetType === 'http' ? 'HTTP: DNS (si es un dominio) y cabeceras; sin SSL.' : targetType === 'dns' ? 'DNS: registro A; sin SSL ni WHOIS.' : targetType === 'ssl' ? 'SSL: certificado en el puerto indicado.' : 'TCP y API: solo este monitor, sin recursos adicionales.'} WHOIS y API Checks avanzados se configuran por separado. Puedes desactivar esta cobertura.</p>
               </div>}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

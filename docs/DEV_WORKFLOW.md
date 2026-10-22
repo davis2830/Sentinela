@@ -1,5 +1,9 @@
 # Flujo de desarrollo
 
+Para una instalación personal nueva de Sentinel + Senti9, usar la
+[guía de laboratorio local](SENTI9_PERSONAL_LAB.md). Incluye un override separado
+con puertos loopback, cuenta ficticia, cuota de agente y endpoint Docker de prueba.
+
 ## Inicio
 
 ```powershell
