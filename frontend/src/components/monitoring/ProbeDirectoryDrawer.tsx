@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { AgentProbe } from '../../types/agent_probe';
 import CreateProbeModal from './CreateProbeModal';
+import ProbeTelemetry from './ProbeTelemetry';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
 import {
   X,
   Server,
@@ -32,9 +34,10 @@ export default function ProbeDirectoryDrawer({
 }: ProbeDirectoryDrawerProps) {
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const dialogRef = useDialogFocus(isOpen && !showCreateModal);
 
   // Fetch all registered probes
-  const { data: probes, isLoading } = useQuery<AgentProbe[]>({
+  const { data: probes, isLoading, isError, refetch } = useQuery<AgentProbe[]>({
     queryKey: ['agent-probes'],
     queryFn: async () => {
       const res = await api.get('agent-probes/');
@@ -62,7 +65,7 @@ export default function ProbeDirectoryDrawer({
 
   const content = (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-bg-card border-l border-border-base w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="probe-directory-title" tabIndex={-1} onKeyDown={event => { if (event.key === 'Escape' && !showCreateModal) onClose(); }} className="bg-bg-card border-l border-border-base w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="p-6 border-b border-border-base flex items-start justify-between bg-gradient-to-r from-bg-card via-bg-card-hover to-bg-card">
           <div className="flex items-center gap-3">
@@ -70,8 +73,8 @@ export default function ProbeDirectoryDrawer({
               <Server size={22} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-text-main">Guardianes Sentinine (LAN & On-Premise)</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 id="probe-directory-title" className="text-xl font-bold text-text-main">Guardianes Senti9</h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
                   {probes?.length || 0} GUARDIANES
                 </span>
@@ -84,6 +87,7 @@ export default function ProbeDirectoryDrawer({
 
           <button
             onClick={onClose}
+            aria-label="Cerrar directorio de agentes"
             className="p-1.5 text-text-muted hover:text-text-main rounded-xl hover:bg-white/5 transition-colors"
           >
             <X size={20} />
@@ -102,35 +106,39 @@ export default function ProbeDirectoryDrawer({
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-accent-purple text-white hover:bg-accent-purple/90 transition-all shadow-md shadow-accent-purple/10"
           >
             <Plus size={14} />
-            <span>Nuevo Sentinine</span>
+            <span>Nuevo Senti9</span>
           </button>
         </div>
 
         {/* Content list */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {isError && <div role="alert" className="rounded-xl border border-accent-red/30 p-3 text-sm text-accent-red">No se pudo actualizar. Los datos visibles corresponden a la última consulta. <button onClick={() => refetch()} className="underline">Reintentar</button></div>}
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-text-muted">
               <Loader2 size={28} className="animate-spin text-accent-purple mb-3" />
-              <p className="text-xs">Consultando estado de los guardianes Sentinine...</p>
+              <p className="text-xs">Consultando estado de los guardianes Senti9...</p>
             </div>
           ) : probes?.length === 0 ? (
             <div className="text-center py-16 px-4 rounded-3xl border border-dashed border-border-base bg-bg-dark/30">
               <Server size={36} className="mx-auto text-text-dim mb-3" />
-              <h4 className="text-sm font-bold text-text-main">No hay guardianes Sentinine conectados</h4>
+              <h4 className="text-sm font-bold text-text-main">No hay guardianes Senti9 registrados</h4>
               <p className="text-xs text-text-muted max-w-sm mx-auto mt-1 mb-5">
-                Despliega un guardián Sentinine en tu red local para comenzar a monitorear bases de datos internas, switches y microservicios sin abrir puertos.
+                Despliega un guardián Senti9 en tu red local para comenzar a monitorear bases de datos internas, switches y microservicios sin abrir puertos.
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-accent-purple text-white hover:bg-accent-purple/90 transition-all"
               >
                 <Plus size={14} />
-                <span>Conectar Primer Sentinine</span>
+                <span>Conectar Primer Senti9</span>
               </button>
             </div>
           ) : (
             probes?.map((probe) => {
               const isOnline = probe.is_online;
+              const delivery = probe.delivery;
+              const deliveryLabel = !isOnline ? 'Sin conexión' : delivery?.state === 'overdue' ? 'Entrega atrasada' : delivery?.state === 'pending' ? 'En proceso' : delivery?.state === 'received' ? 'Sin pendientes' : 'Sin recepción registrada';
+              const deliveryColor = !isOnline || !delivery || delivery.state === 'unknown' ? 'text-text-muted' : delivery.state === 'overdue' ? 'text-accent-red' : delivery.state === 'pending' ? 'text-accent-yellow' : 'text-accent-green';
               return (
                 <div
                   key={probe.id}
@@ -148,7 +156,7 @@ export default function ProbeDirectoryDrawer({
                         <Server size={18} />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex flex-wrap items-center gap-2.5">
                           <h4 className="text-sm font-bold text-text-main">{probe.name}</h4>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
@@ -162,7 +170,7 @@ export default function ProbeDirectoryDrawer({
                                 isOnline ? 'bg-accent-green animate-pulse' : 'bg-text-dim'
                               }`}
                             />
-                            {isOnline ? 'ONLINE' : 'OFFLINE'}
+                            {isOnline ? 'CONECTADO' : 'DESCONECTADO'}
                           </span>
                         </div>
 
@@ -179,6 +187,7 @@ export default function ProbeDirectoryDrawer({
                             </span>
                           )}
                           {probe.os_info && <span>{probe.os_info}</span>}
+                          <span>Versión {probe.version}</span>
                         </div>
                       </div>
                     </div>
@@ -187,7 +196,7 @@ export default function ProbeDirectoryDrawer({
                       onClick={() => {
                         if (
                           confirm(
-                            `¿Estás seguro de desconectar y revocar el guardián Sentinine "${probe.name}"? Los objetivos asignados a este guardián dejarán de auditarse.`
+                            `¿Estás seguro de desconectar y revocar el guardián Senti9 "${probe.name}"? Los objetivos asignados a este guardián dejarán de auditarse.`
                           )
                         ) {
                           deleteMutation.mutate(probe.id);
@@ -200,7 +209,16 @@ export default function ProbeDirectoryDrawer({
                     </button>
                   </div>
 
-                  <div className="pt-3 border-t border-border-base/60 flex items-center justify-between text-[11px] text-text-muted">
+                  <div className="border-t border-border-base/60 pt-3 space-y-2">
+                    <div className={`font-semibold text-sm ${deliveryColor}`}>{deliveryLabel}</div>
+                    <dl className="grid grid-cols-2 gap-3 text-xs text-text-muted">
+                      <div><dt>Pendientes en servidor</dt><dd className="text-xl font-bold text-text-main">{delivery?.pending ?? '—'} <span className="text-xs font-normal text-text-muted">{delivery?.overdue ? `· ${delivery.overdue} con más de 10 min` : ''}</span></dd></div>
+                      <div><dt>Última recepción confirmada</dt><dd className="text-text-main mt-1">{delivery?.last_received_at ? new Date(delivery.last_received_at).toLocaleString() : 'Sin registro'}</dd></div>
+                    </dl>
+                    <p className="text-[11px] text-text-dim">La recepción confirma persistencia en el servidor; el acuse confirma que el agente recibió la aceptación.</p>
+                  </div>
+                  <ProbeTelemetry probe={probe} queryFailed={isError} />
+                  <div className="pt-3 border-t border-border-base/60 flex flex-wrap gap-2 items-center justify-between text-[11px] text-text-muted">
                     <div className="flex items-center gap-1.5">
                       <Activity size={13} className="text-accent-purple" />
                       <span>
@@ -228,7 +246,7 @@ export default function ProbeDirectoryDrawer({
 
         {/* Footer */}
         <div className="p-4 px-6 border-t border-border-base bg-bg-dark/40 flex items-center justify-between text-xs text-text-dim">
-          <span>Los guardianes Sentinine emiten telemetría segura mediante peticiones salientes (Outbound HTTPS).</span>
+          <span>Los guardianes Senti9 emiten telemetría segura mediante peticiones salientes (Outbound HTTPS).</span>
           <button
             onClick={onClose}
             className="px-4 py-2 text-text-muted hover:text-text-main rounded-xl border border-border-base hover:bg-white/5 transition-colors"

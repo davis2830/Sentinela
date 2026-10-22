@@ -238,7 +238,7 @@ class MonitoringService:
             label_fmt = "%H:%M"
 
         since = now - timedelta(hours=hours)
-        checks_qs = target.checks.filter(checked_at__gte=since).order_by("checked_at")
+        checks_qs = target.checks.filter(checked_at__gte=since, checked_at__lte=now).order_by("checked_at")
 
         total_checks = checks_qs.count()
         up_checks = checks_qs.filter(status__in=("up", "slow")).count()
@@ -321,13 +321,14 @@ class MonitoringService:
         # 30-day Availability Heatmap Blocks
         since_30d = now - timedelta(days=30)
         daily_stats = (
-            target.checks.filter(checked_at__gte=since_30d)
+            target.checks.filter(checked_at__gte=since_30d, checked_at__lte=now)
             .annotate(day=TruncDate("checked_at"))
             .values("day")
             .annotate(
                 total=Count("id"),
                 up=Count("id", filter=Q(status__in=("up", "slow"))),
                 down=Count("id", filter=Q(status__in=["down", "error"])),
+                slow=Count("id", filter=Q(status="slow")),
                 avg_lat=Avg("latency"),
             )
             .order_by("day")
@@ -335,7 +336,7 @@ class MonitoringService:
         daily_map = {d["day"]: d for d in daily_stats}
         daily_availability = []
         for i in range(29, -1, -1):
-            cur_date = (now - timedelta(days=i)).date()
+            cur_date = (timezone.localtime(now) - timedelta(days=i)).date()
             if cur_date in daily_map:
                 d = daily_map[cur_date]
                 t = d["total"]
@@ -345,15 +346,15 @@ class MonitoringService:
                 day_status = (
                     "down"
                     if dw > 0
-                    else ("slow" if (d["avg_lat"] or 0) > 300 else "operational")
+                    else ("degraded" if d["slow"] > 0 else "operational")
                 )
-                avg_l = round(d["avg_lat"]) if d["avg_lat"] else 0
+                avg_l = round(d["avg_lat"]) if d["avg_lat"] is not None else None
             else:
                 day_uptime = None
                 t = 0
                 dw = 0
                 day_status = "no_data"
-                avg_l = 0
+                avg_l = None
 
             daily_availability.append({
                 "date": cur_date.isoformat(),
@@ -369,8 +370,8 @@ class MonitoringService:
         start_epoch = int(since.timestamp() // slot_seconds * slot_seconds)
         end_epoch = int(now.timestamp())
         buckets = {}
-        for ep in range(start_epoch, end_epoch + slot_seconds, slot_seconds):
-            buckets[ep] = {"lats": [], "down": 0, "up": 0}
+        for ep in range(start_epoch, end_epoch + 1, slot_seconds):
+            buckets[ep] = {"lats": [], "down": 0, "up": 0, "slow": 0}
 
         for chk in raw_checks:
             ep = int(chk["checked_at"].timestamp() // slot_seconds * slot_seconds)
@@ -381,6 +382,8 @@ class MonitoringService:
                     buckets[ep]["down"] += 1
                 else:
                     buckets[ep]["up"] += 1
+                    if chk["status"] == "slow":
+                        buckets[ep]["slow"] += 1
 
         timeseries = []
         import datetime as dt_mod
@@ -390,7 +393,8 @@ class MonitoringService:
             bucket_avg = round(sum(lats) / len(lats), 1) if lats else None
             bucket_max = round(max(lats), 1) if lats else None
             is_down = b["down"] > 0
-            bucket_status = "down" if is_down else ("slow" if (bucket_avg or 0) > 300 else "up")
+            bucket_status = ("down" if is_down else "slow" if b["slow"] else
+                             "up" if b["up"] else "no_data")
 
             timeseries.append({
                 "timestamp": dt.isoformat(),
@@ -430,7 +434,7 @@ class MonitoringService:
         """Calculate real aggregate timeseries metrics and breakdown per service for the NOC Dashboard."""
         period = (period or "24h").strip().lower()
         from django.core.cache import cache
-        cache_key = f"noc_perf_v2_{organization_id}_{period}"
+        cache_key = f"noc_perf_v3_{organization_id}_{period}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -475,7 +479,7 @@ class MonitoringService:
             bucket_epochs.append(end_epoch)
 
         buckets = {
-            ep: {"lats": [], "up": 0, "down": 0}
+            ep: {"lats": [], "up": 0, "down": 0, "slow": 0}
             for ep in bucket_epochs
         }
 
@@ -493,6 +497,8 @@ class MonitoringService:
                 buckets[target_ep]["lats"].append(chk["latency"])
             if chk["status"] in ("up", "slow"):
                 buckets[target_ep]["up"] += 1
+                if chk["status"] == "slow":
+                    buckets[target_ep]["slow"] += 1
             else:
                 buckets[target_ep]["down"] += 1
 
@@ -501,6 +507,7 @@ class MonitoringService:
         all_latencies = []
         total_up = 0
         total_down = 0
+        total_slow = 0
 
         for ep, b in sorted(buckets.items()):
             dt = dt_mod.datetime.fromtimestamp(ep, tz=dt_mod.timezone.utc)
@@ -508,6 +515,7 @@ class MonitoringService:
             t = b["up"] + b["down"]
             total_up += b["up"]
             total_down += b["down"]
+            total_slow += b["slow"]
             if lats:
                 avg_l = round(sum(lats) / len(lats), 1)
                 all_latencies.extend(lats)
@@ -522,6 +530,9 @@ class MonitoringService:
                 "time": dt.strftime(label_fmt),
                 "uptime": uptime,
                 "latency": avg_l,
+                "operational_checks": b["up"] - b["slow"],
+                "degraded_checks": b["slow"],
+                "failed_checks": b["down"],
                 "requests": t,
                 "checks": t,
                 "checks_per_minute": round(t * 60 / observed_seconds, 6),
@@ -583,6 +594,10 @@ class MonitoringService:
             "summary": {
                 "avg_uptime": global_avg_uptime,
                 "avg_latency": global_avg_latency,
+                "operational_checks": total_up - total_slow,
+                "degraded_checks": total_slow,
+                "failed_checks": total_down,
+                "operational_percentage": round((total_up - total_slow) * 100 / total_checks, 2) if total_checks else None,
                 "total_requests": total_checks,
                 "total_checks": total_checks,
                 "checks_per_minute": round(total_checks * 60 / period_seconds, 6),
@@ -647,10 +662,14 @@ class AgentProbeService:
         return AgentProbe.objects.filter(token_hash=token_hash).first()
 
     @staticmethod
-    def process_heartbeat(probe, hostname="", ip_address="", os_info="", version="1.0.0"):
+    @transaction.atomic
+    def process_heartbeat(probe, hostname="", ip_address="", os_info="", version="1.0.0",
+                          delivery_protocol=1, capacity=10, known_executions=(), telemetry=None):
         from .models import AgentProbe
         probe.last_heartbeat = timezone.now()
         probe.status = AgentProbe.ProbeStatus.ONLINE
+        probe.operational_snapshot = telemetry
+        probe.telemetry_received_at = probe.last_heartbeat if telemetry is not None else None
         if hostname:
             probe.hostname = hostname
         if ip_address:
@@ -659,15 +678,18 @@ class AgentProbeService:
             probe.os_info = os_info
         if version:
             probe.version = version
-        probe.save(update_fields=["last_heartbeat", "status", "hostname", "ip_address", "os_info", "version", "updated_at"])
+        probe.save(update_fields=["last_heartbeat", "status", "hostname", "ip_address", "os_info", "version", "updated_at", "operational_snapshot", "telemetry_received_at"])
 
         # Fetch assigned active targets
         from common.subscriptions import monitoring_allowed
         if not monitoring_allowed(probe.organization):
             return []
-        targets = probe.assigned_targets.filter(enabled=True)
-        task_list = []
+        targets = probe.assigned_targets.filter(enabled=True, runner_type='agent')
+        from .agent_delivery import redeliver, issue
+        task_list = redeliver(probe, capacity, known_executions) if delivery_protocol == 2 else []
         for t in targets:
+            if delivery_protocol == 2 and len(task_list) >= capacity:
+                break
             interval = max(t.interval, probe.organization.get_plan_limits()["min_check_interval_seconds"])
             if t.last_checked_at and (timezone.now() - t.last_checked_at).total_seconds() < interval:
                 continue
@@ -678,7 +700,7 @@ class AgentProbeService:
                     continue
             except ScanLimited:
                 continue
-            task_list.append({
+            payload = {
                 "target_id": str(t.id),
                 "name": t.name,
                 "target_type": t.target_type,
@@ -689,7 +711,8 @@ class AgentProbeService:
                 "request_body": t.request_body,
                 "max_latency_ms": t.max_latency_ms,
                 "interval": interval,
-            })
+            }
+            task_list.append(issue(probe, t, token, payload) if delivery_protocol == 2 else payload)
         return task_list
 
     @staticmethod
@@ -724,6 +747,8 @@ class AgentProbeService:
                 details_dict["status_code"] = http_status_val
             if error_msg:
                 details_dict["error"] = error_msg
+            if item.get("evaluation_policy"):
+                details_dict["evaluation_policy"] = {**item["evaluation_policy"], "source": "agent_reported"}
 
             # Create check
             check = MonitoringCheck.objects.create(

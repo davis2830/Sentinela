@@ -1,3 +1,5 @@
+import TargetLatency, { TargetDiagnostic } from './TargetLatency';
+
 import AdminButton from '../common/AdminButton';
 import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
@@ -55,12 +57,6 @@ export default function TargetTableView({
 }: TargetTableViewProps) {
   const allSelected = targets.length > 0 && selectedIds.length === targets.length;
 
-  const getLatencyColor = (ms: number | null) => {
-    if (ms === null) return 'text-text-dim';
-    if (ms < 400) return 'text-accent-cyan';
-    if (ms < 1000) return 'text-accent-yellow';
-    return 'text-accent-red';
-  };
 
   const renderStatus = (target: MonitoringTarget) => {
     if (!target.enabled) {
@@ -235,12 +231,12 @@ export default function TargetTableView({
                               }`}
                               title={
                                 target.agent_probe_online === false || target.agent_probe_status === 'offline'
-                                  ? `Atención: Guardián Sentinine (${target.agent_probe_name || 'LAN'}) desconectado`
-                                  : `Sondeado por Guardián Sentinine: ${target.agent_probe_name || 'LAN'}`
+                                  ? `Atención: Guardián Senti9 (${target.agent_probe_name || 'LAN'}) desconectado`
+                                  : `Sondeado por Guardián Senti9: ${target.agent_probe_name || 'LAN'}`
                               }
                             >
                               <Server size={9} className="shrink-0" />
-                              <span className="truncate max-w-[85px]">Sentinine: {target.agent_probe_name || 'LAN'}</span>
+                              <span className="truncate max-w-[85px]">Senti9: {target.agent_probe_name || 'LAN'}</span>
                               {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
                                 <span className="text-[8px] text-accent-red font-mono">(Offline)</span>
                               )}
@@ -249,7 +245,7 @@ export default function TargetTableView({
                         </div>
                         <div className="text-xs text-text-dim font-mono truncate max-w-[260px]" title={target.endpoint}>
                           {target.endpoint}
-                        </div>
+                        </div><TargetDiagnostic target={target}/>
                       </div>
                     </div>
                   </td>
@@ -262,9 +258,7 @@ export default function TargetTableView({
                     {target.interval}s
                   </td>
                   <td className="py-3.5 px-4 whitespace-nowrap font-mono font-bold text-sm">
-                    <span className={getLatencyColor(target.last_latency)}>
-                      {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : '-'}
-                    </span>
+                    <TargetLatency target={target}/>
                   </td>
                   <td className="py-3.5 px-4 whitespace-nowrap">
                     <div className="flex items-center gap-1 h-3 w-28">

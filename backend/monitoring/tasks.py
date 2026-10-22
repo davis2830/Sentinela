@@ -1,15 +1,17 @@
 import logging
+import socket
+from time import perf_counter
 from common.scan_limits import guarded_scan, enqueue_many
 from common.subscriptions import eligible_organization_ids
 from urllib.parse import urlparse, urlunparse
 
-import requests
 from celery import shared_task
 from django.utils import timezone
 
 from .models import MonitoringTarget
 from .services import MonitoringService
-from common.security import validate_safe_public_url, validate_safe_target_endpoint
+from common import safe_http
+from common.security import resolve_safe_target_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +21,8 @@ logger = logging.getLogger(__name__)
 def run_monitoring_check(self, target_id):
     """Execute a monitoring check for a specific target.
 
-    Delegates HTTP/HTTPS/TCP checks to Blackbox Exporter and DNS/SSL checks
-    to local libraries. All attempts obey the same per-resource scan cadence.
+    Uses DNS-pinned connections for HTTP/HTTPS/TCP and local DNS/SSL checks.
+    All attempts obey the same per-resource scan cadence.
 
     Args:
         target_id: UUID string of the MonitoringTarget.
@@ -61,7 +63,11 @@ def run_monitoring_check(self, target_id):
             target_id=target.id,
             status=status,
             latency=latency,
-            details=details,
+            details={**details, "evaluation_policy": {
+                "max_latency_ms": target.max_latency_ms,
+                "expected_status": target.expected_status,
+                "source": "cloud_execution",
+            }},
         )
     except Exception as exc:
         logger.exception("Error checking target %s: %s", target.name, exc)
@@ -69,109 +75,54 @@ def run_monitoring_check(self, target_id):
             target_id=target.id,
             status="error",
             latency=None,
-            details={"error": str(exc)},
+            details={"error": type(exc).__name__, "evaluation_policy": {
+                "max_latency_ms": target.max_latency_ms,
+                "expected_status": target.expected_status,
+                "source": "cloud_execution",
+            }},
         )
 
 
 def _run_http_check(target):
-    """Perform an HTTP/HTTPS check using Blackbox Exporter."""
-    from django.conf import settings
+    """Execute the configured request through the pinned, no-redirect client."""
     url = target.endpoint
-    if not url.startswith("http"):
+    if "://" not in url:
         url = f"https://{url}"
-
-    # Validate every resolved address immediately before asking Blackbox to
-    # connect. Private targets are only valid through a Sentinine agent.
-    validate_safe_public_url(url)
-
     method = (target.http_method or "GET").upper()
-    module = "http_post_2xx" if method == "POST" else "http_2xx"
-
-    blackbox_url = f"{settings.BLACKBOX_EXPORTER_URL.rstrip('/')}/probe"
-
-    start = timezone.now()
+    start = perf_counter()
     try:
-        response = requests.get(
-            url=blackbox_url,
-            params={
-                "target": url,
-                "module": module,
-            },
-            timeout=10,
+        # Only status/headers are needed: do not download an unbounded body.
+        with safe_http.request(
+            method=method, url=url, headers=dict(target.custom_headers or {}),
+            data=target.request_body.encode('utf-8') if target.request_body else None,
+            timeout=(5, 10), stream=True,
+        ) as response:
+            latency_ms = (perf_counter() - start) * 1000
+            code = response.status_code
+        status = 'down' if code != target.expected_status else (
+            'slow' if latency_ms > target.max_latency_ms else 'up'
         )
-        elapsed = (timezone.now() - start).total_seconds() * 1000
-
-        probe_success = 0.0
-        probe_duration = 0.0
-        for line in response.text.splitlines():
-            if line.startswith("probe_success "):
-                probe_success = float(line.split()[1])
-            elif line.startswith("probe_duration_seconds "):
-                probe_duration = float(line.split()[1])
-
-        latency_ms = (probe_duration * 1000) if probe_duration > 0 else elapsed
-
-        if probe_success == 1.0:
-            if latency_ms > target.max_latency_ms:
-                status = "slow"
-            else:
-                status = "up"
-        else:
-            status = "down"
-
         return status, round(latency_ms, 2), {
-            "blackbox_status": "success" if probe_success == 1.0 else "failed",
-            "method": method,
-            "url": url,
+            "status_code": code, "expected_status": target.expected_status,
+            "method": method, "url": url,
         }
     except Exception as exc:
-        logger.exception("Blackbox HTTP probe exception: %s", exc)
-        return "down", None, {"error": str(exc), "url": url}
+        # Requests exceptions can include headers/URLs; persist only the category.
+        return "down", None, {"error": type(exc).__name__, "method": method, "url": url}
 
 
 def _run_tcp_check(target):
-    """Perform a TCP connection check using Blackbox Exporter."""
-    from django.conf import settings
-    host_port = target.endpoint
-
-    validate_safe_target_endpoint(f"http://{host_port}", allow_private=False)
-
-    blackbox_url = f"{settings.BLACKBOX_EXPORTER_URL.rstrip('/')}/probe"
-
-    start = timezone.now()
+    """Connect only to a public IP obtained by the security resolver."""
+    _, _, port, resolved_ips = resolve_safe_target_endpoint(target.endpoint, allow_private=False)
+    start = perf_counter()
     try:
-        response = requests.get(
-            url=blackbox_url,
-            params={
-                "target": host_port,
-                "module": "tcp_connect",
-            },
-            timeout=10,
-        )
-        elapsed = (timezone.now() - start).total_seconds() * 1000
-
-        probe_success = 0.0
-        probe_duration = 0.0
-        for line in response.text.splitlines():
-            if line.startswith("probe_success "):
-                probe_success = float(line.split()[1])
-            elif line.startswith("probe_duration_seconds "):
-                probe_duration = float(line.split()[1])
-
-        latency_ms = (probe_duration * 1000) if probe_duration > 0 else elapsed
-
-        if probe_success == 1.0:
-            status = "up"
-        else:
-            status = "down"
-
-        return status, round(latency_ms, 2), {
-            "blackbox_status": "success" if probe_success == 1.0 else "failed",
-            "endpoint": host_port,
+        with socket.create_connection((resolved_ips[0], port), timeout=10):
+            latency_ms = (perf_counter() - start) * 1000
+        return ('slow' if latency_ms > target.max_latency_ms else 'up'), round(latency_ms, 2), {
+            "endpoint": target.endpoint,
         }
     except Exception as exc:
-        logger.exception("Blackbox TCP probe exception: %s", exc)
-        return "down", None, {"error": str(exc), "endpoint": host_port}
+        return "down", None, {"error": type(exc).__name__, "endpoint": target.endpoint}
 
 
 def _run_dns_check(target):

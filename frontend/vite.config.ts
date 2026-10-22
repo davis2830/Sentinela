@@ -7,10 +7,16 @@ export default defineConfig({
     port: 3000,
     host: true,
     allowedHosts: ['localhost', '127.0.0.1', 'host.docker.internal'],
+    warmup: {
+      clientFiles: ['./src/pages/auth/LoginPage.tsx', './src/pages/DashboardPage.tsx'],
+    },
     watch: {
       usePolling: true,
       interval: 1000,
-      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
+      ignored: [
+        '**/node_modules/**', '**/.git/**', '**/dist/**', '**/.tmp/**',
+        '**/test-results*/**', '**/playwright-report/**',
+      ],
     },
   },
   build: {

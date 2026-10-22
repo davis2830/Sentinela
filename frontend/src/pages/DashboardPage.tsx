@@ -1,3 +1,4 @@
+import NOCAttentionPreview from '../components/dashboard/NOCAttentionPreview';
 import ScanAction from '../components/common/ScanAction';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,7 +44,7 @@ import NOCOperationalInbox from '../components/dashboard/NOCOperationalInbox';
 type TimeRange = '1h' | '6h' | '24h' | '7d';
 interface GlobalPerformance {
   period: string;
-  summary: { avg_uptime: number | null; avg_latency: number | null; total_checks: number; checks_per_minute: number };
+  summary: { operational_percentage?:number|null; operational_checks?:number;degraded_checks?:number;failed_checks?:number; avg_uptime: number | null; avg_latency: number | null; total_checks: number; checks_per_minute: number };
   points: Array<{ timestamp: number; time: string; uptime: number | null; latency: number | null; checks: number; checks_per_minute: number }>;
 }
 
@@ -140,6 +141,7 @@ export default function DashboardPage() {
     unknown: operationalItems.filter((item) => item.health === 'unknown').length,
   };
   const healthScore = !hasOperationalStateError && operationalItems.length ? Math.round(healthCounts.healthy / operationalItems.length * 100) : null;
+  const viewAttention = () => { setFilters(current=>({...current,view:'attention',health:null,module:null})); requestAnimationFrame(()=>document.getElementById('dashboard-inbox')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})); };
   const criticalCount = attentionItems.filter((item) => item.severity === 'critical').length;
 
   const services = useMemo(() => {
@@ -204,12 +206,12 @@ export default function DashboardPage() {
 
     {canSetup && !isStateLoading && operationalItems.length === 0 && !hasTelemetryError && <div className="rounded-2xl border border-accent-green/30 bg-gradient-to-r from-accent-green/10 to-bg-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-accent-green"><Sparkles size={12} />Primeros pasos</span><h3 className="mt-1 text-lg font-bold text-text-main">Activa la observabilidad de tu infraestructura</h3><p className="mt-1 text-xs text-text-muted">Agrega un sitio, API o servicio para comenzar a recibir estado operativo.</p></div><button type="button" onClick={() => setShowQuickStartWizard(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-green px-5 py-2.5 text-xs font-bold text-black"><Rocket size={16} />Crear primer monitor</button></div>}
 
-    <NOCExecutiveKpis healthScore={healthScore} totalTargets={operationalItems.length} healthyTargets={healthCounts.healthy} degradedTargets={healthCounts.degraded} downTargets={healthCounts.down} unknownTargets={healthCounts.unknown} availability={performanceQuery.data?.summary.avg_uptime ?? null} avgLatencyMs={performanceQuery.data?.summary.avg_latency ?? null} attentionCount={attentionItems.length} criticalAttentionCount={criticalCount} activeIncidentsCount={source.incidents.length} telemetryPoints={performanceQuery.data?.points} isLoading={isStateLoading} />
+    <NOCExecutiveKpis healthScore={healthScore} totalTargets={operationalItems.length} healthyTargets={healthCounts.healthy} degradedTargets={healthCounts.degraded} downTargets={healthCounts.down} unknownTargets={healthCounts.unknown} availability={performanceQuery.data?.summary.avg_uptime ?? null} avgLatencyMs={performanceQuery.data?.summary.avg_latency ?? null} attentionCount={attentionItems.length} criticalAttentionCount={criticalCount} activeIncidentsCount={source.incidents.length} period={timeRange} onAttention={viewAttention} telemetryPoints={performanceQuery.data?.points} isLoading={isStateLoading} />
 
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
       <div className="order-1 xl:order-4 xl:col-span-7 min-w-0"><NOCOperationalInbox items={visibleItems} total={visibleItems.length} filters={filters} loading={isStateLoading} partialError={hasTelemetryError} canManage={canManage} pendingKey={pendingKey} onViewChange={(view) => setFilters((current) => ({ ...current, view }))} onClearHealth={() => setHealthFilter(null)} onClearModule={() => setModuleFilter(null)} onSelect={setSelectedItem} onScan={(item) => scanMutation.mutate(item)} onAcknowledge={(item) => acknowledgeMutation.mutate(item)} onNavigate={openModule} /></div>
-      <div className="order-2 xl:order-1 xl:col-span-8 min-w-0"><NOCPerformanceSection timeRange={timeRange} checksPerMinute={performanceQuery.data?.summary.total_checks ? performanceQuery.data.summary.checks_per_minute : null} historicalData={performanceQuery.data?.points} isLoading={performanceQuery.isLoading} isError={performanceQuery.isError} /></div>
-      <div className="order-3 xl:order-2 xl:col-span-4 min-w-0"><NOCInfraHealthDonut total={operationalItems.length} online={healthCounts.healthy} degraded={healthCounts.degraded} down={healthCounts.down} unknown={healthCounts.unknown} healthScore={healthScore} dataUnavailable={hasTelemetryError && operationalItems.length === 0} isLoading={isStateLoading} selectedHealth={filters.health} onHealthSelect={setHealthFilter} /></div>
+      <div className="order-2 xl:order-1 xl:col-span-8 min-w-0"><NOCPerformanceSection outcomes={performanceQuery.isError?undefined:performanceQuery.data?.summary} timeRange={timeRange} checksPerMinute={performanceQuery.data?.summary.total_checks ? performanceQuery.data.summary.checks_per_minute : null} historicalData={performanceQuery.data?.points} isLoading={performanceQuery.isLoading} isError={performanceQuery.isError} /></div>
+      <div className="order-3 xl:order-2 xl:col-span-4 min-w-0 flex flex-col gap-3"><NOCInfraHealthDonut total={operationalItems.length} online={healthCounts.healthy} degraded={healthCounts.degraded} down={healthCounts.down} unknown={healthCounts.unknown} healthScore={healthScore} dataUnavailable={hasTelemetryError && operationalItems.length === 0} isLoading={isStateLoading} selectedHealth={filters.health} onHealthSelect={setHealthFilter} /><NOCAttentionPreview items={attentionItems} loading={isStateLoading} onSelect={setSelectedItem} onViewAll={viewAttention}/></div>
       <div className="order-4 xl:order-3 xl:col-span-12 min-w-0"><NOCServicesBar services={services} selectedModule={filters.module} onModuleSelect={setModuleFilter} /></div>
       <div className="order-5 xl:order-5 xl:col-span-5 min-w-0"><NOCRecentActivityFeed events={activityEvents} loading={isStateLoading || auditQuery.isLoading} partialError={hasTelemetryError} onNavigate={openModule} /></div>
     </div>

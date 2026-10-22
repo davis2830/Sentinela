@@ -8,7 +8,7 @@ La red productiva usa `172.30.0.0/24`; el gateway tiene `172.30.0.10`. Django co
 
 ## Salida de red
 
-`common.safe_http` acepta solo HTTP(S), prohíbe credenciales embebidas, valida puerto y todas las IP resueltas, bloquea loopback, RFC1918, link-local, metadata cloud, multicast y rangos no globales, y nunca sigue redirecciones. La conexión se fija a una IP ya validada, conservando el hostname para `Host`, SNI y validación TLS, con lo que se evita una segunda resolución vulnerable a DNS rebinding. API Checks, Security Headers, diagnósticos de Monitoring y webhooks usan ese cliente. Blackbox también tiene `follow_redirects: false`.
+`common.safe_http` acepta solo HTTP(S), prohíbe credenciales embebidas, valida puerto y todas las IP resueltas, bloquea loopback, RFC1918, link-local, metadata cloud, multicast y rangos no globales, y nunca sigue redirecciones. La conexión se fija a una IP ya validada, conservando el hostname para `Host`, SNI y validación TLS, con lo que se evita una segunda resolución vulnerable a DNS rebinding. API Checks, Security Headers, sondeos HTTP cloud de Monitoring, diagnósticos y webhooks usan ese cliente. Los sondeos TCP cloud conectan a una IP literal validada; HTTP/TCP ya no delegan el hostname a Blackbox. Blackbox conserva `follow_redirects: false` para sus usos independientes.
 
 Los targets privados deben ejecutarse mediante Sentinine. `quarantine_unsafe_targets` es dry-run por defecto y audita cada cambio con `--apply`.
 

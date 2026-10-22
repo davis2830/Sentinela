@@ -1,0 +1,45 @@
+# Personal, local-only laboratory. Requires Docker Compose >= 2.24.4.
+# Merge with docker-compose.yml; do not use as a production deployment.
+services:
+  db:
+    container_name: senti9_personal_db
+    ports: !reset []
+  redis:
+    container_name: senti9_personal_redis
+    ports: !reset []
+  backend:
+    container_name: senti9_personal_backend
+    ports: !override ["127.0.0.1:8000:8000"]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      PUBLIC_APP_URL: http://localhost:3001
+  frontend:
+    container_name: senti9_personal_frontend
+    ports: !override ["127.0.0.1:3001:3000"]
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+  celery_worker:
+    container_name: senti9_personal_worker
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      PUBLIC_APP_URL: http://localhost:3001
+  celery_beat:
+    container_name: senti9_personal_beat
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      PUBLIC_APP_URL: http://localhost:3001
+  prometheus:
+    profiles: [observability]
+  blackbox_exporter:
+    profiles: [observability]
+  loki:
+    profiles: [observability]
+  alloy:
+    profiles: [observability]
+
+networks:
+  default:
+    name: senti9_personal_lab

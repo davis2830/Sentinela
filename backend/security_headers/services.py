@@ -165,6 +165,13 @@ class SecurityHeadersService:
         scores = [t.last_score for t in targets if t.last_score is not None]
         avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
 
+        # Operational score bands are independent from the preserved letter grades.
+        measured = targets.filter(last_checked_at__isnull=False, last_score__gte=0, last_score__lte=100)
+        healthy = measured.filter(last_score__gte=70, info_leak_detected=False).count()
+        warning = measured.filter(models.Q(last_score__gte=50, last_score__lt=70) |
+                                  models.Q(last_score__gte=70, info_leak_detected=True)).count()
+        critical = measured.filter(last_score__lt=50).count()
+
         return {
             "total": total,
             "grade_a": grade_a,
@@ -172,6 +179,10 @@ class SecurityHeadersService:
             "grade_df": grade_df,
             "info_leaks_count": info_leaks_count,
             "avg_score": avg_score,
+            "healthy": healthy,
+            "warning": warning,
+            "critical": critical,
+            "unmeasured": total - measured.count(),
         }
 
     @staticmethod

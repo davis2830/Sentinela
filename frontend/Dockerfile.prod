@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend Assets
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +12,10 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production Nginx Server
-FROM nginx:1.25-alpine
+FROM nginx:1.30.6-alpine
+
+# Apply distribution security fixes published after the upstream image build.
+RUN apk upgrade --no-cache
 
 LABEL maintainer="Sentinel NOC Team"
 LABEL description="Sentinel NOC Frontend Production Image"

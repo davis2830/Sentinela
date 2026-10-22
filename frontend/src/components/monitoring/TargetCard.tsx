@@ -1,3 +1,5 @@
+import TargetLatency, { TargetDiagnostic } from './TargetLatency';
+
 import AdminButton from '../common/AdminButton';
 import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
@@ -54,12 +56,6 @@ export default function TargetCard({
   };
 
   // Latency styling
-  const getLatencyColor = (ms: number | null) => {
-    if (ms === null) return 'text-text-dim';
-    if (ms < 400) return 'text-accent-cyan';
-    if (ms < 1000) return 'text-accent-yellow';
-    return 'text-accent-red';
-  };
 
   // Status badge with pulsing dot
   const renderStatusIndicator = () => {
@@ -181,12 +177,12 @@ export default function TargetCard({
                   }`}
                   title={
                     target.agent_probe_online === false || target.agent_probe_status === 'offline'
-                      ? `Atención: Guardián Sentinine (${target.agent_probe_name || 'LAN'}) desconectado`
-                      : `Sondeado localmente por Guardián Sentinine: ${target.agent_probe_name || 'LAN'}`
+                      ? `Atención: Guardián Senti9 (${target.agent_probe_name || 'LAN'}) desconectado`
+                      : `Sondeado localmente por Guardián Senti9: ${target.agent_probe_name || 'LAN'}`
                   }
                 >
                   <Server size={10} />
-                  <span>Sentinine: {target.agent_probe_name || 'LAN'}</span>
+                  <span>Senti9: {target.agent_probe_name || 'LAN'}</span>
                   {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
                     <span className="text-[9px] text-accent-red font-mono">(Offline)</span>
                   )}
@@ -257,10 +253,9 @@ export default function TargetCard({
           <span className="flex items-center gap-1.5 font-medium">
             <Activity size={12} className="text-accent-green" /> Disponibilidad Reciente
           </span>
-          <span className={`font-mono text-xs ${getLatencyColor(target.last_latency)}`}>
-            {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : 'Sin datos'}
-          </span>
+          <TargetLatency target={target}/>
         </div>
+        <TargetDiagnostic target={target}/>
         <div className="flex items-center gap-1 h-2.5 w-full">
           {recentChecks.slice(-18).map((c, idx) => {
             let bgClass = 'bg-zinc-700';

@@ -1,5 +1,9 @@
 # Readiness de producción
 
+Corrección posterior del **2026-10-21** sobre `c856e4a`: aislamiento del mantenimiento legacy y ejecutor HTTP/TCP corregidos; **244/244 Django**, **178/178 Chromium**, migraciones y build aprobados localmente. npm de producción y pip-audit del runtime sin hallazgos; Trivy frontend sin High/Critical. Continúan pendientes seguridad de imagen backend, herramientas de desarrollo, CI y configuración de integraciones reales. Véase [evidencia y prioridades actuales](AUDIT_REMEDIATION_2026-10-21.md) y la [revalidación inicial](PROJECT_REVALIDATION_2026-10-21.md). No se aprueba beta ni producción.
+
+La tabla siguiente conserva la evidencia histórica del 2026-10-07; no representa una nueva aprobación de sus gates.
+
 Estado al 2026-10-07: auditoría local con correcciones y suites aprobadas; aún existen pendientes beta e integraciones por verificar. Go-live requiere gates del entorno objetivo. No se declara 100% production-ready. Véase [auditoría y pendientes](BETA_MODULE_AUDIT.md).
 
 | Gate | Evidencia requerida | Estado |

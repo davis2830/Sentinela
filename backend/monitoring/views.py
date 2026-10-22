@@ -6,7 +6,7 @@ from common.diagnostics import ConfigurationDiagnosticAPIView
 
 from common.client_ip import get_client_ip
 from common.responses import error_response, queued_scan_response, success_response
-from common.permissions import IsAdminOrReadOnly
+from common.permissions import IsAdminOrReadOnly, IsOrgAdmin
 
 from .serializers import (
     AgentProbeCreateSerializer,
@@ -124,7 +124,11 @@ class MonitoringTargetDetailView(APIView):
 
     def patch(self, request, target_id):
         org_id = request.user.organization_id
-        serializer = MonitoringTargetUpdateSerializer(data=request.data)
+        try:
+            current = MonitoringService.get_target(target_id, org_id)
+        except MonitoringTarget.DoesNotExist:
+            return error_response('Target not found.',status_code=404)
+        serializer = MonitoringTargetUpdateSerializer(data=request.data, context={'target':current,'request':request})
         if not serializer.is_valid():
             return error_response(
                 "Invalid input.",
@@ -479,10 +483,7 @@ class MaintenanceWindowListView(APIView):
         org_id = request.user.organization_id
         try:
             target = MonitoringService.get_target(target_id, org_id)
-            data = request.data.copy()
-            data["target"] = str(target.id)
-
-            serializer = MaintenanceWindowSerializer(data=data)
+            serializer = MaintenanceWindowSerializer(data=request.data)
             if not serializer.is_valid():
                 return error_response(
                     "Invalid input.",
@@ -490,7 +491,7 @@ class MaintenanceWindowListView(APIView):
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
-            serializer.save()
+            serializer.save(target=target)
             return success_response(
                 serializer.data,
                 status_code=status.HTTP_201_CREATED,
@@ -510,10 +511,9 @@ class MaintenanceWindowDetailView(APIView):
 
     def patch(self, request, window_id):
         try:
-            window = MaintenanceWindow.objects.get(id=window_id)
-            org_id = request.user.organization_id
-            if window.target.organization_id != org_id:
-                return error_response("Forbidden", status_code=status.HTTP_403_FORBIDDEN)
+            window = MaintenanceWindow.objects.get(
+                id=window_id, target__organization_id=request.user.organization_id
+            )
 
             serializer = MaintenanceWindowSerializer(window, data=request.data, partial=True)
             if not serializer.is_valid():
@@ -532,10 +532,9 @@ class MaintenanceWindowDetailView(APIView):
 
     def delete(self, request, window_id):
         try:
-            window = MaintenanceWindow.objects.get(id=window_id)
-            org_id = request.user.organization_id
-            if window.target.organization_id != org_id:
-                return error_response("Forbidden", status_code=status.HTTP_403_FORBIDDEN)
+            window = MaintenanceWindow.objects.get(
+                id=window_id, target__organization_id=request.user.organization_id
+            )
 
             window.delete()
             return success_response({"detail": "Maintenance window deleted."})
@@ -716,25 +715,32 @@ class AgentProbeListView(APIView):
         name = serializer.validated_data["name"]
         probe, raw_token = AgentProbeService.create_probe(org.id, name)
 
-        # Build one-click Docker command
+        # Template uses a read-only token file; never embed the token in shell text.
         host = request.get_host()
-        scheme = request.scheme
-        base_url = f"{scheme}://{host}"
+        base_url = f"https://{host}"
 
         # In local development (localhost / 127.0.0.1), connect to Docker Compose network
-        if "localhost" in host or "127.0.0.1" in host:
+        from urllib.parse import urlsplit
+        if urlsplit(f'http://{host}').hostname in ('localhost','127.0.0.1','::1'):
             docker_cmd = (
-                f"docker run -d --name sentinine --network gc_ops_obs_default --restart unless-stopped "
-                f"-e SENTININE_TOKEN=\"{raw_token}\" "
+                f"docker run -d --name sentinine --network gc_ops_obs_default --restart unless-stopped --mount source=sentinine_state,target=/data "
+                f"--user 10001:10001 --read-only --cap-drop ALL --security-opt no-new-privileges:true "
+                f"--pids-limit 128 --memory 256m --cpus 1 "
+                f"--mount type=bind,source=REEMPLAZAR_RUTA_TOKEN,target=/run/secrets/sentinine_token,readonly "
+                f"-e SENTININE_TOKEN_FILE=/run/secrets/sentinine_token "
+                f"-e SENTININE_ENV=development -e SENTININE_ALLOW_HTTP=true "
                 f"-e SENTININE_SERVER=\"http://backend:8000\" "
-                f"sentinel/sentinine:latest"
+                f"davis1924/senti9:1.7.0"
             )
         else:
             docker_cmd = (
-                f"docker run -d --name sentinine --restart unless-stopped "
-                f"-e SENTININE_TOKEN=\"{raw_token}\" "
+                f"docker run -d --name sentinine --restart unless-stopped --mount source=sentinine_state,target=/data "
+                f"--user 10001:10001 --read-only --cap-drop ALL --security-opt no-new-privileges:true "
+                f"--pids-limit 128 --memory 256m --cpus 1 "
+                f"--mount type=bind,source=REEMPLAZAR_RUTA_TOKEN,target=/run/secrets/sentinine_token,readonly "
+                f"-e SENTININE_TOKEN_FILE=/run/secrets/sentinine_token "
                 f"-e SENTININE_SERVER=\"{base_url}\" "
-                f"sentinel/sentinine:latest"
+                f"davis1924/senti9:1.7.0"
             )
 
         probe_data = AgentProbeSerializer(probe).data
@@ -753,7 +759,9 @@ class AgentProbeListView(APIView):
         except Exception:
             pass
 
-        return success_response(probe_data, status_code=status.HTTP_201_CREATED)
+        response = success_response(probe_data, status_code=status.HTTP_201_CREATED)
+        response['Cache-Control'] = 'no-store'
+        return response
 
 
 class AgentProbeDetailView(APIView):
@@ -771,6 +779,21 @@ class AgentProbeDetailView(APIView):
             return success_response({"message": "Agente satélite eliminado exitosamente."})
         except Exception as exc:
             return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
+
+
+class AgentProbeRotateTokenView(APIView):
+    permission_classes = (IsAuthenticated, IsOrgAdmin)
+
+    def post(self, request, probe_id):
+        from .probe_security import rotate_probe_token
+        from .models import AgentProbe
+        try:
+            raw = rotate_probe_token(request.user.organization_id, probe_id, request.user)
+        except AgentProbe.DoesNotExist:
+            return error_response('Agente no encontrado.', status_code=404)
+        response = success_response({'raw_token':raw, 'message':'Token rotado; el anterior quedó revocado.'})
+        response['Cache-Control'] = 'no-store'
+        return response
 
 
 class AgentProbeHeartbeatView(APIView):
@@ -797,12 +820,39 @@ class AgentProbeHeartbeatView(APIView):
         os_info = request.data.get("os_info", "")
         version = request.data.get("version", "1.0.0")
 
+        protocol = request.data.get('delivery_protocol', 1)
+        capacity = request.data.get('capacity', 10)
+        known = request.data.get('known_executions', [])
+        from uuid import UUID
+        try:
+            if protocol not in (1, 2) or isinstance(capacity, bool) or not isinstance(capacity, int) or not 0 <= capacity <= 10:
+                raise ValueError()
+            if not isinstance(known, list) or len(known) > 1000:
+                raise ValueError()
+            known = [UUID(str(value)) for value in known]
+        except (ValueError, TypeError, AttributeError):
+            return error_response('Capacidad o protocolo de entrega no válido.', status_code=400)
+
+        telemetry = request.data.get('telemetry')
+        if telemetry is not None:
+            if protocol != 2:
+                return error_response('La telemetría interna requiere protocolo de entrega v2.', status_code=400)
+            from .probe_telemetry import ProbeTelemetrySerializer
+            telemetry_serializer = ProbeTelemetrySerializer(data=telemetry)
+            telemetry_serializer.is_valid(raise_exception=True)
+            telemetry = telemetry_serializer.validated_data
+            if telemetry['draining'] or telemetry['queue'] is None or any(
+                error['component'] == 'storage' for error in telemetry['errors']
+            ):
+                capacity = 0
         tasks = AgentProbeService.process_heartbeat(
             probe=probe,
             hostname=hostname,
             ip_address=ip_address,
             os_info=os_info,
             version=version,
+            delivery_protocol=protocol, capacity=capacity, known_executions=known,
+            telemetry=telemetry,
         )
 
         return success_response({
@@ -810,6 +860,7 @@ class AgentProbeHeartbeatView(APIView):
             "probe_name": probe.name,
             "tasks": tasks,
             "poll_interval_seconds": 10,
+            "delivery_protocol": protocol,
         })
 
 
@@ -836,6 +887,13 @@ class AgentProbeSubmitResultsView(APIView):
         if not isinstance(results, list):
             return error_response("El payload de resultados debe ser una lista.", status_code=status.HTTP_400_BAD_REQUEST)
 
+        if request.data.get('delivery_protocol') == 2:
+            if len(results) > 100:
+                return error_response('Máximo 100 resultados por lote v2.', status_code=400)
+            from .agent_delivery import ingest_batch
+            acknowledgements = ingest_batch(probe, results)
+            return success_response({'acknowledgements': acknowledgements,
+                'ingested_count': sum(a['status'] == 'accepted' for a in acknowledgements)})
         ingested_count = AgentProbeService.ingest_results(probe, results)
         return success_response({
             "ingested_count": ingested_count,

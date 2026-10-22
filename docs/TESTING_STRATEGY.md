@@ -1,5 +1,36 @@
 # Estrategia de pruebas
 
+**Guía de laboratorio personal, 2026-10-22:** configuración Compose combinada validada
+sin iniciar servicios, PostgreSQL/Redis sin puertos publicados, frontend/API ligados
+a loopback y 17 bloques PowerShell con sintaxis válida. Prueba manual completa todavía
+pendiente en equipo personal autorizado. No se repitieron Django/build por este cambio
+de documentación/configuración. Ver [guía](SENTI9_PERSONAL_LAB.md).
+
+**Distribución Senti9, 2026-10-22:** 288/288 Django, 58/58 agente/empaquetado y
+TypeScript/build frontend aprobados localmente. Prueba aislada de diario entre
+1.6.0 y 1.7.0, retorno y reanudación; archivos de ambas imágenes cargados de nuevo
+con ID conservado e integridad verificada. Firma y CI remoto pendientes. Ver
+[paquete y límites](SENTI9_RELEASE_2026-10-22.md).
+
+**Telemetría interna Senti9 1.7.0, 2026-10-22:** 288/288 Django (base nueva, salida 0), 54/54 pruebas del agente en
+contenedor sin red, TypeScript/build frontend y 3/3 Chromium dirigidos aprobados
+localmente. Incluyen cola local, drenaje, persistencia del acuse, fallos parciales,
+recuperación de disco y estados desactualizados/móvil. Ver
+[contrato y evidencia](SENTI9_TELEMETRY_2026-10-22.md). CI remoto y suite completa
+de navegador no acreditados en este bloque.
+
+**Directorio operativo Senti9, 2026-10-22:** 285/285 Django y TypeScript/build Vite
+aprobados localmente. Tres regresiones nuevas cubren conexión frente a recepción,
+pendientes y atrasos, desconexión, aislamiento por organización y ausencia de secretos.
+Sin ejecución nueva de navegador ni CI. Véase
+[alcance y límites](SENTI9_OPERATIONS_2026-10-22.md).
+
+**Pestañas de la ficha, 2026-10-22, UI v1.2:** 244/244 Django, TypeScript/build aprobados y 17/17 Chromium dirigidos. Incluye las cuatro pestañas técnicas dentro del primer viewport 1366×768, revisión 1440×900/390×844, estados desconocidos, errores, cambio de registro DNS/historial/enlace y Actividad/Configuración sin escritura implícita. Suite Chromium completa y CI no acreditados en esta ronda. Véase [evidencia y contexto](ENDPOINT_TABS_UI_2026-10-22.md).
+
+**UI de la ficha, 2026-10-21, v1.1:** 244/244 Django, build aprobado y 11/11 casos Chromium dirigidos a ficha/drawer. La prueba exige gráfica completa y cuatro vínculos dentro del primer viewport en 1440×900 y 1366×768, y ausencia de overflow en móvil 390×844. La distribución inicial de cards se sustituyó por indicadores compactos y gráfica/panel lateral. No se repitió la suite Chromium completa para esta ronda visual ni se acredita CI. Véase [estándar UI](UI_STANDARD.md) y [evidencia de implementación](UI_STANDARD_IMPLEMENTATION_2026-10-21.md).
+
+Corrección posterior del **2026-10-21**: **244/244 Django**, **178/178 Chromium** (15,7 min, sin reintentos), migraciones y build aprobados localmente. Los diez contratos backend nuevos entran en la suite normal; npm de producción y pip-audit del runtime no reportan vulnerabilidades. Trivy frontend: cero High/Critical; backend aún bloqueado. Véase [correcciones, resultados y riesgos abiertos](AUDIT_REMEDIATION_2026-10-21.md). La [revalidación inicial](PROJECT_REVALIDATION_2026-10-21.md) conserva las reproducciones y fallos anteriores. Ningún resultado local sustituye la evidencia de CI.
+
 ## Suite actual
 
 Corrección local del **2026-10-13**: **234/234 Django**, **144/144 Playwright Chromium**, TypeScript/build Vite, guard de secretos y configuración Compose aprobados. Las 31 reproducciones backend y seis UI de la auditoría se integraron en la suite regular; se añadieron 32 casos contractuales backend y dos UI. No se relajaron restricciones para aprobar: concurrencia real, Free/Pro, beta/no beta, vencimiento, Viewer/token read y aislamiento continúan cubiertos. Se corrigieron fixtures y carreras del harness, incluyendo tiempo virtual pausado y reutilización de JWT del fixture por rol. Véase [trazabilidad por ID, iteraciones, comandos y límites](AUDIT_REMEDIATION_2026-10-13.md). Flake8 sigue no disponible; SMTP histórico, techo de retención, CI remoto y producción son gates pendientes. Esta aprobación local no autoriza abrir beta.
@@ -77,3 +108,58 @@ Se considera gate implementado únicamente después de pasar en CI. Hasta entonc
 ## Rendimiento
 
 Los resultados k6 existentes son históricos. No hay benchmark oficial vigente hasta repetir el escenario documentado después del hardening; consulte [tests_perf/README.md](../tests_perf/README.md).
+
+### Disponibilidad — 2026-10-22
+
+Ver [evidencia de UI de disponibilidad](AVAILABILITY_UI_2026-10-22.md): build correcto, Django 244/244 y once casos Chromium locales aprobados entre regresiones y casos nuevos (los dos nuevos repetidos tras corregir un mock). CI pendiente.
+
+### Panel rápido — 2026-10-22
+
+[Implementación y evidencia local](ENDPOINT_QUICK_PANEL_2026-10-22.md): 244 pruebas Django y 13 casos Chromium aprobados; se comprueban navegación con returnTo, permisos de Viewer y plan Free, estados sin datos y distribución compacta en escritorio/móvil. CI pendiente.
+
+### Paleta de mediciones — 2026-10-22
+
+[Evidencia local](MEASUREMENT_PALETTE_2026-10-22.md): build correcto, Django 244/244, diez regresiones Chromium y una prueba nueva de colores calculados aprobadas. La prueba cubre operacional, degradado, error y latencia ausente. El fixture de curva se corrigió a dos muestras; repetición final de paleta y tooltip 2/2. CI pendiente.
+
+### Criterios unificados — 2026-10-22
+
+Ver [implementación y evidencia](MEASUREMENT_CRITERIA_IMPLEMENTATION_2026-10-22.md). Suite Django final **252/252**; build correcto; **13 casos Chromium locales aprobados**, incluyendo tres nuevos para calendario independiente del período, bandas 70/50 con ausencia separada y conteos/porcentaje global sin corte universal de latencia. Fixture retirada. CI pendiente.
+
+### Límites y diagnóstico — 2026-10-22
+
+Ver [contrato y evidencia](MONITORING_DIAGNOSTICS_2026-10-22.md). Django **258/258**, Chromium **14/14** y repetición visual **3/3**, dos contratos aislados de Sentinine y build correcto. Se cubre cambio de umbral durante la ejecución, ausencia de política en históricos, ingestión con reserva real y compatibilidad con agentes antiguos. Fixture retirada; worker local recargado sin tareas activas y ping confirmado. CI pendiente.
+
+### Dashboard: alcances y jerarquía — 2026-10-22
+
+[Contexto y evidencia](DASHBOARD_SCOPES_UI_2026-10-22.md): Django 258/258, build correcto y 20 casos únicos Chromium locales aprobados. Se verifican los tres colores de disponibilidad, latencia neutra, conteos separados, filtros por teclado, estados desconocidos, permisos y alto inicial con avisos. Fixtures retiradas; CI pendiente.
+
+### Senti9: entrega persistente — 2026-10-22
+
+[Contrato y evidencia](SENTI9_DELIVERY_2026-10-22.md): suite Django 269/269 y
+1 prueba adicional de concurrencia PostgreSQL aprobadas secuencialmente; 19
+pruebas del agente en Python 3.11 y build frontend aprobados. Se cubren reinicio,
+caída de comunicación, acuse perdido, deduplicación, backpressure, aislamiento,
+retención, resultados tardíos y heartbeat independiente. Migración 0007 aplicada
+localmente; makemigrations --check sin deriva. CI y piloto LAN pendientes.
+
+### Senti9: HTTPS, secretos y contenedor — 2026-10-22
+
+[Evidencia y límites](SENTI9_SECURITY_2026-10-22.md): Django **274/274**, **34**
+pruebas del agente/TLS/drenaje y build frontend aprobados localmente. TLS usa
+certificados efímeros dentro de un contenedor sin red externa. Imagen UID 10001,
+rootfs readonly, capabilities=0, NoNewPrivs=1, diario persistente y secreto por
+archivo verificados con volumen temporal propio. Rotación requiere admin del
+tenant, agente offline y pendientes resueltos. Sintaxis de instaladores válida.
+No hubo exposición del equipo corporativo ni pruebas contra el dominio real.
+CI remoto, instalación real Windows, publicación de imagen y piloto pendientes.
+
+### Senti9: DNS acotado e IPv6 — 2026-10-22
+
+[Contrato y evidencia](SENTI9_DNS_IPV6_2026-10-22.md): Django **282/282**, agente
+**49/49**, tres contratos Node de serialización IPv6 y build aprobados localmente.
+Se probaron conexiones IPv4/IPv6 reales en loopback aislado, timeout DNS con un
+proceso realmente bloqueado terminado y recogido, fallback, cierre de sockets,
+TLS con hostname resuelto, nombres LAN, protección Cloud/tenant y revalidación de
+runner. Guard final de metadata IPv6: tres contratos de sintaxis repetidos con éxito.
+Imagen 1.6.0 construida localmente; sin publicación ni conexiones a servicios reales.
+CI remoto, instalación nativa Windows y piloto siguen pendientes.

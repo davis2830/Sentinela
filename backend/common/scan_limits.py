@@ -138,6 +138,9 @@ def finish(resource, token):
 @transaction.atomic
 def accept_agent_result(resource):
     lease = _lease(resource)
+    from monitoring.models import AgentExecution
+    if AgentExecution.objects.filter(pk=lease.token, organization_id=resource.organization_id).exists():
+        return False  # A protocol-v2 reservation requires its execution ID.
     if not lease.started or not lease.pending_until or lease.pending_until <= timezone.now():
         return False
     finish(resource, lease.token)

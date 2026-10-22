@@ -18,13 +18,13 @@ export default function GradeBadge({ grade, score, className = '' }: GradeBadgeP
       styles = 'bg-accent-green/10 text-accent-green border-accent-green/30';
       break;
     case 'B':
-      styles = 'bg-accent-blue/10 text-accent-blue border-accent-blue/30';
+      styles = 'bg-accent-green/10 text-accent-green border-accent-green/30';
       break;
     case 'C':
       styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30';
       break;
     case 'D':
-      styles = 'bg-accent-purple/10 text-accent-purple border-accent-purple/30';
+      styles = 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30';
       break;
     case 'F':
       styles = 'bg-accent-red/10 text-accent-red border-accent-red/30';

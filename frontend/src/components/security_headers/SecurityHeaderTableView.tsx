@@ -48,7 +48,7 @@ export default function SecurityHeaderTableView({
     if (target.last_grade) return target.last_grade;
     const score = target.last_score;
     if (score === null) return null;
-    if (score >= 90) return 'A+';
+    if (score >= 95) return 'A+';
     if (score >= 80) return 'A';
     if (score >= 70) return 'B';
     if (score >= 60) return 'C';

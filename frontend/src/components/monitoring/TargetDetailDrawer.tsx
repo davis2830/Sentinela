@@ -1,401 +1,70 @@
-import { useConnectivityRefresh } from '../../hooks/useConnectivityRefresh';
-import ScanAction from '../common/ScanAction';
-import AdminButton from '../common/AdminButton';
-import React, { useState, useEffect } from 'react';
-import { useDialogFocus } from '../../hooks/useDialogFocus';
-import { useAuthStore } from '../../store/authStore';
+import { TargetDiagnostic, latestTargetCheck } from './TargetLatency';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { X, Globe, Server, Plug, Lock, Activity, Clock, AlertTriangle, MoreHorizontal, Download, Bell, Pencil } from 'lucide-react';
+import { useConnectivityRefresh } from '../../hooks/useConnectivityRefresh';
+import { useDialogFocus } from '../../hooks/useDialogFocus';
+import { useAuthStore } from '../../store/authStore';
 import { api } from '../../services/api';
-import {
-  X,
-  RefreshCw,
-  Download,
-  Bell,
-  Pencil,
-  Globe,
-  Server,
-  Plug,
-  Lock,
-  Activity,
-  ShieldCheck,
-  Settings,
-  List,
-  AlertCircle,
-} from 'lucide-react';
-import type { MonitoringTarget, TimeseriesData } from '../../types/monitoring';
+import ScanAction from '../common/ScanAction';
+import AdminButton from '../common/AdminButton';
+import MetricCard from '../common/MetricCard';
 import LatencyChart from './LatencyChart';
-import SLACard from './SLACard';
-import UptimeAvailabilityBar from './UptimeAvailabilityBar';
-import DowntimeIncidentsLog from './DowntimeIncidentsLog';
-import ChecksList from './ChecksList';
+import { finite, formatMetric, uptimeTone, latencyTone } from '../../utils/endpointPresentation';
+import { resourceDate } from '../../utils/resourcePresentation';
+import type { MonitoringTarget, MonitoringCheck, TimeseriesData } from '../../types/monitoring';
 
-const typeIcons: Record<string, typeof Globe> = {
-  http: Globe,
-  https: Globe,
-  tcp: Server,
-  dns: Globe,
-  api: Plug,
-  ssl: Lock,
-};
-
-interface TargetDetailDrawerProps {
-  target: MonitoringTarget;
-  onClose: () => void;
-  onScan: (target: MonitoringTarget) => void | Promise<unknown>;
-  onEdit: (target: MonitoringTarget) => void;
-  onAlert: (target: MonitoringTarget) => void;
-  onExport: (targetId: string, targetName: string) => void;
-  isScanning: boolean;
+const icons: Record<string, typeof Globe> = {http:Globe, https:Globe, tcp:Server, dns:Globe, api:Plug, ssl:Lock};
+const states: Record<string, [string,string]> = {up:['Operacional','success'],slow:['Degradado','warning'],down:['Caído','danger'],error:['Error','danger']};
+interface Props {
+ target:MonitoringTarget; onClose:()=>void; onScan:(target:MonitoringTarget)=>void|Promise<unknown>;
+ onEdit:(target:MonitoringTarget)=>void; onAlert:(target:MonitoringTarget)=>void;
+ onExport:(id:string,name:string)=>void; isScanning:boolean;
 }
+export default function TargetDetailDrawer({target,onClose,onScan,onEdit,onAlert,onExport,isScanning}:Props) {
+ const dialogRef=useDialogFocus(true);
+ const location=useLocation(); const organizationId=useAuthStore(s=>s.user?.organization?.id);
+ const refresh=useConnectivityRefresh();
+ useEffect(()=>{const close=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[onClose]);
+ const telemetry=useQuery<TimeseriesData>({queryKey:['target-timeseries',organizationId,target.id,'24h'],queryFn:async()=>(await api.get(`monitoring/${target.id}/timeseries/`,{params:{period:'24h'}})).data.data,refetchInterval:refresh.refetchInterval,refetchOnWindowFocus:false});
+ const checks=useQuery<MonitoringCheck[]>({queryKey:['drawer-checks',organizationId,target.id],queryFn:async()=>{const data=(await api.get(`monitoring/${target.id}/checks/`,{params:{limit:3}})).data.data;return Array.isArray(data)?data:[];},refetchInterval:refresh.refetchInterval,refetchOnWindowFocus:false});
+ const summary=telemetry.isError?null:telemetry.data?.summary;
+ const measured=Boolean(summary&&summary.total_checks>0);
+ const failedCurrent=['down','error'].includes(target.last_status||'');
+ const currentMeasured=Boolean(target.last_checked_at&&Number.isFinite(Date.parse(target.last_checked_at)));
+ const [status,tone]=!target.enabled?['Pausado','muted']:currentMeasured?(states[target.last_status||'']||['Sin datos','muted']):['Sin datos','muted'];
+ const Icon=icons[target.target_type]||Globe;
+ const full=['http','https'].includes(target.target_type);
+ const url=(tab='summary')=>`/monitoring/${target.id}?returnTo=${encodeURIComponent(location.pathname+location.search)}&tab=${tab}`;
+ const recent=checks.isError?[]:[...(checks.data||[])].sort((a,b)=>Date.parse(b.checked_at)-Date.parse(a.checked_at)).slice(0,3);
+ const failed=recent.find(c=>['down','error'].includes(c.status));
+ const failure=failed?.details?.error||failed?.details?.error_message;
+ const offline=target.runner_type==='agent'&&(target.agent_probe_online===false||target.agent_probe_status==='offline');
+ const content=<div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-end" onClick={onClose}>
+ <div role="dialog" aria-modal="true" aria-label={target.name} ref={dialogRef} tabIndex={-1} className="endpoint-quick-panel" onClick={e=>e.stopPropagation()}>
+ <header className="quick-panel-header"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Icon size={22} className="text-text-muted shrink-0"/><h2 className="text-xl font-bold break-all">{target.name}</h2><span className="ui-status" data-tone={tone}>{status}</span></div><p className="text-sm text-text-dim break-all mt-1">{target.endpoint}</p><p className="text-xs text-text-muted mt-2">{target.target_type.toUpperCase()} · Cada {target.interval} s · Última medición: {resourceDate(target.last_checked_at)}</p></div><button className="ui-button ui-button-icon shrink-0" onClick={onClose} aria-label="Cerrar panel"><X size={20}/></button></header>
+ <div className="quick-panel-body">
+ <div className="flex flex-wrap items-center gap-2"><ScanAction resource={target} route="monitoring" pending={isScanning} onScan={()=>onScan(target)}/>{full&&<Link className="ui-button ui-button-secondary" to={url()}>Abrir vista completa del endpoint →</Link>}
+ <details className="quick-panel-actions"><summary className="ui-button" aria-label="Más acciones"><MoreHorizontal size={18}/><span>Más</span></summary><div className="quick-panel-action-list"><button className="ui-button" onClick={()=>onExport(target.id,target.name)}><Download size={16}/>Exportar CSV</button><AdminButton className="ui-button" onClick={()=>onAlert(target)}><Bell size={16}/>Crear alerta</AdminButton><AdminButton className="ui-button" onClick={()=>onEdit(target)}><Pencil size={16}/>Editar</AdminButton>{full&&<Link className="ui-button" to={url('config')}>Configurar cobertura</Link>}</div></details></div>
+ <div className="endpoint-metric-strip quick-panel-metrics">
+ <MetricCard compact label="Disponibilidad" value={measured&&finite(summary?.uptime_percentage)?formatMetric(summary.uptime_percentage,2):'—'} unit={measured?'%':undefined} caption="Últimas 24 h" icon={Activity} tone={measured?uptimeTone(summary?.uptime_percentage):'muted'}/>
+ <MetricCard compact label="Latencia actual" value={!failedCurrent&&currentMeasured&&finite(target.last_latency)?formatMetric(target.last_latency):'—'} unit={!failedCurrent&&currentMeasured&&finite(target.last_latency)?'ms':undefined} caption={finite(target.max_latency_ms)?`Límite actual: ${formatMetric(target.max_latency_ms)} ms`:'Límite sin configurar'} icon={Clock} tone={!failedCurrent&&currentMeasured?latencyTone(target.last_latency,target.max_latency_ms,target.last_status):'muted'}/>
+ <MetricCard compact label="Interrupciones" value={measured&&finite(summary?.incidents_count)?formatMetric(summary.incidents_count):'—'} caption="Últimas 24 h · estimadas" icon={AlertTriangle} tone={measured&&summary?.incidents_count?'danger':'muted'}/>
+ </div>
+ <TargetDiagnostic target={target}/>
 
-export default function TargetDetailDrawer({
-  target,
-  onClose,
-  onScan,
-  onEdit,
-  onAlert,
-  onExport,
-  isScanning,
-}: TargetDetailDrawerProps) {
-  const dialogRef = useDialogFocus(true);
-  const location = useLocation();
-  const organizationId = useAuthStore(s=>s.user?.organization?.id);
-  useEffect(()=>{ const close=(event:KeyboardEvent)=>{if(event.key==='Escape')onClose();};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[onClose]);
-  const [activeTab, setActiveTab] = useState<'metrics' | 'history' | 'config'>('metrics');
-  const [selectedPeriod, setSelectedPeriod] = useState<'24h' | '7d' | '30d'>('24h');
-
-  const refresh = useConnectivityRefresh();
-  // Unified Timeseries & Incidents Query
-  const { data: tsData, isLoading: isLoadingTimeseries, isError: isTimeseriesError, refetch: refetchTimeseries } = useQuery({
-    queryKey: ['target-timeseries', organizationId, target.id, selectedPeriod],
-    queryFn: async () => {
-      const res = await api.get(`monitoring/${target.id}/timeseries/`, {
-        params: { period: selectedPeriod },
-      });
-      return res.data?.data as TimeseriesData;
-    },
-    refetchInterval: refresh.refetchInterval,
-    refetchOnWindowFocus: false,
-  });
-
-  const summary = isTimeseriesError ? null : tsData?.summary ?? null;
-  const Icon = typeIcons[target.target_type] || Globe;
-  const status = target.last_status || 'unknown';
-
-  const getStatusBadge = () => {
-    if (!target.enabled) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
-          <span className="w-2 h-2 rounded-full bg-zinc-500" />
-          Pausado
-        </span>
-      );
-    }
-    if (status === 'unknown' || !target.last_checked_at) return <span className="text-xs text-text-muted">Sin datos</span>;
-    if (status === 'up') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-          Operacional
-        </span>
-      );
-    }
-    if (status === 'slow') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-          </span>
-          Degradado / Lento
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
-        </span>
-        Interrupción (Caído)
-      </span>
-    );
-  };
-
-  const content = (
-    <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-end animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        role="dialog" aria-modal="true" aria-label={target.name}
-        ref={dialogRef} tabIndex={-1}
-        className="w-full max-w-2xl bg-bg-card border-l border-border-base h-full overflow-y-auto flex flex-col shadow-2xl animate-in slide-in-from-right duration-300"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Drawer Header */}
-        <div className="sticky top-0 bg-bg-card backdrop-blur border-b border-border-base px-6 py-4 z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-lg bg-accent-green/10 border border-accent-green/30 flex items-center justify-center shrink-0">
-              <Icon className="text-accent-green" size={20} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-bold text-lg text-text-main truncate" title={target.name}>
-                  {target.name}
-                </h2>
-                {getStatusBadge()}
-                {target.runner_type === 'agent' && (
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                      target.agent_probe_online === false || target.agent_probe_status === 'offline'
-                        ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
-                        : 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
-                    }`}
-                  >
-                    <Server size={11} />
-                    <span>Sentinine: {target.agent_probe_name || 'Guardián LAN'}</span>
-                    {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
-                      <span className="text-[10px] ml-1 text-accent-red font-mono">(Offline)</span>
-                    )}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-text-dim font-mono truncate max-w-sm">{target.endpoint}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-2 text-text-muted hover:text-text-main hover:bg-bg-dark rounded-lg transition-colors"
-            title="Cerrar panel"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Action Toolbar */}
-        {['http','https'].includes(target.target_type)&&<Link to={`/monitoring/${target.id}?returnTo=${encodeURIComponent(location.pathname+location.search)}`} className="px-6 py-3 text-sm text-accent-cyan border-b border-border-base hover:bg-bg-card-hover">Abrir vista completa del endpoint →</Link>}
-        <div className="px-6 py-3 bg-bg-dark/50 border-b border-border-base flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <ScanAction resource={target} route="monitoring" pending={isScanning} onScan={()=>onScan(target)} />
-            <button
-              onClick={() => onExport(target.id, target.name)}
-              className="flex items-center gap-1.5 bg-bg-card border border-border-base text-text-muted hover:text-text-main px-3 py-1.5 rounded-lg text-xs transition-colors"
-            >
-              <Download size={13} />
-              Exportar CSV
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <AdminButton
-              onClick={() => onAlert(target)}
-              className="flex items-center gap-1.5 bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow px-3 py-1.5 rounded-lg text-xs hover:bg-accent-yellow/20 transition-colors"
-            >
-              <Bell size={13} />
-              Alerta
-            </AdminButton>
-            <AdminButton
-              onClick={() => onEdit(target)}
-              className="flex items-center gap-1.5 bg-accent-blue/10 border border-accent-blue/30 text-accent-blue px-3 py-1.5 rounded-lg text-xs hover:bg-accent-blue/20 transition-colors"
-            >
-              <Pencil size={13} />
-              Editar
-            </AdminButton>
-          </div>
-        </div>
-
-        {/* Quick KPI Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-6 border-b border-border-base bg-bg-dark/20">
-          <div className="bg-bg-card border border-border-base rounded-xl p-3">
-            <div className="text-[11px] font-medium text-text-muted">Protocolo</div>
-            <div className="text-base font-bold text-text-main mt-1">{target.target_type.toUpperCase()}</div>
-          </div>
-          <div className="bg-bg-card border border-border-base rounded-xl p-3">
-            <div className="text-[11px] font-medium text-text-muted">Frecuencia</div>
-            <div className="text-base font-bold font-mono text-text-main mt-1">cada {target.interval}s</div>
-          </div>
-          <div className="bg-bg-card border border-border-base rounded-xl p-3">
-            <div className="text-[11px] font-medium text-text-muted">Latencia Actual</div>
-            <div className={`text-base font-bold font-mono mt-1 ${
-              target.last_latency === null
-                ? 'text-text-dim'
-                : target.last_latency < 400
-                ? 'text-accent-green'
-                : target.last_latency < 1000
-                ? 'text-accent-yellow'
-                : 'text-accent-red'
-            }`}>
-              {target.last_latency !== null ? `${target.last_latency.toFixed(0)}ms` : '-'}
-            </div>
-          </div>
-          <div className="bg-bg-card border border-border-base rounded-xl p-3">
-            <div className="text-[11px] font-medium text-text-muted">Último Check</div>
-            <div className="text-xs font-mono text-text-muted mt-1.5 truncate">
-              {target.last_checked_at
-                ? new Date(target.last_checked_at).toLocaleTimeString('es-ES', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  })
-                : 'Pendiente'}
-            </div>
-          </div>
-        </div>
-
-        {/* Sentinine Probe Indicator Banner */}
-        {target.runner_type === 'agent' && (
-          target.agent_probe_online === false || target.agent_probe_status === 'offline' ? (
-            <div className="px-6 py-2.5 bg-accent-red/10 border-b border-accent-red/30 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-accent-red font-medium">
-                <AlertCircle size={14} className="shrink-0" />
-                <span>Atención: El Guardián Sentinine ({target.agent_probe_name || 'LAN'}) está DESCONECTADO.</span>
-              </div>
-              <span className="text-[11px] text-accent-red bg-accent-red/20 px-2 py-0.5 rounded font-mono font-bold">
-                SIN TELEMETRÍA RECIENTE
-              </span>
-            </div>
-          ) : (
-            <div className="px-6 py-2.5 bg-accent-purple/5 border-b border-accent-purple/20 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-accent-purple font-medium">
-                <Server size={14} className="shrink-0" />
-                <span>Sondeo ejecutado por Guardián Sentinine:</span>
-                <span className="font-bold text-text-main font-mono">{target.agent_probe_name || 'Sentinine LAN'}</span>
-              </div>
-              <span className="text-[11px] text-accent-purple/80 bg-accent-purple/10 px-2 py-0.5 rounded border border-accent-purple/30 font-mono">
-                Red Interna / LAN
-              </span>
-            </div>
-          )
-        )}
-
-        {/* Drawer Tabs */}
-        <div className="flex border-b border-border-base px-6 bg-bg-dark/40">
-          <button
-            onClick={() => setActiveTab('metrics')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === 'metrics'
-                ? 'border-accent-green text-accent-green bg-accent-green/5'
-                : 'border-transparent text-text-muted hover:text-text-main'
-            }`}
-          >
-            <Activity size={14} />
-            Métricas & SLA
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === 'history'
-                ? 'border-accent-green text-accent-green bg-accent-green/5'
-                : 'border-transparent text-text-muted hover:text-text-main'
-            }`}
-          >
-            <List size={14} />
-            Historial de Checks
-          </button>
-          <button
-            onClick={() => setActiveTab('config')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === 'config'
-                ? 'border-accent-green text-accent-green bg-accent-green/5'
-                : 'border-transparent text-text-muted hover:text-text-main'
-            }`}
-          >
-            <Settings size={14} />
-            Configuración
-          </button>
-        </div>
-
-        {/* Drawer Body Content */}
-        <div className="p-6 flex-1 space-y-6">
-          {activeTab === 'metrics' && (
-            <>
-              {/* 1. SLA Availability Card with Period Selector */}
-              {isLoadingTimeseries ? <p role="status">Cargando mediciones…</p> : isTimeseriesError || !summary ?
-                <div className="space-y-3"><p role="alert" className="text-text-muted">Datos no disponibles. No pudimos consultar las mediciones.</p><button type="button" onClick={()=>void refetchTimeseries()} className="text-accent-cyan focus-visible:outline focus-visible:outline-2">Volver a consultar historial</button></div> : <>
-              <SLACard
-                period={selectedPeriod}
-                onPeriodChange={setSelectedPeriod}
-                summary={summary}
-                targetInterval={target.interval}
-              />
-
-              {/* 2. 30-Day Daily Availability Heatmap Bar */}
-              <UptimeAvailabilityBar
-                days={tsData?.daily_availability || []}
-                uptimePercentage={summary.total_checks > 0 ? summary.uptime_percentage : null}
-              />
-
-              {/* 3. Recharts Continuous Latency Curve */}
-              <LatencyChart
-                timeseries={tsData?.timeseries || []}
-                summary={summary}
-                period={selectedPeriod}
-                isLoading={isLoadingTimeseries}
-              />
-
-              {/* 4. Exact Downtime Incidents Log */}
-              <DowntimeIncidentsLog
-                incidents={tsData?.incidents || []}
-                period={selectedPeriod}
-              />
-              </>}
-            </>
-          )}
-
-          {activeTab === 'history' && (
-            <div>
-              <h4 className="text-xs font-semibold text-text-muted mb-3">
-                Registro de Verificaciones Recientes
-              </h4>
-              <ChecksList targetId={target.id} />
-            </div>
-          )}
-
-          {activeTab === 'config' && (
-            <div className="space-y-4">
-              <div className="bg-bg-dark/50 border border-border-base rounded-xl p-4 space-y-3 font-mono text-xs">
-                <div className="flex justify-between py-1.5 border-b border-border-base/40">
-                  <span className="text-text-muted">Método HTTP:</span>
-                  <span className="text-text-main font-bold">{target.http_method || 'GET'}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-border-base/40">
-                  <span className="text-text-muted">Código Esperado:</span>
-                  <span className="text-accent-green font-bold">{target.expected_status || 200}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-border-base/40">
-                  <span className="text-text-muted">Umbral Latencia Máxima:</span>
-                  <span className="text-accent-yellow font-bold">{target.max_latency_ms || 2000}ms</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-border-base/40">
-                  <span className="text-text-muted">Estado de Monitoreo:</span>
-                  <span className={target.enabled ? 'text-accent-green' : 'text-zinc-400'}>
-                    {target.enabled ? 'Activo' : 'Pausado'}
-                  </span>
-                </div>
-              </div>
-
-              {target.custom_headers && Object.keys(target.custom_headers).length > 0 && (
-                <div className="bg-bg-dark/50 border border-border-base rounded-xl p-4">
-                  <div className="text-xs font-mono font-bold text-text-muted mb-2">Encabezados Personalizados (JSON):</div>
-                  <pre className="text-xs font-mono text-accent-green bg-black/40 p-3 rounded-lg overflow-x-auto">
-                    {JSON.stringify(target.custom_headers, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (typeof document === 'undefined') return null;
-  return createPortal(content, document.body);
+ {offline&&<p role="alert" className="quick-panel-attention">Guardián {target.agent_probe_name||'Senti9'} desconectado. Sin telemetría reciente.</p>}
+ {telemetry.isLoading?<p role="status">Cargando mediciones…</p>:telemetry.isError||!summary?<div role="alert" className="ui-card"><p>Datos no disponibles. No pudimos consultar las mediciones.</p><button className="ui-button" onClick={()=>void telemetry.refetch()}>Volver a consultar historial</button></div>:!measured?<p className="ui-card text-sm text-text-muted">Sin mediciones en las últimas 24 h.</p>:<LatencyChart compact preview timeseries={telemetry.data?.timeseries||[]} summary={summary} period="24h" thresholdMs={target.max_latency_ms??null} periodControl={<span className="text-xs text-text-muted">24 h</span>}/>}
+ {failed&&<div className="quick-panel-attention"><p className="font-semibold text-sm">Último fallo entre las comprobaciones recientes</p><p className="text-xs mt-1 break-words">{resourceDate(failed.checked_at)} · {typeof failure==='string'?failure:'Sin diagnóstico registrado.'}</p></div>}
+ <section aria-label="Comprobaciones recientes" className="quick-panel-checks"><div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold text-sm">Últimas comprobaciones</h3>{full&&<Link className="text-sm text-accent-cyan" to={url('availability')}>Ver historial →</Link>}</div>
+ {checks.isLoading?<p role="status">Consultando…</p>:checks.isError?<div role="alert"><p>Historial no disponible.</p><button className="ui-button" onClick={()=>void checks.refetch()}>Reintentar</button></div>:!recent.length?<p className="text-sm text-text-muted">Sin comprobaciones registradas.</p>:recent.map(c=>{const [label,checkTone]=states[c.status]||['Sin estado','muted'];return <div className="quick-panel-check" key={c.id}><time>{resourceDate(c.checked_at)}</time><span className="ui-status" data-tone={checkTone}>{label}</span><strong className="tabular-nums ui-tone" data-tone={['down','error'].includes(c.status)?'muted':latencyTone(c.latency,target.max_latency_ms,c.status)}>{['down','error'].includes(c.status)?'—':finite(c.latency)?`${formatMetric(c.latency)} ms`:'Sin latencia'}</strong></div>;})}
+ </section>
+ {full&&<nav aria-label="Detalle del endpoint" className="flex flex-wrap gap-4 text-sm text-accent-cyan"><Link to={url('availability')}>Ver disponibilidad →</Link><Link to={url('config')}>Ver configuración →</Link></nav>}
+ {!full&&<details className="ui-card text-sm"><summary className="cursor-pointer">Detalles del monitoreo</summary><dl className="grid grid-cols-2 gap-3 mt-3"><div><dt>Método</dt><dd>{target.http_method||'—'}</dd></div><div><dt>Código esperado</dt><dd>{target.expected_status??'—'}</dd></div><div><dt>Umbral</dt><dd>{target.max_latency_ms==null?'Sin configurar':`${target.max_latency_ms} ms`}</dd></div></dl></details>}
+ {failedCurrent&&finite(target.last_latency)&&<details className="text-xs text-text-muted"><summary className="min-h-9 cursor-pointer flex items-center">Detalles del intento fallido</summary><p>Tiempo del intento: {formatMetric(target.last_latency)} ms</p><p>Límite aplicado: {finite(latestTargetCheck(target)?.applied_max_latency_ms)?`${formatMetric(latestTargetCheck(target)!.applied_max_latency_ms!)} ms`:'No registrado'}</p></details>}
+ {target.runner_type==='agent'&&!offline&&<p className="text-xs text-text-muted">Ejecutor: {target.agent_probe_name||'Guardián Senti9'} · Red interna</p>}
+ </div></div></div>;
+ return typeof document==='undefined'?null:createPortal(content,document.body);
 }

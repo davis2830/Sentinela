@@ -1,0 +1,52 @@
+name: Senti9 release candidate (no publish)
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_image:
+        description: 'Referencia 1.6.0 por digest, accesible al runner (repositorio@sha256:...)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Authenticate private baseline registry
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_TOKEN"
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - name: Fetch immutable baseline
+        env:
+          BASELINE: ${{ inputs.baseline_image }}
+        run: |
+          [[ "$BASELINE" =~ ^[a-zA-Z0-9./_-]+@sha256:[a-f0-9]{64}$ ]]
+          docker image pull "$BASELINE"
+          docker image tag "$BASELINE" senti9-baseline:1.6.0
+      - name: Test candidate without network
+        run: |
+          docker build --target tests -t senti9-tests:ci sentinine
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --tmpfs /tmp:rw,nosuid,nodev,size=32m senti9-tests:ci
+      - name: Build candidate and verify update/rollback
+        env:
+          BASELINE: ${{ inputs.baseline_image }}
+        run: |
+          docker build --target production -t davis1924/senti9:1.7.0 sentinine
+          python sentinine/release.py compatibility --baseline senti9-baseline:1.6.0 --output .tmp/senti9-compatibility.json
+          python sentinine/release.py prepare --baseline senti9-baseline:1.6.0 --report .tmp/senti9-compatibility.json --output dist/senti9-1.7.0
+          python sentinine/release.py verify dist/senti9-1.7.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: senti9-1.7.0-unsigned-candidate
+          path: dist/senti9-1.7.0/
+          if-no-files-found: error

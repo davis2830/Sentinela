@@ -1,11 +1,31 @@
 services:
   sentinine:
-    image: sentinel/sentinine:latest
+    image: ${SENTININE_IMAGE:-davis1924/senti9:1.7.0}
     container_name: sentinine_agent
-    restart: always
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 1.0
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
     environment:
-      - SENTININE_SERVER=${SENTININE_SERVER:-http://localhost:8000}
-      - SENTININE_TOKEN=${SENTININE_TOKEN}
-      - POLL_INTERVAL=10
-      - SENTININE_INSECURE_SKIP_VERIFY=${SENTININE_INSECURE_SKIP_VERIFY:-false}
+      SENTININE_SERVER: ${SENTININE_SERVER:-https://sentinel.gctechops.com}
+      SENTININE_TOKEN_FILE: /run/secrets/sentinine_token
+      SENTININE_STATE_DIR: /data
+      SENTININE_ENV: production
+    secrets:
+      - sentinine_token
+    volumes:
+      - sentinine_state:/data
     network_mode: host
+
+secrets:
+  sentinine_token:
+    file: ${SENTININE_TOKEN_FILE:?Define SENTININE_TOKEN_FILE con la ruta del archivo de token}
+
+volumes:
+  sentinine_state:

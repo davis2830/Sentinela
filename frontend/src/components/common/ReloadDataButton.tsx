@@ -3,8 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import DataConsultationAge from './DataConsultationAge';
 import { useAuthStore } from '../../store/authStore';
-export default function ReloadDataButton({ queryKeys, scanIntervalSeconds }: {
-  queryKeys: string[]; scanIntervalSeconds?: number;
+export default function ReloadDataButton({ queryKeys, scanIntervalSeconds, compact = false }: {
+  queryKeys: string[]; scanIntervalSeconds?: number; compact?: boolean;
 }) {
   const organizationId = useAuthStore(s=>s.user?.organization?.id);
   const client = useQueryClient(); const [updatedAt, setUpdatedAt] = useState(0); const [pending, setPending] = useState(false); const [failed, setFailed] = useState(false);
@@ -13,7 +13,7 @@ export default function ReloadDataButton({ queryKeys, scanIntervalSeconds }: {
     update(); return client.getQueryCache().subscribe(update);
   }, [client, key, organizationId]);
   return <div className="flex items-center gap-2 text-xs text-text-muted">
-    <DataConsultationAge updatedAt={updatedAt} />
+    {!compact && <DataConsultationAge updatedAt={updatedAt} />}
     {failed && <span role="status" className="text-accent-yellow">Datos parciales. Recarga para reintentar.</span>}
     <button type="button" aria-label="Actualizar datos" disabled={pending} onClick={async () => {
       setPending(true);
@@ -28,6 +28,6 @@ export default function ReloadDataButton({ queryKeys, scanIntervalSeconds }: {
       } catch {
         window.dispatchEvent(new CustomEvent('sentinel:scan-feedback', { detail: 'No pudimos consultar todos los datos. Reintenta la recarga; no se ejecutó ninguna comprobación.' }));
       } finally { setPending(false); }
-    }} title="Consultar resultados guardados, sin ejecutar un nuevo sondeo" className="p-2 rounded-lg border border-border-base hover:text-text-main"><RefreshCw size={15} className={pending ? 'animate-spin' : ''} /></button>
+    }} title={`Consultar resultados guardados, sin ejecutar un nuevo sondeo${compact && updatedAt ? `. Última consulta: ${new Date(updatedAt).toLocaleTimeString()}` : ''}`} className={compact ? 'ui-button ui-button-secondary ui-button-icon' : 'p-2 rounded-lg border border-border-base hover:text-text-main'}><RefreshCw size={compact ? 18 : 15} className={pending ? 'animate-spin' : ''} /></button>
   </div>;
 }

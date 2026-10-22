@@ -22,6 +22,7 @@ Sentinel es una plataforma SaaS multi-tenant de observabilidad NOC/SRE. La fuent
 - La retención elimina históricos, nunca configuraciones.
 - Ejecutar pruebas Django completas y build frontend antes de declarar un gate superado.
 - No afirmar producción lista ni Playwright validado sin evidencia de CI.
+- Para cambios de interfaz, seguir [el estándar UI/UX](docs/UI_STANDARD.md): vista operativa completa al entrar, métricas compactas legibles, identidad existente y estados desconocidos explícitos. En la ficha, gráfica y vínculos deben caber juntos en la primera pantalla de escritorio.
 
 ## Documentos principales
 
@@ -30,3 +31,4 @@ Sentinel es una plataforma SaaS multi-tenant de observabilidad NOC/SRE. La fuent
 - [Seguridad de producción](docs/PRODUCTION_SECURITY.md)
 - [Readiness](docs/PRODUCTION_READINESS.md)
 - [Go-live](docs/GO_LIVE_CHECKLIST.md)
+- [Estándar UI/UX](docs/UI_STANDARD.md)

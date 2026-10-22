@@ -1,6 +1,12 @@
 # Ficha integral de endpoints HTTP/HTTPS
 
+## Presentación vigente — 2026-10-22
+
+Aplica el [estándar UI/UX v1.2](UI_STANDARD.md): encabezado compacto, franja de indicadores y gráfica junto a los cuatro vínculos/atención en un panel lateral. La gráfica completa y los vínculos deben caber al entrar en escritorio, sin filas de cards grandes encima. Ejecutores, frecuencia y fechas exactas permanecen en **Detalles del monitoreo**. Las pestañas mantienen URL/retorno y admiten scroll contenido en móvil. El resumen y Disponibilidad comparten período; las estadísticas avanzadas de la gráfica se consultan en **Detalles de latencia**. Los huecos permanecen sin curvas inventadas. Véase [implementación y evidencia local del resumen](UI_STANDARD_IMPLEMENTATION_2026-10-21.md).
+
 ## Acceso y contenido
+
+Las pestañas SSL/TLS, DNS, Dominio y Seguridad aplican el patrón de indicadores y detalle técnico desplegable; Actividad y Configuración usan distribución compacta. Consulte [la aplicación del 2026-10-22](ENDPOINT_TABS_UI_2026-10-22.md) y [el estándar UI v1.2](UI_STANDARD.md).
 
 Desde Uptime & Latencia, abre un target HTTP/HTTPS y selecciona **Abrir vista completa del endpoint** en el drawer. La página `/monitoring/:targetId` conserva el contexto de retorno y admite enlaces con `?tab=ssl`, `dns`, `domain`, `security`, `availability`, `activity` o `config`. Un tab inválido vuelve a Resumen.
 
@@ -49,3 +55,19 @@ Recargar solo consulta datos guardados. `Comprobar ahora` conserva `scan_availab
 Django completo **117/117**, Playwright Chromium **82/82**, TypeScript/build Vite aprobados. Doce pruebas de backend cubren asociaciones, aislamiento, ausencia de escrituras/red en GET, WHOIS multietiqueta, protocolo/puerto/ruta, permisos, drift, auditoría y consultas constantes con varios registros DNS. Seis flujos de interfaz nuevos cubren acceso desde drawer, tabs, confirmación, Viewer, fallos parciales, cooldown, 202, retorno con filtros y viewport móvil sin desbordamiento.
 
 Las pruebas de interfaz usan cuentas aisladas y respuestas controladas para escenarios de cobertura; las pruebas Django ejercitan los endpoints reales con una base de prueba independiente. Revisión visual local 1440×900 y 390×844. Migración aplicada y worker recargado localmente; fixtures retirados conservando auditoría. No constituye evidencia de CI ni aprobación de producción.
+
+### Disponibilidad — mejora del 22 de octubre de 2026
+
+Bitácora compacta con duración visible y diagnóstico desplegable. Últimas comprobaciones con filtro local de estado, cinco registros iniciales y ampliación de cinco en cinco, hasta los 20 consultados por la ficha. El filtro de comprobaciones es independiente del período histórico. La ausencia de latencia se conserva. Los intervalos de interrupción se presentan como estimados porque el backend también genera un fin cuando no encontró una recuperación.
+
+### Panel lateral compacto — 2026-10-22
+
+El drawer es una consulta rápida: estado actual, tres métricas, curva media de 24 horas y tres comprobaciones. Las pestañas del drawer se reemplazan por enlaces a Disponibilidad y Configuración de la ficha HTTP/HTTPS, conservando los filtros del listado. El menú Más mantiene exportación, creación de alertas y edición según permisos. Los demás protocolos conservan detalles operativos desplegables y edición en el panel. No se muestran cabeceras personalizadas en esta consulta rápida.
+
+### Fuente de verdad de mediciones — v1.3
+
+Los estados históricos registrados tienen prioridad sobre el umbral actual. Las medias históricas son descriptivas, la línea de umbral se identifica como actual y los intervalos vacíos son no_data/null. El calendario calcula su propio agregado de 30 días en fecha local. Los detalles de criterio y evidencia están en [criterios unificados](MEASUREMENT_CRITERIA_IMPLEMENTATION_2026-10-22.md).
+
+### Límite aplicado y diagnóstico — v1.4
+
+El listado muestra límite actual y diagnóstico estructurado. Los fallos usan guion para latencia; el panel conserva Tiempo del intento y el límite aplicado cuando existe. Cloud captura su política de ejecución y Sentinine 1.2.0 la reporta; los registros antiguos indican No registrado. Detalles en [límites y diagnóstico](MONITORING_DIAGNOSTICS_2026-10-22.md).

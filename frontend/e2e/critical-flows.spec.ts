@@ -17,7 +17,7 @@ async function login(page: Page, credentials: { email: string; password: string 
       localStorage.setItem('auth-storage', JSON.stringify({ state: { user: session.user,
         accessToken: session.access_token, refreshToken: session.refresh_token, isAuthenticated: true }, version: 0 }));
     }, cached);
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', {waitUntil:'domcontentloaded'});
     return;
   }
   await page.goto('/login');
@@ -168,6 +168,7 @@ test('performance separates readable tracks and shows a unified tooltip on deskt
   ]) {
     const track=chart.getByRole('img',{name});
     await track.scrollIntoViewIfNeeded();
+    await expect(track.locator(point).first()).toBeVisible();
     const mark=await track.locator(point).first().boundingBox();
     // A synchronized active dot can cover the underlying dot; move the real
     // pointer to that position instead of asking Playwright to hit the base SVG.
@@ -322,10 +323,11 @@ test('dashboard filters the attention inbox and opens the unified drawer', async
   await mockDashboard(page);
   await login(page, admin);
   await expect(page.getByText('Linked alert should be grouped')).toHaveCount(0);
-  await expect(page.getByText('Checkout outage')).toBeVisible();
+  await expect(page.getByTestId('dashboard-attention-inbox').getByText('Checkout outage')).toBeVisible();
   await page.getByTestId('dashboard-module-api').click();
   await expect(page.getByTestId('dashboard-filter-chips')).toContainText('API');
-  await expect(page.getByText('Standalone Alert')).toBeVisible();
+  await expect(page.getByTestId('dashboard-attention-inbox')).toContainText('No hay elementos para estos filtros');
+  await expect(page.getByTestId('dashboard-attention-inbox').getByText('Standalone Alert')).toHaveCount(0);
   await page.getByTestId('dashboard-health-donut').locator('.recharts-pie-sector').first().click({ position: { x: 60, y: 30 } });
   await expect(page.getByTestId('dashboard-view-all')).toHaveClass(/bg-bg-card/);
   await page.getByTestId('dashboard-module-api').click();
@@ -401,7 +403,7 @@ test('an administrator creates a monitoring target', async ({ page }) => {
   await page.goto('/monitoring');
   await page.getByRole('button', { name: 'Nuevo Target' }).click();
   await expect(page.getByRole('button', { name: 'Nube Sentinel (Público)' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Guardián Sentinine (Privado)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guardián Senti9 (Privado)' })).toBeVisible();
   await expect(page.locator('form')).not.toContainText('🌐');
   await expect(page.locator('form')).not.toContainText('🐕');
   await page.getByPlaceholder('ej: DNS Corporativo LDAP / Portal Clientes').fill(targetName);
@@ -611,7 +613,7 @@ for (const floor of [60, 300]) for (const failed of [false, true]) {
     await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
     const deadline = await areaDeadline(page,'connectivity');
     await page.clock.fastForward(12000);
-    await page.goto('/monitoring');
+    await page.goto('/monitoring', {waitUntil:'domcontentloaded'});
     await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
     expect(await areaDeadline(page,'connectivity')).toBe(deadline);
     let scans = 0;
@@ -620,7 +622,7 @@ for (const floor of [60, 300]) for (const failed of [false, true]) {
     await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
     await expect(page.getByRole('button',{name:'Actualizar datos',exact:true})).toBeEnabled();
     expect(await areaDeadline(page,'connectivity')).toBe(deadline);
-    await page.goto('/ssl');
+    await page.goto('/ssl', {waitUntil:'domcontentloaded'});
     await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
     expect(await areaDeadline(page,'connectivity')).toBe(deadline);
     expect(scans).toBe(0);
@@ -734,21 +736,33 @@ for(const path of ['/monitoring','/ssl','/dns','/domains','/api-checks','/securi
     await page.clock.install();
     let scans=0;
     page.on('request',r=>{if(r.method()==='POST'&&/\/scan(?:-all)?\/$/.test(new URL(r.url()).pathname))scans++;});
-    await page.goto(path);
+    await page.goto(path, {waitUntil:'domcontentloaded'});
     await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
     const deadline=()=>page.evaluate(p=>{
       const key=Object.keys(sessionStorage).find(key=>key.startsWith('sentinel:refresh:')&&key.endsWith(':connectivity'));
       return key?JSON.parse(sessionStorage.getItem(key)!).nextAt:null;
     },path);
     const initial=await deadline();
+    const expectPreservedCountdown = async () => {
+      await expect(page.getByTestId('automatic-refresh-control')).toBeVisible();
+      // Navigation takes real time too; compare with the saved deadline instead
+      // of assuming that only the two explicit fastForward calls consumed time.
+      await expect.poll(() => page.evaluate(nextAt => {
+        const title = document.querySelector('[data-testid="automatic-refresh-control"]')?.getAttribute('title') || '';
+        const match = title.match(/(\d+):(\d{2}) min$/);
+        const remaining = Math.ceil((nextAt - Date.now()) / 1000);
+        return Boolean(match && remaining > 0 && remaining < 300
+          && Math.abs(Number(match[1]) * 60 + Number(match[2]) - remaining) <= 2);
+      }, initial!)).toBe(true);
+    };
     await page.clock.fastForward(20000);
     await page.getByRole('link',{name:'Dashboard',exact:true}).click();
     await page.clock.fastForward(20000);
-    await page.goto(path);
-    await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:[12]\d min$/);
+    await page.goto(path, {waitUntil:'domcontentloaded'});
+    await expectPreservedCountdown();
     expect(await deadline()).toBe(initial);
-    await page.reload();
-    await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:[12]\d min$/);
+    await page.reload({waitUntil:'domcontentloaded'});
+    await expectPreservedCountdown();
     expect(await deadline()).toBe(initial);
     expect(scans).toBe(0);
   });
@@ -1123,16 +1137,20 @@ test('Monitoring vivid palette remains usable on mobile and filters keep their l
   await page.screenshot({path:'test-results/monitoring-vivid-mobile.png'});
 });
 
-async function mockEndpointDossier(page:Page, options:{unlinked?:boolean;coverageFailure?:boolean;empty?:boolean}={}) {
+async function mockEndpointDossier(page:Page, options:{unlinked?:boolean;coverageFailure?:boolean;empty?:boolean;poorHistory?:boolean;unmeasured?:boolean;latencyGaps?:boolean;resourceError?:boolean;multipleDNS?:boolean}={}) {
   await mockDashboard(page);
   const now=new Date().toISOString();
   const resources:Record<string,Record<string,unknown>[]>={
-    ssl:[{id:'ssl-1',domain:'example.com',port:443,issuer:'Test CA',subject:'example.com',last_scanned_at:now,is_valid:true,days_remaining:8,expiration_date:now,tls_version:'TLSv1.3'}],
-    dns:[{id:'dns-1',domain:'example.com',record_type:'A',value:'203.0.113.10',ttl:300,last_scanned_at:now,last_change_at:now}],
-    domain:[{id:'domain-1',domain:'example.com',registrar:'Configured registrar',last_scanned_at:now,is_locked:true,days_until_expiration:180}],
+    ssl:[{id:'ssl-1',domain:'example.com',port:443,issuer:'countryName=US, organizationName=Test CA, commonName=R1',subject:'example.com',last_scanned_at:now,is_valid:true,days_remaining:8,expiration_date:new Date(Date.now()+8*86400000).toISOString(),issued_at:now,tls_version:'TLSv1.3',security_grade:'A+',fingerprint:'AA:BB:CC:DD'}],
+    dns:[{id:'dns-1',domain:'example.com',record_type:'A',value:'203.0.113.10',ttl:300,response_time_ms:32,last_scanned_at:now,last_change_at:now}],
+    domain:[{id:'domain-1',domain:'example.com',registrar:'Configured registrar',last_scanned_at:now,is_locked:true,days_until_expiration:180,expiration_date:new Date(Date.now()+180*86400000).toISOString(),dnssec:'signedDelegation',registrant_country:'GT',name_servers:['ns1.example.com','ns2.example.com']}],
     security:[{id:'sec-1',url:'https://example.com',last_checked_at:now,last_score:55,last_grade:'D',has_hsts:false,has_csp:false,has_xfo:true,info_leak_detected:true}],
   };
   const selected:Record<string,string[]>={};
+  if(options.multipleDNS)resources.dns.push({...resources.dns[0],id:'dns-2',record_type:'AAAA',value:'2001:db8::10'});
+  if(options.resourceError)for(const items of Object.values(resources))for(const item of items)item.error_message='Controlled measurement failure';
+  if(options.unmeasured)for(const items of Object.values(resources))for(const item of items){item.last_scanned_at=null;item.last_checked_at=null;}
+  if(options.poorHistory)resources.security[0].last_score=10;
   for(const module of Object.keys(resources))selected[module]=options.unlinked?[]:resources[module].map(r=>String(r.id));
   await page.route('**/api/v1/**',async route=>{
     const url=new URL(route.request().url());const path=url.pathname.replace(/^.*\/api\/v1\//,'');
@@ -1145,10 +1163,11 @@ async function mockEndpointDossier(page:Page, options:{unlinked?:boolean;coverag
         candidates:items.map(r=>({id:r.id,label:module==='security'?r.url:module==='dns'?`${r.domain} · ${r.record_type}`:r.domain})),candidates_truncated:false,
       }])),activity:{alerts:[{id:'linked',title:'Grouped SSL alert',severity:'critical',status:'active',incident_id:'incident-1',triggered_at:now}],incidents:[{id:'incident-1',title:'Associated outage',status:'investigating',opened_at:now}],changes:[{id:'change-1',description:'Coverage confirmed by admin',timestamp:now}]}});
     }
-    if(path==='monitoring/mon-down/timeseries/')return fulfill({period:'24h',target_id:'mon-down',summary:{total_checks:options.empty?0:12,uptime_percentage:100,avg_latency:150,p50_latency:140,p90_latency:180,p99_latency:210,max_latency:220,min_latency:100,down_checks:0,up_checks:12,total_downtime_seconds:0,incidents_count:0},timeseries:[{timestamp:now,label:'ahora',avg_latency:150,max_latency:220,total_count:12,down_count:0,status:'up'}],daily_availability:[],incidents:[]});
+    if(path==='monitoring/mon-down/timeseries/')return fulfill({period:url.searchParams.get('period')||'24h',target_id:'mon-down',summary:{total_checks:options.empty?0:12,uptime_percentage:options.poorHistory?92.11:100,avg_latency:options.poorHistory?906:150,p50_latency:140,p90_latency:180,p99_latency:options.latencyGaps?null:210,max_latency:options.latencyGaps?null:220,min_latency:100,down_checks:0,up_checks:12,total_downtime_seconds:0,incidents_count:0},timeseries:options.latencyGaps?Array.from({length:5},(_,i)=>({timestamp:new Date(Date.now()-(4-i)*60000).toISOString(),label:`12:0${i}`,latency:i===2?null:150+i*10,max_latency:null,total_count:i===2?0:1,down_count:0,status:'up',is_down:false})):[{timestamp:now,label:'ahora',latency:150,max_latency:220,total_count:12,down_count:0,status:'up',is_down:false}],daily_availability:[],incidents:[]});
     if(path==='monitoring/mon-down/checks/')return fulfill([{id:'check-1',status:'up',latency:150,checked_at:now}]);
     if(path==='security-headers/sec-1/results/')return fulfill([{id:'result-1',checked_at:now,headers_found:['X-Frame-Options'],headers_missing:['Content-Security-Policy'],directives_analysis:{hsts:{present:false,notes:'Missing HSTS'}},info_leaks:{server:{header:'Server',value:'test-server'}}}]);
     if(path==='dns-records/dns-1/history/')return fulfill([{id:'dns-change',changed_at:now,old_value:'203.0.113.9',new_value:'203.0.113.10'}]);
+    if(path==='dns-records/dns-2/history/')return fulfill([{id:'dns-change-2',changed_at:now,old_value:'2001:db8::9',new_value:'2001:db8::10'}]);
     for(const [module,items] of Object.entries(resources)){
       const routes:Record<string,string>={ssl:'ssl-certificates',dns:'dns-records',domain:'domains',security:'security-headers'};
       if(path===`${routes[module]}/${items[0].id}/`)return fulfill({...items[0],scan_availability:{status:'cooldown',next_allowed_at:new Date(Date.now()+300000).toISOString(),retry_after_seconds:300}});
@@ -1211,6 +1230,8 @@ test('dossier tolerates missing coverage without fabricating health and refresh 
   await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
   expect(writes).toEqual([]);
   await expect(page.getByTestId('endpoint-dossier')).not.toContainText('100%');
+  await page.getByRole('combobox',{name:'Período de disponibilidad'}).selectOption('7d');
+  await expect(page.getByRole('combobox',{name:'Período de disponibilidad'})).toHaveValue('7d');
 });
 
 test('dossier mobile has no overflow, preserves tab on reload and shows real cooldown',async({page})=>{
@@ -1230,6 +1251,156 @@ test('dossier individual scan uses 202 and pending state until a newer timestamp
   await expect(button).toBeEnabled();await button.click();
   await expect(page.getByTestId('scan-action').first()).toContainText('Comprobación pendiente');
   await expect(page.getByRole('status').filter({hasText:'Nueva medición recibida.'})).toBeVisible();
+});
+
+test('endpoint UI distinguishes current health from history and exposes concise actions',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});await mockEndpointDossier(page,{poorHistory:true});await login(page,admin);
+  await page.route('**/api/v1/monitoring/mon-down/',r=>r.fulfill({json:{data:{id:'mon-down',name:'Techops',endpoint:'https://example.com',target_type:'https',enabled:true,interval:300,max_latency_ms:500,last_status:'up',last_checked_at:new Date().toISOString(),runner_type:'cloud',scan_availability:{status:'ready',next_allowed_at:null,retry_after_seconds:null}}}}));
+  const writes:string[]=[];page.on('request',r=>{if(['POST','PATCH','DELETE'].includes(r.method()))writes.push(r.url());});
+  await page.goto('/monitoring/mon-down');
+  await expect(page.getByTestId('endpoint-dossier').locator('header').first().getByText('Operacional',{exact:true})).toBeVisible();
+  const uptime=page.getByRole('article',{name:'Disponibilidad',exact:true});
+  await expect(uptime).toContainText(/92[.,]11/);
+  await expect(uptime.locator('.ui-metric-value')).toHaveCSS('color','rgb(255, 115, 132)');
+  expect(await uptime.locator('.ui-metric-value').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(32);
+  await expect(page.getByRole('article',{name:'Seguridad',exact:true})).toContainText('10');
+  await expect(page.getByRole('article',{name:'Seguridad',exact:true}).locator('.ui-metric-value')).toHaveCSS('color','rgb(255, 115, 132)');
+  await expect(page.getByRole('article',{name:'Latencia media',exact:true})).toContainText('906');
+  await expect(page.getByRole('article',{name:'Incidentes',exact:true})).toContainText('1');
+  await expect(page.getByRole('region',{name:'Atención del endpoint'}).getByRole('link').first()).toHaveAttribute('href','/incidents?resource=incident-1');
+  await page.getByText('Detalles del monitoreo',{exact:true}).click();
+  await expect(page.getByText('Sentinel Cloud',{exact:true})).toBeVisible();
+  await page.getByText('Detalles del monitoreo',{exact:true}).click();
+  for(const viewport of [{width:1440,height:900},{width:1366,height:768}]){
+    await page.setViewportSize(viewport);
+    for(const locator of [page.getByRole('region',{name:'Cobertura del endpoint'}),page.getByTestId('latency-chart')]){
+      await expect(locator).toBeVisible();
+      const box=await locator.boundingBox();
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.y+box!.height,`overview must fit ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(viewport.height);
+    }
+    await expect(page.getByRole('region',{name:'Cobertura del endpoint'}).getByRole('button')).toHaveCount(4);
+  }
+  await page.setViewportSize({width:1440,height:900});
+  await page.screenshot({path:'test-results/ui-standard-endpoint-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
+  const actionHeader=page.getByTestId('endpoint-dossier').locator('header').first();
+  const actionBoxes=await Promise.all(['Comprobar ahora','Pausar auto-refresco','Actualizar datos'].map(name=>actionHeader.getByRole('button',{name,exact:true}).boundingBox()));
+  for(let i=0;i<actionBoxes.length;i++)for(let j=i+1;j<actionBoxes.length;j++){
+    const a=actionBoxes[i]!,b=actionBoxes[j]!;
+    expect(a.x+a.width<=b.x+1||b.x+b.width<=a.x+1||a.y+a.height<=b.y+1||b.y+b.height<=a.y+1).toBe(true);
+  }
+  expect(await actionHeader.getByRole('button',{name:'Comprobar ahora',exact:true}).evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:'test-results/ui-standard-endpoint-mobile.png',fullPage:true});
+  await page.getByRole('region',{name:'Cobertura del endpoint'}).getByRole('button').filter({hasText:'Seguridad web'}).click();
+  await expect(page).toHaveURL(/tab=security/);
+  expect(writes).toEqual([]);
+});
+
+test('endpoint UI does not color unmeasured coverage as healthy',async({page})=>{
+  await mockEndpointDossier(page,{unmeasured:true});await login(page,viewer);await page.goto('/monitoring/mon-down');
+  await expect(page.getByRole('article',{name:'Seguridad',exact:true})).toContainText('—');
+  await expect(page.getByRole('article',{name:'Seguridad',exact:true})).toHaveAttribute('data-tone','muted');
+  await expect(page.getByRole('region',{name:'Cobertura del endpoint'}).getByText('Sin medición',{exact:true})).toHaveCount(4);
+  await expect(page.getByRole('button',{name:'Comprobar ahora',exact:true})).toHaveCount(0);
+});
+
+test('latency chart marks values above the current threshold yellow and failures red',async({page})=>{
+  await mockEndpointDossier(page);await login(page,admin);
+  await page.route('**/monitoring/mon-down/timeseries/**',r=>r.fulfill({json:{data:{period:'24h',summary:{total_checks:3,avg_latency:607,down_checks:1},timeseries:[
+    {label:'slow-reference',timestamp:new Date().toISOString(),latency:607,max_latency:607,total_count:1,down_count:0,status:'up',is_down:false},
+    {label:'failure',timestamp:new Date().toISOString(),latency:150,max_latency:150,total_count:1,down_count:1,status:'down',is_down:true},
+    {label:'recorded-slow',timestamp:new Date().toISOString(),latency:100,max_latency:100,total_count:1,down_count:0,status:'slow',is_down:false},
+  ],incidents:[],daily_availability:[]}}}));
+  await page.route('**/api/v1/monitoring/mon-down/',route=>route.fulfill({json:{data:{id:'mon-down',name:'Test',endpoint:'https://example.com',target_type:'https',enabled:true,interval:60,max_latency_ms:500,last_status:'up',last_latency:150,last_checked_at:new Date().toISOString(),runner_type:'cloud'}}}));
+  await page.goto('/monitoring/mon-down?tab=availability');
+  const chart=page.getByTestId('latency-chart');
+  await expect(chart.locator('circle[fill="rgb(var(--sentinel-accent-yellow))"]')).toHaveCount(2);
+  await expect(chart.locator('circle[fill="rgb(var(--sentinel-accent-red))"]')).toHaveCount(1);
+  await chart.locator('circle[fill="rgb(var(--sentinel-accent-yellow))"]').first().hover();
+  await expect(chart.getByText('607 ms',{exact:true}).first()).toHaveAttribute('data-tone','warning');
+});
+
+test('latency UI preserves missing intervals and never invents a maximum curve',async({page})=>{
+  await mockEndpointDossier(page,{latencyGaps:true});await login(page,admin);await page.goto('/monitoring/mon-down?tab=availability');
+  const chart=page.getByTestId('latency-chart');
+  const curve=chart.locator('.recharts-area-curve').first();await expect(curve).toBeVisible();
+  expect(((await curve.getAttribute('d'))||'').match(/M/g)?.length).toBe(2);
+  await chart.screenshot({path:'test-results/ui-standard-latency.png'});
+  await chart.getByRole('button',{name:'Picos',exact:true}).click();
+  await expect(chart.getByRole('status')).toHaveText('Sin latencia medida para esta curva.');
+  await chart.getByText('Detalles de latencia',{exact:true}).click();
+  const details=chart.getByRole('definition');
+  await expect(details).toContainText(['150 ms','140 ms','180 ms','—','—']);
+  await chart.getByRole('button',{name:'Media',exact:true}).click();await expect(curve).toBeVisible();
+});
+
+for(const [module,label,expected] of [['ssl','Vigencia','8'],['dns','Respuesta DNS','32'],['domain','Vigencia','180'],['security','Puntuación','55']] as const){
+  test(`resource tab ${module} highlights measured facts and keeps technical detail collapsible`,async({page})=>{
+    await page.setViewportSize({width:1366,height:768});await mockEndpointDossier(page);await login(page,admin);await page.goto(`/monitoring/mon-down?tab=${module}`);
+    const panel=page.getByTestId(`resource-panel-${module}`);
+    const metric=panel.getByRole('article',{name:label,exact:true});await expect(metric).toContainText(expected);
+    expect(await metric.locator('.ui-metric-value').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(32);
+    const bounds=await panel.boundingBox();expect(bounds!.y+bounds!.height,`${module} important content fits first viewport`).toBeLessThanOrEqual(768);
+    if(module==='ssl'){
+      await expect(panel.getByText('Test CA · R1',{exact:true})).toBeVisible();
+      await expect(panel.getByText('AA:BB:CC:DD',{exact:true})).toBeHidden();
+      await panel.getByText('Detalles técnicos',{exact:true}).click();await expect(panel.getByText('AA:BB:CC:DD',{exact:true})).toBeVisible();
+      await panel.getByText('Detalles técnicos',{exact:true}).click();
+    }
+    await page.setViewportSize({width:1440,height:900});
+    await page.screenshot({path:`test-results/resource-tab-${module}-desktop.png`});
+    await page.setViewportSize({width:390,height:844});
+    expect(await page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
+    await page.screenshot({path:`test-results/resource-tab-${module}-mobile.png`});
+  });
+}
+
+for(const scenario of ['unmeasured','resourceError'] as const){
+  test(`resource tabs keep ${scenario} results unknown`,async({page})=>{
+    await mockEndpointDossier(page,{[scenario]:true});await login(page,viewer);
+    for(const module of ['ssl','dns','domain','security']){
+      await page.goto(`/monitoring/mon-down?tab=${module}`);const panel=page.getByTestId(`resource-panel-${module}`);
+      const metric=panel.getByRole('article',{name:module==='dns'?'Respuesta DNS':module==='security'?'Puntuación':'Vigencia',exact:true});
+      await expect(metric).toContainText('—');await expect(metric).toHaveAttribute('data-tone','muted');
+      if(module==='security')await expect(panel.getByRole('list',{name:'Controles básicos de cabeceras'})).toContainText('Sin dato');
+      if(scenario==='resourceError')await expect(panel.getByRole('status')).toContainText('Controlled measurement failure');
+      await expect(page.getByRole('button',{name:'Comprobar ahora',exact:true})).toHaveCount(0);
+    }
+  });
+}
+
+test('DNS resource selector changes the measured record and its history without writes',async({page})=>{
+  await mockEndpointDossier(page,{multipleDNS:true});await login(page,viewer);
+  const writes:string[]=[];page.on('request',r=>{if(['POST','PATCH','DELETE'].includes(r.method()))writes.push(r.url());});
+  await page.goto('/monitoring/mon-down?tab=dns');const panel=page.getByTestId('resource-panel-dns');
+  await expect(panel.locator('.resource-primary-fields').getByText('203.0.113.10',{exact:true})).toBeVisible();
+  await panel.getByRole('combobox',{name:'Recurso mostrado'}).selectOption('dns-2');
+  await expect(panel.locator('.resource-primary-fields').getByText('2001:db8::10',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('article',{name:'Resolución DNS',exact:true})).toContainText('AAAA');
+  await expect(panel.getByRole('article',{name:'Resolución DNS',exact:true})).toHaveAttribute('data-tone','success');
+  await expect(panel.getByRole('region',{name:'Historial DNS'})).toContainText('2001:db8::9');
+  await expect(panel.getByRole('link',{name:'Abrir módulo',exact:true})).toHaveAttribute('href','/dns?resource=dns-2');
+  expect(writes).toEqual([]);
+});
+
+test('activity and configuration tabs stay concise and never write on entry',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});await mockEndpointDossier(page);await login(page,admin);
+  const writes:string[]=[];page.on('request',r=>{if(['POST','PATCH','DELETE'].includes(r.method()))writes.push(r.url());});
+  await page.goto('/monitoring/mon-down?tab=activity');
+  await expect(page.getByRole('article',{name:'Incidentes activos',exact:true})).toContainText('1');
+  await expect(page.getByRole('article',{name:'Alertas activas',exact:true})).toContainText('0');
+  await expect(page.getByTestId('endpoint-dossier')).not.toContainText('Grouped SSL alert');
+  await expect(page.getByRole('link').filter({hasText:'Associated outage'})).toHaveAttribute('href','/incidents?resource=incident-1');
+  await page.screenshot({path:'test-results/resource-tab-activity-desktop.png'});
+  await page.getByRole('navigation',{name:'Secciones del endpoint'}).getByRole('button',{name:'Configuración',exact:true}).click();
+  const ssl=await page.getByRole('region',{name:'Asociación SSL / TLS'}).boundingBox(),dns=await page.getByRole('region',{name:'Asociación DNS'}).boundingBox();
+  expect(Math.abs(ssl!.y-dns!.y)).toBeLessThan(2);
+  await page.screenshot({path:'test-results/resource-tab-config-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
+  expect(writes).toEqual([]);
 });
 
 test('Viewer has no mutations in module lists or resource details',async({page})=>{
@@ -1255,7 +1426,7 @@ for (const [status,message] of [
   ['pending','Comprobación pendiente'],
   ['disabled','Monitoreo pausado'],
   ['subscription_required','Suscripción no vigente'],
-  ['agent_managed','Gestionado por Sentinine'],
+  ['agent_managed','Gestionado por Senti9'],
   ['read_only','Solo lectura'],
 ] as const) {
   test('scan availability '+status+' disables the action',async({page})=>{
@@ -1304,3 +1475,137 @@ for (const path of ['/ssl','/dns','/domains','/api-checks','/security-headers','
     expect(await page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
   });
 }
+
+test('availability history filters checks and reveals diagnostics without mobile overflow',async({page})=>{
+  await mockEndpointDossier(page);
+  await page.route('**/monitoring/mon-down/checks/**',route=>route.fulfill({json:{data:Array.from({length:8},(_,i)=>({id:`availability-${i}`,status:i===0?'error':i===1?'slow':'up',latency:i===0?null:150+i,checked_at:new Date(Date.now()-i*60000).toISOString(),details:i===0?{error:'Connection timed out',status_code:504}:{status_code:200}}))}}));
+  await login(page,admin);await page.goto('/monitoring/mon-down?tab=availability');
+  const panel=page.getByRole('region',{name:'Últimas comprobaciones',exact:true});
+  await expect(panel.locator('details')).toHaveCount(5);
+  await panel.getByRole('button',{name:'Ver más',exact:true}).click();await expect(panel.locator('details')).toHaveCount(8);
+  await panel.getByLabel('Filtrar comprobaciones por estado').selectOption('failed');await expect(panel.locator('details')).toHaveCount(1);
+  await expect(panel.getByText('Sin latencia',{exact:true})).toBeVisible();
+  await panel.locator('summary').click();await expect(panel.getByText('Connection timed out')).toBeVisible();await expect(panel.getByText('HTTP 504')).toBeVisible();
+  await page.setViewportSize({width:390,height:844});await panel.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/availability-checks-mobile.png'});
+  await expect(page.getByRole('region',{name:'Bitácora de interrupciones'})).toContainText('Sin interrupciones registradas en este período.');
+});
+
+test('availability log presents estimated intervals without claiming recovery',async({page})=>{
+  await mockEndpointDossier(page);
+  await page.route('**/monitoring/mon-down/timeseries/**',async route=>{
+    const body={data:{}};
+    // Isolated historical interval; no request reaches the real monitoring endpoint.
+    await route.fulfill({json:{...body,data:{...body.data,summary:{total_checks:12,uptime_percentage:90,avg_latency:150},timeseries:[],daily_availability:[],incidents:[{id:'outage-1',started_at:'2026-10-21T23:59:00-06:00',resolved_at:'2026-10-22T00:02:00-06:00',duration_formatted:'3m 0s',duration_seconds:180,checks_failed:3,error_message:'Connection refused',status_code:null}]}}});
+  });
+  await login(page,admin);await page.goto('/monitoring/mon-down?tab=availability');
+  const panel=page.getByRole('region',{name:'Bitácora de interrupciones'});
+  await expect(panel.getByText('3m 0s')).toBeVisible();await panel.locator('summary').click();
+  await expect(panel.getByText('Fin del intervalo estimado')).toBeVisible();await expect(panel.getByText('Connection refused')).toBeVisible();
+  await expect(panel).not.toContainText('Recuperado automáticamente');
+});
+
+test('quick endpoint panel shows chart and recent checks before full analysis',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await mockEndpointDossier(page,{poorHistory:true});
+ await page.route('**/monitoring/mon-down/checks/**',r=>r.fulfill({json:{data:Array.from({length:3},(_,i)=>({id:`quick-${i}`,status:'up',latency:150,checked_at:new Date(Date.now()-i*60000).toISOString(),details:{status_code:200}}))}}));
+ await login(page,admin);await page.goto('/monitoring?status=down&type=https');
+ const writes:string[]=[];page.on('request',r=>{if(['POST','PATCH','DELETE'].includes(r.method()))writes.push(r.url());});
+ await page.getByRole('row',{name:'Public Web',exact:true}).click();const panel=page.getByRole('dialog',{name:'Public Web'});
+ await expect(panel.getByTestId('latency-chart')).toBeVisible();await expect(panel.locator('.quick-panel-check')).toHaveCount(3);
+ await expect(panel.getByRole('button',{name:'Métricas & SLA',exact:true})).toHaveCount(0);
+ await expect(panel.getByText('92.11',{exact:true})).toBeVisible();
+ const graph=await panel.getByTestId('latency-chart').boundingBox();const checks=await panel.locator('.quick-panel-check').last().boundingBox();
+ expect(graph!.y+graph!.height).toBeLessThanOrEqual(768);expect(checks!.y+checks!.height).toBeLessThanOrEqual(768);
+ await page.mouse.move(0,0);await page.screenshot({path:'test-results/endpoint-quick-desktop.png'});
+ await panel.getByRole('link',{name:'Ver historial →'}).click();await expect(page).toHaveURL(/tab=availability/);
+ await page.getByRole('link',{name:'Volver al listado',exact:true}).click();await expect(page).toHaveURL(/status=down&type=https/);expect(writes).toEqual([]);
+});
+
+test('quick endpoint panel is mobile safe and preserves viewer restrictions',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await mockEndpointDossier(page,{empty:true});await login(page,viewer);await page.goto('/monitoring');
+ await page.getByRole('row',{name:'Public Web',exact:true}).click();const panel=page.getByRole('dialog',{name:'Public Web'});
+ await expect(panel.getByText('Sin mediciones en las últimas 24 h.')).toBeVisible();await expect(panel.getByText('100',{exact:true})).toHaveCount(0);
+ await panel.getByLabel('Más acciones').click();await expect(panel.getByRole('button',{name:'Exportar CSV'})).toBeVisible();
+ await expect(panel.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);await expect(panel.getByRole('button',{name:'Crear alerta'})).toHaveCount(0);
+ const menu=await panel.locator('.quick-panel-action-list').boundingBox();expect(menu!.x).toBeGreaterThanOrEqual(0);expect(menu!.x+menu!.width).toBeLessThanOrEqual(390);
+ expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await page.screenshot({path:'test-results/endpoint-quick-mobile.png'});await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
+});
+
+test('measurement palette follows measured states and keeps missing data neutral',async({page})=>{
+ await mockEndpointDossier(page);await login(page,admin);
+ await page.route('**/monitoring/mon-down/timeseries/**',r=>r.fulfill({json:{data:{summary:{total_checks:2,uptime_percentage:100,avg_latency:150,incidents_count:0},timeseries:[0,1].map(i=>({timestamp:new Date(Date.now()-(1-i)*60000).toISOString(),label:`12:0${i}`,latency:150,max_latency:200,total_count:1,down_count:0,status:'up'})),incidents:[],daily_availability:[]}}}));
+ let status='up';let latency:number|null=150;let stamp:string|null=new Date().toISOString();
+ await page.route('**/api/v1/monitoring/',r=>r.fulfill({json:{data:[{id:'mon-down',name:'Public Web',target_type:'https',endpoint:'https://example.com',interval:60,enabled:true,last_checked_at:stamp,last_status:status,last_latency:latency,max_latency_ms:500,runner_type:'cloud'}]}}));
+ for(const scenario of [{status:'up',latency:150,tone:'success',color:'rgb(74, 222, 128)'},{status:'slow',latency:800,tone:'warning',color:'rgb(251, 191, 36)'},{status:'error',latency:800,tone:'muted',color:'rgb(203, 213, 225)'},{status:'up',latency:null,tone:'muted',color:'rgb(203, 213, 225)'}]){
+  status=scenario.status;latency=scenario.latency;
+  await page.goto('/monitoring');await page.reload();await page.getByRole('row',{name:'Public Web',exact:true}).click();
+  const panel=page.getByRole('dialog',{name:'Public Web'});const metric=panel.getByRole('article',{name:'Latencia actual'});
+  await expect(metric).toHaveAttribute('data-tone',scenario.tone);await expect(metric.locator('.ui-metric-value')).toHaveCSS('color',scenario.color);
+  await expect(panel.getByTestId('latency-chart').locator('.recharts-area-curve').first()).toHaveAttribute('stroke','var(--monitoring-latency)');
+  expect(await panel.evaluate(el=>getComputedStyle(el).getPropertyValue('--monitoring-latency').trim())).toBe('#4ade80');
+  await panel.getByRole('button',{name:'Cerrar panel'}).click();
+ }
+});
+
+test('criteria calendar uses thirty-day samples and preserves degraded and unknown days',async({page})=>{
+ await mockEndpointDossier(page);
+ await page.route('**/monitoring/mon-down/timeseries/**',r=>r.fulfill({json:{data:{summary:{total_checks:1,uptime_percentage:100,avg_latency:150},timeseries:[],incidents:[],daily_availability:[{date:'2026-10-20',label:'20 oct',total_checks:100,down_checks:1,uptime_percentage:99,status:'down',avg_latency:150},{date:'2026-10-21',label:'21 oct',total_checks:100,down_checks:0,uptime_percentage:100,status:'degraded',avg_latency:10},{date:'2026-10-22',label:'22 oct',total_checks:0,down_checks:0,uptime_percentage:null,status:'no_data',avg_latency:null}]}}}));
+ await login(page,admin);await page.goto('/monitoring/mon-down?tab=availability');
+ const calendar=page.getByRole('region',{name:'Disponibilidad diaria de 30 días'});
+ await expect(calendar.getByText('99.50%',{exact:true})).toBeVisible();await expect(calendar.getByText('99.50%',{exact:true})).toHaveAttribute('data-tone','warning');
+ await expect(calendar.getByRole('button',{name:'21 oct: Degradado'})).toHaveAttribute('data-tone','warning');
+ await calendar.getByRole('button',{name:'22 oct: Sin datos'}).focus();await expect(calendar.getByText('Sin mediciones',{exact:true})).toBeVisible();
+ await calendar.screenshot({path:'test-results/criteria-calendar.png'});
+ await page.getByLabel('Período de disponibilidad').selectOption('7d');await expect(calendar.getByText('99.50%',{exact:true})).toBeVisible();
+});
+
+test('criteria security filters match operational bands and keep unmeasured separate',async({page})=>{
+ await mockDashboard(page);const now=new Date().toISOString();
+ await page.route('**/api/v1/security-headers/',r=>r.fulfill({json:{data:[{id:'score-70',name:'Score seventy',url:'https://a.test',last_score:70,last_grade:'B',last_checked_at:now,info_leak_detected:false},{id:'score-50',name:'Score fifty',url:'https://b.test',last_score:50,last_grade:'D',last_checked_at:now,info_leak_detected:false},{id:'score-49',name:'Score forty nine',url:'https://c.test',last_score:49,last_grade:'F',last_checked_at:now,info_leak_detected:false},{id:'score-none',name:'No measurement',url:'https://d.test',last_score:null,last_checked_at:null}]}}));
+ await page.route('**/security-headers/stats/**',r=>r.fulfill({json:{data:{total:4,healthy:1,warning:1,critical:1,unmeasured:1}}}));
+ await login(page,viewer);await page.goto('/security-headers');
+ await page.getByRole('button',{name:/Score ≥70 sin fugas/}).click();await expect(page.getByText('Score seventy',{exact:true})).toBeVisible();await expect(page.getByText('Score fifty',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:/Score 50–69 o fugas/}).click();await expect(page.getByText('Score fifty',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:/Sin medición/}).click();await expect(page.getByText('No measurement',{exact:true})).toBeVisible();await expect(page.getByText('Score forty nine',{exact:true})).toHaveCount(0);
+});
+
+test('criteria global outcomes describe recorded compliance without a fixed latency cutoff',async({page})=>{
+ await mockDashboard(page);const now=Date.now();
+ await page.route('**/monitoring/global-performance/**',r=>r.fulfill({json:{data:{summary:{avg_uptime:66.67,avg_latency:1500,total_checks:3,checks_per_minute:1,operational_checks:1,degraded_checks:1,failed_checks:1,operational_percentage:33.33},points:[0,1].map(i=>({timestamp:now-(1-i)*3600000,time:`10:0${i}`,uptime:66.67,latency:1500,checks:3,checks_per_minute:1,operational_checks:1,degraded_checks:1,failed_checks:1}))}}}));
+ await login(page,admin);await page.goto('/dashboard');
+ const results=page.getByRole('region',{name:'Resultados de las comprobaciones'});await expect(results).toContainText('Operacionales: 1');await expect(results).toContainText('Degradadas: 1');await expect(results).toContainText('Fallidas: 1');await expect(page.getByTestId('dashboard-kpis')).not.toContainText('33.33% operacionales');
+ const chart=page.getByTestId('dashboard-performance');await expect(chart).not.toContainText('500 ms');
+ const track=chart.getByRole('img',{name:'Latencia histórica en milisegundos'});await track.scrollIntoViewIfNeeded();await expect(track.locator('.recharts-area-dot').first()).toBeVisible();const dot=await track.locator('.recharts-area-dot').first().boundingBox();await page.mouse.move(dot!.x+dot!.width/2,dot!.y+dot!.height/2);
+ const tooltip=track.getByTestId('performance-tooltip');await expect(tooltip).toContainText('1 operacionales');await expect(tooltip).toContainText('1 degradadas');await expect(tooltip).toContainText('1 fallidas');
+ await expect(tooltip.getByText('1500 ms',{exact:true})).toHaveAttribute('data-tone','muted');
+});
+
+test('monitoring shows current and applied limits and suppresses failed attempt latency',async({page})=>{
+ await mockDashboard(page);const now=new Date().toISOString();
+ const targets=[{id:'limit-slow',name:'Slow fixture',last_status:'slow',last_latency:577,recent_checks:[{checked_at:now,status:'slow',latency:577,diagnostic:'Superó el límite por 77 ms',applied_max_latency_ms:500}]},{id:'limit-down',name:'Failed fixture',last_status:'down',last_latency:173,recent_checks:[{checked_at:now,status:'down',latency:173,diagnostic:'HTTP 403 · esperado 200',applied_max_latency_ms:500}]},{id:'limit-old',name:'Previous policy fixture',last_status:'up',last_latency:577,recent_checks:[{checked_at:now.replace('Z','+00:00'),status:'up',latency:577,applied_max_latency_ms:2000}]}].map(t=>({...t,organization:'org',endpoint:'https://example.test',target_type:'https',interval:60,enabled:true,max_latency_ms:500,last_checked_at:now,runner_type:'cloud'}));
+ await page.route('**/api/v1/monitoring/',r=>r.fulfill({json:{data:targets}}));
+ await login(page,viewer);await page.goto('/monitoring');
+ const slow=page.getByRole('row',{name:'Slow fixture',exact:true});const failed=page.getByRole('row',{name:'Failed fixture',exact:true});const old=page.getByRole('row',{name:'Previous policy fixture',exact:true});
+ await expect(slow.getByTestId('target-latency')).toContainText('577 ms');await expect(slow).toContainText('Límite actual: 500 ms');await expect(slow).toContainText('Superó el límite por 77 ms');
+ await expect(failed).toContainText('HTTP 403 · esperado 200');await expect(failed.getByTestId('target-latency').locator('span').first()).toHaveText('—');await expect(failed.getByTestId('target-latency')).not.toContainText('173');
+ await expect(old.getByTestId('target-latency')).toContainText('Aplicado: 2,000 ms');
+ await page.screenshot({path:'test-results/monitoring-limits-diagnostics.png'});
+ await failed.click();const panel=page.getByRole('dialog',{name:'Failed fixture'});await expect(panel.getByRole('article',{name:'Latencia actual'}).locator('.ui-metric-value')).toHaveText('—');await panel.getByText('Detalles del intento fallido',{exact:true}).click();await expect(panel.getByText('Tiempo del intento: 173 ms')).toBeVisible();
+});
+
+test('dashboard separates current resources from historical checks and colors availability by range',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.setViewportSize({width:1440,height:900});await mockDashboard(page);const now=Date.now();
+ await page.route('**/monitoring/global-performance/**',r=>r.fulfill({json:{data:{summary:{avg_uptime:30.91,avg_latency:334,total_checks:10000,checks_per_minute:2,operational_checks:3069,degraded_checks:22,failed_checks:6909},points:[100,99.5,30.91].map((uptime,i)=>({timestamp:now-(2-i)*3600000,time:`10:0${i}`,uptime,latency:334,checks:100,checks_per_minute:2}))}}}));
+ await login(page,viewer);await page.goto('/dashboard');
+ const kpis=page.getByTestId('dashboard-kpis');await expect(kpis).toContainText('Recursos saludables ahora');await expect(kpis).toContainText('Todos los módulos · Ahora');await expect(kpis).toContainText('Disponibilidad · 24h');await expect(kpis).toContainText('Tiempo medio · 24h');await expect(kpis).not.toContainText('6909');
+ const results=page.getByRole('region',{name:'Resultados de las comprobaciones'});await expect(results).toContainText('Operacionales: 3,069');await expect(results).toContainText('Degradadas: 22');await expect(results).toContainText('Fallidas: 6,909');await expect(results).toContainText('10,000 en total');
+ const chart=page.getByTestId('dashboard-performance');const dots=chart.getByRole('img',{name:'Disponibilidad histórica de cero a cien por ciento'}).locator('.recharts-line-dot');await expect(dots).toHaveCount(3);for(const [i,color] of ['#4ade80','#fbbf24','#ff7384'].entries())await expect(dots.nth(i)).toHaveAttribute('fill',color);
+ await expect(chart.locator('path.recharts-area-curve').first()).toHaveAttribute('stroke','#cbd5e1');
+ const preview=page.getByRole('region',{name:'Prioridad actual'});await expect(preview).toBeVisible();await preview.getByRole('button').nth(1).click();await expect(page.getByTestId('noc-drawer')).toBeVisible();await page.getByRole('button',{name:'Cerrar panel',exact:true}).click();
+ await page.getByRole('button',{name:'Ver pendientes de atención'}).click();await expect(page.getByTestId('dashboard-attention-inbox')).toBeInViewport();
+ await page.getByRole('heading',{name:'Centro de Conectividad',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/dashboard-scopes-desktop.png'});
+ await page.setViewportSize({width:390,height:844});await page.getByRole('heading',{name:'Centro de Conectividad',exact:true}).scrollIntoViewIfNeeded();await expect(page.getByTestId('dashboard-kpis')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/dashboard-scopes-mobile.png'});
+});
