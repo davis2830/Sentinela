@@ -1,5 +1,12 @@
 # Bitácora de implementación
 
+## 2026-11-01 — Higiene del repositorio y frontend
+
+- Fuera del seguimiento: 74 bytecodes, 46 capturas, dump/checksum y 20 archivos obsoletos/locales; sin borrar la copia del respaldo ni reescribir historial. Los 20 obsoletos están en `.local-archive/repo-hygiene-2026-11-01/`.
+- Frontend conserva cuatro recursos públicos utilizados, 176 módulos alcanzables, lockfile npm y pruebas. Archivados cinco componentes no importados, tres variantes de logo, prototipos y configuración pnpm inválida sin uso. Compatibilidad `sentinel_probe/`, documentación, migraciones y pruebas activas conservadas.
+- Gitignore y contextos Docker excluyen artefactos/secretos; los `.dockerignore` vuelven a ser versionables. CI incorpora guard de rutas y JWT con seis regresiones. Benchmark histórico saneado sin cambiar estadísticas; exportación local futura sin credenciales.
+- Gates locales: 288/288 Django, TypeScript/build, guard, 3/3 pruebas de red y 9/9 Chromium dirigidas. Suite completa de navegador y CI remoto no repetidos. Sin cambios en planes, permisos, datos operativos, migraciones, commit, push ni despliegue. Publicación de la limpieza e historial sensible pendientes.
+
 ## 2026-10-13 — Corrección de 19 hallazgos de auditoría
 
 - Guard de secretos en plantillas/CI y auditoría tenant exacta; logs globales solo en administración de plataforma. Parámetros de consulta validados.

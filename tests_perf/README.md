@@ -2,6 +2,8 @@
 
 Los resultados existentes son ejecuciones históricas y no deben combinarse ni presentarse como certificación actual.
 
+Higiene del 2026-11-01: el baseline JSON histórico conserva sus estadísticas pero elimina `setup_data` de autenticación. Los HTML generados antiguos se retiraron del seguimiento, con copia local; los escenarios y el generador permanecen. El escenario local exporta `beta-read-baseline-local.json` saneado, ignorado por Git. **No usar `--summary-export` en pruebas autenticadas:** puede incluir el JWT retornado por `setup()`. Publicar evidencia solo después de sanearla y ejecutar el guard del repositorio. Esto no elimina tokens ni backups de commits anteriores.
+
 | Fecha | Contexto histórico | Promedio | p95 | Errores |
 | --- | --- | ---: | ---: | ---: |
 | 2026-09-28 | Optimización N+1 | 22.36 ms | 38.81 ms | 0% reportado |

@@ -1,0 +1,16 @@
+**/__pycache__
+**/*.py[cod]
+.env
+.env.*
+*.log
+*.sqlite*
+*.dump
+*.dump.sha256
+.pytest_cache
+.coverage
+htmlcov
+.tmp
+.cache
+.venv
+backups
+# Source, migrations and isolated tests remain available to CI.

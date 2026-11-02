@@ -1,5 +1,7 @@
 # Estrategia de pruebas
 
+**Higiene del repositorio, 2026-11-01:** 288/288 Django, TypeScript/build Vite 7.3.7, 6/6 regresiones del guard/exportación saneada, 3/3 pruebas de endpoints de red y 9/9 Chromium dirigidas (sesiones y telemetría) aprobados localmente. No se repitió Chromium completo ni CI remoto. Se retiraron del seguimiento 142 archivos generados/privados/obsoletos, conservando copias locales; cinco componentes React sin importadores y tres logos sin referencias se archivaron. Los 176 módulos fuente restantes son alcanzables desde la aplicación y no hay referencias configuradas en BD a los logos retirados. Las métricas del benchmark histórico se compararon con HEAD: solo se suprimió `setup_data`. El guard ahora bloquea backups, artefactos y JWT serializados; el historial público expuesto sigue pendiente de tratamiento separado. Véase [política y recuperación local](DEV_WORKFLOW.md#higiene-del-repositorio).
+
 **Guía de laboratorio personal, 2026-10-22:** configuración Compose combinada validada
 sin iniciar servicios, PostgreSQL/Redis sin puertos publicados, frontend/API ligados
 a loopback y 17 bloques PowerShell con sintaxis válida. Prueba manual completa todavía

@@ -7,6 +7,18 @@
 !.env.example
 !.env.production.example
 *.env
+*.key
+*.p12
+*.pfx
+/.ci-tls/
+
+# Local database backups are never source code. Keep recovery scripts tracked.
+/backups/
+*.dump
+*.dump.sha256
+*.sql.gz
+*.sql.zst
+*.sqlite
 
 # ============================================
 # Python / Django
@@ -47,6 +59,11 @@ pytest-coverage.txt
 coverage.xml
 *.cover
 *.py,cover
+test-results/
+test-results-*/
+playwright-report/
+blob-report/
+coverage/
 
 # Virtual environments
 venv/
@@ -70,6 +87,7 @@ lerna-debug.log*
 dist/
 dist-ssr/
 *.local
+*.tsbuildinfo
 
 # Vite
 vite.config.js.timestamp-*
@@ -84,6 +102,7 @@ vite.config.ts.timestamp-*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
 
 # ============================================
 # Docker
@@ -91,8 +110,7 @@ vite.config.ts.timestamp-*
 *.pid
 *.seed
 *.pid.lock
-.dockerignore
-!frontend/.dockerignore
+# .dockerignore files are required build configuration and must be versioned.
 
 # ============================================
 # OS files
@@ -120,6 +138,11 @@ pnpm-debug.log*
 *.tmp
 .cache/
 .tmp/
+/.local-archive/
+
+# Generated benchmark HTML is kept locally; dated sanitized JSON evidence remains.
+/tests_perf/reports/*.html
+/tests_perf/reports/*-local.json
 
 # Browser validation artifacts
 frontend/test-results/

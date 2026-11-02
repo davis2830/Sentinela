@@ -1,3 +1,8 @@
+/** Export metrics without credentials returned by an authenticated k6 setup(). */
+export function safeSummaryJSON(data) {
+  return JSON.stringify({ ...data, setup_data: null }, null, 2);
+}
+
 /**
  * Helper para generar reporte HTML y resumen en consola al finalizar la prueba de k6.
  * Diseñado con el estilo visual y paleta de colores de Sentinel NOC.

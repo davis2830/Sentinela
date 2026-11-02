@@ -9,7 +9,9 @@
     "test:network-endpoint": "node --test scripts/test-network-endpoint.mjs",
     "preview": "vite preview",
     "test:e2e": "playwright test",
-    "check:secrets": "node scripts/check-secrets.mjs"
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:repo": "node scripts/check-secrets.mjs",
+    "test:repo-guard": "node --test scripts/check-secrets.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",

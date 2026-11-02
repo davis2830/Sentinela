@@ -3,6 +3,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { CONFIG, getAuthHeaders } from '../config.js';
 import { authenticate } from '../helpers/auth.js';
+import { safeSummaryJSON } from '../helpers/reporters.js';
 
 export const options = {
   stages: [{ duration: '20s', target: 1 }, { duration: '30s', target: 3 },
@@ -27,4 +28,12 @@ export default function ({ token }) {
     check(response, { 'isolated GET succeeds': (r) => r.status === 200 });
   }
   sleep(3);
+}
+
+// Do not use --summary-export with authenticated setup data: it exports the JWT.
+export function handleSummary(data) {
+  return {
+    'tests_perf/reports/beta-read-baseline-local.json': safeSummaryJSON(data),
+    stdout: 'Baseline local terminado. Resumen sin credenciales en tests_perf/reports/beta-read-baseline-local.json\n',
+  };
 }
