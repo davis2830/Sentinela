@@ -1,3 +1,27 @@
+x-runtime-options: &runtime_options
+  DB_CONN_MAX_AGE: ${DB_CONN_MAX_AGE:-60}
+  FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+  EMAIL_RESEND_COOLDOWN_SECONDS: ${EMAIL_RESEND_COOLDOWN_SECONDS:-60}
+  EMAIL_RESEND_DAILY_LIMIT: ${EMAIL_RESEND_DAILY_LIMIT:-5}
+  JWT_ACCESS_TOKEN_LIFETIME_MINUTES: "15"
+  JWT_REFRESH_TOKEN_LIFETIME_DAYS: "7"
+  TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+  BLACKBOX_EXPORTER_URL: ${BLACKBOX_EXPORTER_URL:-http://blackbox_exporter:9115}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+  SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.05}
+  SENTINEL_ENV: ${SENTINEL_ENV:-development}
+  THROTTLE_USER_RATE: ${THROTTLE_USER_RATE:-10000/minute}
+  THROTTLE_ANON_RATE: ${THROTTLE_ANON_RATE:-5000/minute}
+  DIAGNOSTIC_PER_MINUTE: ${DIAGNOSTIC_PER_MINUTE:-3}
+  DIAGNOSTIC_FREE_DAILY: ${DIAGNOSTIC_FREE_DAILY:-20}
+  DIAGNOSTIC_PAID_DAILY: ${DIAGNOSTIC_PAID_DAILY:-100}
+  DIAGNOSTIC_GLOBAL_PER_MINUTE: ${DIAGNOSTIC_GLOBAL_PER_MINUTE:-60}
+  DIAGNOSTIC_MAX_CONCURRENT: ${DIAGNOSTIC_MAX_CONCURRENT:-4}
+  DIAGNOSTIC_CACHE_SECONDS: ${DIAGNOSTIC_CACHE_SECONDS:-30}
+
 services:
   db:
     image: postgres:16-alpine
@@ -36,6 +60,7 @@ services:
     container_name: sentinel_backend
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --reload
     environment:
+      <<: *runtime_options
       DIAGNOSTIC_PER_MINUTE: ${DIAGNOSTIC_PER_MINUTE:-3}
       DIAGNOSTIC_FREE_DAILY: ${DIAGNOSTIC_FREE_DAILY:-20}
       DIAGNOSTIC_PAID_DAILY: ${DIAGNOSTIC_PAID_DAILY:-100}
@@ -99,6 +124,7 @@ services:
     container_name: sentinel_celery_worker
     command: celery -A config worker -l info --concurrency=4 -O fair -Q high_priority,monitoring,background,celery --max-tasks-per-child=1000
     environment:
+      <<: *runtime_options
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
@@ -142,6 +168,7 @@ services:
     container_name: sentinel_celery_beat
     command: celery -A config beat -l info
     environment:
+      <<: *runtime_options
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}

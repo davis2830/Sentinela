@@ -1,5 +1,12 @@
 # Bitácora de implementación
 
+## 2026-11-01 — Plantillas de entorno para otro equipo
+
+- `.env.example` contrastado con settings Django, cifrado y entradas Compose: incorpora SMTP, URL pública, Turnstile, beta, límites de previews, zona horaria y opciones de observabilidad. Se retira `PROMETHEUS_URL` sin lector backend; JWT de acceso corregido de 60 a 15 minutos en el ejemplo.
+- `.env.production.example` completa opciones faltantes. Compose transmite las opciones compartidas al backend, worker y Beat; JWT y topología interna permanecen fijos. No se modifican planes, cuotas ni cadencias Free/Pro.
+- Guía para copiar solo en instalaciones nuevas, conservar claves de datos cifrados y configurar credenciales propias sin versionarlas. El laboratorio personal sigue documentado por separado.
+- Evidencia local nueva: 7/7 regresiones de guard y cobertura de variables; guard de archivos versionables aprobado; tres configuraciones Compose resueltas (local, override personal y producción) con comprobación de variables en los tres servicios Django. No se iniciaron servicios ni se leyó el `.env` privado. Entrega real de SMTP/Turnstile, suites Django/navegador, CI y producción no reevaluados en este cambio de configuración.
+
 ## 2026-11-01 — Higiene del repositorio y frontend
 
 - Fuera del seguimiento: 74 bytecodes, 46 capturas, dump/checksum y 20 archivos obsoletos/locales; sin borrar la copia del respaldo ni reescribir historial. Los 20 obsoletos están en `.local-archive/repo-hygiene-2026-11-01/`.

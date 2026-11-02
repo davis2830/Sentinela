@@ -1,7 +1,35 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { pathViolations, violations } from './check-secrets.mjs';
 import { safeSummaryJSON } from '../../tests_perf/helpers/reporters.js';
+
+const repositoryFile = path => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+const templateKeys = content => new Set([...content.matchAll(/^\s*(?:#\s*)?([A-Z][A-Z0-9_]*)=/gm)].map(match => match[1]));
+
+test('environment templates cover settings and Compose inputs without duplicate keys', () => {
+  const local = repositoryFile('.env.example');
+  const documented = templateKeys(local);
+  for (const path of ['backend/config/settings/base.py', 'backend/config/settings/dev.py',
+    'backend/config/settings/prod.py', 'backend/common/crypto.py']) {
+    const inputs = [...repositoryFile(path).matchAll(/os\.(?:environ\.get|getenv)\(\s*["']([A-Z][A-Z0-9_]*)["']/g)];
+    for (const [, key] of inputs) assert.ok(documented.has(key), `${path}: missing ${key}`);
+  }
+  for (const [template, compose] of [['.env.example', 'docker-compose.yml'],
+    ['.env.production.example', 'docker-compose.prod.yml']]) {
+    const content = repositoryFile(template);
+    const active = [...content.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map(match => match[1]);
+    assert.equal(active.length, new Set(active).size, `${template}: duplicate keys`);
+    const keys = templateKeys(content);
+    for (const [, key] of repositoryFile(compose).matchAll(/\$\{([A-Z][A-Z0-9_]*)/g)) {
+      assert.ok(keys.has(key), `${template}: missing Compose input ${key}`);
+    }
+    assert.match(content, /^RETENTION_PLAN_CAP_ENFORCED=false$/m);
+    assert.match(content, /^ENFORCE_LEGACY_EMAIL_VERIFICATION=false$/m);
+  }
+  assert.match(local, /^JWT_ACCESS_TOKEN_LIFETIME_MINUTES=15$/m);
+  assert.match(local, /^PUBLIC_APP_URL=http:\/\/localhost:3001$/m);
+});
 
 test('reject generated and private files at root and in frontend', () => {
   for (const path of ['backups/database.dump', 'database.dump.sha256', 'frontend/test-results/view.png',
