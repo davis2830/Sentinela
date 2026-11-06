@@ -119,7 +119,7 @@ export default function OmnibarSearch({ isOpen, onClose }: OmnibarSearchProps) {
               <X size={16} />
             </button>
           ) : (
-            <span className="text-[10px] font-medium text-text-dim border border-border-base px-2 py-0.5 rounded-md">
+            <span className="text-xs font-medium text-text-dim border border-border-base px-2 py-0.5 rounded-md">
               Ctrl K
             </span>
           )}
@@ -143,12 +143,12 @@ export default function OmnibarSearch({ isOpen, onClose }: OmnibarSearchProps) {
                       <div className="text-xs font-bold text-text-main group-hover:text-accent-green transition-colors">
                         {item.title}
                       </div>
-                      <div className="text-[11px] text-text-muted font-mono">{item.subtitle}</div>
+                      <div className="text-xs text-text-muted font-mono">{item.subtitle}</div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-text-dim bg-bg-dark px-2.5 py-0.5 rounded-full border border-border-base font-medium capitalize">
+                    <span className="text-xs text-text-dim bg-bg-dark px-2.5 py-0.5 rounded-full border border-border-base font-medium capitalize">
                       {item.category === 'monitoring' ? 'Monitoreo' : item.category === 'domain' ? 'Dominio' : item.category}
                     </span>
                     <ChevronRight size={14} className="text-text-dim group-hover:text-accent-green transition-colors" />

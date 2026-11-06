@@ -75,7 +75,7 @@ export default function ProbeDirectoryDrawer({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 id="probe-directory-title" className="text-xl font-bold text-text-main">Guardianes Senti9</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
                   {probes?.length || 0} GUARDIANES
                 </span>
               </div>
@@ -159,7 +159,7 @@ export default function ProbeDirectoryDrawer({
                         <div className="flex flex-wrap items-center gap-2.5">
                           <h4 className="text-sm font-bold text-text-main">{probe.name}</h4>
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+                            className={`px-2 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
                               isOnline
                                 ? 'bg-accent-green/10 text-accent-green border-accent-green/30'
                                 : 'bg-white/5 text-text-dim border-white/10'
@@ -174,7 +174,7 @@ export default function ProbeDirectoryDrawer({
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-dim mt-2">
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-text-dim mt-2">
                           {probe.hostname && (
                             <span className="flex items-center gap-1">
                               <Laptop size={12} />
@@ -215,10 +215,10 @@ export default function ProbeDirectoryDrawer({
                       <div><dt>Pendientes en servidor</dt><dd className="text-xl font-bold text-text-main">{delivery?.pending ?? '—'} <span className="text-xs font-normal text-text-muted">{delivery?.overdue ? `· ${delivery.overdue} con más de 10 min` : ''}</span></dd></div>
                       <div><dt>Última recepción confirmada</dt><dd className="text-text-main mt-1">{delivery?.last_received_at ? new Date(delivery.last_received_at).toLocaleString() : 'Sin registro'}</dd></div>
                     </dl>
-                    <p className="text-[11px] text-text-dim">La recepción confirma persistencia en el servidor; el acuse confirma que el agente recibió la aceptación.</p>
+                    <p className="text-xs text-text-dim">La recepción confirma persistencia en el servidor; el acuse confirma que el agente recibió la aceptación.</p>
                   </div>
                   <ProbeTelemetry probe={probe} queryFailed={isError} />
-                  <div className="pt-3 border-t border-border-base/60 flex flex-wrap gap-2 items-center justify-between text-[11px] text-text-muted">
+                  <div className="pt-3 border-t border-border-base/60 flex flex-wrap gap-2 items-center justify-between text-xs text-text-muted">
                     <div className="flex items-center gap-1.5">
                       <Activity size={13} className="text-accent-purple" />
                       <span>

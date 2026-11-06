@@ -59,7 +59,10 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const updateUser = useAuthStore((state) => state.updateUser);
   const logout = useAuthStore((state) => state.logout);
-  const [activeTab, setActiveTab] = useState<ProfileTab>((location.state?.tab as ProfileTab) || 'personal');
+  const [activeTab, setActiveTab] = useState<ProfileTab>(
+    new URLSearchParams(location.search).get('tab') === 'security'
+      ? 'security' : (location.state?.tab as ProfileTab) || 'personal',
+  );
 
   useEffect(() => {
     if (location.state?.tab) {
@@ -101,6 +104,7 @@ export default function ProfilePage() {
   const [showDisable2FAModal, setShowDisable2FAModal] = useState(false);
   const [totpSetupData, setTotpSetupData] = useState<{ secret: string; qr_code: string; provisioning_uri: string } | null>(null);
   const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
+  const [enrollmentPassword, setEnrollmentPassword] = useState('');
 
   // 1. Fetch current user data from /api/v1/auth/me/
   const { data: meData, isLoading: isLoadingMe, refetch: refetchMe } = useQuery({
@@ -230,7 +234,7 @@ export default function ProfilePage() {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setSecurityMsg({ type: 'success', text: 'Contraseña actualizada correctamente con cifrado seguro.' });
+      setSecurityMsg({ type: 'success', text: 'Contraseña actualizada correctamente.' });
       setTimeout(() => setSecurityMsg(null), 4500);
     },
     onError: (err: any) => {
@@ -267,7 +271,7 @@ export default function ProfilePage() {
   const handleInitiate2FA = async (reset = false) => {
     setIsSettingUp2FA(true);
     try {
-      const res = await api.post('auth/2fa/setup/', { reset });
+      const res = await api.post('auth/2fa/setup/', { reset, password: meData?.is_superuser ? enrollmentPassword : undefined });
       setTotpSetupData(res.data?.data);
       setShow2FAModal(true);
     } catch (err: any) {
@@ -279,10 +283,12 @@ export default function ProfilePage() {
 
   const verify2FAMutation = useMutation({
     mutationFn: async (code: string) => {
-      const res = await api.post('auth/2fa/verify/', { code });
+      const res = await api.post('auth/2fa/verify/', { code, password: meData?.is_superuser ? enrollmentPassword : undefined });
       return res.data?.data?.backup_codes as string[];
     },
     onSuccess: () => {
+      setEnrollmentPassword('');
+      setTotpSetupData(null);
       queryClient.invalidateQueries({ queryKey: ['auth-me-profile'] });
     },
   });
@@ -511,7 +517,7 @@ export default function ProfilePage() {
 
             <div className="flex items-center gap-5 sm:gap-7 text-xs text-text-dim border-t md:border-t-0 md:border-l border-border-base pt-3 md:pt-0 md:pl-6 w-full md:w-auto justify-between md:justify-start">
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider text-text-dim block">
+                <span className="text-xs uppercase font-mono tracking-wider text-text-dim block">
                   Organización
                 </span>
                 <span className="text-xs font-semibold text-text-main mt-0.5 block truncate max-w-[130px]">
@@ -519,7 +525,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider text-text-dim block">
+                <span className="text-xs uppercase font-mono tracking-wider text-text-dim block">
                   Huso Horario
                 </span>
                 <span className="text-xs font-mono text-text-main mt-0.5 block truncate max-w-[140px]">
@@ -527,7 +533,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider text-text-dim block">
+                <span className="text-xs uppercase font-mono tracking-wider text-text-dim block">
                   Estado
                 </span>
                 <span className="text-xs font-semibold text-accent-green mt-0.5 flex items-center gap-1.5">
@@ -628,7 +634,7 @@ export default function ProfilePage() {
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                   />
-                  <p className="text-[11px] text-text-dim mt-1">
+                  <p className="text-xs text-text-dim mt-1">
                     Número de escalación para avisos telefónicos o guardias 24/7 de incidentes P1.
                   </p>
                 </div>
@@ -657,19 +663,19 @@ export default function ProfilePage() {
                             <span className="font-semibold text-text-main text-xs truncate block">
                               {t.name}
                             </span>
-                            <span className="text-[10px] text-text-dim font-mono">
+                            <span className="text-xs text-text-dim font-mono">
                               ID: {t.id.slice(0, 8)}
                             </span>
                           </div>
                         </div>
 
                         {t.is_lead ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
                             <Crown size={11} />
                             Team Lead
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-bg-card border border-border-base text-text-dim shrink-0">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-bg-card border border-border-base text-text-dim shrink-0">
                             Miembro
                           </span>
                         )}
@@ -690,7 +696,7 @@ export default function ProfilePage() {
                   Matriz de Permisos del Rol ({isAdmin ? 'Administrador' : 'Operador'})
                 </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-sans">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-sans">
                   {[
                     { label: 'Monitoreo de Red & Uptime', desc: 'Ver métricas, gráficos e histórico', granted: true },
                     { label: 'Gestión de Incidentes & RCA', desc: 'Crear, investigar y documentar post-mortem', granted: true },
@@ -713,7 +719,7 @@ export default function ProfilePage() {
                       />
                       <div>
                         <div className="font-semibold">{perm.label}</div>
-                        <div className="text-[10px] text-text-dim mt-0.5">{perm.desc}</div>
+                        <div className="text-xs text-text-dim mt-0.5">{perm.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -786,7 +792,9 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                {meData?.is_2fa_enabled ? (
+                {meData?.is_2fa_enabled && meData?.is_superuser ? (
+                  <p className="text-xs text-text-muted">El 2FA es obligatorio para administrar la plataforma.</p>
+                ) : meData?.is_2fa_enabled ? (
                   <div className="flex items-center gap-2.5">
                     <button
                       type="button"
@@ -806,10 +814,17 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 ) : (
+                  <div className="space-y-2">
+                    {meData?.is_superuser && <label className="block space-y-1 text-xs text-text-muted">
+                      <span>Contraseña actual</span>
+                      <input type="password" autoComplete="current-password" maxLength={256}
+                        className="block w-full rounded-xl border border-border-base bg-bg-dark px-3 text-sm text-text-main"
+                        value={enrollmentPassword} onChange={event => setEnrollmentPassword(event.target.value)} />
+                    </label>}
                   <button
                     type="button"
                     onClick={() => handleInitiate2FA(false)}
-                    disabled={isSettingUp2FA}
+                    disabled={isSettingUp2FA || (meData?.is_superuser && !enrollmentPassword)}
                     className="flex items-center gap-2 px-5 py-2.5 bg-accent-green text-black font-bold rounded-xl text-xs hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer disabled:opacity-50"
                   >
                     {isSettingUp2FA ? (
@@ -819,6 +834,7 @@ export default function ProfilePage() {
                     )}
                     <span>Configurar Autenticación 2FA</span>
                   </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -977,11 +993,11 @@ export default function ProfilePage() {
                     <span className="font-semibold text-text-main flex items-center gap-1.5">
                       <Laptop size={13} className="text-accent-green" /> Este Navegador
                     </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
                       En línea
                     </span>
                   </div>
-                  <div className="text-[11px] text-text-dim font-mono">
+                  <div className="text-xs text-text-dim font-mono">
                     Último login:{' '}
                     {meData?.last_login
                       ? new Date(meData.last_login).toLocaleString('es-ES')
@@ -989,7 +1005,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="p-3 bg-bg-dark/60 border border-border-base/70 rounded-xl text-[11px] text-text-dim leading-relaxed">
+                <div className="p-3 bg-bg-dark/60 border border-border-base/70 rounded-xl text-xs text-text-dim leading-relaxed">
                   Si detectas actividad inusual o utilizaste una computadora compartida, puedes invalidar de inmediato todas las sesiones remotas fuera de este navegador.
                 </div>
               </div>
@@ -1060,7 +1076,7 @@ export default function ProfilePage() {
                 <div>
                   <div className="font-bold text-sm text-text-main flex items-center gap-2">
                     Sonido de Alerta (Audio Chime)
-                    <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+                    <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
                       Sintetizador Web Audio
                     </span>
                   </div>
@@ -1113,13 +1129,13 @@ export default function ProfilePage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-text-dim mt-1.5">
+                  <p className="text-xs text-text-dim mt-1.5">
                     Se utilizará para proyectar gráficos, líneas de tiempo y bitácoras en tu zona local.
                   </p>
                 </div>
 
                 <div className="bg-bg-dark border border-border-base rounded-xl p-3 flex flex-col justify-center items-center text-center">
-                  <span className="text-[10px] text-text-dim font-mono">Reloj en Vivo ({userTimezone}):</span>
+                  <span className="text-xs text-text-dim font-mono">Reloj en Vivo ({userTimezone}):</span>
                   <span className="text-base font-bold font-mono text-accent-green mt-0.5">
                     {liveTime || '--:--:--'}
                   </span>
@@ -1188,7 +1204,7 @@ export default function ProfilePage() {
 
                         {/* Scope Badge */}
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                             t.scope === 'read'
                               ? 'bg-accent-blue/10 border-accent-blue/30 text-accent-blue'
                               : 'bg-accent-green/10 border-accent-green/30 text-accent-green'
@@ -1199,11 +1215,11 @@ export default function ProfilePage() {
 
                         {/* Expiry Badge */}
                         {t.is_expired ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-accent-red/10 border border-accent-red/30 text-accent-red">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent-red/10 border border-accent-red/30 text-accent-red">
                             Expirado
                           </span>
                         ) : t.expires_at ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 border border-amber-500/30 text-amber-400">
                             Vence:{' '}
                             {new Date(t.expires_at).toLocaleDateString('es-ES', {
                               month: 'short',
@@ -1212,13 +1228,13 @@ export default function ProfilePage() {
                             })}
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-bg-card border border-border-base text-text-dim">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-bg-card border border-border-base text-text-dim">
                             Permanente
                           </span>
                         )}
                       </div>
 
-                      <div className="text-text-dim text-[11px] flex items-center gap-3 font-mono">
+                      <div className="text-text-dim text-xs flex items-center gap-3 font-mono">
                         <span>
                           Creado:{' '}
                           {new Date(t.created_at).toLocaleDateString('es-ES', {
@@ -1289,7 +1305,11 @@ export default function ProfilePage() {
       {/* MODALES DE 2FA */}
       <TwoFactorModal
         isOpen={show2FAModal}
-        onClose={() => setShow2FAModal(false)}
+        onClose={() => {
+          setShow2FAModal(false);
+          setEnrollmentPassword('');
+          setTotpSetupData(null);
+        }}
         setupData={totpSetupData}
         onVerify={async (code) => {
           return await verify2FAMutation.mutateAsync(code);

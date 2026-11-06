@@ -1,5 +1,6 @@
 from django.urls import path
 from .beta_views import BetaAdminView, BetaPublicView, EmailChangeView
+from .password_reset import PasswordRecoveryView, PasswordResetView
 
 from .views import (
     APITokenDetailView,
@@ -18,6 +19,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path("password/recovery/", PasswordRecoveryView.as_view(), name="password_recovery"),
+    path("password/reset/", PasswordResetView.as_view(), name="password_reset"),
     path("beta/admin/", BetaAdminView.as_view(), name="beta_admin"),
     path("beta/<str:operation>/", BetaPublicView.as_view(), name="beta_public"),
     path("email/change/", EmailChangeView.as_view(), name="email_change"),

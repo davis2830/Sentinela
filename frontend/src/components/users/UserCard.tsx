@@ -131,7 +131,7 @@ export default function UserCard({
           </button>
 
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border}`}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border}`}
           >
             {roleMeta.icon}
             {roleMeta.label}
@@ -159,7 +159,7 @@ export default function UserCard({
                   : 'Usuario'}
               </h3>
               {isSelf && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-bg-main text-text-dim font-mono border border-border-base shrink-0">
+                <span className="text-xs px-1.5 py-0.2 rounded bg-bg-main text-text-dim font-mono border border-border-base shrink-0">
                   Tú
                 </span>
               )}
@@ -177,7 +177,7 @@ export default function UserCard({
               {member.teams.map((t) => (
                 <span
                   key={t.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
                   style={{
                     backgroundColor: `${t.color}15`,
                     color: t.color,
@@ -193,12 +193,12 @@ export default function UserCard({
               ))}
             </div>
           ) : (
-            <span className="text-[11px] text-text-dim italic">Sin equipo asignado</span>
+            <span className="text-xs text-text-dim italic">Sin equipo asignado</span>
           )}
         </div>
 
         {/* Login Metadata */}
-        <div className="flex items-center justify-between text-[11px] text-text-dim pt-2 border-t border-border-base/40">
+        <div className="flex items-center justify-between text-xs text-text-dim pt-2 border-t border-border-base/40">
           <span>Último acceso:</span>
           <span className="flex items-center gap-1 font-mono text-text-muted">
             <Clock size={12} />
@@ -210,7 +210,7 @@ export default function UserCard({
       {/* Card Footer: Status Switch & Actions */}
       <div className="pt-3 border-t border-border-base/50 flex items-center justify-between mt-3">
         {isPending ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
             <AlertTriangle size={11} />
             Pendiente
           </span>
@@ -224,7 +224,7 @@ export default function UserCard({
               onToggleActive(member);
             }}
             disabled={isSelf}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${
               member.is_active
                 ? 'bg-accent-green/10 text-accent-green border-accent-green/30 hover:bg-accent-red/10 hover:text-accent-red'
                 : 'bg-accent-red/10 text-accent-red border-accent-red/30 hover:bg-accent-green/10 hover:text-accent-green'

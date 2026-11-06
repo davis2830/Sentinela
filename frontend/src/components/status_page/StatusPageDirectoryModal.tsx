@@ -116,24 +116,24 @@ export default function StatusPageDirectoryModal({
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm font-bold text-text-main">{p.company_name}</h3>
                         {p.is_default && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                             <Star size={10} className="fill-amber-400" />
                             Principal
                           </span>
                         )}
                         {p.is_public ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                             <Globe size={10} />
                             Pública
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-500/10 text-text-muted border border-border-base">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-500/10 text-text-muted border border-border-base">
                             <Lock size={10} />
                             Privada
                           </span>
                         )}
                         {isActive && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-green/20 text-accent-green border border-accent-green/40">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-green/20 text-accent-green border border-accent-green/40">
                             <Check size={10} />
                             Seleccionada
                           </span>
@@ -163,7 +163,7 @@ export default function StatusPageDirectoryModal({
                   {/* Middle: Stats */}
                   <div className="flex items-center gap-3 shrink-0 py-1 md:py-0 border-y md:border-y-0 border-border-base/40">
                     <div className="text-center px-2.5">
-                      <span className="text-[10px] text-text-dim block uppercase tracking-wider font-mono">
+                      <span className="text-xs text-text-dim block uppercase tracking-wider font-mono">
                         Componentes
                       </span>
                       <span className="text-xs font-bold font-mono text-text-main flex items-center justify-center gap-1">
@@ -175,7 +175,7 @@ export default function StatusPageDirectoryModal({
                     <div className="w-px h-6 bg-border-base" />
 
                     <div className="text-center px-2.5">
-                      <span className="text-[10px] text-text-dim block uppercase tracking-wider font-mono">
+                      <span className="text-xs text-text-dim block uppercase tracking-wider font-mono">
                         Suscriptores
                       </span>
                       <span className="text-xs font-bold font-mono text-text-main flex items-center justify-center gap-1">
@@ -187,7 +187,7 @@ export default function StatusPageDirectoryModal({
                     <div className="w-px h-6 bg-border-base" />
 
                     <div className="text-center px-2.5">
-                      <span className="text-[10px] text-text-dim block uppercase tracking-wider font-mono">
+                      <span className="text-xs text-text-dim block uppercase tracking-wider font-mono">
                         Mantenimientos
                       </span>
                       <span className="text-xs font-bold font-mono text-text-main flex items-center justify-center gap-1">

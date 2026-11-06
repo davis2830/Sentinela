@@ -86,7 +86,7 @@ export default function MaintenanceTableView({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="bg-bg-dark/90 border-b border-border-base/60 text-[11px] font-semibold text-text-dim tracking-wider select-none">
+            <tr className="bg-bg-dark/90 border-b border-border-base/60 text-xs font-semibold text-text-dim tracking-wider select-none">
               <th className="py-3 px-4 w-10 text-center">
                 <button
                   type="button"
@@ -153,14 +153,14 @@ export default function MaintenanceTableView({
                       <span className="font-bold text-text-main group-hover:text-accent-green transition-colors">
                         {m.title}
                       </span>
-                      <p className="text-text-muted text-[11px] line-clamp-1">
+                      <p className="text-text-muted text-xs line-clamp-1">
                         {m.description || 'Sin detalles adicionales.'}
                       </p>
                     </div>
                   </td>
 
                   {/* Schedule Dates */}
-                  <td className="py-3 px-4 font-mono text-[11px] text-text-dim">
+                  <td className="py-3 px-4 font-mono text-xs text-text-dim">
                     <div className="flex flex-col gap-0.5">
                       <span className="flex items-center gap-1 text-text-main">
                         <Clock size={11} className="text-accent-yellow" />
@@ -171,7 +171,7 @@ export default function MaintenanceTableView({
                           minute: '2-digit',
                         })}
                       </span>
-                      <span className="text-[10px] text-text-dim">
+                      <span className="text-xs text-text-dim">
                         hasta{' '}
                         {new Date(m.end_time).toLocaleString('es-ES', {
                           month: 'short',

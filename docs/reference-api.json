@@ -1,0 +1,6355 @@
+{
+  "info": {
+    "description": "Inventario de rutas y métodos. Consultar las vistas para payloads y permisos efectivos.",
+    "title": "Sentinel — inventario de API",
+    "version": "1"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/v1/agent-probes/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AgentProbeListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.AgentProbeListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AgentProbeListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.AgentProbeListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/agent-probes/heartbeat/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AgentProbeHeartbeatView.post",
+        "x-authentication-classes": [],
+        "x-handler": "monitoring.views.AgentProbeHeartbeatView.post",
+        "x-permission-classes": []
+      }
+    },
+    "/api/v1/agent-probes/submit-results/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AgentProbeSubmitResultsView.post",
+        "x-authentication-classes": [],
+        "x-handler": "monitoring.views.AgentProbeSubmitResultsView.post",
+        "x-permission-classes": []
+      }
+    },
+    "/api/v1/agent-probes/{probe_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "probe_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AgentProbeDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.AgentProbeDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/agent-probes/{probe_id}/rotate-token/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "probe_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AgentProbeRotateTokenView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.AgentProbeRotateTokenView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrgAdmin"
+        ]
+      }
+    },
+    "/api/v1/alert-rules/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alert-rules/evaluate/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleEvaluateView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleEvaluateView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alert-rules/simulate/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleSimulateView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleSimulateView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alert-rules/{rule_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alert-rules/{rule_id}/snooze/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertRuleSnoozeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertRuleSnoozeView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/acknowledge-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertBulkAcknowledgeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertBulkAcknowledgeView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/resolve-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertBulkResolveView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertBulkResolveView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/{alert_id}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/{alert_id}/create-incident/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertCreateIncidentView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertCreateIncidentView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/alerts/{alert_id}/snooze/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alert_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AlertSnoozeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "alerts.views.AlertSnoozeView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/api-checks/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTargetListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTargetListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTargetListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTargetListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/test-request/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTestRequestView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTestRequestView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/{target_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTargetDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTargetDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTargetDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTargetDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTargetDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTargetDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/{target_id}/results/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckResultListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckResultListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/api-checks/{target_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APICheckTargetScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "api_checks.views.APICheckTargetScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/audit-logs/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AuditLogListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "audit.views.AuditLogListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember"
+        ]
+      }
+    },
+    "/api/v1/audit-logs/{log_id}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "log_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AuditLogDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "audit.views.AuditLogDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/disable/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TwoFactorDisableView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.TwoFactorDisableView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/setup/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TwoFactorSetupView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.TwoFactorSetupView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/verify/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TwoFactorVerifyView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.TwoFactorVerifyView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/api-tokens/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APITokenListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.APITokenListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APITokenListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.APITokenListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/api-tokens/{token_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "APITokenDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.APITokenDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/beta/admin/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BetaAdminView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "accounts.beta_views.BetaAdminView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BetaAdminView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "accounts.beta_views.BetaAdminView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/auth/beta/{operation}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BetaPublicView.get",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.beta_views.BetaPublicView.get",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BetaPublicView.post",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.beta_views.BetaPublicView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/email/change/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "EmailChangeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.beta_views.EmailChangeView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/login/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "LoginView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.LoginView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/login/2fa/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "Login2FAView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.Login2FAView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/logout/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "LogoutView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.LogoutView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/me/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MeView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.MeView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MeView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.MeView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/password/change/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ChangePasswordView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.ChangePasswordView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/auth/password/recovery/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PasswordRecoveryView.post",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.password_reset.PasswordRecoveryView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/password/reset/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PasswordResetView.post",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.password_reset.PasswordResetView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RefreshTokenView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.RefreshTokenView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/register/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RegisterView.post",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.views.RegisterView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/auth/revoke-sessions/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RevokeSessionsView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "accounts.views.RevokeSessionsView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSRecordListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSRecordListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/domains/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSDomainsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSDomainsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/test-resolution/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSTestResolutionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSTestResolutionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/{record_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSRecordDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSRecordDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSRecordDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/{record_id}/history/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSChangeHistoryView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSChangeHistoryView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/{record_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DNSRecordScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/expired/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainExpiredView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainExpiredView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/expiring/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainExpiringSoonView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainExpiringSoonView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/test-whois/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainTestWhoisView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainTestWhoisView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/{domain_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/{domain_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "DomainScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/health/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "HealthCheckView.get",
+        "x-authentication-classes": [],
+        "x-handler": "common.views_health.HealthCheckView.get",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/incidents/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/alerts/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentAlertsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentAlertsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentAlertsView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentAlertsView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/assign/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentAssignView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentAssignView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/rca/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentRCAView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentRCAView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/timeline/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentTimelineView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentTimelineView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "IncidentTimelineView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "incidents.views.IncidentTimelineView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/{window_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/{window_id}/cancel/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowCancelView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowCancelView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/{window_id}/complete/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowCompleteView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowCompleteView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/{window_id}/start/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowStartView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowStartView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/maintenance/{window_id}/updates/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowProgressUpdateView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "maintenance.views.MaintenanceWindowProgressUpdateView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetListView.get",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetListView.post",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.BulkActionView.post",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/global-performance/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringGlobalPerformanceView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringGlobalPerformanceView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/maintenance-windows/{window_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/search/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "GlobalSearchView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.GlobalSearchView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/test-connection/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TestConnectionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.TestConnectionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetDetailView.delete",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetDetailView.get",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetDetailView.patch",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/checks/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringCheckListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringCheckListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/coverage/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TargetCoverageView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views_coverage.TargetCoverageView.get",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TargetCoverageView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views_coverage.TargetCoverageView.patch",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/export/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetExportView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetExportView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/maintenance-windows/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/timeseries/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTimeseriesView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTimeseriesView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring-targets/{target_id}/uptime/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringUptimeView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringUptimeView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetListView.get",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetListView.post",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.BulkActionView.post",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring/global-performance/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringGlobalPerformanceView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringGlobalPerformanceView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/maintenance-windows/{window_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/search/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "GlobalSearchView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.GlobalSearchView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/test-connection/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TestConnectionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.TestConnectionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetDetailView.delete",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetDetailView.get",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetDetailView.patch",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/checks/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringCheckListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringCheckListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/coverage/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TargetCoverageView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views_coverage.TargetCoverageView.get",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TargetCoverageView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views_coverage.TargetCoverageView.patch",
+        "x-permission-classes": [
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/export/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetExportView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetExportView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/maintenance-windows/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceWindowListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MaintenanceWindowListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTargetScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTargetScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/timeseries/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringTimeseriesView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringTimeseriesView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/monitoring/{target_id}/uptime/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MonitoringUptimeView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.MonitoringUptimeView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/notifications/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/channels/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/channels/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/channels/{channel_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/channels/{channel_id}/test/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationChannelTestView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationChannelTestView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/export-csv/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationExportCsvView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationExportCsvView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/test-connection/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationTestConnectionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationTestConnectionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/{notification_id}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/notifications/{notification_id}/retry/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "NotificationRetryView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "notifications.views.NotificationRetryView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/organizations/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationListView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationListView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationListView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationListView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/organizations/current/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationCurrentView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationCurrentView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationCurrentView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationCurrentView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/current/change-plan/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationChangePlanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationChangePlanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/current/export/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationExportBackupView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationExportBackupView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/current/invoices/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationInvoicesView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationInvoicesView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/current/subscription/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationSubscriptionView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationSubscriptionView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/invitations/accept/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "AcceptInvitationView.post",
+        "x-authentication-classes": [],
+        "x-handler": "organizations.views.AcceptInvitationView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/organizations/invitations/validate/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ValidateInvitationView.get",
+        "x-authentication-classes": [],
+        "x-handler": "organizations.views.ValidateInvitationView.get",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ValidateInvitationView.post",
+        "x-authentication-classes": [],
+        "x-handler": "organizations.views.ValidateInvitationView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/organizations/members/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationMembersView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationMembersView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationMembersView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationMembersView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/members/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationMemberBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationMemberBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/organizations/members/export-csv/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationMemberExportCSVView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationMemberExportCSVView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/members/{user_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationMemberDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationMemberDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/organizations/members/{user_id}/resend/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationMemberResendInviteView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationMemberResendInviteView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationDetailView.delete",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationDetailView.delete",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationDetailView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationDetailView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "OrganizationDetailView.patch",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views.OrganizationDetailView.patch",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/audit-logs/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformAuditLogListView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "audit.views.PlatformAuditLogListView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/beta/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BetaAdminView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "accounts.beta_views.BetaAdminView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "BetaAdminView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "accounts.beta_views.BetaAdminView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/export-csv/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformExportCSVView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformExportCSVView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/organizations/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformOrganizationListView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformOrganizationListView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/organizations/{org_id}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformOrganizationDetailView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformOrganizationDetailView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/organizations/{org_id}/extend-trial/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformOrganizationExtendTrialView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformOrganizationExtendTrialView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/organizations/{org_id}/set-plan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformOrganizationSetPlanView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformOrganizationSetPlanView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/organizations/{org_id}/toggle-status/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformOrganizationToggleStatusView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformOrganizationToggleStatusView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/session/login/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformLoginView.post",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.platform_auth.PlatformLoginView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/session/logout/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformLogoutView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "accounts.platform_auth.PlatformLogoutView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/session/verify/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformVerifyView.post",
+        "x-authentication-classes": [],
+        "x-handler": "accounts.platform_auth.PlatformVerifyView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformStatsView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.views_admin.PlatformStatsView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/users/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformUserListView.get",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.platform_users.PlatformUserListView.get",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/platform-admin/users/{user_id}/action/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PlatformUserActionView.post",
+        "x-authentication-classes": [
+          "PlatformAuthentication"
+        ],
+        "x-handler": "organizations.platform_users.PlatformUserActionView.post",
+        "x-permission-classes": [
+          "IsSuperUser"
+        ]
+      }
+    },
+    "/api/v1/reports/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/reports/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/reports/sla-live/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportLiveSLAMetricsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportLiveSLAMetricsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/reports/{report_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/reports/{report_id}/export/csv/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportExportCSVView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportExportCSVView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember"
+        ]
+      }
+    },
+    "/api/v1/reports/{report_id}/export/pdf/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "ReportExportPDFView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "reports.views.ReportExportPDFView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember"
+        ]
+      }
+    },
+    "/api/v1/security-headers/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTargetListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTargetListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTargetListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTargetListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/test-headers/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTestView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTestView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/{target_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTargetDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTargetDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTargetDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTargetDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTargetDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTargetDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/{target_id}/results/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderResultListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderResultListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/security-headers/{target_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SecurityHeaderTargetScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "security_headers.views.SecurityHeaderTargetScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLCertificateListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLCertificateListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLCertificateListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLCertificateListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/expired/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLExpiredView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLExpiredView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/expiring/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLExpiringSoonView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLExpiringSoonView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/scan-all/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLBulkScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLBulkScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/test-connection/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLTestConnectionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLTestConnectionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/{certificate_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "certificate_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLCertificateDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLCertificateDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "certificate_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLCertificateDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLCertificateDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "certificate_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLCertificateDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLCertificateDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/ssl-certificates/{certificate_id}/scan/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "certificate_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SSLCertificateScanView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "ssl_monitor.views.SSLCertificateScanView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/status-page/available-targets/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageAvailableTargetsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageAvailableTargetsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/config/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageConfigView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageConfigView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageConfigView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageConfigView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/maintenances/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.MaintenanceListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.MaintenanceListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/maintenances/bulk-action/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceBulkActionView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.MaintenanceBulkActionView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/maintenances/{maintenance_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "maintenance_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.MaintenanceDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "maintenance_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.MaintenanceDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/maintenances/{maintenance_id}/updates/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "maintenance_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "MaintenanceUpdateView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.MaintenanceUpdateView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/pages/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/pages/{page_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/pages/{page_id}/set-default/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageSetDefaultView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageSetDefaultView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/public/{slug}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PublicStatusPageView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.PublicStatusPageView.get",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/status-page/public/{slug}/subscribe/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PublicSubscribeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.PublicSubscribeView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/status-page/public/{slug}/unsubscribe/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PublicUnsubscribeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.PublicUnsubscribeView.post",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    },
+    "/api/v1/status-page/stats/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "StatusPageStatsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.StatusPageStatsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/subscribers/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SubscriberListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.SubscriberListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/subscribers/export/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SubscriberExportCSVView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.SubscriberExportCSVView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/status-page/subscribers/{subscriber_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subscriber_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "SubscriberDeleteView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "status_page.views.SubscriberDeleteView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/permissions/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "PermissionListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.PermissionListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/users/roles/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RoleListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.RoleListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RoleListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.RoleListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/roles/{role_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RoleDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.RoleDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RoleDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.RoleDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "RoleDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.RoleDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/teams/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamListView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamListView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamListView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamListView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/teams/seed-defaults/": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamSeedDefaultsView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamSeedDefaultsView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/teams/{team_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/teams/{team_id}/members/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "TeamMembersView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.TeamMembersView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserDetailView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserDetailView.delete",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserDetailView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserDetailView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrganizationMember",
+          "IsAdminOrReadOnly"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/roles/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserRoleView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserRoleView.delete",
+        "x-permission-classes": [
+          "IsOrgAdmin"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserRoleView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserRoleView.post",
+        "x-permission-classes": [
+          "IsOrgAdmin"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/roles/{role_id}/": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserRoleView.delete",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserRoleView.delete",
+        "x-permission-classes": [
+          "IsOrgAdmin"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "UserRoleView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "users.views.UserRoleView.post",
+        "x-permission-classes": [
+          "IsOrgAdmin"
+        ]
+      }
+    },
+    "/health/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "default": {
+            "description": "Consultar la vista para el contrato de respuesta."
+          }
+        },
+        "summary": "HealthCheckView.get",
+        "x-authentication-classes": [],
+        "x-handler": "common.views_health.HealthCheckView.get",
+        "x-permission-classes": [
+          "AllowAny"
+        ]
+      }
+    }
+  }
+}

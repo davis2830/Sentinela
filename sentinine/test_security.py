@@ -36,6 +36,7 @@ class ConfigurationSecurityTests(unittest.TestCase):
             path=Path(folder)/'token';path.write_text('\ufefffixture-file-token\n',encoding='utf-8');path.chmod(0o400)
             with patch.dict(os.environ,{'SENTININE_TOKEN_FILE':str(path),'SENTININE_TOKEN':'fixture-env-token'},clear=True):
                 self.assertEqual(load_token(),'fixture-file-token')
+                path.chmod(0o600)
                 path.unlink()
                 with self.assertRaises(ValueError):load_token()
 

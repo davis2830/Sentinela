@@ -78,7 +78,7 @@ export default function SubscribeModal({
                 Hemos registrado <strong className="text-text-main font-mono">{email}</strong> para recibir alertas en tiempo real sobre el estado de {companyName}.
               </p>
             </div>
-            <p className="text-[11px] text-text-dim">
+            <p className="text-xs text-text-dim">
               Puedes cancelar tu suscripción en cualquier momento desde los enlaces al pie de cada notificación.
             </p>
             <button
@@ -127,7 +127,7 @@ export default function SubscribeModal({
                 />
               </div>
 
-              <div className="flex items-start gap-2 text-[11px] text-text-dim">
+              <div className="flex items-start gap-2 text-xs text-text-dim">
                 <ShieldCheck size={14} className="text-accent-green shrink-0 mt-0.5" />
                 <span>
                   Tus datos están protegidos. Únicamente te enviaremos actualizaciones operativas críticas. Cero spam.

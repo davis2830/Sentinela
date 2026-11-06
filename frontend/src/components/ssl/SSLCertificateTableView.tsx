@@ -160,7 +160,7 @@ export default function SSLCertificateTableView({
                         {cert.domain}
                       </span>
                       {cert.port && cert.port !== 443 && (
-                        <span className="font-mono text-[10px] px-1.5 py-0.2 bg-bg-dark border border-border-base rounded text-accent-blue">
+                        <span className="font-mono text-xs px-1.5 py-0.2 bg-bg-dark border border-border-base rounded text-accent-blue">
                           :{cert.port}
                         </span>
                       )}
@@ -186,14 +186,14 @@ export default function SSLCertificateTableView({
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-full border ${getGradeStyle(
+                        className={`font-mono font-bold text-xs px-2 py-0.5 rounded-full border ${getGradeStyle(
                           cert.security_grade
                         )}`}
                         title={`Grado de seguridad SSL: ${cert.security_grade || '—'}`}
                       >
                         {cert.security_grade || '—'}
                       </span>
-                      <span className="font-mono text-[10px] text-text-dim">
+                      <span className="font-mono text-xs text-text-dim">
                         {cert.tls_version || 'TLS 1.3'}
                       </span>
                     </div>
@@ -254,14 +254,14 @@ export default function SSLCertificateTableView({
                   <td className="py-3 px-3">
                     {cert.san_domains && cert.san_domains.length > 0 ? (
                       <span
-                        className="inline-flex items-center gap-1 font-mono text-[11px] px-2 py-0.5 rounded-md bg-bg-dark border border-border-base text-text-muted"
+                        className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 rounded-md bg-bg-dark border border-border-base text-text-muted"
                         title={cert.san_domains.join(', ')}
                       >
                         <Layers size={11} className="text-accent-blue" />
                         <span>{cert.san_domains.length} SANs</span>
                       </span>
                     ) : (
-                      <span className="text-text-dim font-mono text-[11px]">1 SAN</span>
+                      <span className="text-text-dim font-mono text-xs">1 SAN</span>
                     )}
                   </td>
 

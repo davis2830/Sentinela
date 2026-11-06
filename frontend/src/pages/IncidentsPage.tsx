@@ -787,13 +787,13 @@ export default function IncidentsPage() {
             <div className="space-y-3">
               {/* Stepper Flow Bar */}
               <div className="bg-bg-dark/90 border border-border-base rounded-2xl p-3.5">
-                <div className="text-[11px] font-semibold text-text-dim mb-2.5 flex items-center justify-between">
+                <div className="text-xs font-semibold text-text-dim mb-2.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Activity size={13} className="text-accent-green" />
                     Controlador del Ciclo de Vida del Incidente
                   </span>
                   {selectedIncident.duration_minutes > 0 && (
-                    <span className="font-mono text-sky-400 text-[11px]">
+                    <span className="font-mono text-sky-400 text-xs">
                       Duración: {selectedIncident.duration_minutes}m
                     </span>
                   )}
@@ -810,7 +810,7 @@ export default function IncidentsPage() {
                         type="button"
                         onClick={() => handleStatusChange(step.status)}
                         disabled={updateMutation.isPending}
-                        className={`p-2 rounded-xl border text-[11px] font-medium flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                        className={`p-2 rounded-xl border text-xs font-medium flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                           isCurrent
                             ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-sm font-semibold'
                             : isPast
@@ -832,26 +832,26 @@ export default function IncidentsPage() {
               {/* Quick Info Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                  <div className="text-[11px] text-text-dim">Apertura</div>
+                  <div className="text-xs text-text-dim">Apertura</div>
                   <div className="text-xs font-bold font-mono text-text-main mt-0.5 truncate">
                     {new Date(selectedIncident.opened_at).toLocaleDateString('es-ES')}
                   </div>
                 </div>
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                  <div className="text-[11px] text-text-dim">Responsable</div>
+                  <div className="text-xs text-text-dim">Responsable</div>
                   <div className="text-xs font-bold text-sky-400 mt-0.5 truncate">
                     {selectedIncident.assigned_to_name || 'Sin asignar'}
                   </div>
                 </div>
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                  <div className="text-[11px] text-text-dim">Servicio</div>
+                  <div className="text-xs text-text-dim">Servicio</div>
                   <div className="text-xs font-bold text-text-main mt-0.5 truncate flex items-center gap-1">
                     {getModuleIcon(selectedIncident.target_type)}
                     <span>{selectedIncident.impacted_service || 'General'}</span>
                   </div>
                 </div>
                 <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                  <div className="text-[11px] text-text-dim">Alertas</div>
+                  <div className="text-xs text-text-dim">Alertas</div>
                   <div className="text-base font-bold font-mono text-accent-green mt-0.5">
                     {selectedIncident.alerts_count}
                   </div>
@@ -950,7 +950,7 @@ export default function IncidentsPage() {
                   Post-Mortem & Análisis de Causa Raíz (RCA)
                 </h4>
                 {selectedIncident.root_cause && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
                     RCA Registrado
                   </span>
                 )}
@@ -1040,7 +1040,7 @@ export default function IncidentsPage() {
                         <span className="font-bold text-text-main text-sm block">
                           {la.alert_title}
                         </span>
-                        <p className="text-[11px] text-text-dim mt-1 font-mono">
+                        <p className="text-xs text-text-dim mt-1 font-mono">
                           Vinculada el: {new Date(la.added_at).toLocaleString('es-ES')}
                         </p>
                       </div>
@@ -1072,14 +1072,14 @@ export default function IncidentsPage() {
                   <UserCheck size={15} className="text-sky-400" />
                   Asignación de Responsables (Operador & Cuadrilla)
                 </h4>
-                <p className="text-[11px] text-text-dim">
+                <p className="text-xs text-text-dim">
                   Asigna el incidente a un miembro del equipo de guardia y/o a una cuadrilla especializada para resolución y seguimiento.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-text-muted mb-1 flex items-center gap-1">
+                  <label className="block text-xs font-medium text-text-muted mb-1 flex items-center gap-1">
                     <User size={12} className="text-sky-400" /> Operador Asignado:
                   </label>
                   <select
@@ -1099,7 +1099,7 @@ export default function IncidentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-text-muted mb-1 flex items-center gap-1">
+                  <label className="block text-xs font-medium text-text-muted mb-1 flex items-center gap-1">
                     <Layers size={12} className="text-accent-purple" /> Cuadrilla / Equipo:
                   </label>
                   <select
@@ -1147,7 +1147,7 @@ export default function IncidentsPage() {
                     <span className="font-semibold text-text-main block">
                       {selectedIncident.impacted_service || 'Infraestructura General'}
                     </span>
-                    <span className="text-[11px] text-text-dim">
+                    <span className="text-xs text-text-dim">
                       Módulo: {selectedIncident.target_type || 'General'}
                     </span>
                   </div>
@@ -1177,7 +1177,7 @@ export default function IncidentsPage() {
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
                 <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
-                  <span className="text-text-dim block text-[11px] font-sans">
+                  <span className="text-text-dim block text-xs font-sans">
                     Fecha de Apertura:
                   </span>
                   <span className="text-text-main font-semibold mt-1 block">
@@ -1185,7 +1185,7 @@ export default function IncidentsPage() {
                   </span>
                 </div>
                 <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
-                  <span className="text-text-dim block text-[11px] font-sans">
+                  <span className="text-text-dim block text-xs font-sans">
                     Reconocido (MTTA):
                   </span>
                   <span className="text-accent-cyan font-semibold mt-1 block">
@@ -1195,7 +1195,7 @@ export default function IncidentsPage() {
                   </span>
                 </div>
                 <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
-                  <span className="text-text-dim block text-[11px] font-sans">
+                  <span className="text-text-dim block text-xs font-sans">
                     Mitigación Aplicada:
                   </span>
                   <span className="text-teal-400 font-semibold mt-1 block">
@@ -1205,7 +1205,7 @@ export default function IncidentsPage() {
                   </span>
                 </div>
                 <div className="p-3 bg-bg-card rounded-xl border border-border-base/50">
-                  <span className="text-text-dim block text-[11px] font-sans">
+                  <span className="text-text-dim block text-xs font-sans">
                     Resolución Final (MTTR):
                   </span>
                   <span className="text-accent-green font-semibold mt-1 block">

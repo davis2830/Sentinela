@@ -5,13 +5,16 @@ El despliegue usa una ventana breve de corte controlado.
 ## Antes de la ventana
 
 - [ ] Completar secretos de `.env.production` desde [el ejemplo](../.env.production.example).
-- [ ] Verificar imágenes GHCR y tag inmutable.
+- [ ] Verificar imágenes GHCR de backend, frontend y gateway parcheado, con el mismo tag inmutable.
+- [ ] Configurar `GATEWAY_IMAGE` y permisos de la llave TLS para el grupo 101 (`0440`).
+- [ ] Exigir CI del SHA exacto y revisores obligatorios en el entorno GitHub `production`.
 - [ ] Provisionar certificado y llave fuera del repositorio.
 - [ ] Ejecutar suite Django, build frontend, Playwright, auditorías y Trivy.
 - [ ] Validar Compose productivo, ambos builds y `nginx -t`.
 - [ ] Ejecutar `quarantine_unsafe_targets` sin `--apply` y aprobar los hallazgos.
 - [ ] Comunicar que los API tokens existentes deben regenerarse.
 - [ ] Confirmar ventana, responsables y ruta de rollback.
+- [ ] Verificar restauración de backup custom y ensayar rollback irreversible en preproducción.
 
 ## Durante la ventana
 
@@ -29,6 +32,7 @@ El despliegue usa una ventana breve de corte controlado.
 - [ ] TLS 1.2/1.3 y HSTS responden por HTTPS.
 - [ ] Backend no tiene puerto de host.
 - [ ] Login y dashboard.
+- [ ] Si se publica la consola, verificar acceso protegido, TOTP y aislamiento del dominio público según la [guía administrativa](PLATFORM_ACCESS.md#publicación-de-la-consola).
 - [ ] Alta de target por admin; Viewer recibe 403.
 - [ ] Scans devuelven 202 y actualizan el timestamp.
 - [ ] SSL, DNS y WHOIS ejecutan tareas registradas.

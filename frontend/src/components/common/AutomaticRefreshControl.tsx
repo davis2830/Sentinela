@@ -18,6 +18,6 @@ export default function AutomaticRefreshControl({ enabled, countdown, onToggle, 
     title={enabled ? `Consulta datos guardados; no ejecuta sondeos. Próxima consulta en ${formatRefreshCountdown(countdown)}` : 'Consulta automática de datos guardados pausada o no disponible; puedes actualizar manualmente.'}
     className={`inline-flex items-center gap-1.5 rounded-full border py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed ${compact ? 'min-h-11 px-2' : 'px-3'} ${enabled ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : 'border-border-base bg-bg-card text-text-muted'}`}>
     {enabled ? <Radio size={13} /> : <Pause size={13} />}
-    {compact ? (blockedReason || !ready ? 'Auto no disponible' : enabled ? 'Auto' : 'Auto pausado') : blockedReason || (!ready ? 'Frecuencia no disponible' : enabled ? 'Actualización automática activa' : 'Actualización automática pausada')}
+    {compact ? (blockedReason || !ready ? 'Auto no disponible' : enabled ? 'Auto' : 'Auto pausado') : blockedReason || (!ready ? 'Frecuencia no disponible' : enabled ? 'Consulta automática activa' : 'Consulta automática pausada')}
   </button>;
 }

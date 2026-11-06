@@ -98,7 +98,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5 ${
+              className={`px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
                 isRunning
                   ? 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30'
                   : item.status === 'scheduled' && isInsideWindow
@@ -128,7 +128,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
             </span>
 
             {item.recurrence && item.recurrence !== 'none' && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-bg-dark text-text-dim border border-border-base flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-bg-dark text-text-dim border border-border-base flex items-center gap-1">
                 <Repeat size={10} className="text-accent-blue" />
                 {item.recurrence === 'weekly' ? 'Semanal' : item.recurrence === 'biweekly' ? 'Quincenal' : 'Mensual'}
               </span>
@@ -166,7 +166,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
 
         {/* Targets Asignados */}
         <div className="space-y-1.5 mb-4">
-          <div className="text-[10px] font-mono text-text-dim uppercase tracking-wider flex items-center gap-1">
+          <div className="text-xs font-mono text-text-dim uppercase tracking-wider flex items-center gap-1">
             <Layers size={11} /> Targets Cubiertos ({item.targets?.length || 0}):
           </div>
           <div className="flex flex-wrap gap-1.5 max-h-16 overflow-hidden">
@@ -174,16 +174,16 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
               item.targets.slice(0, 3).map((t, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-md bg-bg-dark border border-border-base text-[11px] font-mono text-text-muted truncate max-w-[200px]"
+                  className="px-2 py-0.5 rounded-md bg-bg-dark border border-border-base text-xs font-mono text-text-muted truncate max-w-[200px]"
                 >
                   {t.target_type === 'all' ? 'Toda la Organización' : t.target_name || t.target_type}
                 </span>
               ))
             ) : (
-              <span className="text-[11px] text-text-dim italic">Sin targets asignados</span>
+              <span className="text-xs text-text-dim italic">Sin targets asignados</span>
             )}
             {item.targets?.length > 3 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-bg-dark border border-border-base text-[10px] font-mono text-text-dim">
+              <span className="px-1.5 py-0.5 rounded-md bg-bg-dark border border-border-base text-xs font-mono text-text-dim">
                 +{item.targets.length - 3} más
               </span>
             )}
@@ -207,7 +207,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           )}
           {item.responsible_team_name && (
             <span
-              className="px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 bg-bg-dark border border-border-base text-text-muted"
+              className="px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 bg-bg-dark border border-border-base text-text-muted"
             >
               <span
                 className="w-1.5 h-1.5 rounded-full"
@@ -225,7 +225,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
               type="button"
               disabled={isStarting}
               onClick={() => onStart(item.id)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
+              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
                 isInsideWindow
                   ? 'bg-sky-500 text-black hover:bg-sky-400 shadow-sm shadow-sky-500/20'
                   : 'bg-accent-blue/15 text-accent-blue hover:bg-accent-blue/25 border border-accent-blue/30'
@@ -240,7 +240,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
               type="button"
               disabled={isCompleting}
               onClick={() => onComplete(item.id)}
-              className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-accent-green text-black hover:bg-accent-green/90 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
+              className="px-2.5 py-1 rounded-full text-xs font-bold bg-accent-green text-black hover:bg-accent-green/90 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
             >
               <CheckCircle2 size={11} /> Finalizar
             </AdminButton>

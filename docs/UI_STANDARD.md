@@ -8,7 +8,7 @@ En pocos segundos se debe reconocer **qué ocurre, qué dato lo demuestra y qué
 
 ## Identidad y componentes
 
-- Conservar Plus Jakarta Sans; JetBrains Mono para valores técnicos cuando aporte legibilidad. No añadir fuentes.
+- Usar Roboto como fuente principal. Reservar JetBrains Mono para valores técnicos cuando aporte legibilidad.
 - Conservar Lucide y los iconos existentes de cada módulo. Acompañar los estados con texto; el color no es la única señal.
 - Reutilizar los tokens `--sentinel-*` de `frontend/src/index.css` y `frontend/tailwind.config.js`. Mantener superficies grafito opacas y bordes discretos.
 - `MetricCard` es la referencia reutilizable de indicador. `.ui-card`, `.ui-button`, `.ui-status` y `.ui-coverage` definen superficies, acciones y estados. Usar `data-tone` con `success`, `warning`, `danger`, `info` o `muted`.
@@ -62,7 +62,19 @@ En móvil: indicadores en dos columnas, vínculos en filas compactas, acciones q
 - Deduplicar alertas vinculadas a incidentes mediante IDs. Los avisos del mismo recurso ya representado por una alerta estructurada conservan la acción de esa alerta. No relacionar recursos por coincidencia de texto.
 - Acortar el texto visible sin eliminar el contexto: títulos originales disponibles en el detalle, metadatos en **Detalles del monitoreo**, estadísticas en **Detalles de latencia**.
 
+## Consola administrativa SaaS
+
+- Distinguir el estado de suscripción del estado de pago. Una suscripción activa o una factura de demostración no acredita un cobro. Mostrar la fecha de fin de prueba como tal. Usar texto junto al color y conservar la misma semántica en el resumen, el directorio y la ficha.
+
+- Compartir la marca, tipografía Roboto, tokens y componentes visuales de Sentinel. Reutilizar encabezados, filtros, indicadores y superficies antes de crear variantes. Mantener sesión, consultas y permisos exclusivos de plataforma.
+- El resumen debe ayudar a decidir qué revisar. Los indicadores financieros deben identificarse como estimaciones y las distribuciones deben mostrar el conteo, su proporción sobre el total y el enlace al directorio filtrado.
+- El estado del filtro debe ser visible al abrir el directorio. No mostrar subtotales del resultado filtrado como si fueran conteos globales.
+- Mantener la cabecera visible y el área de contenido desplazable con teclado y tacto. Las tablas anchas pueden desplazarse dentro de su contenedor. Verificar que el último resultado, la paginación y los diálogos sigan accesibles en escritorio y móvil.
+
 ## Gráficas
+
+- Reutilizar Recharts y los tokens de Sentinel. Usar Tremor Raw como referencia visual cuando ayude. Evaluar cualquier actualización de dependencias por separado, con evidencia de compatibilidad.
+- En el dashboard global, alinear las series por tiempo, diferenciar unidades y mostrar un solo tooltip por interacción. Conservar el eje temporal si falta la serie de volumen. Mantener visibles el alcance, el período y los estados sin datos o con error.
 
 - Título **Latencia**, selector **Media / Picos / Ambas** y unidad visible.
 - Conservar huecos de medición como `null`; no dibujar ceros ni conectar intervalos sin datos. No sustituir un máximo ausente por la media.

@@ -1,0 +1,77 @@
+# Isolated local/CI audit. Never layer this file over the operational Compose.
+# Use a unique project name: docker compose -p sentinel-audit-<run> -f ...
+x-backend: &backend
+  image: sentinel-audit-backend:local
+  build: ./backend
+  environment: &audit_environment
+    DJANGO_SETTINGS_MODULE: config.settings.dev
+    SECRET_KEY: isolated-audit-only-key-not-for-production-or-existing-data-20261104
+    DEBUG: "True"
+    ALLOWED_HOSTS: localhost,127.0.0.1,backend,testserver
+    POSTGRES_DB: sentinel_audit
+    POSTGRES_USER: sentinel_audit
+    POSTGRES_PASSWORD: isolated-audit-database-only
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CELERY_RESULT_BACKEND: redis://redis:6379/1
+    PUBLIC_APP_URL: http://127.0.0.1:31801
+    EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+    EMAIL_HOST: ""
+    EMAIL_HOST_USER: ""
+    EMAIL_HOST_PASSWORD: ""
+    TURNSTILE_SITE_KEY: ""
+    TURNSTILE_SECRET_KEY: ""
+    RETENTION_PLAN_CAP_ENFORCED: "false"
+    TZ: America/Guatemala
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sentinel_audit
+      POSTGRES_USER: sentinel_audit
+      POSTGRES_PASSWORD: isolated-audit-database-only
+    volumes: ["audit_db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U sentinel_audit -d sentinel_audit"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  backend:
+    <<: *backend
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60
+    ports: ["127.0.0.1:31800:8000"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=4).read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  celery_worker:
+    <<: *backend
+    command: celery -A config worker -l warning --concurrency=2 -Q high_priority,monitoring,background,celery
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://127.0.0.1:31800/api/v1
+    ports: ["127.0.0.1:31801:3000"]
+
+volumes:
+  audit_db:

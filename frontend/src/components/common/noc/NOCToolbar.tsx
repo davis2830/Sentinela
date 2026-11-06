@@ -96,6 +96,7 @@ export default function NOCToolbar({
           />
           <input
             type="text"
+            aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -153,7 +154,7 @@ export default function NOCToolbar({
           {/* Categories */}
           {categories && categories.length > 0 && onCategoryChange && (
             <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-0.5">
-              <span className="text-[11px] text-text-dim font-semibold mr-1 shrink-0 font-sans">
+              <span className="text-xs text-text-dim font-semibold mr-1 shrink-0 font-sans">
                 {categoryLabel}
               </span>
               {categories.map((cat) => {
@@ -195,7 +196,7 @@ export default function NOCToolbar({
                   >
                     {pill.label}
                     {pill.count !== undefined && (
-                      <span className="ml-1 text-[11px] opacity-80">
+                      <span className="ml-1 text-xs opacity-80">
                         ({pill.count})
                       </span>
                     )}

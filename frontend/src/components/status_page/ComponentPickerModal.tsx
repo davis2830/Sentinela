@@ -161,14 +161,14 @@ export default function ComponentPickerModal({
               <button
                 type="button"
                 onClick={() => handleSelectAll(true)}
-                className="px-2.5 py-1 text-[11px] bg-bg-dark border border-border-base text-text-muted hover:text-accent-green rounded-lg transition-colors cursor-pointer"
+                className="px-2.5 py-1 text-xs bg-bg-dark border border-border-base text-text-muted hover:text-accent-green rounded-lg transition-colors cursor-pointer"
               >
                 Mostrar Todos
               </button>
               <button
                 type="button"
                 onClick={() => handleSelectAll(false)}
-                className="px-2.5 py-1 text-[11px] bg-bg-dark border border-border-base text-text-muted hover:text-accent-red rounded-lg transition-colors cursor-pointer"
+                className="px-2.5 py-1 text-xs bg-bg-dark border border-border-base text-text-muted hover:text-accent-red rounded-lg transition-colors cursor-pointer"
               >
                 Ocultar Todos
               </button>
@@ -223,7 +223,7 @@ export default function ComponentPickerModal({
                         className="w-full bg-bg-card border border-border-base/70 rounded-lg px-2.5 py-1 text-xs font-semibold text-text-main focus:outline-none focus:border-accent-green"
                       />
                       {target?.target_url && (
-                        <span className="text-[10px] font-mono text-text-dim truncate block mt-0.5">
+                        <span className="text-xs font-mono text-text-dim truncate block mt-0.5">
                           {target.target_url}
                         </span>
                       )}
@@ -233,7 +233,7 @@ export default function ComponentPickerModal({
                   {/* Right: Category Selector / Input */}
                   <div className="flex items-center gap-2 sm:w-56 shrink-0">
                     <div className="w-full">
-                      <label className="block text-[10px] text-text-dim mb-0.5">Categoría:</label>
+                      <label className="block text-xs text-text-dim mb-0.5">Categoría:</label>
                       <input
                         type="text"
                         value={item.category}

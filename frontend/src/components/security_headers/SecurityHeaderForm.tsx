@@ -173,7 +173,7 @@ export default function SecurityHeaderForm({
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
               />
             </div>
-            <p className="text-[11px] text-text-dim mt-1.5">
+            <p className="text-xs text-text-dim mt-1.5">
               Se analizarán cabeceras como HSTS, CSP, X-Frame-Options, X-Content-Type-Options y posibles fugas de servidor.
             </p>
           </div>
@@ -204,7 +204,7 @@ export default function SecurityHeaderForm({
                   <span className="text-xs font-mono font-bold text-accent-green">
                     Status {testResult.http_status}
                   </span>
-                  <span className="text-[11px] font-mono text-text-dim flex items-center gap-1">
+                  <span className="text-xs font-mono text-text-dim flex items-center gap-1">
                     <Clock size={11} /> {testResult.response_time_ms} ms
                   </span>
                 </div>
@@ -214,19 +214,19 @@ export default function SecurityHeaderForm({
               {/* Score & Headers Count Summary */}
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
-                  <div className="text-[10px] text-text-dim">Puntuación</div>
+                  <div className="text-xs text-text-dim">Puntuación</div>
                   <div className="text-sm font-bold font-mono text-text-main mt-0.5">
                     {testResult.score} / 100
                   </div>
                 </div>
                 <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
-                  <div className="text-[10px] text-text-dim">Detectadas</div>
+                  <div className="text-xs text-text-dim">Detectadas</div>
                   <div className="text-sm font-bold font-mono text-emerald-400 mt-0.5">
                     {Object.keys(testResult.headers_found).length} OK
                   </div>
                 </div>
                 <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
-                  <div className="text-[10px] text-text-dim">Faltantes</div>
+                  <div className="text-xs text-text-dim">Faltantes</div>
                   <div className={`text-sm font-bold font-mono mt-0.5 ${
                     testResult.headers_missing.length > 0 ? 'text-amber-400' : 'text-emerald-400'
                   }`}>
@@ -241,7 +241,7 @@ export default function SecurityHeaderForm({
                   <ShieldAlert size={14} className="shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
                     <span className="font-semibold">Fuga de información de stack detectada:</span>
-                    <p className="text-[11px] text-amber-300/80">
+                    <p className="text-xs text-amber-300/80">
                       {leakKeys.map((k) => `${testResult.info_leaks[k].header}: ${testResult.info_leaks[k].value}`).join(' | ')}
                     </p>
                   </div>
@@ -253,7 +253,7 @@ export default function SecurityHeaderForm({
                 {Object.keys(testResult.headers_found).map((hdr) => (
                   <span
                     key={hdr}
-                    className="px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-md text-[10px] font-mono flex items-center gap-1"
+                    className="px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-md text-xs font-mono flex items-center gap-1"
                   >
                     <CheckCircle2 size={10} />
                     {hdr}
@@ -262,7 +262,7 @@ export default function SecurityHeaderForm({
                 {testResult.headers_missing.map((hdr) => (
                   <span
                     key={hdr}
-                    className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-md text-[10px] font-mono"
+                    className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-md text-xs font-mono"
                   >
                     Falta {hdr}
                   </span>

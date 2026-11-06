@@ -167,7 +167,7 @@ export default function TeamsView({
 
                 {/* Team Lead Strip */}
                 <div className="p-2.5 rounded-xl bg-bg-dark border border-border-base/70 flex items-center justify-between mb-3 text-xs">
-                  <span className="text-[11px] text-text-dim flex items-center gap-1.5">
+                  <span className="text-xs text-text-dim flex items-center gap-1.5">
                     <Crown size={12} className={t.lead ? 'text-accent-yellow' : 'text-text-dim'} />
                     Líder:
                   </span>
@@ -187,7 +187,7 @@ export default function TeamsView({
                         : 'bg-bg-dark border-border-base'
                     }`}
                   >
-                    <span className="text-[10px] text-text-dim flex items-center gap-1">
+                    <span className="text-xs text-text-dim flex items-center gap-1">
                       <AlertTriangle
                         size={11}
                         className={activeIncidents > 0 ? 'text-accent-red' : 'text-text-dim'}
@@ -204,7 +204,7 @@ export default function TeamsView({
                   </div>
 
                   <div className="p-2 rounded-xl bg-bg-dark border border-border-base flex items-center justify-between">
-                    <span className="text-[10px] text-text-dim flex items-center gap-1">
+                    <span className="text-xs text-text-dim flex items-center gap-1">
                       <Activity size={11} className="text-accent-blue" />
                       Servicios
                     </span>
@@ -216,7 +216,7 @@ export default function TeamsView({
 
                 {/* Members Avatars Strip */}
                 <div className="space-y-1.5 mb-2">
-                  <div className="flex items-center justify-between text-[11px] text-text-dim">
+                  <div className="flex items-center justify-between text-xs text-text-dim">
                     <span className="flex items-center gap-1">
                       <Users size={12} />
                       Integrantes
@@ -238,20 +238,20 @@ export default function TeamsView({
                           <div
                             key={m.id}
                             title={`${m.first_name || ''} ${m.last_name || ''} (${m.email})`}
-                            className="w-7 h-7 rounded-full bg-bg-main border-2 border-bg-card flex items-center justify-center font-bold text-[10px] text-text-main shadow-xs"
+                            className="w-7 h-7 rounded-full bg-bg-main border-2 border-bg-card flex items-center justify-center font-bold text-xs text-text-main shadow-xs"
                           >
                             {initials}
                           </div>
                         );
                       })
                     ) : (
-                      <span className="text-[11px] text-text-dim italic">
+                      <span className="text-xs text-text-dim italic">
                         Cero miembros asignados
                       </span>
                     )}
 
                     {remainingCount > 0 && (
-                      <div className="w-7 h-7 rounded-full bg-bg-main border-2 border-bg-card flex items-center justify-center font-mono font-bold text-[10px] text-accent-green shadow-xs">
+                      <div className="w-7 h-7 rounded-full bg-bg-main border-2 border-bg-card flex items-center justify-center font-mono font-bold text-xs text-accent-green shadow-xs">
                         +{remainingCount}
                       </div>
                     )}

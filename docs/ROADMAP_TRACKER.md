@@ -1,6 +1,7 @@
 # Roadmap verificable
 
-Actualizado el 2026-10-03.
+Actualizado el 2026-11-04. Evidencia y límites en la
+[auditoría vigente](AUDIT_HARDENING_2026-11-04.md); los informes anteriores se conservan.
 
 ## Completado en código
 
@@ -16,6 +17,11 @@ Actualizado el 2026-10-03.
 - Configuración Grafana Alloy → Loki.
 - CI endurecido y suite Playwright configurada.
 - Dashboard NOC Fase 1 con filtros interactivos, bandeja normalizada, drawer y actividad auditada.
+- React Router 7; dependencias frontend actualizadas y auditoría npm completa sin hallazgos en esta revisión.
+- Backend Alpine y gateway propio parcheado; usuarios sin privilegios y smoke TLS/recuperación reproducible.
+- Despliegue manual con CI obligatorio del mismo SHA y rollback con backup custom.
+- Entornos de auditoría separados, regresiones por módulo y escenario de lectura k6 sin secretos en resultados.
+- Inventario Python fijado por constraints y validación de dependencias durante el build.
 
 ## Pendiente antes de go-live
 
@@ -28,7 +34,7 @@ Actualizado el 2026-10-03.
 
 ## Futuro
 
-- Migrar React Router a v7 y cerrar los 2 avisos Moderate que requieren cambio mayor.
+- Completar hashes de distribución y fijación de imágenes base por digest con un proceso de renovación y auditoría.
 - Evaluar TimescaleDB solo si la escala y medición justificican la migración.
 - Runbooks operativos y aprobaciones de cuatro ojos.
 - Dependencias y blast radius.

@@ -515,7 +515,20 @@ class Login2FAView(APIView):
             return error_response(str(exc), status_code=status.HTTP_401_UNAUTHORIZED)
 
 
-class TwoFactorSetupView(APIView):
+class TwoFactorEnrollmentView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if request.user.is_superuser:
+            from rest_framework.exceptions import PermissionDenied
+            from .beta import consume_budget
+            if isinstance(request.auth, APIToken):
+                raise PermissionDenied("Inicia sesión en el portal para configurar el 2FA administrativo.")
+            consume_budget("platform-2fa-enrollment", str(request.user.pk), 15, 900)
+
+
+class TwoFactorSetupView(TwoFactorEnrollmentView):
     """Endpoint to initiate 2FA setup and get QR code and secret.
 
     POST /api/v1/auth/2fa/setup/
@@ -524,15 +537,19 @@ class TwoFactorSetupView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
+        if not isinstance(request.data, dict):
+            return error_response("Los datos de configuración 2FA no son válidos.")
         try:
-            reset = bool(request.data.get("reset", False)) if hasattr(request, "data") and isinstance(request.data, dict) else False
-            result = AuthService.setup_2fa(request.user, reset=reset)
-            return success_response(result)
-        except Exception as exc:
+            reset = bool(request.data.get("reset", False))
+            result = AuthService.setup_2fa(request.user, reset=reset, password=request.data.get("password"))
+            response = success_response(result)
+            response["Cache-Control"] = "no-store"
+            return response
+        except ValueError as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class TwoFactorVerifyView(APIView):
+class TwoFactorVerifyView(TwoFactorEnrollmentView):
     """Endpoint to verify provisional TOTP code and enable 2FA with backup codes.
 
     POST /api/v1/auth/2fa/verify/
@@ -541,6 +558,8 @@ class TwoFactorVerifyView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
+        if not isinstance(request.data, dict):
+            return error_response("Los datos de verificación 2FA no son válidos.")
         code = request.data.get("code")
         if not code:
             return error_response(
@@ -549,8 +568,10 @@ class TwoFactorVerifyView(APIView):
             )
 
         try:
-            result = AuthService.verify_and_enable_2fa(request.user, code)
-            return success_response(result)
+            result = AuthService.verify_and_enable_2fa(request.user, code, password=request.data.get("password"))
+            response = success_response(result)
+            response["Cache-Control"] = "no-store"
+            return response
         except ValueError as exc:
             return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 

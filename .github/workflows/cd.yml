@@ -9,14 +9,10 @@ on:
       - master
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target Deployment Environment'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - production
-          - staging
+      deploy_production:
+        description: 'Deploy this exact revision after successful CI and environment approval'
+        default: false
+        type: boolean
 
 concurrency:
   group: deployment-${{ github.ref }}
@@ -26,8 +22,29 @@ env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
   FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+  GATEWAY_IMAGE: ghcr.io/${{ github.repository }}/gateway
 
 jobs:
+  release-gate:
+    name: Require successful CI for the exact deployment revision
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_production && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify CI conclusion for this SHA
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              ...context.repo, workflow_id: 'ci.yml', head_sha: context.sha, per_page: 100,
+            });
+            const { pathToFileURL } = require('node:url');
+            const { requireSuccessfulCI } = await import(pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/scripts/release-gate.mjs`).href);
+            requireSuccessfulCI(data.workflow_runs, context.sha,
+              `${context.repo.owner}/${context.repo.repo}`);
   # -------------------------------------------------------------
   # 1. BUILD & PUBLISH IMMUTABLE CONTAINER IMAGES
   # -------------------------------------------------------------
@@ -94,17 +111,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Extract Metadata for Gateway
+        id: meta-gateway
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GATEWAY_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+
+      - name: Build and Push Gateway Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/nginx
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-gateway.outputs.tags }}
+          labels: ${{ steps.meta-gateway.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   # -------------------------------------------------------------
   # 2. CONTROLLED CUTOVER DEPLOYMENT
   # -------------------------------------------------------------
   deploy:
     name: Deploy to Production Environment
-    needs: build-and-publish
+    needs: [build-and-publish, release-gate]
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://sentinel-noc.company.com
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+      url: ${{ vars.PRODUCTION_URL }}
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_production && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
 
     steps:
       - name: Checkout Deployment Scripts & Compose
@@ -138,29 +175,42 @@ jobs:
           PUBLIC_HEALTHCHECK_URL: ${{ secrets.PROD_HEALTHCHECK_URL }}
         run: |
           DEPLOY_IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
-          ssh "$DEPLOY_USER@$DEPLOY_SSH_HOST" "PUBLIC_HEALTHCHECK_URL='$PUBLIC_HEALTHCHECK_URL' DEPLOY_IMAGE_TAG='$DEPLOY_IMAGE_TAG' bash -s" << 'EOF'
+          {
+          printf 'sentinel_probe_url=%q\nsentinel_release_tag=%q\n' "$PUBLIC_HEALTHCHECK_URL" "$DEPLOY_IMAGE_TAG"
+          cat << 'EOF'
             set -Eeuo pipefail
             cd /opt/sentinel-noc
             set -a
             . ./.env
             set +a
+            export PUBLIC_HEALTHCHECK_URL="$sentinel_probe_url" DEPLOY_IMAGE_TAG="$sentinel_release_tag"
             stamp="$(date -u +%Y%m%dT%H%M%SZ)"
             mkdir -p backups
             previous_tag="$IMAGE_TAG"
 
             docker compose -f docker-compose.prod.yml exec -T db \
-              pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > "backups/sentinel-$stamp.sql.gz"
+              pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > "backups/sentinel-$stamp.dump"
+            docker compose -f docker-compose.prod.yml exec -T db pg_restore --list \
+              < "backups/sentinel-$stamp.dump" > /dev/null
+            sha256sum "backups/sentinel-$stamp.dump" > "backups/sentinel-$stamp.dump.sha256"
 
             rollback() {
+              deploy_status=$?
+              trap - ERR
               echo "Deployment failed; rolling application images back to $previous_tag"
+              if [ "${MIGRATION_IRREVERSIBLE:-false}" = "true" ]; then
+                echo "Irreversible migration declared; restoring the pre-deploy database backup"
+                sha256sum -c "backups/sentinel-$stamp.dump.sha256"
+                docker compose -f docker-compose.prod.yml stop nginx backend celery_worker celery_beat
+                docker compose -f docker-compose.prod.yml exec -T db dropdb --force --if-exists -U "$POSTGRES_USER" "$POSTGRES_DB"
+                docker compose -f docker-compose.prod.yml exec -T db createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
+                docker compose -f docker-compose.prod.yml exec -T db pg_restore --exit-on-error --no-owner --no-acl \
+                  -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "backups/sentinel-$stamp.dump"
+              fi
               sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$previous_tag/" .env
               export IMAGE_TAG="$previous_tag"
               docker compose -f docker-compose.prod.yml up -d --remove-orphans
-              if [ "${MIGRATION_IRREVERSIBLE:-false}" = "true" ]; then
-                echo "Irreversible migration declared; restoring the pre-deploy database backup"
-                gunzip -c "backups/sentinel-$stamp.sql.gz" | docker compose -f docker-compose.prod.yml exec -T db \
-                  psql -U "$POSTGRES_USER" "$POSTGRES_DB"
-              fi
+              exit "$deploy_status"
             }
             trap rollback ERR
 
@@ -189,3 +239,4 @@ jobs:
             done
             exit 1
           EOF
+          } | ssh "$DEPLOY_USER@$DEPLOY_SSH_HOST" 'bash -s'

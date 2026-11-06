@@ -171,7 +171,7 @@ export default function UserTableView({
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 border ${
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${
                           isPending
                             ? 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30'
                             : m.role === 'admin'
@@ -189,12 +189,12 @@ export default function UserTableView({
                               : 'Usuario'}
                           </span>
                           {isSelf && (
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-bg-main text-text-dim font-mono border border-border-base">
+                            <span className="text-xs px-1.5 py-0.2 rounded bg-bg-main text-text-dim font-mono border border-border-base">
                               Tú
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-text-dim block">
+                        <span className="text-xs text-text-dim block">
                           Registrado:{' '}
                           {m.date_joined
                             ? new Date(m.date_joined).toLocaleDateString('es-ES', {
@@ -216,7 +216,7 @@ export default function UserTableView({
                   {/* Role */}
                   <td className="py-3 px-3">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border}`}
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border}`}
                     >
                       {roleMeta.icon}
                       {roleMeta.label}
@@ -230,7 +230,7 @@ export default function UserTableView({
                         {m.teams.map((t) => (
                           <span
                             key={t.id}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
                             style={{
                               backgroundColor: `${t.color}15`,
                               color: t.color,
@@ -246,14 +246,14 @@ export default function UserTableView({
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[11px] text-text-dim italic">Sin equipo</span>
+                      <span className="text-xs text-text-dim italic">Sin equipo</span>
                     )}
                   </td>
 
                   {/* Status */}
                   <td className="py-3 px-3">
                     {isPending ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
                         <AlertTriangle size={12} />
                         Invitación Pendiente
                       </span>
@@ -267,7 +267,7 @@ export default function UserTableView({
                           onToggleActive(m);
                         }}
                         disabled={isSelf}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-all ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all ${
                           m.is_active
                             ? 'bg-accent-green/10 text-accent-green border-accent-green/30 hover:bg-accent-red/10 hover:text-accent-red hover:border-accent-red/30'
                             : 'bg-accent-red/10 text-accent-red border-accent-red/30 hover:bg-accent-green/10 hover:text-accent-green hover:border-accent-green/30'
@@ -288,7 +288,7 @@ export default function UserTableView({
                   </td>
 
                   {/* Last Login */}
-                  <td className="py-3 px-3 text-text-dim text-[11px] font-mono">
+                  <td className="py-3 px-3 text-text-dim text-xs font-mono">
                     <span className="flex items-center gap-1">
                       <Clock size={12} className="text-text-dim shrink-0" />
                       {formatRelativeTime(m.last_login)}

@@ -68,7 +68,7 @@ export default function TrialStatusBanner() {
                     }`}
               </h4>
               <span
-                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
+                className={`text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
                   isPastDue
                     ? 'bg-accent-red/20 text-accent-red border-accent-red/40'
                     : 'bg-accent-yellow/20 text-accent-yellow border-accent-yellow/40'

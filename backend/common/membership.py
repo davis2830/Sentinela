@@ -11,6 +11,11 @@ class LastAdminRequired(ValueError):
     code = 'LAST_ADMIN_REQUIRED'
 
 
+def guard_platform_accounts(organization_id, user_ids):
+    if User.objects.filter(organization_id=organization_id, id__in=user_ids, is_superuser=True).exists():
+        raise ValueError("Las cuentas de superadmin están protegidas de cambios desde la organización.")
+
+
 def check_member_capacity(org, invitation=None, replace_email=None):
     from organizations.services import QuotaExceededException
     pending = InvitationToken.objects.filter(organization=org, is_used=False, expires_at__gt=timezone.now())
@@ -28,6 +33,7 @@ def check_member_capacity(org, invitation=None, replace_email=None):
 @transaction.atomic
 def guard_admin_removal(organization_id, removed_ids):
     Organization.objects.select_for_update().get(pk=organization_id)
+    guard_platform_accounts(organization_id, removed_ids)
     removed = User.objects.filter(organization_id=organization_id, id__in=removed_ids, is_active=True).filter(Q(is_staff=True) | Q(is_superuser=True))
     if not removed.exists():
         return

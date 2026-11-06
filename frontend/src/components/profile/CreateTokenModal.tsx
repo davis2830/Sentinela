@@ -151,7 +151,7 @@ export default function CreateTokenModal({
                   <ShieldCheck size={14} />
                   Full Access
                 </div>
-                <div className="text-[10px] text-text-dim mt-1 leading-relaxed">
+                <div className="text-xs text-text-dim mt-1 leading-relaxed">
                   Lectura y escritura en endpoints de la plataforma.
                 </div>
               </button>
@@ -169,7 +169,7 @@ export default function CreateTokenModal({
                   <ShieldAlert size={14} />
                   Solo Lectura
                 </div>
-                <div className="text-[10px] text-text-dim mt-1 leading-relaxed">
+                <div className="text-xs text-text-dim mt-1 leading-relaxed">
                   Solo consulta de métricas, estados y targets.
                 </div>
               </button>
@@ -206,7 +206,7 @@ export default function CreateTokenModal({
           </div>
 
           {/* Security Notice */}
-          <div className="p-3 bg-bg-dark/70 border border-border-base rounded-2xl text-[11px] text-text-dim leading-relaxed">
+          <div className="p-3 bg-bg-dark/70 border border-border-base rounded-2xl text-xs text-text-dim leading-relaxed">
             Una vez creado, asegúrate de almacenar la clave en un lugar seguro. Trata este token como si fuera tu contraseña.
           </div>
 

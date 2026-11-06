@@ -77,7 +77,7 @@ export default function ReportDetailDrawer({
           : 'Pendiente'
       }`}
       statusBadge={
-        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono uppercase bg-accent-green/10 text-accent-green border border-accent-green/30">
+        <span className="px-2.5 py-0.5 rounded-full text-xs font-mono uppercase bg-accent-green/10 text-accent-green border border-accent-green/30">
           {report.report_type}
         </span>
       }
@@ -91,7 +91,7 @@ export default function ReportDetailDrawer({
           {/* Top Scorecard */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-xl bg-bg-main/60 border border-border-base">
-              <span className="text-[11px] uppercase font-semibold text-text-dim block mb-1">
+              <span className="text-xs uppercase font-semibold text-text-dim block mb-1">
                 SLA Global Auditado
               </span>
               <div className="flex items-baseline gap-2">
@@ -114,7 +114,7 @@ export default function ReportDetailDrawer({
             </div>
 
             <div className="p-4 rounded-xl bg-bg-main/60 border border-border-base">
-              <span className="text-[11px] uppercase font-semibold text-text-dim block mb-1">
+              <span className="text-xs uppercase font-semibold text-text-dim block mb-1">
                 Error Budget Restante
               </span>
               <div className="flex items-baseline gap-2">
@@ -131,7 +131,7 @@ export default function ReportDetailDrawer({
                   style={{ width: `${Math.min(Number(budgetConsumedPct), 100)}%` }}
                 />
               </div>
-              <div className="mt-1 text-[10px] text-text-dim">
+              <div className="mt-1 text-xs text-text-dim">
                 Consumido: {budgetConsumedPct == null ? 'Sin mediciones' : `${Number(budgetConsumedPct).toFixed(1)}% del límite`}
               </div>
             </div>
@@ -145,15 +145,15 @@ export default function ReportDetailDrawer({
             </h4>
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 bg-bg-card rounded-lg border border-border-base/50">
-                <span className="text-[10px] text-text-dim uppercase block">MTTR (Reparación)</span>
+                <span className="text-xs text-text-dim uppercase block">MTTR (Reparación)</span>
                 <span className="text-lg font-bold font-mono text-sky-400">{mttr} min</span>
               </div>
               <div className="p-3 bg-bg-card rounded-lg border border-border-base/50">
-                <span className="text-[10px] text-text-dim uppercase block">MTTD (Detección)</span>
+                <span className="text-xs text-text-dim uppercase block">MTTD (Detección)</span>
                 <span className="text-lg font-bold font-mono text-amber-400">{mttd} min</span>
               </div>
               <div className="p-3 bg-bg-card rounded-lg border border-border-base/50">
-                <span className="text-[10px] text-text-dim uppercase block">Total Incidentes</span>
+                <span className="text-xs text-text-dim uppercase block">Total Incidentes</span>
                 <span className="text-lg font-bold font-mono text-text-main">{totalIncidents}</span>
               </div>
             </div>
@@ -167,7 +167,7 @@ export default function ReportDetailDrawer({
             </h4>
             <div className="grid grid-cols-2 gap-2 text-text-muted pt-1">
               <div>
-                <span className="text-text-dim block text-[11px]">Rango de Fechas:</span>
+                <span className="text-text-dim block text-xs">Rango de Fechas:</span>
                 <span className="font-mono text-text-main">
                   {report.period_start ? new Date(report.period_start).toLocaleDateString('es-ES') : 'N/A'}{' '}
                   -{' '}
@@ -175,7 +175,7 @@ export default function ReportDetailDrawer({
                 </span>
               </div>
               <div>
-                <span className="text-text-dim block text-[11px]">Objetivos Incluidos:</span>
+                <span className="text-text-dim block text-xs">Objetivos Incluidos:</span>
                 <span className="font-mono text-text-main">
                   {report.parameters?.target_ids?.length
                     ? `${report.parameters.target_ids.length} objetivos específicos`
@@ -209,12 +209,12 @@ export default function ReportDetailDrawer({
                       <tr key={t.target_id} className="hover:bg-bg-card-hover/40 transition-colors">
                         <td className="py-2.5 px-3">
                           <div className="font-semibold text-text-main">{t.target_name}</div>
-                          <div className="text-[10px] text-text-dim font-mono truncate max-w-[220px]">
+                          <div className="text-xs text-text-dim font-mono truncate max-w-[220px]">
                             {t.endpoint}
                           </div>
                         </td>
                         <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-border-base/60 text-text-muted uppercase">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-border-base/60 text-text-muted uppercase">
                             {t.target_type}
                           </span>
                         </td>
@@ -228,7 +228,7 @@ export default function ReportDetailDrawer({
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${
                               isPass
                                 ? 'bg-accent-green/10 text-accent-green border border-accent-green/20'
                                 : 'bg-accent-red/10 text-accent-red border border-accent-red/20'
@@ -271,13 +271,13 @@ export default function ReportDetailDrawer({
                     <tr key={inc.id} className="hover:bg-bg-card-hover/40 transition-colors">
                       <td className="py-2.5 px-3">
                         <div className="font-semibold text-text-main">{inc.title}</div>
-                        <div className="text-[10px] text-text-dim font-mono">
+                        <div className="text-xs text-text-dim font-mono">
                           ID: {inc.id.slice(0, 8)}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
                             inc.priority === 'critical'
                               ? 'bg-accent-red/10 text-accent-red border border-accent-red/20'
                               : 'bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20'
@@ -287,7 +287,7 @@ export default function ReportDetailDrawer({
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-text-muted capitalize">{inc.status}</td>
-                      <td className="py-2.5 px-3 text-text-dim font-mono text-[11px]">
+                      <td className="py-2.5 px-3 text-text-dim font-mono text-xs">
                         {new Date(inc.opened_at).toLocaleDateString('es-ES', {
                           month: 'short',
                           day: 'numeric',
@@ -295,7 +295,7 @@ export default function ReportDetailDrawer({
                           minute: '2-digit',
                         })}
                       </td>
-                      <td className="py-2.5 px-3 text-right text-text-dim font-mono text-[11px]">
+                      <td className="py-2.5 px-3 text-right text-text-dim font-mono text-xs">
                         {inc.closed_at
                           ? new Date(inc.closed_at).toLocaleDateString('es-ES', {
                               month: 'short',
@@ -343,7 +343,7 @@ export default function ReportDetailDrawer({
                 Informe imprimible (HTML)
               </button>
             </div>
-            <p className="text-[11px] text-text-dim">
+            <p className="text-xs text-text-dim">
               El archivo CSV incluye cabecera Byte Order Mark (UTF-8 BOM) para compatibilidad instantánea con Excel en Windows sin caracteres corruptos.
             </p>
           </div>
@@ -360,7 +360,7 @@ export default function ReportDetailDrawer({
                 {copiedRaw ? 'Copiado' : 'Copiar JSON'}
               </button>
             </div>
-            <pre className="p-3 bg-bg-card rounded-lg text-[11px] font-mono text-text-muted overflow-x-auto max-h-64 border border-border-base/50">
+            <pre className="p-3 bg-bg-card rounded-lg text-xs font-mono text-text-muted overflow-x-auto max-h-64 border border-border-base/50">
               {JSON.stringify(report, null, 2)}
             </pre>
           </div>

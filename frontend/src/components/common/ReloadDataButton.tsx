@@ -12,7 +12,7 @@ export default function ReloadDataButton({ queryKeys, scanIntervalSeconds, compa
   useEffect(() => { const update = () => { const queries = client.getQueryCache().getAll().filter(q => queryKeys.includes(String(q.queryKey[0])) && q.queryKey[1] === organizationId && q.isActive()); setUpdatedAt(Math.max(0, ...queries.map(q => q.state.dataUpdatedAt))); setFailed(queries.some(q=>q.state.status==='error')); };
     update(); return client.getQueryCache().subscribe(update);
   }, [client, key, organizationId]);
-  return <div className="flex items-center gap-2 text-xs text-text-muted">
+  return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs text-text-muted">
     {!compact && <DataConsultationAge updatedAt={updatedAt} />}
     {failed && <span role="status" className="text-accent-yellow">Datos parciales. Recarga para reintentar.</span>}
     <button type="button" aria-label="Actualizar datos" disabled={pending} onClick={async () => {
@@ -28,6 +28,6 @@ export default function ReloadDataButton({ queryKeys, scanIntervalSeconds, compa
       } catch {
         window.dispatchEvent(new CustomEvent('sentinel:scan-feedback', { detail: 'No pudimos consultar todos los datos. Reintenta la recarga; no se ejecutó ninguna comprobación.' }));
       } finally { setPending(false); }
-    }} title={`Consultar resultados guardados, sin ejecutar un nuevo sondeo${compact && updatedAt ? `. Última consulta: ${new Date(updatedAt).toLocaleTimeString()}` : ''}`} className={compact ? 'ui-button ui-button-secondary ui-button-icon' : 'p-2 rounded-lg border border-border-base hover:text-text-main'}><RefreshCw size={compact ? 18 : 15} className={pending ? 'animate-spin' : ''} /></button>
+    }} title={`Consultar resultados guardados, sin ejecutar un nuevo sondeo${compact && updatedAt ? `. Última consulta: ${new Date(updatedAt).toLocaleTimeString()}` : ''}`} className={compact ? 'ui-button ui-button-secondary ui-button-icon' : 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-base hover:border-border-accent hover:text-text-main disabled:opacity-50'}><RefreshCw size={compact ? 18 : 15} className={pending ? 'animate-spin' : ''} /></button>
   </div>;
 }

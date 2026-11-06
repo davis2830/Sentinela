@@ -15,7 +15,7 @@ export default function PageLoadingSpinner() {
         </span>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-accent-green/60 animate-ping" />
-          <span className="text-[11px] font-mono text-text-dim">Sentinel NOC Telemetry</span>
+          <span className="text-xs font-mono text-text-dim">Sentinel NOC Telemetry</span>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, Activity, Search } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import OmnibarSearch from '../common/OmnibarSearch';
+import SentinelBrand from './SentinelBrand';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -30,17 +31,8 @@ export default function Navbar() {
       <nav className="h-14 shrink-0 flex items-center justify-between gap-3 px-4 lg:px-6 bg-bg-dark/95 backdrop-blur-md border-b border-border-base z-30">
         {/* Brand */}
         <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="flex items-center gap-3 font-bold text-lg text-text-main no-underline group">
-            <img
-              src="/logo.webp"
-              alt="Sentinel"
-              width={32}
-              height={32}
-              className="h-8 w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform"
-            />
-            <span className="font-sans font-extrabold text-xl tracking-tight text-text-main">
-              Sentinel
-            </span>
+          <Link to="/dashboard" className="no-underline">
+            <SentinelBrand />
           </Link>
           <span className="hidden xl:inline bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold">
             Observabilidad
@@ -55,7 +47,7 @@ export default function Navbar() {
         >
           <Search size={14} className="text-accent-green" />
           <span className="hidden lg:inline">Buscar en Sentinel...</span>
-          <span className="hidden lg:inline bg-bg-dark border border-border-base text-text-dim px-2 py-0.5 rounded-full text-[10px] font-mono">
+          <span className="hidden lg:inline bg-bg-dark border border-border-base text-text-dim px-2 py-0.5 rounded-full text-xs font-mono">
             Ctrl K
           </span>
         </button>
@@ -71,7 +63,7 @@ export default function Navbar() {
             <span className="max-w-52 truncate">{user?.email || 'admin@sentinel.local'}</span>
           </Link>
           <button
-            onClick={handleLogout}
+            aria-label="Cerrar sesión" onClick={handleLogout}
             className="flex items-center gap-2 text-text-muted hover:text-accent-red transition-colors text-sm"
           >
             <LogOut size={18} />

@@ -3,12 +3,13 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
-import SuperAdminRoute from './components/auth/SuperAdminRoute';
+import PlatformConsole from './components/platform_admin/PlatformConsole';
 import { useAuthStore } from './store/authStore';
 import PageLoadingSpinner from './components/common/PageLoadingSpinner';
 import ScanFeedback from './components/common/ScanFeedback';
 
 // Lazy-loaded pages for optimal route-level code splitting
+const PasswordRecoveryPage = lazy(() => import('./pages/auth/PasswordRecoveryPage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
@@ -34,6 +35,7 @@ const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
 const OrganizationSettingsPage = lazy(() => import('./pages/OrganizationSettingsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
+const PlatformLoginPage = lazy(() => import('./pages/auth/PlatformLoginPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +113,8 @@ export default function App() {
                 </PublicRoute>
               }
             />
+            <Route path="/forgot-password" element={<PasswordRecoveryPage key="password-recovery" />} />
+            <Route path="/reset-password" element={<PasswordRecoveryPage key="password-reset" reset />} />
             <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<VerifyEmailPage />} />
@@ -143,15 +147,9 @@ export default function App() {
               <Route path="/audit-logs" element={<AuditLogsPage />} />
               <Route path="/organization" element={<OrganizationSettingsPage />} />
               <Route path="/users" element={<UsersPage />} />
-              <Route
-                path="/admin/platform"
-                element={
-                  <SuperAdminRoute>
-                    <PlatformAdminPage />
-                  </SuperAdminRoute>
-                }
-              />
             </Route>
+            <Route path="/admin/login" element={<PlatformLoginPage />} />
+            <Route path="/admin/platform" element={<PlatformConsole><PlatformAdminPage /></PlatformConsole>} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

@@ -46,12 +46,7 @@ export interface PlatformOrganization {
 export interface PlatformOrganizationDetail extends PlatformOrganization {
   website: string;
   limits: {
-    max_targets: number;
-    max_probes: number;
-    min_interval: number;
-    retention_days: number;
-    max_users: number;
-    features: string[];
+    min_check_interval_seconds: number;
   };
   users: Array<{
     id: string;

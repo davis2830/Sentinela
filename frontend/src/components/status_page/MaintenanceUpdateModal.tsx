@@ -68,7 +68,7 @@ export default function MaintenanceUpdateModal({
         {/* Previous Updates Feed */}
         {updates.length > 0 && (
           <div className="py-3 border-b border-border-base/50 shrink-0 max-h-40 overflow-y-auto">
-            <span className="text-[11px] font-semibold text-text-dim block mb-2">
+            <span className="text-xs font-semibold text-text-dim block mb-2">
               Historial de notas publicadas ({updates.length}):
             </span>
             <div className="space-y-2 text-xs">
@@ -77,7 +77,7 @@ export default function MaintenanceUpdateModal({
                   key={u.id}
                   className="bg-bg-dark/70 border border-border-base/60 rounded-xl p-2.5"
                 >
-                  <div className="flex items-center justify-between text-[10px] text-text-dim mb-1 font-mono">
+                  <div className="flex items-center justify-between text-xs text-text-dim mb-1 font-mono">
                     <span className="uppercase font-semibold text-purple-400">{u.status}</span>
                     <span className="flex items-center gap-1">
                       <Clock size={10} />

@@ -206,7 +206,7 @@ export default function QuickStartWizardModal({
                 <h3 className="text-lg font-bold text-text-main">
                   {step === 3 ? 'Objetivo registrado' : 'Despliegue Rápido de Observabilidad'}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-green/15 text-accent-green border border-accent-green/30 font-mono">
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-green/15 text-accent-green border border-accent-green/30 font-mono">
                   Inicio guiado
                 </span>
               </div>
@@ -218,7 +218,7 @@ export default function QuickStartWizardModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            aria-label="Cerrar inicio guiado" onClick={onClose}
             className="text-text-dim hover:text-text-main p-1.5 rounded-lg hover:bg-bg-dark transition-colors"
           >
             <X size={18} />
@@ -277,7 +277,7 @@ export default function QuickStartWizardModal({
                     <input
                       type="text"
                       placeholder="https://miempresa.com o api.servicio.cl"
-                      value={url}
+                      aria-label="URL o dominio corporativo" value={url}
                       onChange={(e) => { setUrl(e.target.value); setTestResult(null); }}
                       className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 pl-10 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-accent-green/20 font-mono"
                     />
@@ -293,7 +293,7 @@ export default function QuickStartWizardModal({
                   </button>
                 </div>
                 <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Ingresa tu portal web, API pública o microservicio cloud.
                 </p>
               </div>
@@ -316,12 +316,12 @@ export default function QuickStartWizardModal({
                     <div className="font-bold flex flex-wrap items-center gap-2">
                       <span>{testResult.message}</span>
                       {!testResult.redirect_location && testResult.status_code && (
-                        <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-xs">
                           HTTP {testResult.status_code}
                         </span>
                       )}
                       {!testResult.redirect_location && testResult.latency_ms !== undefined && (
-                        <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-xs">
                           {testResult.latency_ms.toFixed(0)}ms
                         </span>
                       )}
@@ -330,7 +330,7 @@ export default function QuickStartWizardModal({
                       <RedirectNotice location={testResult.redirect_location} endpoint={url.startsWith('http') ? url : `https://${url}`} statusCode={testResult.status_code} onUseAddress={(address) => { setUrl(address); setTestResult(null); }} />
                     )}
                     {testResult.success && (
-                      <p className="text-emerald-300/80 text-[11px] mt-1">
+                      <p className="text-emerald-300/80 text-xs mt-1">
                         Endpoint respondiendo adecuadamente desde la red de monitoreo Sentinel Cloud.
                       </p>
                     )}
@@ -346,7 +346,7 @@ export default function QuickStartWizardModal({
                 <input
                   type="text"
                   placeholder="Ej. Producción Web Principal"
-                  value={name}
+                  aria-label="Nombre identificador del monitor" value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-accent-green/20"
                 />
@@ -385,9 +385,9 @@ export default function QuickStartWizardModal({
                         title={!isAllowed ? `Requiere plan ${opt.minPlan}` : ''}
                       >
                         <span className="font-mono text-xs">{opt.label}</span>
-                        {isAllowed && opt.value === minAllowedInterval && <span className="mt-0.5 text-[10px]">Recomendado para tu plan</span>}
+                        {isAllowed && opt.value === minAllowedInterval && <span className="mt-0.5 text-xs">Recomendado para tu plan</span>}
                         {!isAllowed && (
-                          <span className="text-[10px] text-amber-400 font-mono mt-0.5 font-bold">
+                          <span className="text-xs text-amber-400 font-mono mt-0.5 font-bold">
                             Plan {opt.minPlan}
                           </span>
                         )}
@@ -424,7 +424,7 @@ export default function QuickStartWizardModal({
                         <Activity size={13} className="text-accent-green" />
                         <span>Monitoreo Uptime & Latencia HTTP/S</span>
                       </div>
-                      <p className="text-[11px] text-text-dim mt-0.5">
+                      <p className="text-xs text-text-dim mt-0.5">
                         Métricas de disponibilidad SLA en tiempo real, sparklines y alertas si el servicio cae.
                       </p>
                     </div>
@@ -445,7 +445,7 @@ export default function QuickStartWizardModal({
                         <Lock size={13} className="text-sky-400" />
                         <span>Vigilancia Criptográfica SSL / TLS</span>
                       </div>
-                      <p className="text-[11px] text-text-dim mt-0.5">
+                      <p className="text-xs text-text-dim mt-0.5">
                         Auditoría de vigencia de certificado, emisor, grado de seguridad y alertas 30 días antes del vencimiento.
                       </p>
                     </div>
@@ -466,7 +466,7 @@ export default function QuickStartWizardModal({
                         <Shield size={13} className="text-purple-400" />
                         <span>Análisis de Cabeceras de Seguridad (HSTS, CSP, XFO)</span>
                       </div>
-                      <p className="text-[11px] text-text-dim mt-0.5">
+                      <p className="text-xs text-text-dim mt-0.5">
                         Detección de vulnerabilidades CWE-200, fugas de versión en encabezados y calificación criptográfica.
                       </p>
                     </div>
@@ -487,7 +487,7 @@ export default function QuickStartWizardModal({
                         <Server size={13} className="text-emerald-400" />
                         <span>Resolución & Mutaciones DNS</span>
                       </div>
-                      <p className="text-[11px] text-text-dim mt-0.5">
+                      <p className="text-xs text-text-dim mt-0.5">
                         Supervisión de registros A/CNAME, latencia de resolución en milisegundos y prevención de secuestro.
                       </p>
                     </div>
@@ -501,7 +501,7 @@ export default function QuickStartWizardModal({
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <span className="font-bold block mb-0.5">No se pudo iniciar el monitoreo</span>
-                    <span className="text-[11px] opacity-90">{launchError}</span>
+                    <span className="text-xs opacity-90">{launchError}</span>
                   </div>
                 </div>
               )}

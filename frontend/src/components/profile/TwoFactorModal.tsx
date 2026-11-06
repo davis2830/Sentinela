@@ -159,7 +159,7 @@ export default function TwoFactorModal({
 
               {/* Manual Secret Key */}
               <div>
-                <div className="flex items-center justify-between text-[11px] text-text-dim mb-1 font-mono">
+                <div className="flex items-center justify-between text-xs text-text-dim mb-1 font-mono">
                   <span>¿No puedes escanear el código? Clave secreta manual:</span>
                   <button
                     type="button"
@@ -184,7 +184,7 @@ export default function TwoFactorModal({
                         setCode('');
                         await onRegenerate();
                       }}
-                      className="text-[11px] text-text-dim hover:text-accent-green flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      className="text-xs text-text-dim hover:text-accent-green flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <RefreshCw size={12} className={isRegenerating ? 'animate-spin' : ''} />
                       <span>{isRegenerating ? 'Generando nuevo código...' : '¿Problemas para vincular? Generar un nuevo código QR'}</span>

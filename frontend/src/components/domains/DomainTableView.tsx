@@ -176,12 +176,12 @@ export default function DomainTableView({
                   {/* EPP Domain Lock */}
                   <td className="py-3 px-3">
                     {domain.is_locked ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
                         <Lock size={10} />
                         Protegido
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
                         <Unlock size={10} />
                         Sin Bloqueo
                       </span>
@@ -210,7 +210,7 @@ export default function DomainTableView({
                           )}
                         </span>
                         {lifePct !== null && (
-                          <span className="text-[10px] font-mono text-text-dim">
+                          <span className="text-xs font-mono text-text-dim">
                             {lifePct}% consumido
                           </span>
                         )}
@@ -245,14 +245,14 @@ export default function DomainTableView({
                   <td className="py-3 px-3 font-mono text-xs">
                     {nsList.length > 0 ? (
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue border border-accent-blue/30 text-[11px] font-medium"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue border border-accent-blue/30 text-xs font-medium"
                         title={nsList.join(', ')}
                       >
                         <Server size={11} />
                         {nsList.length} NS
                       </span>
                     ) : (
-                      <span className="text-text-dim text-[11px]">Sin NS</span>
+                      <span className="text-text-dim text-xs">Sin NS</span>
                     )}
                   </td>
 

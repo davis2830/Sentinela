@@ -80,7 +80,7 @@ export default function AuditLogsPage() {
       <NOCPageHeader queryKeys={["audit-logs"]}
         title="Logs de Auditoría"
         badgeText="SECURITY AUDIT"
-        description="Historial inmutable de auditoría para trazabilidad de eventos, cambios de configuración y accesos al sistema."
+        description="Registro de auditoría para trazabilidad de eventos, cambios de configuración y accesos al sistema."
         icon={<ShieldAlert size={26} />}
 
       />
@@ -92,16 +92,16 @@ export default function AuditLogsPage() {
           title="Eventos Registrados"
           icon={<Activity size={16} className="text-accent-green" />}
           badge={{
-            text: 'Trazabilidad OK',
-            variant: 'success',
+            text: 'Registro de eventos',
+            variant: 'info',
           }}
           value={totalCount}
           valueSuffix="eventos"
-          subtitle="Historial inmutable verificado"
+          subtitle="Eventos registrados por la aplicación"
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
-              <span>Integridad de Logs</span>
-              <span className="text-accent-green font-medium">Criptográfica</span>
+            <div className="flex justify-between text-xs text-text-dim">
+              <span>Alcance del registro</span>
+              <span className="text-accent-green font-medium">Trazabilidad</span>
             </div>
           }
         />
@@ -119,7 +119,7 @@ export default function AuditLogsPage() {
           valueSuffix="éxito"
           progress={{ value: successRate }}
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Fallos / Errores</span>
               <span className={failureCount > 0 ? 'text-amber-400 font-semibold' : 'text-text-main'}>
                 {failureCount} eventos
@@ -141,7 +141,7 @@ export default function AuditLogsPage() {
           valueSuffix="usuarios"
           subtitle="Cuentas activas y procesos del sistema"
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Modo de Autenticación</span>
               <span className="text-sky-400 font-medium">JWT / Sesión</span>
             </div>
@@ -161,7 +161,7 @@ export default function AuditLogsPage() {
           valueSuffix="módulos"
           subtitle="Monitoreo, Alertas, Incidentes, etc."
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Retención de Auditoría</span>
               <span className="text-accent-green font-medium">90 Días</span>
             </div>
@@ -214,7 +214,7 @@ export default function AuditLogsPage() {
                     onClick={() => setSelectedLog(log)}
                     className="hover:bg-bg-card-hover/80 transition-colors cursor-pointer group"
                   >
-                    <td className="py-3 px-4 text-text-muted flex items-center gap-1.5 font-mono text-[11px] whitespace-nowrap">
+                    <td className="py-3 px-4 text-text-muted flex items-center gap-1.5 font-mono text-xs whitespace-nowrap">
                       <Clock size={12} className="text-text-dim" />
                       {new Date(log.timestamp).toLocaleString('es-ES')}
                     </td>
@@ -291,25 +291,25 @@ export default function AuditLogsPage() {
           selectedLog && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Módulo</div>
+                <div className="text-xs text-text-dim">Módulo</div>
                 <div className="text-sm font-bold text-text-main mt-0.5 capitalize truncate">
                   {selectedLog.module}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Acción</div>
+                <div className="text-xs text-text-dim">Acción</div>
                 <div className="text-sm font-bold text-accent-green mt-0.5 truncate">
                   {selectedLog.action}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">IP Origen</div>
+                <div className="text-xs text-text-dim">IP Origen</div>
                 <div className="text-xs font-bold font-mono text-text-main mt-0.5 truncate">
                   {selectedLog.ip_address || '127.0.0.1'}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Fecha</div>
+                <div className="text-xs text-text-dim">Fecha</div>
                 <div className="text-xs font-semibold font-mono text-text-muted mt-0.5 truncate">
                   {new Date(selectedLog.timestamp).toLocaleDateString('es-ES')}
                 </div>

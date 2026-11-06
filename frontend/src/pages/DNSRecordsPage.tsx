@@ -638,12 +638,12 @@ export default function DNSRecordsPage() {
                                 {record.value.split('\n').length > 2 ? ' ...' : ''}
                               </span>
                               {isSpf && (
-                                <span className="px-1.5 py-0.2 rounded bg-accent-green/10 text-accent-green border border-accent-green/30 text-[10px] font-bold shrink-0">
+                                <span className="px-1.5 py-0.2 rounded bg-accent-green/10 text-accent-green border border-accent-green/30 text-xs font-bold shrink-0">
                                   SPF
                                 </span>
                               )}
                               {isDmarc && (
-                                <span className="px-1.5 py-0.2 rounded bg-accent-purple/10 text-accent-purple border border-accent-purple/30 text-[10px] font-bold shrink-0">
+                                <span className="px-1.5 py-0.2 rounded bg-accent-purple/10 text-accent-purple border border-accent-purple/30 text-xs font-bold shrink-0">
                                   DMARC
                                 </span>
                               )}
@@ -683,7 +683,7 @@ export default function DNSRecordsPage() {
                         {/* Mutations */}
                         <td className="py-3 px-3 font-mono text-xs">
                           {isMutated ? (
-                            <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 text-[10px] font-bold animate-pulse">
+                            <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 text-xs font-bold animate-pulse">
                               Mutación 24h
                             </span>
                           ) : record.last_change_at ? (
@@ -794,7 +794,7 @@ export default function DNSRecordsPage() {
                       </div>
 
                       {isMutated && (
-                        <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 text-[10px] font-bold animate-pulse shrink-0">
+                        <span className="px-2 py-0.5 rounded-full bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 text-xs font-bold animate-pulse shrink-0">
                           Mutación 24h
                         </span>
                       )}
@@ -802,7 +802,7 @@ export default function DNSRecordsPage() {
 
                     {/* Value Box */}
                     <div className="bg-bg-dark/60 rounded-xl p-3 border border-border-base/50 font-mono text-xs space-y-1.5 mb-3">
-                      <div className="text-[11px] text-text-dim flex justify-between font-sans">
+                      <div className="text-xs text-text-dim flex justify-between font-sans">
                         <span>Valor Resuelto:</span>
                         {record.response_time_ms && (
                           <span className="text-accent-cyan font-mono font-bold">
@@ -909,19 +909,19 @@ export default function DNSRecordsPage() {
           selectedRecord && (
             <div className="grid grid-cols-3 gap-2.5 mb-2 font-mono">
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">TTL Cache</div>
+                <div className="text-xs text-text-dim font-sans">TTL Cache</div>
                 <div className="text-xs font-bold text-text-main mt-0.5">
                   {selectedRecord.ttl ? `${selectedRecord.ttl}s` : 'Auto'}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">Latencia Consulta</div>
+                <div className="text-xs text-text-dim font-sans">Latencia Consulta</div>
                 <div className="text-xs font-bold text-accent-cyan mt-0.5">
                   {selectedRecord.response_time_ms ? `${selectedRecord.response_time_ms} ms` : '-'}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">Último Cambio</div>
+                <div className="text-xs text-text-dim font-sans">Último Cambio</div>
                 <div className="text-xs font-bold text-accent-yellow mt-0.5 truncate">
                   {selectedRecord.last_change_at
                     ? new Date(selectedRecord.last_change_at).toLocaleDateString('es-ES')
@@ -970,7 +970,7 @@ export default function DNSRecordsPage() {
               <h4 className="text-xs font-semibold text-text-muted">
                 Auditoría de Mutaciones & Comparativa Diff
               </h4>
-              <span className="text-[11px] text-text-dim font-mono">
+              <span className="text-xs text-text-dim font-mono">
                 {history?.length || 0} eventos registrados
               </span>
             </div>
@@ -992,7 +992,7 @@ export default function DNSRecordsPage() {
                       key={item.id}
                       className="p-4 bg-bg-dark/80 border border-border-base rounded-2xl space-y-3 text-xs"
                     >
-                      <div className="flex items-center justify-between text-text-dim text-[11px] border-b border-border-base/40 pb-2">
+                      <div className="flex items-center justify-between text-text-dim text-xs border-b border-border-base/40 pb-2">
                         <span className="flex items-center gap-1.5">
                           <Clock size={12} />
                           {new Date(item.changed_at).toLocaleString('es-ES')}
@@ -1011,7 +1011,7 @@ export default function DNSRecordsPage() {
                           >
                             <span className="font-bold text-sm select-none">-</span>
                             <span className="break-all">{val}</span>
-                            <span className="ml-auto text-[10px] font-sans opacity-80">(Anterior)</span>
+                            <span className="ml-auto text-xs font-sans opacity-80">(Anterior)</span>
                           </div>
                         ))}
                         {added.map((val, idx) => (
@@ -1021,7 +1021,7 @@ export default function DNSRecordsPage() {
                           >
                             <span className="font-bold text-sm select-none">+</span>
                             <span className="break-all">{val}</span>
-                            <span className="ml-auto text-[10px] font-sans opacity-80 font-bold">(Nuevo)</span>
+                            <span className="ml-auto text-xs font-sans opacity-80 font-bold">(Nuevo)</span>
                           </div>
                         ))}
                         {removed.length === 0 && added.length === 0 && (
@@ -1112,14 +1112,14 @@ export default function DNSRecordsPage() {
                 <div className="p-3.5 bg-accent-green/10 border border-accent-green/30 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-accent-green">Política SPF Detectada</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-dark text-accent-green">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-bg-dark text-accent-green">
                       v=spf1
                     </span>
                   </div>
                   <p className="font-mono text-xs text-text-muted break-all">
                     {selectedRecord.value}
                   </p>
-                  <p className="text-[11px] text-text-dim">
+                  <p className="text-xs text-text-dim">
                     Autoriza qué servidores tienen permiso para enviar correos electrónicos en nombre de este dominio.
                   </p>
                 </div>
@@ -1127,14 +1127,14 @@ export default function DNSRecordsPage() {
                 <div className="p-3.5 bg-accent-purple/10 border border-accent-purple/30 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-accent-purple">Política DMARC Detectada</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-bg-dark text-accent-purple">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-bg-dark text-accent-purple">
                       v=DMARC1
                     </span>
                   </div>
                   <p className="font-mono text-xs text-text-muted break-all">
                     {selectedRecord.value}
                   </p>
-                  <p className="text-[11px] text-text-dim">
+                  <p className="text-xs text-text-dim">
                     Protege el dominio corporativo contra phishing y ataques de suplantación de identidad.
                   </p>
                 </div>
@@ -1250,11 +1250,11 @@ export default function DNSRecordsPage() {
                         <span className="font-bold text-accent-green flex items-center gap-1.5">
                           <Check size={14} /> Consulta Exitosa ({testResult.response_time_ms} ms)
                         </span>
-                        <span className="font-mono text-[11px] text-text-dim">
+                        <span className="font-mono text-xs text-text-dim">
                           TTL: {testResult.ttl ? `${testResult.ttl}s` : 'Auto'}
                         </span>
                       </div>
-                      <div className="font-mono text-[11px] bg-bg-dark/70 p-2 rounded-xl border border-border-base/50 space-y-1">
+                      <div className="font-mono text-xs bg-bg-dark/70 p-2 rounded-xl border border-border-base/50 space-y-1">
                         {testResult.values.map((v, i) => (
                           <div key={i} className="truncate" title={v}>
                             &bull; {v}
@@ -1262,13 +1262,13 @@ export default function DNSRecordsPage() {
                         ))}
                       </div>
                       {testResult.spf_info && (
-                        <div className="text-[11px] text-accent-green flex items-center gap-1 mt-1">
+                        <div className="text-xs text-accent-green flex items-center gap-1 mt-1">
                           <Shield size={12} />
                           <span>Registro SPF válido detectado ({testResult.spf_info.policy})</span>
                         </div>
                       )}
                       {testResult.dmarc_info && (
-                        <div className="text-[11px] text-accent-purple flex items-center gap-1 mt-1">
+                        <div className="text-xs text-accent-purple flex items-center gap-1 mt-1">
                           <Shield size={12} />
                           <span>Política DMARC: {testResult.dmarc_info.policy}</span>
                         </div>
@@ -1280,7 +1280,7 @@ export default function DNSRecordsPage() {
                         <AlertTriangle size={14} />
                         <span>Fallo en la resolución DNS ({testResult.error_type})</span>
                       </div>
-                      <p className="text-[11px] font-mono opacity-90">{testResult.error_message}</p>
+                      <p className="text-xs font-mono opacity-90">{testResult.error_message}</p>
                     </div>
                   )}
                 </div>

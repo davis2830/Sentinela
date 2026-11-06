@@ -91,3 +91,29 @@ test('login excludes stale bearer credentials and does not attempt a refresh', a
   expect(authorization).toBeUndefined();
   expect(refreshes).toBe(0);
 });
+
+test('password recovery is explicit, anonymous and never authenticates after reset', async ({page}) => {
+  let confirmations=0;
+  await page.route('**/api/v1/auth/password/reset/', async route => {
+    confirmations++;
+    expect(route.request().headers().authorization).toBeUndefined();
+    expect(route.request().postDataJSON()).toEqual({token:'controlled-link',password:'New-test-password-923!'});
+    await route.fulfill({json:{success:true,message:'Contraseña actualizada. Inicia sesión nuevamente.'}});
+  });
+  await page.goto('/reset-password#token=controlled-link');
+  await expect(page).toHaveURL(/\/reset-password$/);
+  expect(confirmations).toBe(0);
+  await page.evaluate(() => {localStorage.setItem('access_token','stale-fixture');});
+  await page.getByLabel('Nueva contraseña',{exact:true}).fill('New-test-password-923!');
+  await page.getByLabel('Confirmar contraseña',{exact:true}).fill('Different-test-password-924!');
+  await page.getByRole('button',{name:'Guardar contraseña',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Las contraseñas no coinciden.');
+  await expect(page.getByRole('alert')).toContainText('No pudimos cambiar tu contraseña');
+  expect(confirmations).toBe(0);
+  await page.getByLabel('Confirmar contraseña',{exact:true}).fill('New-test-password-923!');
+  await page.getByRole('button',{name:'Guardar contraseña',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Inicia sesión nuevamente');
+  expect(confirmations).toBe(1);
+  expect(await page.evaluate(()=>localStorage.getItem('access_token'))).toBeNull();
+  await expect(page.getByRole('link',{name:'Volver a iniciar sesión',exact:true})).toBeVisible();
+});

@@ -118,9 +118,14 @@ export default function StatusPageAdmin() {
   });
 
   // Active Selected Status Page ID
-  const [activePageId, setActivePageId] = useState<string>(() => {
-    return localStorage.getItem('sentinel_active_status_page_id') || '';
-  });
+  const selectionKey = `sentinel_active_status_page_id:${organizationId || 'none'}`;
+  const [pageSelection, setPageSelection] = useState(() => ({
+    scope: organizationId, id: localStorage.getItem(selectionKey) || '',
+  }));
+  const activePageId = pageSelection.scope === organizationId
+    ? pageSelection.id : localStorage.getItem(selectionKey) || '';
+  const setActivePageId = (id: string) => setPageSelection({ scope: organizationId, id });
+  const hasActivePage = Boolean(activePageId && pages.some(page => page.id === activePageId));
 
   // Multi-page modals
   const [showCreatePageModal, setShowCreatePageModal] = useState(false);
@@ -134,14 +139,14 @@ export default function StatusPageAdmin() {
       if (!activePageId || !exists) {
         const defaultPage = pages.find((p) => p.is_default) || pages[0];
         setActivePageId(defaultPage.id);
-        localStorage.setItem('sentinel_active_status_page_id', defaultPage.id);
+        localStorage.setItem(selectionKey, defaultPage.id);
       }
     }
-  }, [pages, activePageId]);
+  }, [pages, activePageId, organizationId, selectionKey]);
 
   const handleSelectPage = (pageId: string) => {
     setActivePageId(pageId);
-    localStorage.setItem('sentinel_active_status_page_id', pageId);
+    localStorage.setItem(selectionKey, pageId);
   };
 
   const activePage = pages.find((p) => p.id === activePageId) || pages[0];
@@ -159,7 +164,7 @@ export default function StatusPageAdmin() {
       });
       return response.data?.data as StatusPageConfigData;
     },
-    enabled: pages.length > 0 && !!activePageId,
+    enabled: hasActivePage,
   });
 
   // 2. Admin Stats Query
@@ -172,7 +177,7 @@ export default function StatusPageAdmin() {
       return response.data?.data as StatusPageAdminStats;
     },
     refetchInterval: autoRefresh.refetchInterval,
-    enabled: pages.length > 0 && !!activePageId,
+    enabled: hasActivePage,
   });
 
   // 3. Available Targets Query
@@ -194,7 +199,7 @@ export default function StatusPageAdmin() {
       });
       return (response.data?.data || []) as ScheduledMaintenanceItem[];
     },
-    enabled: pages.length > 0 && !!activePageId,
+    enabled: hasActivePage,
   });
 
   // 5. Subscribers List Query
@@ -207,7 +212,7 @@ export default function StatusPageAdmin() {
       });
       return (response.data?.data || []) as StatusPageSubscriberItem[];
     },
-    enabled: pages.length > 0 && !!activePageId,
+    enabled: hasActivePage,
   });
 
   // Populate config fields
@@ -509,23 +514,23 @@ export default function StatusPageAdmin() {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] text-text-dim font-mono uppercase tracking-wider">
+              <span className="text-xs text-text-dim font-mono uppercase tracking-wider">
                 Portal Activo:
               </span>
               <h2 className="text-sm font-bold text-text-main">
                 {activePage?.company_name || companyName || (isLoadingPages ? 'Cargando...' : 'Sin páginas configuradas')}
               </h2>
               {activePage?.is_default && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   Principal
                 </span>
               )}
               {activePage?.is_public ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   Pública
                 </span>
               ) : (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-500/10 text-text-muted border border-border-base">
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-500/10 text-text-muted border border-border-base">
                   Privada
                 </span>
               )}
@@ -540,7 +545,7 @@ export default function StatusPageAdmin() {
                 /status/{activePage?.slug || slug}
                 <ExternalLink size={11} />
               </a>
-              <span className="text-text-dim text-[11px]">
+              <span className="text-text-dim text-xs">
                 {activePage?.published_components_count ?? 0} componentes publicados
               </span>
             </div>
@@ -736,7 +741,7 @@ export default function StatusPageAdmin() {
                 />
                 <div>
                   <span className="font-semibold text-text-main block">Acceso Público</span>
-                  <span className="text-[10px] text-text-dim">Visible sin autenticación</span>
+                  <span className="text-xs text-text-dim">Visible sin autenticación</span>
                 </div>
               </label>
 
@@ -749,7 +754,7 @@ export default function StatusPageAdmin() {
                 />
                 <div>
                   <span className="font-semibold text-text-main block">Porcentaje Uptime</span>
-                  <span className="text-[10px] text-text-dim">Muestra % en barra de 90d</span>
+                  <span className="text-xs text-text-dim">Muestra % en barra de 90d</span>
                 </div>
               </label>
 
@@ -762,7 +767,7 @@ export default function StatusPageAdmin() {
                 />
                 <div>
                   <span className="font-semibold text-text-main block">Latencia 24h</span>
-                  <span className="text-[10px] text-text-dim">Muestra badge ms de respuesta</span>
+                  <span className="text-xs text-text-dim">Muestra badge ms de respuesta</span>
                 </div>
               </label>
             </div>
@@ -824,13 +829,13 @@ export default function StatusPageAdmin() {
                     <span className="font-semibold text-text-main text-xs truncate block">
                       {comp.display_name}
                     </span>
-                    <span className="text-[10px] text-text-dim block mt-0.5">
+                    <span className="text-xs text-text-dim block mt-0.5">
                       Categoría: <strong className="text-accent-green">{comp.category}</strong>
                     </span>
                   </div>
 
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
                       comp.is_visible
                         ? 'bg-accent-green/10 text-accent-green border-accent-green/30'
                         : 'bg-bg-dark text-text-dim border-border-base'
@@ -901,14 +906,14 @@ export default function StatusPageAdmin() {
                 <span className="font-bold text-text-main block">
                   Sincronización Automática con Monitoreo
                 </span>
-                <span className="text-[11px] text-text-dim">
+                <span className="text-xs text-text-dim">
                   Cualquier mantenimiento técnico programado en <strong className="text-text-main">/maintenance</strong> con la opción "Publicar en Status Page" activa se refleja aquí en tiempo real, silenciando alertas y protegiendo el SLA.
                 </span>
               </div>
             </div>
             <a
               href="/maintenance"
-              className="px-3 py-1.5 rounded-full bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue border border-accent-blue/40 font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              className="px-3 py-1.5 rounded-full bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue border border-accent-blue/40 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
             >
               <span>Abrir en /maintenance</span>
               <ExternalLink size={12} />
@@ -1029,7 +1034,7 @@ export default function StatusPageAdmin() {
               {/* Live Preview Box */}
               {customAnnouncement && announcementActive && (
                 <div className="space-y-1.5 pt-2">
-                  <span className="text-[10px] text-text-dim font-mono">Previsualización en vivo:</span>
+                  <span className="text-xs text-text-dim font-mono">Previsualización en vivo:</span>
                   <div
                     className={`p-3.5 rounded-2xl border flex items-center gap-2.5 text-xs ${
                       announcementType === 'critical'
@@ -1099,7 +1104,7 @@ export default function StatusPageAdmin() {
                         <span className="font-semibold text-text-main font-mono text-xs block">
                           {sub.email}
                         </span>
-                        <span className="text-[10px] text-text-dim">
+                        <span className="text-xs text-text-dim">
                           Suscrito el: {new Date(sub.created_at).toLocaleDateString('es-ES')}
                         </span>
                       </div>

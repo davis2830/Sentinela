@@ -298,7 +298,7 @@ export default function UserFormModal({
                   <Layers size={13} className="text-accent-blue" />
                   Cuadrillas / Equipos de Trabajo
                 </label>
-                <span className="text-[10px] font-mono text-text-dim">
+                <span className="text-xs font-mono text-text-dim">
                   {selectedTeamIds.length} seleccionados
                 </span>
               </div>
@@ -340,7 +340,7 @@ export default function UserFormModal({
                 <Power size={14} className={isActive ? 'text-accent-green' : 'text-text-dim'} />
                 <div>
                   <p className="text-xs font-semibold text-text-main">Habilitar Cuenta Activa</p>
-                  <p className="text-[10px] text-text-dim">
+                  <p className="text-xs text-text-dim">
                     Permite al usuario autenticarse de inmediato en la plataforma.
                   </p>
                 </div>

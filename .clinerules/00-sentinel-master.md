@@ -1,5 +1,3 @@
 # 00-sentinel-master
 
-> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
-
-La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.
+Empieza por [AGENTS.md](../AGENTS.md) para conocer las reglas del repositorio y el mapa del código. Usa el [centro de documentación](../docs/README.md) para elegir la guía vigente según la tarea.

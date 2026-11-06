@@ -579,7 +579,7 @@ export default function UsersPage() {
           valueSuffix="en organización"
           subtitle="Directorio unificado de operadores"
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Usuarios activos</span>
               <span className="font-mono text-text-main font-medium">
                 {activeMembers} habilitados
@@ -601,7 +601,7 @@ export default function UsersPage() {
           valueSuffix={`de ${totalMembers} en servicio`}
           subtitle="Operadores con acceso vigente a la plataforma"
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Estado de acceso</span>
               <span className="text-accent-green font-medium">
                 {revokedMembers > 0 ? `${revokedMembers} suspendidos` : '100% operativos'}
@@ -632,7 +632,7 @@ export default function UsersPage() {
               : 'Sin invitaciones pendientes por validar'
           }
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Magic link SMTP</span>
               <span
                 className={
@@ -664,7 +664,7 @@ export default function UsersPage() {
               : 'Organiza operadores en cuadrillas especializadas'
           }
           footer={
-            <div className="flex justify-between text-[11px] text-text-dim">
+            <div className="flex justify-between text-xs text-text-dim">
               <span>Personal asignado</span>
               <span className="font-mono text-accent-purple font-medium">
                 {teams.reduce((acc, t) => acc + (t.member_count || 0), 0)} miembros
@@ -689,7 +689,7 @@ export default function UsersPage() {
             <Users size={14} className={activeSection === 'members' ? 'text-accent-green' : ''} />
             Todos los Integrantes
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              className={`px-2 py-0.5 rounded-full text-xs font-mono ${
                 activeSection === 'members'
                   ? 'bg-accent-green/10 text-accent-green font-bold'
                   : 'bg-bg-dark text-text-dim'
@@ -711,7 +711,7 @@ export default function UsersPage() {
             <Layers size={14} className={activeSection === 'teams' ? 'text-accent-purple' : ''} />
             Equipos de Trabajo
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              className={`px-2 py-0.5 rounded-full text-xs font-mono ${
                 activeSection === 'teams'
                   ? 'bg-accent-purple/10 text-accent-purple font-bold'
                   : 'bg-bg-dark text-text-dim'

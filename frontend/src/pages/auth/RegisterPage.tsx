@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  Shield,
   Building,
   Sparkles,
 } from 'lucide-react';
@@ -96,7 +95,7 @@ export default function RegisterPage() {
           <p className="text-xs text-text-muted mt-1 font-mono">
             Plataforma de observabilidad y monitoreo continuo
           </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30">
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30">
             <Sparkles size={12} className="text-accent-green" />
             <span>Beta privada &bull; Plan Free &bull; Verificación de correo</span>
           </div>
@@ -104,7 +103,7 @@ export default function RegisterPage() {
 
         {/* Error Alert */}
         {displayError && (
-          <div className="mb-5 flex items-center gap-2.5 bg-accent-red/10 border border-accent-red/40 text-accent-red px-4 py-3 rounded-xl text-xs font-mono animate-in fade-in">
+          <div role="alert" className="mb-5 flex items-center gap-2.5 bg-accent-red/10 border border-accent-red/40 text-accent-red px-4 py-3 rounded-xl text-xs font-mono animate-in fade-in">
             <AlertCircle size={16} className="shrink-0" />
             <span>{displayError}</span>
           </div>
@@ -119,17 +118,16 @@ export default function RegisterPage() {
           {(!config?.admissions_open || !invitationToken) && <p role="status" className="text-sm text-text-muted">
             {!config ? 'Consultando disponibilidad…' : !config.admissions_open ? 'La beta está cerrada a nuevos registros.' : 'Necesitas abrir el enlace de invitación enviado a tu correo.'}
           </p>}
+          {config?.admissions_open && invitation?.status === 'invited' ? <>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
-                Nombre
-              </label>
+              <label htmlFor="auth-firstName" className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">Nombre</label>
               <div className="relative group">
                 <User
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                   size={17}
                 />
-                <input
+                <input id="auth-firstName" aria-label="Nombre" autoComplete="given-name"
                   type="text"
                   placeholder="Juan"
                   value={firstName}
@@ -141,15 +139,13 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
-                Apellido
-              </label>
+              <label htmlFor="auth-lastName" className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">Apellido</label>
               <div className="relative group">
                 <User
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                   size={17}
                 />
-                <input
+                <input id="auth-lastName" aria-label="Apellido" autoComplete="family-name"
                   type="text"
                   placeholder="Pérez"
                   value={lastName}
@@ -171,7 +167,7 @@ export default function RegisterPage() {
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                 size={17}
               />
-              <input
+              <input id="auth-organizationName" aria-label="Nombre de la Organización" autoComplete="organization"
                 type="text"
                 placeholder="Ej. Acme Cloud Services / Banco Central"
                 value={organizationName}
@@ -183,15 +179,13 @@ export default function RegisterPage() {
 
           {/* Email */}
           <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
-              Correo Electrónico
-            </label>
+            <label htmlFor="auth-email" className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">Correo Electrónico</label>
             <div className="relative group">
               <Mail
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                 size={17}
               />
-              <input
+              <input id="auth-email" aria-label="Correo Electrónico" autoComplete="email"
                 type="email"
                 placeholder="usuario@dominio.com"
                 value={email}
@@ -208,15 +202,13 @@ export default function RegisterPage() {
 
           {/* Password */}
           <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">
-              Contraseña
-            </label>
+            <label htmlFor="auth-password" className="block text-xs font-semibold text-text-muted mb-1.5 font-sans">Contraseña</label>
             <div className="relative group">
               <Lock
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                 size={17}
               />
-              <input
+              <input id="auth-password" aria-label="Contraseña" autoComplete="new-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Mínimo 8 caracteres"
                 value={password}
@@ -230,6 +222,7 @@ export default function RegisterPage() {
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors p-1 cursor-pointer"
               >
@@ -241,12 +234,10 @@ export default function RegisterPage() {
           {/* Confirm Password */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-text-muted font-sans">
-                Confirmar Contraseña
-              </label>
+              <label htmlFor="auth-confirmPassword" className="block text-xs font-semibold text-text-muted font-sans">Confirmar Contraseña</label>
               {confirmPassword && (
                 <span
-                  className={`text-[11px] font-medium flex items-center gap-1 transition-all ${
+                  className={`text-xs font-medium flex items-center gap-1 transition-all ${
                     passwordsMatch ? 'text-accent-green' : 'text-amber-400'
                   }`}
                 >
@@ -275,7 +266,7 @@ export default function RegisterPage() {
                 }`}
                 size={17}
               />
-              <input
+              <input id="auth-confirmPassword" aria-label="Confirmar Contraseña" autoComplete="new-password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Repite tu contraseña"
                 value={confirmPassword}
@@ -296,6 +287,7 @@ export default function RegisterPage() {
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main transition-colors p-1 cursor-pointer"
+                aria-label={showConfirmPassword ? "Ocultar confirmación" : "Ver confirmación"}
                 title={showConfirmPassword ? 'Ocultar confirmación' : 'Ver confirmación'}
               >
                 {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -323,6 +315,11 @@ export default function RegisterPage() {
               </>
             )}
           </button>
+          </> : <div className="rounded-xl border border-border-base bg-bg-dark p-4 text-sm text-text-muted space-y-3">
+            <p>El registro está disponible únicamente con una invitación vigente y mientras haya admisiones abiertas.</p>
+            <p>Si ya recibiste una invitación, abre el enlace completo de ese correo. Si venció, solicita otro a quien te invitó. Si aún no tienes invitación, espera una nueva convocatoria; todavía no hay lista de espera en esta pantalla.</p>
+            <Link to="/login" className="inline-flex min-h-11 items-center text-accent-green">Ya tengo cuenta: iniciar sesión</Link>
+          </div>}
         </form>
 
         {/* Footer */}
@@ -334,10 +331,6 @@ export default function RegisterPage() {
             </Link>
           </p>
 
-          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-text-dim mt-3">
-            <Shield size={12} className="text-accent-green" />
-            <span>Sentinel &bull; v1.0.0</span>
-          </div>
         </div>
       </div>
     </AuthLayout>

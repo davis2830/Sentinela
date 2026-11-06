@@ -229,13 +229,13 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
             />
             {/* Quick Suggestion Chips */}
             <div className="flex flex-wrap gap-1.5 mt-2">
-              <span className="text-[10px] text-text-dim py-0.5">Sugerencias:</span>
+              <span className="text-xs text-text-dim py-0.5">Sugerencias:</span>
               {SUGGESTED_SERVICES.map((sug) => (
                 <button
                   key={sug}
                   type="button"
                   onClick={() => setImpactedService(sug)}
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-bg-dark border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer"
+                  className="text-xs px-2 py-0.5 rounded-full bg-bg-dark border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer"
                 >
                   {sug}
                 </button>

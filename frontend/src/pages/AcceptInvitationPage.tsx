@@ -166,7 +166,7 @@ export default function AcceptInvitationPage() {
                   </label>
                   {confirmPassword && (
                     <span
-                      className={`text-[11px] font-medium flex items-center gap-1 ${
+                      className={`text-xs font-medium flex items-center gap-1 ${
                         password === confirmPassword ? 'text-accent-green' : 'text-amber-400'
                       }`}
                     >

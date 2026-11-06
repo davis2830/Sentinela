@@ -1,13 +1,13 @@
 services:
   nginx:
-    image: nginx:1.30.6-alpine
+    image: ${GATEWAY_IMAGE:?GATEWAY_IMAGE required}:${IMAGE_TAG:?IMAGE_TAG required}
     container_name: sentinel_nginx_prod
     restart: always
     ports:
       - "80:80"
       - "443:443"
+      - "127.0.0.1:8081:8081"
     volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ${TLS_CERT_PATH:?TLS_CERT_PATH required}:/etc/nginx/tls/tls.crt:ro
       - ${TLS_KEY_PATH:?TLS_KEY_PATH required}:/etc/nginx/tls/tls.key:ro
       - django_static:/var/www/static:ro
@@ -21,6 +21,9 @@ services:
         ipv4_address: 172.30.0.10
     security_opt:
       - no-new-privileges:true
+    cap_drop: [ALL]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
 
   frontend:
     image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE required}:${IMAGE_TAG:?IMAGE_TAG required}
@@ -139,6 +142,7 @@ services:
       POSTGRES_PORT: "5432"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required}@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required}@redis:6379/1
       BLACKBOX_EXPORTER_URL: http://blackbox:9115

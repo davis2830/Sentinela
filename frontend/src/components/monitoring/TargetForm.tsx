@@ -1,3 +1,4 @@
+import ModalSurface from '../common/ModalSurface';
 import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
 import { tcpParts, tcpEndpoint } from '../../utils/networkEndpoint';
 import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
@@ -459,9 +460,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
       className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <div
+      <ModalSurface label={target ? "Editar Objetivo de Monitoreo" : "Nuevo Objetivo de Monitoreo"} onClose={onClose}
         className="readable-form bg-bg-card border border-border-base/70 rounded-3xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl font-sans"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="px-7 py-5 border-b border-border-base/60 bg-bg-card backdrop-blur flex flex-wrap items-center justify-between gap-3">
@@ -517,7 +517,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-text-main truncate">Active Directory (389)</div>
-                        <div className="text-[11px] text-text-dim">TCP · Frecuencia 30s</div>
+                        <div className="text-xs text-text-dim">TCP · Frecuencia 30s</div>
                       </div>
                     </button>
                     <button
@@ -533,7 +533,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-text-main truncate">PostgreSQL (5432)</div>
-                        <div className="text-[11px] text-text-dim">TCP · Frecuencia 30s</div>
+                        <div className="text-xs text-text-dim">TCP · Frecuencia 30s</div>
                       </div>
                     </button>
                     <button
@@ -549,7 +549,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-text-main truncate">Portal Web HTTPS</div>
-                        <div className="text-[11px] text-text-dim">HTTPS · Código 200 · 60s</div>
+                        <div className="text-xs text-text-dim">HTTPS · Código 200 · 60s</div>
                       </div>
                     </button>
                     <button
@@ -565,7 +565,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-text-main truncate">API REST Microservicio</div>
-                        <div className="text-[11px] text-text-dim">API · Headers Auth · 30s</div>
+                        <div className="text-xs text-text-dim">API · Headers Auth · 30s</div>
                       </div>
                     </button>
                   </div>
@@ -573,7 +573,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               </div>
             )}
 
-            <button
+            <button aria-label="Cerrar formulario"
               onClick={onClose}
               className="p-2 text-text-muted hover:text-text-main hover:bg-bg-dark/80 rounded-full transition-colors"
             >
@@ -662,7 +662,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                           <span className="font-semibold text-sm">{proto.label}</span>
                           <ProtoIcon size={16} className={proto.color} />
                         </div>
-                        <span className="text-[11px] text-text-dim leading-snug">{proto.desc}</span>
+                        <span className="text-xs text-text-dim leading-snug">{proto.desc}</span>
                       </button>
                     );
                   })}
@@ -675,7 +675,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Nombre Descriptivo *
                   </label>
-                  <input
+                  <input aria-label="Nombre descriptivo"
                     type="text"
                     required
                     placeholder="ej: DNS Corporativo LDAP / Portal Clientes"
@@ -690,7 +690,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     <Layers size={13} className="text-accent-purple" />
                     Equipo Propietario (Squad)
                   </label>
-                  <select
+                  <select aria-label="Equipo propietario"
                     value={ownerTeam}
                     onChange={(e) => setOwnerTeam(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all cursor-pointer"
@@ -730,7 +730,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     <Server size={14} className="text-accent-purple" />
                     <span>Ejecutor del Sondeo</span>
                   </label>
-                  <span className="text-[11px] text-text-dim">
+                  <span className="text-xs text-text-dim">
                     {runnerType === 'agent' ? 'Auditoría en red privada / LAN' : 'Sondeo desde la nube / Internet'}
                   </span>
                 </div>
@@ -781,7 +781,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <div className="pt-2 animate-in fade-in space-y-2">
                     <label className="block text-xs font-medium text-accent-purple flex items-center justify-between">
                       <span>Selecciona el Guardián Senti9 Responsable *</span>
-                      <span className="text-[10px] text-text-dim">
+                      <span className="text-xs text-text-dim">
                         {probes.filter((p) => p.is_online).length} online de {probes.length}
                       </span>
                     </label>
@@ -790,7 +790,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         <span>No tienes guardianes Senti9 registrados en tu organización.</span>
                       </div>
                     ) : (
-                      <select
+                      <select aria-label="Agente Senti9 asignado"
                         value={agentProbeId}
                         onChange={(e) => setAgentProbeId(e.target.value)}
                         required={runnerType === 'agent'}
@@ -817,7 +817,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-text-muted mb-1">Host o Dirección IP</label>
-                      <input
+                      <input aria-label="Host TCP"
                         type="text"
                         required
                         placeholder="10.138.15.10 o db.midominio.com"
@@ -828,7 +828,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-text-muted mb-1">Puerto</label>
-                      <input
+                      <input aria-label="Puerto TCP"
                         type="number"
                         required
                         placeholder="389"
@@ -841,7 +841,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
                   {/* Common Port Quick Pills */}
                   <div>
-                    <span className="text-[11px] font-medium text-text-dim block mb-2">Puertos Comunes de Infraestructura:</span>
+                    <span className="text-xs font-medium text-text-dim block mb-2">Puertos Comunes de Infraestructura:</span>
                     <div className="flex flex-wrap gap-2">
                       {commonPorts.map((cp) => (
                         <button
@@ -877,7 +877,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     onChange={(e) => setEndpoint(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-4 py-2.5 text-sm text-text-main font-mono placeholder:text-text-dim focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all"
                   />
-                  <p className="text-[11px] text-text-dim mt-1.5">
+                  <p className="text-xs text-text-dim mt-1.5">
                     {targetType === 'dns'
                       ? 'Introduce el dominio sin https:// (ej. micoope.local o google.com)'
                       : targetType === 'ssl'
@@ -924,7 +924,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       >
                         {preset.label}
                         {isRestricted && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          <span className="text-xs px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
                             Upgrade
                           </span>
                         )}
@@ -933,7 +933,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   })}
                 </div>
                 {minAllowedInterval > 60 && (
-                  <p className="text-[11px] text-amber-400/90 flex items-center gap-1 mt-1">
+                  <p className="text-xs text-amber-400/90 flex items-center gap-1 mt-1">
                     <span>Tu plan actual limita chequeos de alta frecuencia a un mínimo de {minAllowedInterval}s ({Math.round(minAllowedInterval / 60)}m).</span>
                   </p>
                 )}
@@ -961,7 +961,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     </span>
                   ))}
                   <div className="flex items-center gap-1 flex-1 min-w-[140px]">
-                    <input
+                    <input aria-label="Añadir etiqueta"
                       type="text"
                       placeholder="Escribe un tag y pulsa Enter..."
                       value={tagInputText}
@@ -987,7 +987,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </div>
 
                 {/* Suggestions */}
-                <div className="flex items-center gap-2 flex-wrap text-[11px] text-text-dim pt-0.5">
+                <div className="flex items-center gap-2 flex-wrap text-xs text-text-dim pt-0.5">
                   <span className="flex items-center gap-1">
                     <TagIcon size={12} /> Sugerencias:
                   </span>
@@ -1006,92 +1006,6 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 </div>
               </div>
 
-              {/* Runner Execution Location (Cloud vs Private Agent) */}
-              <div className="space-y-3 pt-4 border-t border-border-base/60">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-                    <Server size={14} className="text-accent-green" />
-                    Ubicación de Monitoreo (Runner)
-                  </label>
-                  <span className="text-[11px] text-text-dim">
-                    {runnerType === 'cloud' ? 'Red Pública Sentinel' : 'Red Local / Privada'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRunnerType('cloud');
-                      setAgentProbeId('');
-                    }}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 ${
-                      runnerType === 'cloud'
-                        ? 'bg-accent-blue/10 border-accent-blue/40 ring-1 ring-accent-blue/30 text-text-main'
-                        : 'bg-bg-dark/60 border-border-base hover:border-border-accent text-text-muted'
-                    }`}
-                  >
-                    <Globe size={18} className="text-accent-blue shrink-0 mt-0.5" />
-                    <div>
-                      <div className="text-xs font-bold text-text-main">Sentinel Cloud</div>
-                      <div className="text-[11px] text-text-dim mt-0.5">
-                        Escaneo desde la nube para sitios web, APIs y servicios públicos.
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRunnerType('agent');
-                      if (probes.length > 0 && !agentProbeId) {
-                        setAgentProbeId(probes[0].id);
-                      }
-                    }}
-                    className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 ${
-                      runnerType === 'agent'
-                        ? 'bg-accent-green/10 border-accent-green/40 ring-1 ring-accent-green/30 text-text-main'
-                        : 'bg-bg-dark/60 border-border-base hover:border-border-accent text-text-muted'
-                    }`}
-                  >
-                    <Server size={18} className="text-accent-green shrink-0 mt-0.5" />
-                    <div>
-                      <div className="text-xs font-bold text-text-main">Agente Satélite On-Premise</div>
-                      <div className="text-[11px] text-text-dim mt-0.5">
-                        Ejecución en red local privada (192.168.x.x / 10.x.x.x) sin abrir puertos.
-                      </div>
-                    </div>
-                  </button>
-                </div>
-
-                {/* If Agent Runner selected: Show Probe Dropdown */}
-                {runnerType === 'agent' && (
-                  <div className="p-4 rounded-2xl bg-bg-dark/80 border border-border-base space-y-2 animate-in fade-in">
-                    <label className="block text-xs font-semibold text-text-muted">
-                      Selecciona el Agente Satélite Asignado *
-                    </label>
-                    {probes.length > 0 ? (
-                      <select
-                        value={agentProbeId}
-                        onChange={(e) => setAgentProbeId(e.target.value)}
-                        required={runnerType === 'agent'}
-                        className="w-full bg-bg-card border border-border-base rounded-xl px-4 py-2.5 text-xs text-text-main focus:border-accent-green focus:outline-none"
-                      >
-                        <option value="">-- Elige un runner privado --</option>
-                        {probes.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} {p.is_online ? '🟢 (Online)' : '⚪ (Offline)'} - {p.ip_address || p.hostname || 'LAN'}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="p-3 rounded-xl bg-accent-yellow/10 border border-accent-yellow/30 text-accent-yellow text-xs">
-                        <span>No tienes agentes satélite registrados en tu organización.</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -1103,7 +1017,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Método HTTP
                   </label>
-                  <select
+                  <select aria-label="Método HTTP"
                     value={httpMethod}
                     onChange={(e) => setHttpMethod(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:border-accent-green focus:outline-none focus:ring-2 focus:ring-accent-green/20"
@@ -1120,7 +1034,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Código de Estado Esperado
                   </label>
-                  <input
+                  <input aria-label="Código HTTP esperado"
                     type="number"
                     value={expectedStatus}
                     onChange={(e) => setExpectedStatus(Number(e.target.value))}
@@ -1147,7 +1061,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   Latencia Máxima Permitida (Umbral de Alerta)
                 </label>
                 <div className="flex items-center gap-3">
-                  <input
+                  <input aria-label="Latencia máxima en milisegundos"
                     type="range"
                     min="100"
                     max="5000"
@@ -1160,7 +1074,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     {maxLatencyMs}ms
                   </span>
                 </div>
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Si la respuesta supera este tiempo, el target cambiará a estado LENTO (Warning).
                 </p>
               </div>
@@ -1169,7 +1083,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Encabezados Personalizados (JSON)
                 </label>
-                <textarea
+                <textarea aria-label="Cabeceras HTTP en JSON"
                   rows={3}
                   placeholder={`{\n  "Authorization": "Bearer token_secreto",\n  "X-Custom-Header": "Sentinel"\n}`}
                   value={headersJson}
@@ -1183,7 +1097,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Cuerpo de la Petición (Request Body)
                   </label>
-                  <textarea
+                  <textarea aria-label="Cuerpo de la solicitud"
                     rows={3}
                     placeholder='{"action": "ping", "client": "sentinel"}'
                     value={requestBody}
@@ -1266,8 +1180,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
                     {!testResult.redirect_location && testResult.headers && (
                       <div className="pt-2 border-t border-current/20">
-                        <span className="block text-[11px] font-semibold mb-1 opacity-80">Encabezados Recibidos:</span>
-                        <pre className="text-[10px] font-mono bg-black/40 p-2.5 rounded-xl max-h-32 overflow-y-auto">
+                        <span className="block text-xs font-semibold mb-1 opacity-80">Encabezados Recibidos:</span>
+                        <pre className="text-xs font-mono bg-black/40 p-2.5 rounded-xl max-h-32 overflow-y-auto">
                           {JSON.stringify(testResult.headers, null, 2)}
                         </pre>
                       </div>
@@ -1311,7 +1225,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             </div>
           </div>
         </form>
-      </div>
+      </ModalSurface>
     </div>,
     document.body
   );

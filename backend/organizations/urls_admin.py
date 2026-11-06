@@ -1,5 +1,8 @@
 from django.urls import path
 from audit.views import PlatformAuditLogListView
+from accounts.beta_views import BetaAdminView
+from accounts.platform_auth import PlatformLoginView, PlatformLogoutView, PlatformVerifyView
+from .platform_users import PlatformUserActionView, PlatformUserListView
 from .views_admin import (
     PlatformStatsView,
     PlatformOrganizationListView,
@@ -11,6 +14,12 @@ from .views_admin import (
 )
 
 urlpatterns = [
+    path("session/login/", PlatformLoginView.as_view(), name="platform-login"),
+    path("session/verify/", PlatformVerifyView.as_view(), name="platform-verify"),
+    path("session/logout/", PlatformLogoutView.as_view(), name="platform-logout"),
+    path("beta/", BetaAdminView.as_view(), name="platform-beta"),
+    path("users/", PlatformUserListView.as_view(), name="platform-users"),
+    path("users/<uuid:user_id>/action/", PlatformUserActionView.as_view(), name="platform-user-action"),
     path('audit-logs/', PlatformAuditLogListView.as_view(), name='platform-audit-logs'),
     path("stats/", PlatformStatsView.as_view(), name="platform-stats"),
     path("organizations/", PlatformOrganizationListView.as_view(), name="platform-orgs-list"),

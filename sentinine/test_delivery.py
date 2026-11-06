@@ -110,7 +110,7 @@ class DeliveryTests(unittest.TestCase):
         self.ready();identifier=self.task['execution_id']
         self.journal.acknowledge([{'execution_id':identifier,'status':'rejected','reason':'expired_execution'}],{identifier})
         self.assertFalse(self.journal.results())
-        with sqlite3.connect(self.path) as db:
+        with self.journal.connect() as db:
             self.assertEqual(db.execute('SELECT reason FROM rejected').fetchone()[0],'expired_execution')
 
     def test_telemetry_counts_and_ack_survive_restart_without_payload(self):

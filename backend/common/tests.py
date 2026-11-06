@@ -4,7 +4,9 @@ import secrets
 from unittest.mock import Mock, patch
 
 from django.core.exceptions import ImproperlyConfigured
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, RequestFactory, override_settings
+from django.http import HttpResponse
+from django.middleware.security import SecurityMiddleware
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
 
@@ -15,6 +17,21 @@ from common.security import validate_safe_public_url
 class ProductionSettingsTests(SimpleTestCase):
     def setUp(self):
         self.strong_key = secrets.token_urlsafe(64)
+
+    def test_loopback_readiness_does_not_redirect_but_api_still_requires_tls(self):
+        with patch.dict(os.environ, {
+            'SECRET_KEY': self.strong_key, 'ALLOWED_HOSTS': 'localhost',
+        }):
+            production = runpy.run_module('config.settings.prod')
+        with override_settings(SECURE_SSL_REDIRECT=True,
+                               SECURE_REDIRECT_EXEMPT=production['SECURE_REDIRECT_EXEMPT'],
+                               ALLOWED_HOSTS=['localhost']):
+            middleware = SecurityMiddleware(lambda request: HttpResponse(status=503))
+            factory = RequestFactory()
+            for path in ('/health', '/health/'):
+                self.assertEqual(middleware(factory.get(path, HTTP_HOST='localhost')).status_code, 503)
+            for path in ('/api/v1/monitoring/', '/health/private', '/other/health/'):
+                self.assertEqual(middleware(factory.get(path, HTTP_HOST='localhost')).status_code, 301)
 
     def test_rejects_placeholder_secret_and_wildcard_host(self):
         with patch.dict(os.environ, {"SECRET_KEY": "change-me-in-production", "ALLOWED_HOSTS": "api.example.com"}):

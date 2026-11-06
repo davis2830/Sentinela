@@ -85,6 +85,60 @@ Para producción, valide además `docker compose -f docker-compose.prod.yml conf
 - Ejecute `python manage.py quarantine_unsafe_targets` primero sin `--apply`.
 - No registre tokens, credenciales, cabeceras de autorización ni archivos `.env`.
 
+## Auditoría aislada y repetible
+
+No ejecutar escenarios de carga o fixtures sobre el Compose operativo. Usar
+`docker-compose.audit.yml` como archivo independiente, con un nombre de proyecto
+único, una BD `sentinel_audit` propia y puertos loopback 31800/31801. No importa
+tu `.env`: los ejemplos siguientes indican explícitamente la plantilla pública.
+
+```powershell
+$auditArgs = @('--env-file', '.env.example', '-p', 'sentinel-audit-local', '-f', 'docker-compose.audit.yml')
+docker compose @auditArgs build backend
+docker compose @auditArgs run --rm backend python manage.py test
+docker compose @auditArgs run --rm backend python manage.py migrate --noinput
+docker compose @auditArgs run --rm -e SENTINEL_E2E_FIXTURE=1 backend python manage.py seed_e2e_accounts --suffix audit-local
+docker compose @auditArgs up -d backend celery_worker
+```
+
+Para Chromium, iniciar Vite en otra terminal dentro de `frontend/`, con
+`VITE_API_URL=http://127.0.0.1:31800/api/v1` y puerto 31801. En la terminal de
+pruebas configurar `E2E_BASE_URL=http://127.0.0.1:31801`,
+`E2E_API_URL=http://127.0.0.1:31800/api/v1` y `E2E_FIXTURE_SUFFIX=audit-local`;
+ejecutar `npm run test:e2e`. Las repeticiones deben usar fixtures nuevas por ejecución
+para no mezclar datos ni agotar el presupuesto de login de un correo; no limpiar
+presupuestos ni deshabilitar controles de autenticación.
+
+El escenario `07_module_read_audit.js` tiene dataset y guard propios. Preparar otra
+fixture con sufijo `audit-perf-<ejecucion>` mediante `seed_e2e_accounts`, ejecutar
+`tests_perf/seed_audit_dataset.py` por `manage.py shell` con `SENTINEL_E2E_FIXTURE=1`
+y `AUDIT_FIXTURE_SUFFIX` igual al sufijo. k6 recibe `PERF_FIXTURE_SUFFIX` y accede
+solo al backend de la red de auditoría. El script genera Pro sintético, 25 recursos
+por módulo y 2.500 checks sin tareas ni correos. No prueba cuotas de alta: estas
+se validan por separado en Django. Ver [evidencia y límites](AUDIT_HARDENING_2026-11-04.md).
+
+Para smoke productivo, construir imágenes locales `sentinel-audit-backend:local`,
+`sentinel-audit-frontend-prod:local` y `sentinel-audit-gateway:local` desde sus
+Dockerfiles. Generar certificados **de prueba** para localhost en `.tmp/audit-tls/`.
+Combinar exclusivamente `docker-compose.prod.yml` y `docker-compose.audit.prod.yml`
+con `--env-file .env.production.example` y otro proyecto `sentinel-prod-audit-*`;
+el override sustituye nombres, imágenes, secretos por fixtures y puertos.
+Migrar su BD nueva y levantar `backend celery_worker frontend nginx`. Después:
+
+```bash
+bash scripts/smoke-production.sh sentinel-prod-audit-mi-ejecucion
+```
+
+El script valida el certificado, TLS 1.2/1.3, redirección, HSTS, rutas y backend
+sin puerto host; detiene/reinicia **solo el worker ficticio** para comprobar 503
+y recuperación. Se niega a operar sobre nombres que no sean de auditoría.
+No sustituye el smoke con dominio/certificado de preproducción.
+
+Retirar cada fixture con `seed_e2e_accounts --suffix <sufijo> --cleanup`, su flag
+E2E y el mismo proyecto; el comando exige nombre/usuarios exactos y conserva la
+auditoría. Después ejecutar `docker compose ... down` sin `-v` si se debe conservar
+la BD de auditoría. Nunca reutilizar esos comandos contra organizaciones reales.
+
 ## Higiene del repositorio
 
 - La aplicación web está en `frontend/`: conservar su `package.json`, `package-lock.json`, entrada HTML, código, pruebas y recursos utilizados. No añadir prototipos raíz ni lockfiles sin manifiesto.

@@ -79,7 +79,7 @@ export default function InvoiceReceiptModal({
                   OBSERVABILIDAD
                 </span>
               </div>
-              <p className="text-[11px] text-text-dim mt-1">
+              <p className="text-xs text-text-dim mt-1">
                 Sentinel Observability Platform Inc.
               </p>
             </div>
@@ -88,7 +88,7 @@ export default function InvoiceReceiptModal({
                 <CheckCircle2 size={13} />
                 {invoice.status_label.toUpperCase()}
               </span>
-              <p className="text-[11px] text-text-dim font-mono mt-1.5">
+              <p className="text-xs text-text-dim font-mono mt-1.5">
                 Emitida: {invoice.date}
               </p>
             </div>
@@ -97,25 +97,25 @@ export default function InvoiceReceiptModal({
           {/* Billed To / Billed From */}
           <div className="grid grid-cols-2 gap-6 p-4 rounded-2xl bg-bg-dark/60 border border-border-base">
             <div>
-              <span className="text-[10px] uppercase font-mono tracking-wider text-text-dim block mb-1">
+              <span className="text-xs uppercase font-mono tracking-wider text-text-dim block mb-1">
                 Facturado a (Cliente)
               </span>
               <div className="font-bold text-sm text-text-main flex items-center gap-1.5">
                 <Building size={14} className="text-accent-blue" />
                 {organizationName}
               </div>
-              <p className="text-text-muted mt-0.5 font-mono text-[11px]">{invoice.billing_email}</p>
+              <p className="text-text-muted mt-0.5 font-mono text-xs">{invoice.billing_email}</p>
               {invoice.tax_id && invoice.tax_id !== 'N/A' && (
-                <p className="text-text-dim mt-0.5 font-mono text-[11px]">ID Fiscal / RUT: {invoice.tax_id}</p>
+                <p className="text-text-dim mt-0.5 font-mono text-xs">ID Fiscal / RUT: {invoice.tax_id}</p>
               )}
             </div>
             <div>
-              <span className="text-[10px] uppercase font-mono tracking-wider text-text-dim block mb-1">
+              <span className="text-xs uppercase font-mono tracking-wider text-text-dim block mb-1">
                 Detalles del Pago
               </span>
               <p className="text-text-main font-semibold">Método: {invoice.payment_method}</p>
               <p className="text-text-muted mt-0.5">Periodo: {invoice.period}</p>
-              <p className="text-text-dim mt-0.5 font-mono text-[11px]">Vencimiento: {invoice.due_date}</p>
+              <p className="text-text-dim mt-0.5 font-mono text-xs">Vencimiento: {invoice.due_date}</p>
             </div>
           </div>
 
@@ -135,7 +135,7 @@ export default function InvoiceReceiptModal({
                     <div className="font-semibold text-text-main">
                       Suscripción Sentinel - Plan {invoice.plan_name}
                     </div>
-                    <div className="text-[11px] text-text-dim mt-0.5">
+                    <div className="text-xs text-text-dim mt-0.5">
                       Monitoreo continuo de red, probes satélite, alertas y dashboards de observabilidad
                     </div>
                   </td>
@@ -159,7 +159,7 @@ export default function InvoiceReceiptModal({
           </div>
 
           {/* Footer note */}
-          <div className="pt-2 flex items-center justify-between text-[11px] text-text-dim">
+          <div className="pt-2 flex items-center justify-between text-xs text-text-dim">
             <div className="flex items-center gap-1.5">
               <Shield size={13} className="text-accent-green" />
               <span>Transacción cifrada y asegurada por Sentinel Gateway.</span>

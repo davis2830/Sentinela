@@ -739,7 +739,7 @@ header {
                     </p>
 
                     {/* Critical Protections Micro-Badges */}
-                    <div className="flex items-center gap-1.5 mb-3 font-mono text-[10px]">
+                    <div className="flex items-center gap-1.5 mb-3 font-mono text-xs">
                       <span
                         className={`px-2 py-0.5 rounded flex items-center gap-1 ${
                           target.has_hsts
@@ -804,7 +804,7 @@ header {
 
                   {/* Footer */}
                   <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
-                    <span className="flex items-center gap-1 font-mono text-[11px]">
+                    <span className="flex items-center gap-1 font-mono text-xs">
                       <Clock size={12} />
                       {target.last_checked_at
                         ? new Date(target.last_checked_at).toLocaleTimeString('es-ES', {
@@ -923,19 +923,19 @@ header {
           selectedTarget && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Puntuación</div>
+                <div className="text-xs text-text-dim">Puntuación</div>
                 <div className="text-base font-bold font-mono text-accent-green mt-0.5">
                   {selectedTarget.last_score !== null ? `${selectedTarget.last_score} / 100` : 'N/A'}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Cabeceras OK</div>
+                <div className="text-xs text-text-dim">Cabeceras OK</div>
                 <div className="text-base font-bold font-mono text-emerald-400 mt-0.5">
                   {foundList.length}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Faltantes</div>
+                <div className="text-xs text-text-dim">Faltantes</div>
                 <div
                   className={`text-base font-bold font-mono mt-0.5 ${
                     missingList.length > 0 ? 'text-amber-400' : 'text-accent-green'
@@ -945,7 +945,7 @@ header {
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim">Latencia HTTP</div>
+                <div className="text-xs text-text-dim">Latencia HTTP</div>
                 <div className="text-sm font-semibold font-mono text-text-muted mt-0.5 truncate">
                   {selectedTarget.last_response_time_ms !== null && selectedTarget.last_response_time_ms !== undefined
                     ? `${selectedTarget.last_response_time_ms} ms`
@@ -998,7 +998,7 @@ header {
               <h4 className="text-xs font-semibold text-text-muted">
                 Evaluación Estándar de Cabeceras HTTP
               </h4>
-              <span className="text-[11px] font-mono text-text-dim">
+              <span className="text-xs font-mono text-text-dim">
                 {foundList.length} de {STANDARD_SECURITY_HEADERS.length} implementadas
               </span>
             </div>
@@ -1030,11 +1030,11 @@ header {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-text-dim">
+                        <span className="text-xs font-mono text-text-dim">
                           +{hdr.weight} pts
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             isFound
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
@@ -1058,7 +1058,7 @@ header {
 
                     {/* If directives analysis notes exist */}
                     {directiveInfo?.notes && (
-                      <div className="mt-2 text-[11px] text-text-muted flex items-center gap-1 font-mono">
+                      <div className="mt-2 text-xs text-text-muted flex items-center gap-1 font-mono">
                         <span className="text-accent-green">&bull;</span> {directiveInfo.notes}
                       </div>
                     )}
@@ -1077,7 +1077,7 @@ header {
                 <h4 className="text-xs font-semibold text-text-main">
                   Generador de Configuración de Servidor Web
                 </h4>
-                <p className="text-[11px] text-text-dim mt-0.5">
+                <p className="text-xs text-text-dim mt-0.5">
                   Aplica estas directivas en tu infraestructura para elevar la calificación a Grado A+.
                 </p>
               </div>
@@ -1128,7 +1128,7 @@ header {
                   {missingList.map((m) => (
                     <span
                       key={m}
-                      className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/25 text-rose-400 rounded-md text-[11px] font-mono"
+                      className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/25 text-rose-400 rounded-md text-xs font-mono"
                     >
                       {m}
                     </span>
@@ -1165,7 +1165,7 @@ header {
                           <span className="font-bold text-amber-300">{leak.header}:</span>
                           <span className="text-text-main font-semibold">{leak.value}</span>
                         </div>
-                        <div className="text-[11px] text-text-dim font-sans">
+                        <div className="text-xs text-text-dim font-sans">
                           Mitigación sugerida: {leak.recommendation}
                         </div>
                       </div>
@@ -1178,7 +1178,7 @@ header {
                 <CheckCircle2 size={18} className="shrink-0" />
                 <div>
                   <span className="font-bold">Servidor Protegido contra Fugas de Información</span>
-                  <p className="text-[11px] text-emerald-300/80 mt-0.5">
+                  <p className="text-xs text-emerald-300/80 mt-0.5">
                     No se detectaron cabeceras que divulguen versiones de software (Server o X-Powered-By).
                   </p>
                 </div>
@@ -1253,7 +1253,7 @@ header {
                         {new Date(res.checked_at).toLocaleString('es-ES')}
                       </span>
                       {res.response_time_ms !== null && res.response_time_ms !== undefined && (
-                        <span className="text-[11px] font-mono text-text-dim">
+                        <span className="text-xs font-mono text-text-dim">
                           ({res.response_time_ms} ms)
                         </span>
                       )}

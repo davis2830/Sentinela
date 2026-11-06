@@ -9,7 +9,12 @@ La rama contiene hardening de proxy y SSRF, API tokens con hash, revocación tra
 ## Desarrollo local
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
+```
+
+Configura los secretos locales antes de levantar los servicios. [Flujo de desarrollo](docs/DEV_WORKFLOW.md#inicio).
+
+```powershell
 docker compose up -d --build
 docker compose exec backend python manage.py migrate
 ```
@@ -27,4 +32,4 @@ Copie [.env.production.example](.env.production.example), configure imágenes GH
 
 ## Documentación
 
-El índice mantenido está en [docs/README.md](docs/README.md). Los documentos bajo `.clinerules/` están retirados y solo redirigen a la documentación vigente.
+Los agentes empiezan por [AGENTS.md](AGENTS.md). El [centro de documentación](docs/README.md) distingue las guías vigentes de la evidencia histórica. Las reglas de Cline enlazan a la misma documentación canónica.

@@ -233,7 +233,7 @@ export default function CreateReportModal({
                     <span className="text-xs font-semibold text-text-main block">
                       {opt.label}
                     </span>
-                    <span className="text-[11px] text-text-dim line-clamp-1">
+                    <span className="text-xs text-text-dim line-clamp-1">
                       {opt.desc}
                     </span>
                   </div>
@@ -290,7 +290,7 @@ export default function CreateReportModal({
                   key={p.id}
                   type="button"
                   onClick={() => setPeriodPreset(p.id as any)}
-                  className={`py-2 px-1 text-center rounded-xl text-[11px] font-medium transition-all ${
+                  className={`py-2 px-1 text-center rounded-xl text-xs font-medium transition-all ${
                     periodPreset === p.id
                       ? 'bg-accent-green/10 text-accent-green border border-accent-green/30 font-semibold'
                       : 'bg-bg-main border border-border-base text-text-muted hover:text-text-main'
@@ -305,7 +305,7 @@ export default function CreateReportModal({
             {periodPreset === 'custom' && (
               <div className="grid grid-cols-2 gap-3 mt-3 animate-in fade-in">
                 <div>
-                  <label className="text-[11px] text-text-dim block mb-1">Fecha Inicio</label>
+                  <label className="text-xs text-text-dim block mb-1">Fecha Inicio</label>
                   <input
                     type="date"
                     required={periodPreset === 'custom'}
@@ -315,7 +315,7 @@ export default function CreateReportModal({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-text-dim block mb-1">Fecha Fin</label>
+                  <label className="text-xs text-text-dim block mb-1">Fecha Fin</label>
                   <input
                     type="date"
                     required={periodPreset === 'custom'}
@@ -378,7 +378,7 @@ export default function CreateReportModal({
                   <button
                     type="button"
                     onClick={handleSelectAllTargets}
-                    className="text-[11px] text-text-dim hover:text-text-main underline px-2 py-1 shrink-0"
+                    className="text-xs text-text-dim hover:text-text-main underline px-2 py-1 shrink-0"
                   >
                     {selectedTargetIds.length === filteredTargets.length
                       ? 'Deseleccionar'
@@ -406,11 +406,11 @@ export default function CreateReportModal({
                           <span className="font-medium text-text-main text-xs block truncate">
                             {t.name}
                           </span>
-                          <span className="text-[10px] text-text-dim font-mono truncate block">
+                          <span className="text-xs text-text-dim font-mono truncate block">
                             {t.endpoint}
                           </span>
                         </div>
-                        <span className="text-[10px] font-mono uppercase bg-border-base/40 px-1.5 py-0.5 rounded text-text-muted shrink-0">
+                        <span className="text-xs font-mono uppercase bg-border-base/40 px-1.5 py-0.5 rounded text-text-muted shrink-0">
                           {t.target_type}
                         </span>
                       </div>

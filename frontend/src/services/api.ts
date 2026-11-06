@@ -4,6 +4,7 @@ const rawBaseUrl = import.meta.env.VITE_API_URL
   || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:8000/api/v1');
 const API_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 const isAnonymousAuth = (url: string) => /(?:^|\/)organizations\/invitations\/(?:validate|accept)\//.test(url)
+  || /(?:^|\/)auth\/password\/(?:recovery|reset)\//.test(url)
   || /(?:^|\/)auth\/(?:login|register|refresh)\//.test(url)
   || /(?:^|\/)auth\/beta\/(?:config|status|verify|resend|invitation)\//.test(url);
 

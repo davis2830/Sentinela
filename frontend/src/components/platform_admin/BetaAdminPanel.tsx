@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../services/api';
+import { platformApi } from '../../services/platformApi';
 
 type Invitation = { id: string; email: string; status: string; expires_at: string; reason: string;
   delivery?: { status: string; attempts: number } };
@@ -14,11 +14,11 @@ export default function BetaAdminPanel() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const { data, error, refetch } = useQuery<Beta>({ queryKey: ['beta-admin'],
-    queryFn: async () => (await api.get('auth/beta/admin/')).data.data });
+    queryFn: async () => (await platformApi.get('platform-admin/beta/')).data.data });
   const action = async (name: string, invitation_id?: string) => {
     setBusy(true); setMessage('');
     try {
-      await api.post('auth/beta/admin/', { action: name, reason, email: name === 'invite' ? email : undefined,
+      await platformApi.post('platform-admin/beta/', { action: name, reason, email: name === 'invite' ? email : undefined,
         invitation_id, capacity: name === 'configure' ? capacity : undefined,
         admissions_open: name === 'configure' ? !data?.admissions_open : undefined });
       setMessage(name === 'invite' ? 'Invitación en cola. Comprueba su estado de envío.' : 'Cambio registrado.');

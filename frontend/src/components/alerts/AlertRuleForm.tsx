@@ -346,7 +346,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                 !requiresThreshold ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             />
-            <p className="text-[11px] text-text-dim mt-1.5">
+            <p className="text-xs text-text-dim mt-1.5">
               {requiresThreshold
                 ? `Define el límite numérico en ${activeConditionMeta?.unit} para activar la alarma.`
                 : 'Esta condición se evalúa como estado booleano (caído / inválido / detectado).'}
@@ -433,7 +433,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                 <div className="flex items-center justify-between border-b border-border-base/50 pb-1.5">
                   <span className="text-text-muted font-sans font-medium">Resultado de Simulación:</span>
                   <span
-                    className={`font-bold font-mono px-2 py-0.5 rounded-full text-[11px] ${
+                    className={`font-bold font-mono px-2 py-0.5 rounded-full text-xs ${
                       simulateResult.would_trigger_count > 0
                         ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                         : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -444,7 +444,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                 </div>
 
                 {simulateResult.matching_targets.length > 0 ? (
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto font-mono text-[11px] pr-1">
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto font-mono text-xs pr-1">
                     {simulateResult.matching_targets.map((mt, i) => (
                       <div
                         key={i}
@@ -456,7 +456,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-emerald-300/90 flex items-center gap-1.5">
+                  <p className="text-xs text-emerald-300/90 flex items-center gap-1.5">
                     <CheckCircle2 size={13} className="shrink-0 text-accent-green" />
                     Ningún objetivo excede este umbral actualmente. La regla operará en modo preventivo.
                   </p>
@@ -486,7 +486,7 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
                 onChange={(e) => setCooldownMinutes(Number(e.target.value))}
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2 text-xs text-text-main focus:outline-none focus:border-accent-green font-mono"
               />
-              <p className="text-[10px] text-text-dim mt-1">
+              <p className="text-xs text-text-dim mt-1">
                 Tiempo mínimo entre re-notificaciones al mismo canal.
               </p>
             </div>

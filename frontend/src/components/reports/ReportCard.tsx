@@ -137,7 +137,7 @@ export default function ReportCard({
           </div>
 
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${meta.bg} ${meta.color} ${meta.border}`}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${meta.bg} ${meta.color} ${meta.border}`}
           >
             {meta.label}
           </span>
@@ -168,12 +168,12 @@ export default function ReportCard({
           </span>
 
           {targetCount && targetCount > 0 ? (
-            <span className="flex items-center gap-1 text-accent-purple font-medium text-[11px]">
+            <span className="flex items-center gap-1 text-accent-purple font-medium text-xs">
               <Layers size={11} />
               {targetCount} {targetCount === 1 ? 'objetivo' : 'objetivos'}
             </span>
           ) : (
-            <span className="text-[11px]">Todos los objetivos</span>
+            <span className="text-xs">Todos los objetivos</span>
           )}
         </div>
 
@@ -181,7 +181,7 @@ export default function ReportCard({
         {report.status === 'completed' && slaVal != null && (
           <div className="bg-bg-main/60 border border-border-base/70 rounded-xl p-3 mb-4 space-y-2">
             <div className="flex items-baseline justify-between">
-              <span className="text-[11px] text-text-dim uppercase font-semibold">
+              <span className="text-xs text-text-dim uppercase font-semibold">
                 Disponibilidad observada
               </span>
               <span className="text-base font-bold font-mono text-accent-green">
@@ -196,7 +196,7 @@ export default function ReportCard({
               />
             </div>
             {remainingBudget !== undefined && (
-              <div className="flex items-center justify-between text-[10px] text-text-dim font-mono pt-0.5">
+              <div className="flex items-center justify-between text-xs text-text-dim font-mono pt-0.5">
                 <span>Budget restante:</span>
                 <span className="text-sky-400 font-medium">{remainingBudget} min</span>
               </div>
@@ -207,7 +207,7 @@ export default function ReportCard({
         {report.status === 'completed' && report.report_type === 'incidents' && (
           <div className="bg-bg-main/60 border border-border-base/70 rounded-xl p-3 mb-4 grid grid-cols-2 gap-2">
             <div>
-              <span className="text-[10px] uppercase font-semibold text-text-dim block">
+              <span className="text-xs uppercase font-semibold text-text-dim block">
                 Incidentes
               </span>
               <span className="text-base font-bold font-mono text-text-main">
@@ -215,7 +215,7 @@ export default function ReportCard({
               </span>
             </div>
             <div>
-              <span className="text-[10px] uppercase font-semibold text-text-dim block">
+              <span className="text-xs uppercase font-semibold text-text-dim block">
                 MTTR Prom.
               </span>
               <span className="text-base font-bold font-mono text-sky-400">

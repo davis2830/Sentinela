@@ -30,8 +30,8 @@ export default function NOCPageHeader({
   queryKeys,
 }: NOCPageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0">
         <div className="flex items-center gap-2.5 flex-wrap">
           {icon && <div className="text-accent-green">{icon}</div>}
           <h1 className="text-xl font-semibold tracking-tight text-text-main font-sans">
@@ -50,12 +50,11 @@ export default function NOCPageHeader({
         )}
       </div>
 
-      <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-        {autoRefresh && <AutomaticRefreshControl {...autoRefresh} />}
-
-        {queryKeys && <ReloadDataButton queryKeys={queryKeys} scanIntervalSeconds={autoRefresh?.ready === false ? undefined : autoRefresh?.intervalSeconds} />}
+      {(actions || autoRefresh || queryKeys) && <div data-testid="module-header-actions" className="flex min-w-0 flex-wrap items-center justify-end gap-2.5">
         {actions}
-      </div>
+        {autoRefresh && <AutomaticRefreshControl {...autoRefresh} />}
+        {queryKeys && <ReloadDataButton queryKeys={queryKeys} scanIntervalSeconds={autoRefresh?.ready === false ? undefined : autoRefresh?.intervalSeconds} />}
+      </div>}
     </div>
   );
 }

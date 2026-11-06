@@ -165,13 +165,13 @@ export default function TeamDetailDrawer({
   const quickKpis = (
     <div className="grid grid-cols-3 gap-2 w-full pt-1">
       <div className="bg-bg-card border border-border-base rounded-xl p-2.5 text-center">
-        <p className="text-[10px] text-text-dim uppercase tracking-wider font-mono">Integrantes</p>
+        <p className="text-xs text-text-dim uppercase tracking-wider font-mono">Integrantes</p>
         <p className="text-xs font-bold text-text-main mt-0.5 font-mono">
           {team.member_count ?? (team.members?.length || 0)}
         </p>
       </div>
       <div className="bg-bg-card border border-border-base rounded-xl p-2.5 text-center">
-        <p className="text-[10px] text-text-dim uppercase tracking-wider font-mono">Incidentes</p>
+        <p className="text-xs text-text-dim uppercase tracking-wider font-mono">Incidentes</p>
         <p
           className={`text-xs font-bold mt-0.5 font-mono ${
             activeIncidents.length > 0 ? 'text-accent-red' : 'text-accent-green'
@@ -181,7 +181,7 @@ export default function TeamDetailDrawer({
         </p>
       </div>
       <div className="bg-bg-card border border-border-base rounded-xl p-2.5 text-center">
-        <p className="text-[10px] text-text-dim uppercase tracking-wider font-mono">Servicios</p>
+        <p className="text-xs text-text-dim uppercase tracking-wider font-mono">Servicios</p>
         <p className="text-xs font-bold text-accent-blue mt-0.5 font-mono">
           {team.assigned_targets_count ?? teamTargets.length} a cargo
         </p>
@@ -226,7 +226,7 @@ export default function TeamDetailDrawer({
               <p className="text-xs text-text-muted mt-0.5 line-clamp-2">
                 {team.description || 'Cuadrilla técnica para soporte y operaciones en Sentinel.'}
               </p>
-              <div className="flex items-center gap-4 mt-2 text-[11px] text-text-dim font-mono">
+              <div className="flex items-center gap-4 mt-2 text-xs text-text-dim font-mono">
                 <span className="flex items-center gap-1">
                   <Calendar size={12} /> Creado: {new Date(team.created_at).toLocaleDateString()}
                 </span>
@@ -267,16 +267,16 @@ export default function TeamDetailDrawer({
                     {`${team.lead.first_name || ''} ${team.lead.last_name || ''}`.trim() ||
                       team.lead.email}
                   </p>
-                  <p className="text-[11px] text-text-dim font-mono truncate">{team.lead.email}</p>
+                  <p className="text-xs text-text-dim font-mono truncate">{team.lead.email}</p>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20">
                   Team Lead
                 </span>
               </div>
             ) : (
               <div className="p-3.5 rounded-xl bg-bg-dark border border-border-base text-center space-y-1">
                 <p className="text-xs text-text-muted">No se ha designado un líder para este equipo.</p>
-                <p className="text-[11px] text-text-dim">
+                <p className="text-xs text-text-dim">
                   Puedes nombrar a uno de los integrantes como referente técnico desde la pestaña de Integrantes.
                 </p>
               </div>
@@ -351,7 +351,7 @@ export default function TeamDetailDrawer({
               <div className="p-8 rounded-2xl bg-bg-card border border-border-base text-center space-y-2">
                 <Users size={28} className="text-text-dim mx-auto opacity-50" />
                 <p className="text-xs font-medium text-text-main">Sin miembros asignados</p>
-                <p className="text-[11px] text-text-dim max-w-sm mx-auto">
+                <p className="text-xs text-text-dim max-w-sm mx-auto">
                   Selecciona operadores en el desplegable superior para integrarlos a este equipo de trabajo.
                 </p>
               </div>
@@ -389,12 +389,12 @@ export default function TeamDetailDrawer({
                               {`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email}
                             </p>
                             {isLead && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-bold bg-accent-yellow/20 text-accent-yellow">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-xs font-bold bg-accent-yellow/20 text-accent-yellow">
                                 <Crown size={10} /> Lead
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-text-dim font-mono truncate">{m.email}</p>
+                          <p className="text-xs text-text-dim font-mono truncate">{m.email}</p>
                         </div>
                       </div>
 
@@ -408,7 +408,7 @@ export default function TeamDetailDrawer({
                             className="p-1.5 text-text-dim hover:text-accent-yellow hover:bg-bg-main rounded-lg transition-colors text-xs flex items-center gap-1"
                           >
                             <Crown size={13} />
-                            <span className="hidden sm:inline text-[11px]">Hacer Lead</span>
+                            <span className="hidden sm:inline text-xs">Hacer Lead</span>
                           </AdminButton>
                         )}
                         <AdminButton
@@ -439,7 +439,7 @@ export default function TeamDetailDrawer({
                 <Activity size={14} className="text-accent-green" />
                 Objetivos de Monitoreo Asignados
               </h4>
-              <p className="text-[11px] text-text-dim mt-0.5">
+              <p className="text-xs text-text-dim mt-0.5">
                 Servicios cuya disponibilidad y respuesta están bajo la tutela de este equipo.
               </p>
             </div>
@@ -461,7 +461,7 @@ export default function TeamDetailDrawer({
             <div className="p-8 rounded-2xl bg-bg-card border border-border-base text-center space-y-2">
               <Activity size={28} className="text-text-dim mx-auto opacity-50" />
               <p className="text-xs font-medium text-text-main">Sin servicios asignados a este equipo</p>
-              <p className="text-[11px] text-text-dim max-w-sm mx-auto">
+              <p className="text-xs text-text-dim max-w-sm mx-auto">
                 Puedes asociar objetivos de monitoreo (HTTP/S, TCP, Ping) a esta cuadrilla editando el objetivo desde el módulo de Monitoreo.
               </p>
             </div>
@@ -482,11 +482,11 @@ export default function TeamDetailDrawer({
                           }`}
                         />
                         <p className="text-xs font-bold text-text-main truncate">{target.name}</p>
-                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-bg-dark text-text-dim">
+                        <span className="text-xs uppercase font-mono px-1.5 py-0.2 rounded bg-bg-dark text-text-dim">
                           {target.target_type}
                         </span>
                       </div>
-                      <p className="text-[11px] text-text-dim font-mono truncate mt-0.5">
+                      <p className="text-xs text-text-dim font-mono truncate mt-0.5">
                         {target.endpoint}
                       </p>
                     </div>
@@ -499,7 +499,7 @@ export default function TeamDetailDrawer({
                       >
                         {target.last_latency ? `${Math.round(target.last_latency)}ms` : '—'}
                       </span>
-                      <p className="text-[10px] text-text-dim uppercase">
+                      <p className="text-xs text-text-dim uppercase">
                         {target.last_status || 'desconocido'}
                       </p>
                     </div>
@@ -520,7 +520,7 @@ export default function TeamDetailDrawer({
                 <AlertTriangle size={14} className="text-accent-red" />
                 Incidentes Asignados al Squad
               </h4>
-              <p className="text-[11px] text-text-dim mt-0.5">
+              <p className="text-xs text-text-dim mt-0.5">
                 Eventos críticos escalados para investigación y mitigación por esta cuadrilla.
               </p>
             </div>
@@ -544,7 +544,7 @@ export default function TeamDetailDrawer({
               <p className="text-xs font-medium text-text-main">
                 ¡Sin incidentes asignados a este squad!
               </p>
-              <p className="text-[11px] text-text-dim max-w-sm mx-auto">
+              <p className="text-xs text-text-dim max-w-sm mx-auto">
                 No hay incidentes abiertos ni históricos vinculados formalmente a esta cuadrilla.
               </p>
             </div>
@@ -561,7 +561,7 @@ export default function TeamDetailDrawer({
                   >
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                        className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${
                           isCritical
                             ? 'bg-accent-red/10 text-accent-red'
                             : 'bg-accent-yellow/10 text-accent-yellow'
@@ -570,7 +570,7 @@ export default function TeamDetailDrawer({
                         {inc.priority}
                       </span>
                       <span
-                        className={`text-[10px] font-medium font-mono px-2 py-0.5 rounded-full ${
+                        className={`text-xs font-medium font-mono px-2 py-0.5 rounded-full ${
                           isResolved
                             ? 'bg-accent-green/10 text-accent-green'
                             : 'bg-accent-blue/10 text-accent-blue'
@@ -582,7 +582,7 @@ export default function TeamDetailDrawer({
 
                     <h5 className="text-xs font-bold text-text-main">{inc.title}</h5>
 
-                    <div className="flex items-center justify-between text-[10px] font-mono text-text-dim pt-1 border-t border-border-base/50">
+                    <div className="flex items-center justify-between text-xs font-mono text-text-dim pt-1 border-t border-border-base/50">
                       <span>Operador: {inc.assigned_to_name || 'Sin asignar a persona'}</span>
                       <span>{new Date(inc.opened_at).toLocaleDateString()}</span>
                     </div>

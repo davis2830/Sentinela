@@ -32,7 +32,7 @@ export default {
         'accent-yellow': 'rgb(var(--sentinel-accent-yellow, 245 158 11) / <alpha-value>)',
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
     },

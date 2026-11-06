@@ -365,7 +365,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .endpoint-quick-panel .latency-chart-compact { gap:8px; }
 .endpoint-quick-panel .quick-panel-metrics .ui-metric-value { font-size:32px; }
 .quick-panel-header { align-items:flex-start; }
-@media(max-width:639px) { .quick-panel-action-list { left:0; right:auto; max-width:calc(100vw - 32px); } }
+@media(max-width:639px) {
+  .quick-panel-actions { flex-basis:100%; min-width:0; }
+  .quick-panel-action-list { position:static; min-width:0; width:100%; max-width:100%; margin-top:8px; }
+}
 .endpoint-quick-panel .latency-plot-compact { height:140px; }
 
 /* Dashboard: current resource state and historical checks have explicit scopes. */
@@ -382,3 +385,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-kpi-cell { display:flex; flex-direction:column; justify-content:flex-start; }
 .dashboard-health-options { gap:0; }
 .dashboard-priority-preview { padding:12px; }
+
+/* Focus is shared. Control dimensions belong to the component that renders them. */
+button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline:2px solid rgb(var(--sentinel-accent-green)); outline-offset:3px;
+}

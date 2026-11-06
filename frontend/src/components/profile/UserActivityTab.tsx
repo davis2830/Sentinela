@@ -147,21 +147,21 @@ export default function UserActivityTab({ userId }: UserActivityTabProps) {
 
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-text-main font-mono text-[11px] uppercase tracking-wider">
+                    <span className="font-semibold text-text-main font-mono text-xs uppercase tracking-wider">
                       {log.action.replace('_', ' ')}
                     </span>
-                    <span className="px-2 py-0.2 rounded-full text-[10px] font-mono bg-bg-card border border-border-base text-text-muted">
+                    <span className="px-2 py-0.2 rounded-full text-xs font-mono bg-bg-card border border-border-base text-text-muted">
                       {log.module}
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-text-dim truncate mt-0.5" title={log.description}>
+                  <p className="text-xs text-text-dim truncate mt-0.5" title={log.description}>
                     {log.description || 'Acción ejecutada en el sistema.'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 shrink-0 text-[11px] font-mono text-text-dim">
+              <div className="flex items-center gap-4 shrink-0 text-xs font-mono text-text-dim">
                 {log.ip_address && (
                   <span className="hidden md:inline-flex items-center gap-1">
                     <Globe size={11} />
