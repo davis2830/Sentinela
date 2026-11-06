@@ -189,7 +189,7 @@ export default function APICheckTableView({
                         >
                           {Math.round(latency)}ms
                         </span>
-                        <span className="text-text-dim text-[11px]">
+                        <span className="text-text-dim text-xs">
                           / &lt;{maxLatency}ms
                         </span>
                       </div>
@@ -203,12 +203,12 @@ export default function APICheckTableView({
                   {/* Schema validation badge */}
                   <td className="py-3 px-3">
                     {hasSchema ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30 font-mono">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30 font-mono">
                         <Code2 size={10} />
                         {Object.keys(target.expected_schema || {}).length} Campos
                       </span>
                     ) : (
-                      <span className="text-text-dim text-[11px] font-mono">Sin Schema</span>
+                      <span className="text-text-dim text-xs font-mono">Sin Schema</span>
                     )}
                   </td>
 

@@ -26,7 +26,7 @@ Monitoring conserva el drawer rápido y permite abrir una página integral para 
 
 La cabecera usa una barra compacta con período y controles de refresco. Los avisos de cuenta se muestran como franjas breves y los cuatro KPIs comparten un único panel dividido, reservando la primera pantalla para las gráficas. En la prueba local de 1440×900, rendimiento y dona completos caben con los avisos de suscripción y 2FA visibles.
 
-La interfaz usa Plus Jakarta Sans como fuente principal. JetBrains Mono se reserva para datos técnicos; los KPIs usan números tabulares de la fuente principal. Los componentes compartidos de resumen reducen su altura y espaciado también en los módulos. En móvil, el menú lateral inicia contraído y se despliega sobre el contenido.
+La interfaz usa Roboto como fuente principal. JetBrains Mono se reserva para datos técnicos; los KPIs usan números tabulares de la fuente principal. Los componentes compartidos de resumen reducen su altura y espaciado también en los módulos. En móvil, el menú lateral inicia contraído y se despliega sobre el contenido.
 
 - Cuatro KPIs resumen salud actual, disponibilidad del período, latencia promedio y elementos que requieren atención.
 - Rendimiento global presenta latencia, disponibilidad y comprobaciones/minuto en tres franjas con el mismo eje temporal y tooltip compartido. No superpone escalas ni áreas; los porcentajes completos caben en móvil. Referencias visuales: 500 ms de latencia y disponibilidad inferior a 99%; no son un SLO contractual.

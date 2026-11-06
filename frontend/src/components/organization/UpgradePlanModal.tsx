@@ -242,7 +242,7 @@ export default function UpgradePlanModal({
                       {p.badge}
                     </span>
                     {isCurrent && (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-blue/10 text-accent-blue border border-accent-blue/30">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-blue/10 text-accent-blue border border-accent-blue/30">
                         Plan Actual
                       </span>
                     )}

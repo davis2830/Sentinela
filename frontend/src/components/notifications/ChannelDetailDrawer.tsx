@@ -166,15 +166,15 @@ export default function ChannelDetailDrawer({
       quickKpis={
         <div className="grid grid-cols-4 gap-2.5 my-2">
           <div className="bg-bg-card border border-border-base/70 rounded-xl p-2.5 text-center">
-            <p className="text-[10px] text-text-dim font-medium">Tasa de Éxito</p>
+            <p className="text-xs text-text-dim font-medium">Tasa de Éxito</p>
             <p className="text-base font-bold font-mono text-accent-green mt-0.5">{successRate}%</p>
           </div>
           <div className="bg-bg-card border border-border-base/70 rounded-xl p-2.5 text-center">
-            <p className="text-[10px] text-text-dim font-medium">Entregados</p>
+            <p className="text-xs text-text-dim font-medium">Entregados</p>
             <p className="text-base font-bold font-mono text-text-main mt-0.5">{totalSent}</p>
           </div>
           <div className="bg-bg-card border border-border-base/70 rounded-xl p-2.5 text-center">
-            <p className="text-[10px] text-text-dim font-medium">Fallos</p>
+            <p className="text-xs text-text-dim font-medium">Fallos</p>
             <p
               className={`text-base font-bold font-mono mt-0.5 ${
                 totalFailed > 0 ? 'text-accent-red' : 'text-text-dim'
@@ -184,7 +184,7 @@ export default function ChannelDetailDrawer({
             </p>
           </div>
           <div className="bg-bg-card border border-border-base/70 rounded-xl p-2.5 text-center">
-            <p className="text-[10px] text-text-dim font-medium">Latencia Media</p>
+            <p className="text-xs text-text-dim font-medium">Latencia Media</p>
             <p className="text-base font-bold font-mono text-accent-blue mt-0.5">
               {avgLatency > 0 ? `${avgLatency}ms` : '--'}
             </p>
@@ -245,14 +245,14 @@ export default function ChannelDetailDrawer({
                   <Code2 size={14} className="text-accent-green" />
                   Configuración de la Integración
                 </h4>
-                <span className="text-[10px] font-mono text-text-dim">Credenciales Sanitizadas</span>
+                <span className="text-xs font-mono text-text-dim">Credenciales Sanitizadas</span>
               </div>
 
               {channel.channel_type === 'telegram' && (
                 <div className="space-y-2.5 font-mono text-xs">
                   <div className="flex items-center justify-between bg-bg-card border border-border-base/50 rounded-xl p-2.5">
                     <div>
-                      <span className="text-text-dim block text-[10px]">Chat ID / Grupo</span>
+                      <span className="text-text-dim block text-xs">Chat ID / Grupo</span>
                       <span className="text-text-main font-semibold">{channel.config?.chat_id || 'N/A'}</span>
                     </div>
                     {channel.config?.chat_id && (
@@ -266,7 +266,7 @@ export default function ChannelDetailDrawer({
                     )}
                   </div>
                   <div className="bg-bg-card border border-border-base/50 rounded-xl p-2.5">
-                    <span className="text-text-dim block text-[10px]">Bot Token</span>
+                    <span className="text-text-dim block text-xs">Bot Token</span>
                     <span className="text-text-dim">{sanitizeSecret(channel.config?.bot_token)}</span>
                   </div>
                 </div>
@@ -276,7 +276,7 @@ export default function ChannelDetailDrawer({
                 <div className="space-y-2.5 font-mono text-xs">
                   <div className="flex items-start justify-between bg-bg-card border border-border-base/50 rounded-xl p-2.5">
                     <div className="overflow-hidden mr-2">
-                      <span className="text-text-dim block text-[10px]">Webhook URL</span>
+                      <span className="text-text-dim block text-xs">Webhook URL</span>
                       <span className="text-text-main break-all">{channel.config?.webhook_url || 'N/A'}</span>
                     </div>
                     {channel.config?.webhook_url && (
@@ -291,9 +291,9 @@ export default function ChannelDetailDrawer({
                   </div>
                   {channel.config?.headers && Object.keys(channel.config.headers).length > 0 && (
                     <div className="bg-bg-card border border-border-base/50 rounded-xl p-2.5">
-                      <span className="text-text-dim block text-[10px] mb-1">Encabezados Personalizados</span>
+                      <span className="text-text-dim block text-xs mb-1">Encabezados Personalizados</span>
                       {Object.entries(channel.config.headers).map(([k, v]) => (
-                        <div key={k} className="text-[11px] flex items-center justify-between">
+                        <div key={k} className="text-xs flex items-center justify-between">
                           <span className="text-accent-blue">{k}:</span>
                           <span className="text-text-muted">{sanitizeSecret(String(v))}</span>
                         </div>
@@ -306,7 +306,7 @@ export default function ChannelDetailDrawer({
               {channel.channel_type === 'email' && (
                 <div className="space-y-2.5 font-mono text-xs">
                   <div className="bg-bg-card border border-border-base/50 rounded-xl p-2.5">
-                    <span className="text-text-dim block text-[10px]">Destinatarios</span>
+                    <span className="text-text-dim block text-xs">Destinatarios</span>
                     <span className="text-text-main font-semibold">
                       {Array.isArray(channel.config?.recipients)
                         ? channel.config.recipients.join(', ')
@@ -315,11 +315,11 @@ export default function ChannelDetailDrawer({
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-bg-card border border-border-base/50 rounded-xl p-2.5">
-                      <span className="text-text-dim block text-[10px]">Servidor SMTP</span>
+                      <span className="text-text-dim block text-xs">Servidor SMTP</span>
                       <span className="text-text-main">{channel.config?.smtp_host || 'Default SMTP'}</span>
                     </div>
                     <div className="bg-bg-card border border-border-base/50 rounded-xl p-2.5">
-                      <span className="text-text-dim block text-[10px]">Puerto</span>
+                      <span className="text-text-dim block text-xs">Puerto</span>
                       <span className="text-text-main">{channel.config?.smtp_port || 587}</span>
                     </div>
                   </div>
@@ -348,7 +348,7 @@ export default function ChannelDetailDrawer({
                   <ShieldAlert size={14} className="text-accent-red" />
                   Severidad Mínima Requerida
                 </h4>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono bg-accent-blue/10 text-accent-blue border border-accent-blue/30">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono bg-accent-blue/10 text-accent-blue border border-accent-blue/30">
                   {channel.min_severity}
                 </span>
               </div>
@@ -370,7 +370,7 @@ export default function ChannelDetailDrawer({
                   Horario de Silencio (Quiet Hours)
                 </h4>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
                     channel.quiet_hours_enabled
                       ? 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
                       : 'bg-bg-card text-text-dim border-border-base'
@@ -439,7 +439,7 @@ export default function ChannelDetailDrawer({
               </p>
 
               <div>
-                <label className="block text-[11px] font-semibold text-text-dim mb-1">Título de la Alerta de Prueba</label>
+                <label className="block text-xs font-semibold text-text-dim mb-1">Título de la Alerta de Prueba</label>
                 <input
                   type="text"
                   value={testTitle}
@@ -449,7 +449,7 @@ export default function ChannelDetailDrawer({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-text-dim mb-1">Cuerpo / Mensaje</label>
+                <label className="block text-xs font-semibold text-text-dim mb-1">Cuerpo / Mensaje</label>
                 <textarea
                   rows={3}
                   value={testMessage}
@@ -487,16 +487,16 @@ export default function ChannelDetailDrawer({
                   </div>
                   <div className="flex items-center gap-3">
                     {simulationResult.status_code && (
-                      <span className="px-2 py-0.5 rounded-md bg-bg-dark/80 text-[11px]">
+                      <span className="px-2 py-0.5 rounded-md bg-bg-dark/80 text-xs">
                         HTTP {simulationResult.status_code}
                       </span>
                     )}
-                    <span className="px-2 py-0.5 rounded-md bg-bg-dark/80 text-[11px]">
+                    <span className="px-2 py-0.5 rounded-md bg-bg-dark/80 text-xs">
                       {simulationResult.duration_ms}ms
                     </span>
                   </div>
                 </div>
-                <p className="text-text-main text-[11px] bg-bg-dark/60 p-2 rounded-lg break-words mt-2">
+                <p className="text-text-main text-xs bg-bg-dark/60 p-2 rounded-lg break-words mt-2">
                   {simulationResult.message}
                 </p>
               </div>
@@ -541,14 +541,14 @@ export default function ChannelDetailDrawer({
                             {log.title}
                           </span>
                         </div>
-                        <p className="text-text-dim text-[11px] line-clamp-1 font-sans">
+                        <p className="text-text-dim text-xs line-clamp-1 font-sans">
                           {log.error_message ? (
                             <span className="text-accent-red">{log.error_message}</span>
                           ) : (
                             <span>{log.response || 'Sin mensaje de confirmación'}</span>
                           )}
                         </p>
-                        <div className="flex items-center gap-2.5 text-[10px] text-text-dim">
+                        <div className="flex items-center gap-2.5 text-xs text-text-dim">
                           <span>{new Date(log.created_at).toLocaleTimeString('es-ES')}</span>
                           {log.http_status && <span>HTTP {log.http_status}</span>}
                           {log.duration_ms > 0 && <span>{log.duration_ms}ms</span>}
@@ -563,7 +563,7 @@ export default function ChannelDetailDrawer({
                           type="button"
                           onClick={() => onRetryNotification(log.id)}
                           disabled={isRetrying}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-accent-yellow/10 hover:bg-accent-yellow hover:text-black text-accent-yellow border border-accent-yellow/30 rounded-lg text-[10px] font-semibold transition-all shrink-0 disabled:opacity-50"
+                          className="flex items-center gap-1 px-2.5 py-1 bg-accent-yellow/10 hover:bg-accent-yellow hover:text-black text-accent-yellow border border-accent-yellow/30 rounded-lg text-xs font-semibold transition-all shrink-0 disabled:opacity-50"
                           title="Reintentar despacho"
                         >
                           {isRetrying ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}

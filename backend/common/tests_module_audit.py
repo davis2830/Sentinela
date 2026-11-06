@@ -77,6 +77,17 @@ class ModuleAuditTests(TestCase):
             self.assertIn(response.status_code, (200, 404))
             self.assertFalse(StatusPageConfig.objects.exists())
 
+    def test_status_page_malformed_filters_return_400_without_side_effects(self):
+        for route in ('config/', 'stats/', 'maintenances/', 'subscribers/', 'subscribers/export/'):
+            for value in ('not-a-uuid', 'undefined', ''):
+                with self.subTest(route=route, value=value):
+                    self.assertEqual(self.client.get('/api/v1/status-page/' + route,
+                                                    {'page_id': value}).status_code, 400)
+        self.assertFalse(StatusPageConfig.objects.exists())
+        self.client.force_authenticate(self.viewer)
+        self.assertEqual(self.client.patch('/api/v1/status-page/config/?page_id=invalid', {},
+                                           format='json').status_code, 403)
+
     def test_incident_rejects_foreign_assignee_on_create_and_assign(self):
         with self.assertRaises(ValueError):
             IncidentService.create_incident(self.org.pk, 'Rejected', assigned_to_id=self.foreign_user.pk)
@@ -203,6 +214,33 @@ class ModuleAuditTests(TestCase):
         for index in range(5):
             StatusPageConfig.objects.create(organization=self.org, company_name='More', slug=f'query-{index}')
         self.assertEqual(count(), initial)
+
+    def test_connectivity_list_query_growth_is_bounded(self):
+        from api_checks.models import APICheckTarget
+        from ssl_monitor.models import SSLCertificate
+        from dns_monitor.models import DNSRecord
+        from domain.models import DomainInfo
+        from security_headers.models import SecurityHeaderTarget
+        specs = [
+            ('monitoring', MonitoringTarget, lambda i: {'name': f'Target {i}', 'endpoint': f'https://resource-{i}.example.test', 'enabled': False}),
+            ('api-checks', APICheckTarget, lambda i: {'name': f'API {i}', 'url': f'https://api-{i}.example.test'}),
+            ('ssl-certificates', SSLCertificate, lambda i: {'domain': f'ssl-{i}.example.test'}),
+            ('dns-records', DNSRecord, lambda i: {'domain': f'dns-{i}.example.test', 'record_type': 'A'}),
+            ('domains', DomainInfo, lambda i: {'domain': f'domain-{i}.example.test'}),
+            ('security-headers', SecurityHeaderTarget, lambda i: {'name': f'Headers {i}', 'url': f'https://headers-{i}.example.test'}),
+        ]
+        for route, model, fields in specs:
+            def count_queries():
+                with CaptureQueriesContext(connection) as queries:
+                    response = self.client.get(f'/api/v1/{route}/')
+                    self.assertEqual(response.status_code, 200)
+                return len(queries)
+            with self.subTest(route=route):
+                model.objects.bulk_create([model(organization=self.org, **fields(0))])
+                count_queries()  # Warm process-level caches equally for both sizes.
+                small = count_queries()
+                model.objects.bulk_create([model(organization=self.org, **fields(i)) for i in range(1, 25)])
+                self.assertLessEqual(count_queries(), small + 2, 'List queries grow per resource')
 
     def test_notification_delivery_is_real_locmem_and_repeat_is_idempotent(self):
         from django.core import mail

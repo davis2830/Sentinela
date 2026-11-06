@@ -59,7 +59,10 @@ async function mockDashboard(page: Page, options: { securityFailure?: boolean } 
     if (path === 'notifications/') return fulfill([{id:'notification-1',title:'Entrega fallida',message:'No entregada',severity:'warning',status:'failed',channel_name:'Correo',created_at:iso(-3600000)}]);
     if (path === 'notifications/channels/') return fulfill([{id:'channel-1',name:'Correo operativo',description:'Alertas por correo',channel_type:'email',config:{to:['noc@example.test']},enabled:true,min_severity:'warning',subscribed_events:[],created_at:iso(),updated_at:iso()}]);
     if (path === 'reports/') return fulfill([{id:'report-1',title:'Reporte ejecutivo fallido',report_type:'summary',status:'failed',data:{},created_at:iso(-7200000),generated_at:null,error_message:'Falló el generador'}]);
-    if (path === 'status-page/pages/') return fulfill([{id:'page-1',company_name:'Estado Sentinel',slug:'sentinel-e2e',is_public:true,is_default:true,published_components_count:2,subscribers_count:1,active_maintenances_count:0}]);
+    if (path === 'status-page/pages/') return fulfill([{id:'00000000-0000-4000-8000-000000000011',company_name:'Estado Sentinel',slug:'sentinel-e2e',is_public:true,is_default:true,published_components_count:2,subscribers_count:1,active_maintenances_count:0}]);
+    if (path === 'status-page/config/') return fulfill({id:'00000000-0000-4000-8000-000000000011',organization:'org',company_name:'Estado Sentinel',slug:'sentinel-e2e',description:'Fixture',logo_url:'',support_email:'',is_public:true,monitored_targets:[],component_settings:[],created_at:iso(),updated_at:iso()});
+    if (path === 'status-page/stats/') return fulfill({total_components:0,published_components:0,scheduled_maintenances:0,active_subscribers:0,projected_status:'unknown',is_public:true,slug:'sentinel-e2e'});
+    if (path.startsWith('status-page/')) return fulfill([]);
     if (/stats\/$/.test(path)) return fulfill({});
     if (path === 'audit-logs/') return fulfill([{ id: 'audit-1', user_email: admin.email, action: 'target.updated', module: 'monitoring', result: 'success', description: 'Intervalo actualizado', timestamp: iso(-1_800_000), metadata: {} }]);
     return route.continue();
@@ -169,7 +172,11 @@ test('performance separates readable tracks and shows a unified tooltip on deskt
     const track=chart.getByRole('img',{name});
     await track.scrollIntoViewIfNeeded();
     await expect(track.locator(point).first()).toBeVisible();
-    const mark=await track.locator(point).first().boundingBox();
+    let mark: Awaited<ReturnType<typeof track.boundingBox>> = null;
+    await expect.poll(async () => {
+      mark = await track.locator(point).first().boundingBox();
+      return Boolean(mark && mark.width > 0 && mark.height > 0);
+    }, {message: 'Measured chart mark must remain rendered before pointer interaction'}).toBe(true);
     // A synchronized active dot can cover the underlying dot; move the real
     // pointer to that position instead of asking Playwright to hit the base SVG.
     await page.mouse.move(mark!.x+mark!.width/2,mark!.y+mark!.height/2);
@@ -210,6 +217,8 @@ test('performance empty, missing-rate and failed responses do not show fabricate
   mode='missing'; await page.reload();
   await expect(chart).toContainText('Promedio no disponible');
   await expect(chart).toContainText('El ritmo de comprobaciones no está disponible');
+  await expect(chart.getByRole('img', { name: 'Disponibilidad histórica de cero a cien por ciento' })
+    .locator('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value')).toBeVisible();
   await expect(chart).not.toContainText('undefined');
   mode='error';await page.reload();
   await expect(chart).toContainText('Telemetría no disponible');
@@ -381,6 +390,33 @@ test('mobile dashboard keeps attention ahead of analytical charts', async ({ pag
   await page.screenshot({ path: 'test-results/dashboard-compact-mobile.png' });
 });
 
+test('Status Page ignores stale selection and scopes preferences to the organization', async ({ page }) => {
+  await mockDashboard(page);
+  await login(page, viewer);
+  await expect.poll(() => page.evaluate(() =>
+    JSON.parse(localStorage.getItem('auth-storage') || '{}').state?.user?.organization?.id)).toBeTruthy();
+  const storageKey = await page.evaluate(() => {
+    const user = JSON.parse(localStorage.getItem('auth-storage') || '{}').state.user;
+    const key = `sentinel_active_status_page_id:${user.organization.id}`;
+    localStorage.setItem(key, '00000000-0000-4000-8000-000000000099');
+    localStorage.setItem('sentinel_active_status_page_id', 'legacy-invalid-selection');
+    return key;
+  });
+  const requestedPages: string[] = [];
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (url.pathname.includes('/status-page/') && url.searchParams.has('page_id')) {
+      requestedPages.push(url.searchParams.get('page_id')!);
+    }
+  });
+  await page.goto('/status-page');
+  await expect(page.locator('h1')).toBeVisible();
+  await expect.poll(() => requestedPages.length).toBeGreaterThanOrEqual(3);
+  expect(new Set(requestedPages)).toEqual(new Set(['00000000-0000-4000-8000-000000000011']));
+  expect(await page.evaluate(key => localStorage.getItem(key), storageKey))
+    .toBe('00000000-0000-4000-8000-000000000011');
+});
+
 test('an administrator creates a monitoring target', async ({ page }) => {
   const targetName = `E2E Public Target ${suffix}`;
   const fixtureHeaders = {Authorization: `Bearer ${fixtureSessions.get(admin.email)!.access_token}`};
@@ -512,7 +548,7 @@ test('refresh only reads data and manual scans display the plan cooldown', async
 test('automatic refresh is discreet and keeps its countdown in the tooltip',async({page})=>{
   await mockDashboard(page); await login(page,admin);
   const control=page.getByTestId('automatic-refresh-control');
-  await expect(control).toHaveText('Actualización automática activa');
+  await expect(control).toHaveText('Consulta automática activa');
   await expect(control).toHaveAttribute('title',/Próxima consulta en/);
   await expect(page.getByText(/^Datos consultados hace/)).toBeVisible();
   await page.setViewportSize({width:390,height:844});
@@ -634,7 +670,7 @@ test('failed plan revalidation suspends reads without changing the Pro deadline'
   let fail=false;
   await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill(fail ? {status:503,json:{detail:'unavailable'}} : {json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:60}}}}));
   await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
-  await expect(page.getByTestId('automatic-refresh-control')).toContainText('Actualización automática');
+  await expect(page.getByTestId('automatic-refresh-control')).toContainText('Consulta automática');
   const deadline=await areaDeadline(page,'connectivity');
   fail=true;
   await page.getByRole('button',{name:'Actualizar datos',exact:true}).click();
@@ -652,7 +688,7 @@ for(const path of ['/alerts','/incidents','/maintenance','/notifications','/repo
   // Assert virtual elapsed time, not machine load during navigation.
   await page.clock.pauseAt(new Date(Date.now()+1000));
   await page.goto('/gestion');
-  await expect(page.getByTestId('automatic-refresh-control')).toContainText('Actualización automática');
+  await expect(page.getByTestId('automatic-refresh-control')).toContainText('Consulta automática');
   const deadline = await areaDeadline(page,'management');
   await page.clock.fastForward(10000);
   await page.goto(path);
@@ -794,7 +830,7 @@ test('paused live clock remains paused on return and resumes the existing cycle'
   await page.getByRole('link',{name:'Dashboard',exact:true}).click();
   await page.clock.fastForward(40000);
   await page.getByRole('link',{name:'Uptime & Latencia',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Activar auto-refresco'})).toHaveText('Actualización automática pausada');
+  await expect(page.getByRole('button',{name:'Activar auto-refresco'})).toHaveText('Consulta automática pausada');
   await page.getByRole('button',{name:'Activar auto-refresco'}).click();
   await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /4:[12]\d min$/);
 });
@@ -829,12 +865,18 @@ test('return after missed live cycles skips catch-up bursts and preserves phase'
   await page.route('**/api/v1/organizations/current/subscription/',route=>route.fulfill({json:{data:{monitoring_allowed:true,limits:{min_check_interval_seconds:300}}}}));
   await login(page,admin); await page.clock.install(); await page.goto('/monitoring');
   await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
+  // Settle the initial resource query before advancing simulated minutes.
+  // Otherwise a late initial response gets a fresh dataUpdatedAt after navigation.
+  await expect(page.getByTestId('connectivity-table')).toContainText('Public Web');
   await page.clock.fastForward(20000);
   await page.getByRole('link',{name:'Monitoreo SSL',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Certificados SSL & TLS',exact:true})).toBeVisible();
+  await expect(page.getByTestId('connectivity-table')).toContainText('expiring.example.com');
   await page.clock.fastForward(720000);
   let reads=0;
   page.on('request',r=>{if(r.method()==='GET'&&new URL(r.url()).pathname==='/api/v1/monitoring/')reads++;});
   await page.getByRole('link',{name:'Uptime & Latencia',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Uptime & Latencia',exact:true})).toBeVisible();
   await expect(page.getByTestId('automatic-refresh-control')).toHaveAttribute('title', /2:[34]\d min$/);
   await expect.poll(()=>reads).toBe(1);
   await page.clock.fastForward(1000);
@@ -944,12 +986,24 @@ for (const path of ['/monitoring','/ssl','/dns','/domains','/api-checks','/secur
     await expect(page.locator('.compact-summary')).toBeVisible();
     await expect(page.locator('.metric-panel')).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Comprobar disponibles'})).toHaveCount(0);
+    const headerActions = page.getByTestId('module-header-actions');
+    const reload = headerActions.getByRole('button', { name: 'Actualizar datos', exact: true });
+    const actionsBox = await headerActions.boundingBox();
+    const reloadBox = await reload.boundingBox();
+    expect(reloadBox!.width).toBe(36);
+    expect(reloadBox!.height).toBe(36);
+    expect(reloadBox!.x + reloadBox!.width).toBeCloseTo(actionsBox!.x + actionsBox!.width, 0);
     if (['/monitoring','/ssl','/dns','/domains','/api-checks','/security-headers'].includes(path)) {
       await expect(page.locator('.compact-summary-status')).toBeVisible();
       await expect(page.locator('.compact-summary-status .summary-icon').first()).toBeVisible();
       await expect(page.getByTestId('connectivity-table').getByRole('table')).toBeVisible();
       await expect(page.getByTestId('connectivity-table').getByRole('columnheader',{name:'Acciones',exact:true})).toBeVisible();
       await expect(page.getByTestId('connectivity-table').locator('button[title*="ahora"]')).toHaveCount(0);
+      const selector = page.getByTestId('connectivity-table').locator('thead th').first().getByRole('button');
+      await expect(selector).toBeVisible();
+      const selectorBox = await selector.boundingBox();
+      expect(selectorBox!.width).toBeLessThanOrEqual(24);
+      expect(selectorBox!.height).toBeLessThanOrEqual(24);
     }
     if(path !== '/status-page') await expect(page.locator('.compact-resource-list, [data-testid="connectivity-table"]')).toBeVisible();
     let mutations = 0; page.on('request',r=>{if(/\/api\/v1\//.test(r.url()) && ['POST','PATCH','DELETE'].includes(r.method()) && !r.url().includes('/auth/')) mutations++;});
@@ -1524,7 +1578,7 @@ test('quick endpoint panel shows chart and recent checks before full analysis',a
 
 test('quick endpoint panel is mobile safe and preserves viewer restrictions',async({page})=>{
  await page.setViewportSize({width:390,height:844});await mockEndpointDossier(page,{empty:true});await login(page,viewer);await page.goto('/monitoring');
- await page.getByRole('row',{name:'Public Web',exact:true}).click();const panel=page.getByRole('dialog',{name:'Public Web'});
+ await page.getByRole('button',{name:'Ver detalle de Public Web',exact:true}).click();const panel=page.getByRole('dialog',{name:'Public Web'});
  await expect(panel.getByText('Sin mediciones en las últimas 24 h.')).toBeVisible();await expect(panel.getByText('100',{exact:true})).toHaveCount(0);
  await panel.getByLabel('Más acciones').click();await expect(panel.getByRole('button',{name:'Exportar CSV'})).toBeVisible();
  await expect(panel.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);await expect(panel.getByRole('button',{name:'Crear alerta'})).toHaveCount(0);
@@ -1608,4 +1662,74 @@ test('dashboard separates current resources from historical checks and colors av
  await page.getByRole('button',{name:'Ver pendientes de atención'}).click();await expect(page.getByTestId('dashboard-attention-inbox')).toBeInViewport();
  await page.getByRole('heading',{name:'Centro de Conectividad',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/dashboard-scopes-desktop.png'});
  await page.setViewportSize({width:390,height:844});await page.getByRole('heading',{name:'Centro de Conectividad',exact:true}).scrollIntoViewIfNeeded();await expect(page.getByTestId('dashboard-kpis')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/dashboard-scopes-mobile.png'});
+});
+
+
+test('UX access explains persistence and closed beta does not collect unusable fields', async ({page}) => {
+  await page.route('**/api/v1/auth/beta/config/', route => route.fulfill({json:{success:true,data:{admissions_open:false,turnstile_site_key:''}}}));
+  await page.goto('/login');
+  await expect(page.getByRole('checkbox',{name:/Recordar/})).toHaveCount(0);
+  await expect(page.getByText(/La sesión se conserva en este navegador/)).toBeVisible();
+  await expect(page.getByLabel('Correo Electrónico',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Contraseña',{exact:true})).toHaveAttribute('autocomplete','current-password');
+  await page.getByRole('link',{name:'¿Olvidaste tu contraseña?'}).click();
+  await expect(page.getByRole('heading',{name:'Recupera tu acceso'})).toBeVisible();
+  await page.route('**/api/v1/auth/password/recovery/', route => route.fulfill({status:202,json:{success:true,message:'Si hay una cuenta habilitada, procesaremos un enlace.'}}));
+  await page.getByLabel('Correo electrónico').fill('unknown@example.test');
+  await page.getByRole('button',{name:'Solicitar enlace',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Si hay una cuenta habilitada');
+  await page.goto('/register');
+  await expect(page.getByText('La beta está cerrada a nuevos registros.')).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByRole('link',{name:/Ya tengo cuenta/})).toBeVisible();
+});
+
+test('UX target dialog has one runner selector and keyboard focus is contained and restored', async ({page}) => {
+  await mockDashboard(page); await login(page,admin); await page.goto('/monitoring');
+  const opener=page.getByRole('button',{name:'Nuevo Target',exact:true}); await opener.click();
+  const dialog=page.getByRole('dialog',{name:'Nuevo Objetivo de Monitoreo'});
+  await expect(dialog).toBeVisible(); await expect(dialog.getByLabel('Nombre descriptivo')).toBeFocused();
+  await expect(page.locator('#root')).toHaveAttribute('inert','');
+  await expect(dialog.getByRole('button',{name:/Nube Sentinel/})).toHaveCount(1);
+  await expect(dialog.getByText('Ubicación de Monitoreo (Runner)',{exact:true})).toHaveCount(0);
+  for(let i=0;i<35;i++){await page.keyboard.press('Tab');expect(await dialog.evaluate(el=>el.contains(document.activeElement))).toBeTruthy();}
+  await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(opener).toBeFocused();
+  await expect(page.locator('#root')).not.toHaveAttribute('inert','');
+});
+
+test('UX Viewer has no Monitoring create controls and mobile rows retain useful identity and detail', async ({page}) => {
+  await mockDashboard(page); await login(page,viewer); await page.setViewportSize({width:390,height:844}); await page.goto('/monitoring');
+  await expect(page.getByRole('button',{name:'Nuevo Target',exact:true})).toHaveCount(0);
+  const list=page.getByTestId('monitoring-mobile-list'); await expect(list).toBeVisible();
+  await expect(list.getByRole('button',{name:'Ver detalle de Public Web',exact:true})).toBeVisible();
+  await expect(list.getByRole('button',{name:'Editar',exact:true})).toHaveCount(0);
+  const fits=await list.evaluate(el=>el.scrollWidth<=el.clientWidth+1); expect(fits).toBeTruthy();
+  await list.getByRole('button',{name:'Ver detalle de Public Web',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Public Web',exact:true})).toBeVisible();
+});
+
+test('UX SSL read failure never claims there are no configured certificates and supports retry', async ({page}) => {
+  await mockDashboard(page); let failed=true;
+  await page.route('**/api/v1/ssl-certificates/',route=>failed?route.abort():route.fulfill({json:{success:true,data:[{id:'ssl-fixture',domain:'controlled.example.test',port:443,is_valid:null,days_remaining:null,scan_availability:{status:'disabled',next_allowed_at:null,retry_after_seconds:null}}]}}));
+  await login(page,admin); await page.goto('/ssl');
+  await expect(page.getByRole('alert')).toContainText('No pudimos consultar los certificados');
+  await expect(page.getByText('No hay certificados SSL registrados',{exact:true})).toHaveCount(0);
+  failed=false; await page.getByRole('button',{name:'Reintentar consulta de certificados'}).click();
+  await expect(page.getByRole('row',{name:'controlled.example.test',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Nuevo Certificado',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Monitorear Nuevo Certificado SSL',exact:true});
+  await expect(dialog.getByLabel('Dominio o FQDN')).toBeFocused(); await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
+});
+
+test('UX audit avoids unverified security claims and System text meets the agreed minimum', async ({page}) => {
+  await mockDashboard(page); await login(page,admin);
+  for(const route of ['/organization','/audit-logs','/users','/profile']){
+    await page.goto(route); await expect(page.locator('main h1')).toBeVisible();
+    const tooSmall=await page.locator('main').evaluate(root=>Array.from(root.querySelectorAll('*')).filter(el=>el.children.length===0&&el.textContent?.trim()&&el.getClientRects().length&&getComputedStyle(el).display!=='none'&&Number.parseFloat(getComputedStyle(el).fontSize)<12).map(el=>el.textContent));
+    expect(tooSmall).toEqual([]);
+  }
+  await page.goto('/audit-logs');
+  await expect(page.getByText('Historial inmutable verificado',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Criptográfica',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Eventos registrados por la aplicación',{exact:true})).toBeVisible();
 });

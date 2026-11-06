@@ -7,8 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from audit.services import AuditService
-from common.permissions import IsSuperUser, IsOrganizationMember, IsAdminOrReadOnly
-from common.membership import check_member_capacity, guard_admin_removal
+from common.permissions import IsOrganizationMember, IsAdminOrReadOnly
+from accounts.platform_auth import PlatformAPIView
+from common.membership import check_member_capacity, guard_admin_removal, guard_platform_accounts
 from accounts.beta import public_link, control_lock
 from common.responses import error_response, success_response
 
@@ -22,14 +23,12 @@ from .serializers import (
 from .services import OrganizationService, QuotaService, QuotaExceededException
 
 
-class OrganizationListView(APIView):
+class OrganizationListView(PlatformAPIView):
     """Endpoint for listing and creating organizations.
 
     GET /api/v1/organizations/
     POST /api/v1/organizations/
     """
-
-    permission_classes = (IsSuperUser,)
 
     def get(self, request):
         organizations = OrganizationService.list_organizations()
@@ -63,15 +62,13 @@ class OrganizationListView(APIView):
             )
 
 
-class OrganizationDetailView(APIView):
+class OrganizationDetailView(PlatformAPIView):
     """Endpoint for retrieving, updating, and deleting an organization.
 
     GET /api/v1/organizations/{id}/
     PATCH /api/v1/organizations/{id}/
     DELETE /api/v1/organizations/{id}/
     """
-
-    permission_classes = (IsSuperUser,)
 
     def get(self, request, organization_id):
         try:
@@ -518,11 +515,14 @@ class OrganizationMemberBulkActionView(APIView):
 
         from rest_framework import serializers
         safe_ids = [serializers.UUIDField().run_validation(mid) for mid in safe_ids]
-        if action in ("deactivate", "delete"):
-            try:
+        try:
+            Organization.objects.select_for_update().get(pk=org_id)
+            if action in ("deactivate", "delete"):
                 guard_admin_removal(org_id, safe_ids)
-            except ValueError as exc:
-                return error_response(exc, status_code=400)
+            elif action == "activate":
+                guard_platform_accounts(org_id, safe_ids)
+        except ValueError as exc:
+            return error_response(exc, status_code=400)
         affected_count = 0
 
         if action == "activate":
@@ -903,8 +903,7 @@ class OrganizationChangePlanView(APIView):
         old_tier = org.plan_tier
         new_tier = serializer.validated_data["plan_tier"]
 
-        is_superuser = bool(request.user.is_superuser)
-        if not is_superuser and new_tier in ["pro", "business", "enterprise"]:
+        if new_tier in ["pro", "business", "enterprise"]:
             return error_response(
                 "Se requiere contratar el plan y confirmar el pago. La integración de pagos está pendiente; contacta al administrador. Cambiar de plan no reactiva una prueba vencida.",
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -912,7 +911,7 @@ class OrganizationChangePlanView(APIView):
 
         try:
             updated_org = OrganizationService.change_plan(
-                org.id, new_tier, is_superuser=is_superuser
+                org.id, new_tier, is_superuser=False
             )
         except Exception as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

@@ -1,7 +1,15 @@
 from django.contrib.auth import authenticate
+from django.db import transaction
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
+
+
+def require_platform_enrollment_password(user, password):
+    if user.is_superuser and (
+        not isinstance(password, str) or len(password) > 256 or not user.check_password(password)
+    ):
+        raise ValueError("Confirma tu contraseña para configurar el 2FA administrativo.")
 
 
 class AuthService:
@@ -181,7 +189,8 @@ class AuthService:
         }
 
     @staticmethod
-    def setup_2fa(user, reset=False):
+    @transaction.atomic
+    def setup_2fa(user, reset=False, password=None):
         """Generate or retrieve a TOTP secret and QR code Data URL for user.
 
         Stores secret encrypted with Fernet AES-128-CBC at rest.
@@ -195,6 +204,11 @@ class AuthService:
         import qrcode
         from PIL import Image
         from common.crypto import encrypt_string, decrypt_string
+
+        user = User.objects.select_for_update().get(pk=user.pk)
+        if user.is_superuser and user.is_2fa_enabled:
+            raise ValueError("El 2FA de superadmin está activo. Usa el procedimiento de recuperación de plataforma.")
+        require_platform_enrollment_password(user, password)
 
         # Reuse provisional secret if user is currently configuring 2FA, unless reset requested
         if user.totp_secret and not user.is_2fa_enabled and not reset:
@@ -270,11 +284,17 @@ class AuthService:
         }
 
     @staticmethod
-    def verify_and_enable_2fa(user, code):
+    @transaction.atomic
+    def verify_and_enable_2fa(user, code, password=None):
         """Verify code against provisional secret, enable 2FA and generate 10 encrypted backup codes."""
         import secrets
         import pyotp
         from common.crypto import decrypt_string, encrypt_string
+
+        user = User.objects.select_for_update().get(pk=user.pk)
+        if user.is_superuser and user.is_2fa_enabled:
+            raise ValueError("El 2FA de superadmin ya está activo.")
+        require_platform_enrollment_password(user, password)
 
         if not user.totp_secret:
             raise ValueError("No se ha iniciado el proceso de configuración 2FA.")
@@ -312,6 +332,8 @@ class AuthService:
     @staticmethod
     def disable_2fa(user, password):
         """Disable 2FA after verifying the user's password."""
+        if user.is_superuser:
+            raise ValueError("El 2FA es obligatorio para las cuentas de superadmin.")
         if not user.check_password(password):
             raise ValueError("Contraseña incorrecta.")
 

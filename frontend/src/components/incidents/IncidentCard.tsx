@@ -103,7 +103,7 @@ export default function IncidentCard({
             </button>
             <PriorityBadge priority={incident.priority} />
             {incident.priority === 'critical' && incident.status !== 'resolved' && incident.status !== 'closed' && (
-              <span className="flex items-center gap-1 text-[10px] text-accent-red font-semibold uppercase tracking-wider animate-pulse">
+              <span className="flex items-center gap-1 text-xs text-accent-red font-semibold uppercase tracking-wider animate-pulse">
                 <Flame size={12} /> Alta Urgencia
               </span>
             )}
@@ -178,7 +178,7 @@ export default function IncidentCard({
 
       {/* Footer Actions & Timestamp */}
       <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
-        <span className="flex items-center gap-1 font-mono text-[11px]">
+        <span className="flex items-center gap-1 font-mono text-xs">
           <Clock size={12} />
           {new Date(incident.opened_at).toLocaleDateString('es-ES')}{' '}
           {new Date(incident.opened_at).toLocaleTimeString('es-ES', {

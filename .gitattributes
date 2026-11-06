@@ -1,0 +1,2 @@
+# Shell tooling must run identically after a Windows or Linux checkout.
+*.sh text eol=lf

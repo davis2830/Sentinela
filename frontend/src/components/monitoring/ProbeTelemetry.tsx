@@ -28,7 +28,7 @@ export default function ProbeTelemetry({ probe, queryFailed }: { probe: AgentPro
     {current && snapshot.draining && <p className="text-xs text-accent-yellow">Termina lo pendiente sin solicitar tareas nuevas.</p>}
     {errors.map(error => <p key={error.component} className="text-xs text-accent-red">{diagnostics[error.code] || 'Diagnóstico no reconocido.'} · {error.failures} fallo(s) consecutivos</p>)}
     <p className="text-xs text-text-muted">Último acuse recibido por el agente: <span className="text-text-main">{snapshot?.last_ack_at ? new Date(snapshot.last_ack_at).toLocaleString() : 'Sin registro'}</span></p>
-    <p className="text-[11px] text-text-dim">{current ? 'Reportado por el agente' : telemetry?.received_at ? `Último reporte: ${new Date(telemetry.received_at).toLocaleString()}` : 'Requiere Senti9 1.7.0 o posterior'}{current && queue ? ` · Cola ${pending}/${snapshot.queue_limit}` : ''}</p>
+    <p className="text-xs text-text-dim">{current ? 'Reportado por el agente' : telemetry?.received_at ? `Último reporte: ${new Date(telemetry.received_at).toLocaleString()}` : 'Requiere Senti9 1.7.0 o posterior'}{current && queue ? ` · Cola ${pending}/${snapshot.queue_limit}` : ''}</p>
     {!!snapshot?.rejected_retained && <details className="text-xs text-text-muted"><summary className="cursor-pointer">{snapshot.rejected_retained} rechazo(s) conservados en el historial local</summary><p className="mt-1">Último rechazo: {snapshot.last_rejection_at ? new Date(snapshot.last_rejection_at).toLocaleString() : 'Sin fecha'}. Revisar el diario local; este contador histórico no indica un error activo.</p></details>}
   </section>;
 }

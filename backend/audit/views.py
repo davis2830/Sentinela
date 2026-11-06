@@ -2,7 +2,8 @@ from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from common.responses import success_response, error_response
-from common.permissions import IsOrganizationMember, IsSuperUser
+from common.permissions import IsOrganizationMember
+from accounts.platform_auth import PlatformAPIView
 from .models import AuditLog
 from .serializers import AuditLogSerializer
 from .services import AuditService
@@ -27,9 +28,7 @@ class AuditLogListView(APIView):
         return success_response(AuditLogSerializer(logs, many=True).data)
 
 
-class PlatformAuditLogListView(APIView):
-    permission_classes = (IsSuperUser,)
-
+class PlatformAuditLogListView(PlatformAPIView):
     def get(self, request):
         query = AuditQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)

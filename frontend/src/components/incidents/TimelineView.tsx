@@ -115,18 +115,18 @@ export default function TimelineView({ events }: TimelineViewProps) {
               <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold tracking-wide ${meta.badgeClass}`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold tracking-wide ${meta.badgeClass}`}
                   >
                     {meta.label}
                   </span>
                   {event.actor_name && (
-                    <span className="text-[11px] text-text-dim font-sans">
+                    <span className="text-xs text-text-dim font-sans">
                       por <strong className="text-text-muted font-medium">{event.actor_name}</strong>
                     </span>
                   )}
                 </div>
 
-                <span className="flex items-center gap-1 font-mono text-[11px] text-text-dim">
+                <span className="flex items-center gap-1 font-mono text-xs text-text-dim">
                   <Clock size={11} />
                   {new Date(event.occurred_at).toLocaleDateString('es-ES')}{' '}
                   {new Date(event.occurred_at).toLocaleTimeString('es-ES', {
@@ -141,7 +141,7 @@ export default function TimelineView({ events }: TimelineViewProps) {
               </p>
 
               {(event.old_value || event.new_value) && (
-                <div className="mt-2 text-[11px] font-mono flex items-center gap-2 text-text-dim bg-bg-card px-2.5 py-1.5 rounded-xl border border-border-base/40">
+                <div className="mt-2 text-xs font-mono flex items-center gap-2 text-text-dim bg-bg-card px-2.5 py-1.5 rounded-xl border border-border-base/40">
                   {event.old_value && (
                     <span className="line-through text-accent-red/80">{event.old_value}</span>
                   )}

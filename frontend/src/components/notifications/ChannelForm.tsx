@@ -422,7 +422,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                         </div>
                         <div>
                           <h4 className="font-bold text-xs truncate">{item.name}</h4>
-                          <p className="text-[10px] text-text-dim line-clamp-2 mt-0.5 font-sans leading-tight">
+                          <p className="text-xs text-text-dim line-clamp-2 mt-0.5 font-sans leading-tight">
                             {item.description}
                           </p>
                         </div>
@@ -442,7 +442,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                     type="button"
                     onClick={handleTestConnection}
                     disabled={testingConnection}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-accent-green/10 hover:bg-accent-green hover:text-black text-accent-green border border-accent-green/30 rounded-full text-[11px] font-semibold transition-all disabled:opacity-50 shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-accent-green/10 hover:bg-accent-green hover:text-black text-accent-green border border-accent-green/30 rounded-full text-xs font-semibold transition-all disabled:opacity-50 shadow-sm"
                   >
                     {testingConnection ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                     <span>{testingConnection ? 'Probando...' : 'Probar Conexión en Vivo'}</span>
@@ -468,7 +468,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                         <span>{testResult.success ? 'Conexión Exitosa' : 'Fallo en la Conexión'}</span>
                         <span>{testResult.duration_ms}ms</span>
                       </div>
-                      <p className="text-[11px] mt-0.5 break-words opacity-90">{testResult.message}</p>
+                      <p className="text-xs mt-0.5 break-words opacity-90">{testResult.message}</p>
                     </div>
                   </div>
                 )}
@@ -523,7 +523,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                 {channelType === 'webhook' && (
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Encabezado Custom (Key)</label>
+                      <label className="block text-xs font-mono text-text-dim mb-1">Encabezado Custom (Key)</label>
                       <input
                         type="text"
                         placeholder="ej. Authorization / X-Sentinel-Secret"
@@ -533,7 +533,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-mono text-text-dim mb-1">Valor del Encabezado</label>
+                      <label className="block text-xs font-mono text-text-dim mb-1">Valor del Encabezado</label>
                       <input
                         type="text"
                         placeholder="ej. Bearer token123"
@@ -566,7 +566,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       </h4>
                       <div className="grid grid-cols-3 gap-2.5">
                         <div className="col-span-2">
-                          <label className="block text-[10px] text-text-dim mb-1">Servidor SMTP Host</label>
+                          <label className="block text-xs text-text-dim mb-1">Servidor SMTP Host</label>
                           <input
                             type="text"
                             placeholder="smtp.office365.com"
@@ -576,7 +576,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] text-text-dim mb-1">Puerto</label>
+                          <label className="block text-xs text-text-dim mb-1">Puerto</label>
                           <input
                             type="number"
                             placeholder="587"
@@ -588,7 +588,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       </div>
                       <div className="grid grid-cols-2 gap-2.5 mt-2">
                         <div>
-                          <label className="block text-[10px] text-text-dim mb-1">Usuario / Correo Remitente</label>
+                          <label className="block text-xs text-text-dim mb-1">Usuario / Correo Remitente</label>
                           <input
                             type="text"
                             placeholder="alertas@miempresa.com"
@@ -598,7 +598,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] text-text-dim mb-1">Contraseña SMTP</label>
+                          <label className="block text-xs text-text-dim mb-1">Contraseña SMTP</label>
                           <input
                             type="password"
                             placeholder="••••••••••••"
@@ -640,7 +640,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       }`}
                     >
                       <h4 className="font-bold text-xs">{s.label}</h4>
-                      <p className="text-[10px] text-text-dim mt-1 line-clamp-2">{s.desc}</p>
+                      <p className="text-xs text-text-dim mt-1 line-clamp-2">{s.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -671,7 +671,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                         />
                         <div>
                           <p className="text-xs font-bold">{ev.label}</p>
-                          <p className="text-[11px] text-text-dim mt-0.5">{ev.desc}</p>
+                          <p className="text-xs text-text-dim mt-0.5">{ev.desc}</p>
                         </div>
                       </label>
                     );
@@ -683,7 +683,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1.5 flex items-center justify-between">
                   <span>Límite de Alertas por Hora (Anti-Spam)</span>
-                  <span className="text-text-dim font-mono text-[11px]">0 = Sin límite</span>
+                  <span className="text-text-dim font-mono text-xs">0 = Sin límite</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <input
@@ -725,7 +725,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                   <div className="space-y-4 pt-3 border-t border-border-base/50">
                     <div className="grid grid-cols-2 gap-4 font-mono">
                       <div>
-                        <label className="block text-[11px] text-text-dim mb-1">Hora Inicio de Silencio</label>
+                        <label className="block text-xs text-text-dim mb-1">Hora Inicio de Silencio</label>
                         <input
                           type="time"
                           value={quietHoursStart}
@@ -734,7 +734,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] text-text-dim mb-1">Hora Fin de Silencio</label>
+                        <label className="block text-xs text-text-dim mb-1">Hora Fin de Silencio</label>
                         <input
                           type="time"
                           value={quietHoursEnd}
@@ -753,7 +753,7 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
                       />
                       <span className="font-semibold">Bypass de Emergencia para Alertas Críticas</span>
                     </label>
-                    <p className="text-[11px] text-text-dim pl-6">
+                    <p className="text-xs text-text-dim pl-6">
                       Si está activo, las alertas de severidad Crítica ignorarán el silencio y se entregarán de todas
                       formas para no desatender caídas totales de servicio.
                     </p>

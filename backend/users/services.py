@@ -75,6 +75,8 @@ class UserService:
         from organizations.models import Organization
         Organization.objects.select_for_update().get(pk=organization_id)
         user = User.objects.get(id=user_id, organization_id=organization_id)
+        from common.membership import guard_platform_accounts
+        guard_platform_accounts(organization_id, [user_id])
         if fields.get('is_active') is False or ('role' in fields and fields['role'] != 'admin' and not user.is_superuser):
             from common.membership import guard_admin_removal
             guard_admin_removal(organization_id, [user_id])

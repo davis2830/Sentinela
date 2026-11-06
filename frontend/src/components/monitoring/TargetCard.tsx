@@ -61,7 +61,7 @@ export default function TargetCard({
   const renderStatusIndicator = () => {
     if (!target.enabled) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
           Pausado
         </span>
@@ -70,7 +70,7 @@ export default function TargetCard({
 
     if (status === 'up') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -82,7 +82,7 @@ export default function TargetCard({
 
     if (status === 'slow') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -94,7 +94,7 @@ export default function TargetCard({
 
     if (status === 'down' || status === 'error') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
@@ -105,7 +105,7 @@ export default function TargetCard({
     }
 
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
         Desconocido
       </span>
@@ -170,7 +170,7 @@ export default function TargetCard({
               {renderStatusIndicator()}
               {target.runner_type === 'agent' && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
                     target.agent_probe_online === false || target.agent_probe_status === 'offline'
                       ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
                       : 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
@@ -184,7 +184,7 @@ export default function TargetCard({
                   <Server size={10} />
                   <span>Senti9: {target.agent_probe_name || 'LAN'}</span>
                   {(target.agent_probe_online === false || target.agent_probe_status === 'offline') && (
-                    <span className="text-[9px] text-accent-red font-mono">(Offline)</span>
+                    <span className="text-xs text-accent-red font-mono">(Offline)</span>
                   )}
                 </span>
               )}
@@ -239,7 +239,7 @@ export default function TargetCard({
           {target.tags.map((tag) => (
             <span
               key={tag}
-              className="px-2.5 py-0.5 bg-bg-dark/80 border border-border-base/80 text-[10px] text-text-muted rounded-full font-medium"
+              className="px-2.5 py-0.5 bg-bg-dark/80 border border-border-base/80 text-xs text-text-muted rounded-full font-medium"
             >
               #{tag}
             </span>
@@ -249,7 +249,7 @@ export default function TargetCard({
 
       {/* Mini Uptime Sparkline / Blocks Bar */}
       <div className="mb-3.5 pt-3 border-t border-border-base/40">
-        <div className="flex items-center justify-between text-[11px] text-text-dim mb-2">
+        <div className="flex items-center justify-between text-xs text-text-dim mb-2">
           <span className="flex items-center gap-1.5 font-medium">
             <Activity size={12} className="text-accent-green" /> Disponibilidad Reciente
           </span>
@@ -280,10 +280,10 @@ export default function TargetCard({
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
             {target.target_type}
           </span>
-          <span className="text-text-dim text-[11px]">cada {target.interval}s</span>
+          <span className="text-text-dim text-xs">cada {target.interval}s</span>
           {target.owner_team_name && (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border"
               style={{
                 backgroundColor: `${target.owner_team_color || '#8B5CF6'}15`,
                 borderColor: `${target.owner_team_color || '#8B5CF6'}40`,

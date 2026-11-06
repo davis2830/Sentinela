@@ -1,5 +1,3 @@
 # 04-frontend
 
-> Documento heredado retirado el 2026-10-03 tras validar la implementación real de Sentinel. No contiene afirmaciones vigentes del sistema.
-
-La documentación mantenida y verificable está en [Centro de documentación](../docs/README.md). El historial anterior permanece disponible en Git.
+Antes de modificar el frontend, sigue el [estándar UI/UX de Sentinel](../docs/UI_STANDARD.md). Incluye los requisitos de identidad, consola administrativa, gráficas y validación. Consulta el [centro de documentación](../docs/README.md) para el contexto de cada módulo.

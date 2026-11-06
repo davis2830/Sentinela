@@ -89,7 +89,7 @@ export default function CreateProbeModal({
                 <h3 className="text-xl font-bold text-text-main">
                   {createdProbe ? 'Guardián Senti9 Registrado' : 'Conectar Nuevo Guardián Senti9'}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30">
                   LAN / ON-PREMISE
                 </span>
               </div>
@@ -135,7 +135,7 @@ export default function CreateProbeModal({
                 placeholder="Ej. Datacenter Santiago / VPC AWS Privada / LAN Oficina"
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-purple"
               />
-              <p className="text-[11px] text-text-dim mt-1.5">
+              <p className="text-xs text-text-dim mt-1.5">
                 Identifica la ubicación física o red interna donde correrá este guardián Senti9.
               </p>
             </div>
@@ -145,7 +145,7 @@ export default function CreateProbeModal({
                 <ShieldCheck size={16} className="text-accent-purple" />
                 <span>Seguridad Saliente Exclusiva (Outbound Only)</span>
               </div>
-              <p className="leading-relaxed text-text-dim text-[11px]">
+              <p className="leading-relaxed text-text-dim text-xs">
                 El agente Senti9 no requiere abrir puertos entrantes en tu firewall. Se conecta a Sentinel mediante HTTPS saliente para solicitar tareas y reportar los chequeos locales de tu red privada.
               </p>
             </div>
@@ -179,7 +179,7 @@ export default function CreateProbeModal({
               <CheckCircle2 size={18} className="shrink-0" />
               <div>
                 <div className="font-bold">¡Guardián Senti9 {createdProbe.name} listo para iniciar!</div>
-                <div className="text-[11px] text-accent-purple/80 mt-0.5">
+                <div className="text-xs text-accent-purple/80 mt-0.5">
                   Guarda el token en un archivo privado y reemplaza REEMPLAZAR_RUTA_TOKEN por su ruta absoluta antes de ejecutar el comando.
                 </div>
               </div>
@@ -239,7 +239,7 @@ export default function CreateProbeModal({
               <div className="p-3 rounded-xl bg-bg-dark border border-border-base text-xs font-mono text-text-main flex items-center justify-between">
                 <span>{createdProbe.raw_token}</span>
               </div>
-              <p className="text-[11px] text-accent-yellow mt-1.5 flex items-center gap-1">
+              <p className="text-xs text-accent-yellow mt-1.5 flex items-center gap-1">
                 <span>Guarda este token de forma segura; no se volverá a mostrar en texto plano.</span>
               </p>
             </div>
@@ -247,7 +247,7 @@ export default function CreateProbeModal({
             {/* Quick Steps */}
             <div className="p-4 rounded-2xl bg-white/5 border border-border-base text-xs space-y-2">
               <div className="font-semibold text-text-main">¿Qué ocurre a continuación?</div>
-              <ol className="list-decimal list-inside space-y-1 text-text-dim text-[11px] leading-relaxed">
+              <ol className="list-decimal list-inside space-y-1 text-text-dim text-xs leading-relaxed">
                 <li>El contenedor Senti9 se iniciará en segundo plano en tu servidor o red local.</li>
                 <li>Emitirá latidos (heartbeat) salientes a Sentinel y cambiará su estado a <strong className="text-accent-green">Online</strong>.</li>
                 <li>Ahora podrás seleccionar este Senti9 al crear o editar cualquier objetivo de monitoreo LAN.</li>

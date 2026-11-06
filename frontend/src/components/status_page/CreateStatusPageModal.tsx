@@ -179,7 +179,7 @@ export default function CreateStatusPageModal({
                   className="w-full bg-transparent text-xs font-mono text-accent-green focus:outline-none"
                 />
               </div>
-              <p className="text-[10px] text-text-dim mt-1">
+              <p className="text-xs text-text-dim mt-1">
                 Tus clientes accederán directamente a este portal mediante su slug único.
               </p>
             </div>
@@ -251,7 +251,7 @@ export default function CreateStatusPageModal({
                     ))}
                   </select>
                 </div>
-                <p className="text-[10px] text-text-dim mt-1">
+                <p className="text-xs text-text-dim mt-1">
                   Podrás ajustar y filtrar los componentes de forma independiente luego de crear la página.
                 </p>
               </div>
@@ -268,7 +268,7 @@ export default function CreateStatusPageModal({
                 />
                 <div>
                   <span className="font-semibold text-text-main block">Acceso Público</span>
-                  <span className="text-[10px] text-text-dim">Visible a clientes sin login</span>
+                  <span className="text-xs text-text-dim">Visible a clientes sin login</span>
                 </div>
               </label>
 
@@ -281,7 +281,7 @@ export default function CreateStatusPageModal({
                 />
                 <div>
                   <span className="font-semibold text-text-main block">Marcar como Principal</span>
-                  <span className="text-[10px] text-text-dim">Será la página cargada por defecto</span>
+                  <span className="text-xs text-text-dim">Será la página cargada por defecto</span>
                 </div>
               </label>
             </div>

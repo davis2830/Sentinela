@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../services/api';
+import { platformApi } from '../../services/platformApi';
 import type { PlatformOrganization } from '../../types/platform_admin';
 import { X, Clock, Calendar, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 
@@ -20,13 +20,14 @@ export default function ExtendTrialModal({
   const mutation = useMutation({
     mutationFn: async () => {
       if (!organization) return;
-      await api.post(`/platform-admin/organizations/${organization.id}/extend-trial/`, {
+      await platformApi.post(`/platform-admin/organizations/${organization.id}/extend-trial/`, {
         days: days,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-admin-orgs'] });
       queryClient.invalidateQueries({ queryKey: ['platform-admin-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['platform-admin-org-detail', organization?.id] });
       onClose();
     },
     onError: (err: any) => {

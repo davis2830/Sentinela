@@ -75,7 +75,7 @@ function NOCOperationalInbox({
           <div className="flex items-center gap-2">
             <ShieldAlert size={17} className="text-accent-yellow" />
             <h3 className="text-sm font-bold tracking-wide text-text-main">Necesita atención</h3>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-bg-dark border border-border-base text-text-muted">
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-bg-dark border border-border-base text-text-muted">
               {total}
             </span>
           </div>
@@ -86,7 +86,7 @@ function NOCOperationalInbox({
                 type="button"
                 data-testid={`dashboard-view-${view}`}
                 onClick={() => onViewChange(view)}
-                className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
                   filters.view === view ? 'bg-bg-card text-text-main shadow-sm' : 'text-text-dim hover:text-text-main'
                 }`}
               >
@@ -98,14 +98,14 @@ function NOCOperationalInbox({
 
         {(filters.health || filters.module) && (
           <div className="flex flex-wrap items-center gap-2" data-testid="dashboard-filter-chips">
-            <span className="text-[10px] uppercase tracking-wider text-text-dim">Filtros</span>
+            <span className="text-xs uppercase tracking-wider text-text-dim">Filtros</span>
             {filters.health && (
-              <button type="button" onClick={onClearHealth} className="inline-flex items-center gap-1 rounded-full border border-accent-green/30 bg-accent-green/10 px-2.5 py-1 text-[11px] text-accent-green">
+              <button type="button" onClick={onClearHealth} className="inline-flex items-center gap-1 rounded-full border border-accent-green/30 bg-accent-green/10 px-2.5 py-1 text-xs text-accent-green">
                 {healthLabels[filters.health]} <X size={11} />
               </button>
             )}
             {filters.module && (
-              <button type="button" onClick={onClearModule} className="inline-flex items-center gap-1 rounded-full border border-accent-purple/30 bg-accent-purple/10 px-2.5 py-1 text-[11px] text-accent-purple">
+              <button type="button" onClick={onClearModule} className="inline-flex items-center gap-1 rounded-full border border-accent-purple/30 bg-accent-purple/10 px-2.5 py-1 text-xs text-accent-purple">
                 {dashboardModuleMeta[filters.module].label} <X size={11} />
               </button>
             )}
@@ -114,7 +114,7 @@ function NOCOperationalInbox({
       </div>
 
       {partialError && (
-        <div className="mb-3 rounded-xl border border-accent-yellow/30 bg-accent-yellow/5 px-3 py-2 text-[11px] text-accent-yellow">
+        <div className="mb-3 rounded-xl border border-accent-yellow/30 bg-accent-yellow/5 px-3 py-2 text-xs text-accent-yellow">
           Algunos módulos no respondieron. La bandeja muestra los datos disponibles sin asumir que faltan problemas.
         </div>
       )}
@@ -144,14 +144,14 @@ function NOCOperationalInbox({
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h4 className="truncate text-xs font-bold text-text-main">{item.title}</h4>
-                        <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">{item.moduleLabel}</span>
+                        <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider">{item.moduleLabel}</span>
                       </div>
-                      <p className="mt-0.5 truncate text-[11px] text-text-muted">{item.subtitle}</p>
+                      <p className="mt-0.5 truncate text-xs text-text-muted">{item.subtitle}</p>
                     </div>
                   </div>
                   <ChevronRight size={15} className="mt-1 shrink-0 text-text-dim transition-transform group-hover:translate-x-0.5" />
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 text-[10px]">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 text-xs">
                   <span className="font-semibold">{item.statusLabel}</span>
                   {item.metricLabel && <span className="font-mono text-text-main">{item.metricLabel}</span>}
                   <span className="text-text-dim">{relativeTime(item.occurredAt)}</span>
@@ -162,11 +162,11 @@ function NOCOperationalInbox({
               <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-current/10 pt-2">
                 
                 {canManage && item.type === 'alert' && (
-                  <button type="button" onClick={() => onAcknowledge(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-accent-yellow/25 bg-accent-yellow/10 px-2.5 py-1 text-[10px] font-semibold text-accent-yellow">
+                  <button type="button" onClick={() => onAcknowledge(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-accent-yellow/25 bg-accent-yellow/10 px-2.5 py-1 text-xs font-semibold text-accent-yellow">
                     <AlertTriangle size={11} /> Reconocer
                   </button>
                 )}
-                <button type="button" onClick={() => onNavigate(item.path)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-semibold text-text-muted hover:text-text-main">
+                <button type="button" onClick={() => onNavigate(item.path)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-text-muted hover:text-text-main">
                   <Eye size={11} /> Ver módulo
                 </button>
               </div>
@@ -175,7 +175,7 @@ function NOCOperationalInbox({
         </div>
       )}
 
-      {items.length > 10 && <p className="mt-3 text-center text-[11px] text-text-dim">Mostrando 10 de {items.length} elementos filtrados</p>}
+      {items.length > 10 && <p className="mt-3 text-center text-xs text-text-dim">Mostrando 10 de {items.length} elementos filtrados</p>}
     </section>
   );
 }

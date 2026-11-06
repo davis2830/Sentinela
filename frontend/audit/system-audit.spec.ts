@@ -3,10 +3,11 @@ import {test, expect, type Page} from '@playwright/test';
 const suffix = process.env.E2E_FIXTURE_SUFFIX || 'local-beta-fixture';
 if (!/^[a-z0-9-]+$/.test(suffix)) throw new Error('Invalid isolated fixture suffix.');
 const fixtureSessions = new Map<string, any>();
+const apiURL = (process.env.E2E_API_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
 async function session(page: Page, role = 'viewer') {
   let data = fixtureSessions.get(role);
   if (!data) {
-  const response = await page.request.post('http://127.0.0.1:8000/api/v1/auth/login/', {
+  const response = await page.request.post(`${apiURL}/auth/login/`, {
     data: {email: `e2e-${role}-${suffix}@example.test`, password: `E2e-${role==='admin'?'Admin':'Viewer'}-Password-123!`},
   });
   expect(response.status(), 'Isolated fixture login must succeed without bypassing auth limits').toBe(200);

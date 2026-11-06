@@ -586,12 +586,12 @@ export default function DomainsPage() {
 
                       {/* EPP Lock Badge */}
                       {domain.is_locked ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-green/10 text-accent-green border border-accent-green/30 flex items-center gap-1 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-green/10 text-accent-green border border-accent-green/30 flex items-center gap-1 shrink-0">
                           <Lock size={10} />
                           Protegido
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 flex items-center gap-1 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30 flex items-center gap-1 shrink-0">
                           <Unlock size={10} />
                           Sin Bloqueo
                         </span>
@@ -663,7 +663,7 @@ export default function DomainsPage() {
                   {/* Footer: Nameservers + Actions */}
                   <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
                     <span
-                      className="font-mono text-[11px] bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50 truncate max-w-[160px]"
+                      className="font-mono text-xs bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50 truncate max-w-[160px]"
                       title={nsList.join(', ')}
                     >
                       {nsList.length > 0 ? `${nsList.length} NS activos` : 'Sin NS'}
@@ -772,7 +772,7 @@ export default function DomainsPage() {
           selectedDomain && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">Días Restantes</div>
+                <div className="text-xs text-text-dim font-sans">Días Restantes</div>
                 <div
                   className={`text-base font-bold mt-0.5 ${
                     selectedDomain.days_until_expiration !== null && selectedDomain.days_until_expiration <= 30
@@ -786,7 +786,7 @@ export default function DomainsPage() {
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">Fecha Expiración</div>
+                <div className="text-xs text-text-dim font-sans">Fecha Expiración</div>
                 <div className="text-sm font-semibold text-text-main mt-0.5 truncate">
                   {selectedDomain.expiration_date
                     ? new Date(selectedDomain.expiration_date).toLocaleDateString('es-ES')
@@ -794,7 +794,7 @@ export default function DomainsPage() {
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">Fecha Creación</div>
+                <div className="text-xs text-text-dim font-sans">Fecha Creación</div>
                 <div className="text-sm font-semibold text-text-muted mt-0.5 truncate">
                   {selectedDomain.creation_date
                     ? new Date(selectedDomain.creation_date).toLocaleDateString('es-ES')
@@ -802,7 +802,7 @@ export default function DomainsPage() {
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-[11px] text-text-dim font-sans">Servidores NS</div>
+                <div className="text-xs text-text-dim font-sans">Servidores NS</div>
                 <div className="text-sm font-semibold text-accent-blue mt-0.5">
                   {renderNameServersList(selectedDomain.name_servers).length} NS
                 </div>
@@ -908,7 +908,7 @@ export default function DomainsPage() {
                       ? 'Bloqueo Anti-Transferencia Activo (Domain Lock)'
                       : 'Atención: Dominio sin Bloqueo de Transferencia'}
                   </h4>
-                  <p className="text-[11px] text-text-muted mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     {selectedDomain.is_locked
                       ? 'El registrador ha activado la directiva clientTransferProhibited. El dominio está blindado contra transferencias no autorizadas.'
                       : 'El dominio no tiene activo el bloqueo de transferencia. Se recomienda habilitarlo en el registrador para prevenir Domain Hijacking.'}
@@ -967,7 +967,7 @@ export default function DomainsPage() {
                     >
                       <span className="w-2 h-2 rounded-full bg-accent-green" />
                       <span className="font-bold">{ns}</span>
-                      <span className="ml-auto text-[10px] text-text-dim font-sans font-medium">Autoritativo</span>
+                      <span className="ml-auto text-xs text-text-dim font-sans font-medium">Autoritativo</span>
                     </div>
                   ))}
                 </div>
@@ -1021,7 +1021,7 @@ export default function DomainsPage() {
                   }}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Ingresa el dominio corporativo raíz (ej. <code>empresa.com</code> sin https://).
                 </p>
               </div>
@@ -1065,17 +1065,17 @@ export default function DomainsPage() {
                           <Check size={14} /> Consulta Exitosa
                         </span>
                         {testResult.is_locked ? (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-green/20 text-accent-green text-[10px] font-bold flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full bg-accent-green/20 text-accent-green text-xs font-bold flex items-center gap-1">
                             <Lock size={10} /> Transfer Lock Activo
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-yellow/20 text-accent-yellow text-[10px] font-bold flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full bg-accent-yellow/20 text-accent-yellow text-xs font-bold flex items-center gap-1">
                             <Unlock size={10} /> Sin Bloqueo
                           </span>
                         )}
                       </div>
 
-                      <div className="font-mono text-[11px] bg-bg-dark/70 p-2.5 rounded-xl border border-border-base/50 space-y-1">
+                      <div className="font-mono text-xs bg-bg-dark/70 p-2.5 rounded-xl border border-border-base/50 space-y-1">
                         <div className="flex justify-between">
                           <span className="text-text-dim">Registrador:</span>
                           <span className="font-bold truncate max-w-[200px]">{testResult.registrar || 'Desconocido'}</span>
@@ -1111,7 +1111,7 @@ export default function DomainsPage() {
                         <AlertTriangle size={14} />
                         <span>Fallo en la consulta WHOIS</span>
                       </div>
-                      <p className="text-[11px] font-mono opacity-90">{testResult.error_message}</p>
+                      <p className="text-xs font-mono opacity-90">{testResult.error_message}</p>
                     </div>
                   )}
                 </div>

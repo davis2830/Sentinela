@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../services/api';
-import type { PlatformOrganizationDetail } from '../../types/platform_admin';
+import { platformApi } from '../../services/platformApi';
+import type { PlatformOrganization, PlatformOrganizationDetail } from '../../types/platform_admin';
+import { subscriptionStates } from './OrganizationDistribution';
 import {
   X,
   Building,
@@ -26,24 +27,29 @@ import {
 interface TenantDetailDrawerProps {
   orgId: string | null;
   onClose: () => void;
+  onChangePlan: (organization: PlatformOrganization) => void;
+  onExtendTrial: (organization: PlatformOrganization) => void;
 }
 
 export default function TenantDetailDrawer({
   orgId,
   onClose,
+  onChangePlan,
+  onExtendTrial,
 }: TenantDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<'general' | 'users' | 'infrastructure' | 'audit'>('general');
 
   const { data: detail, isLoading } = useQuery<PlatformOrganizationDetail>({
     queryKey: ['platform-admin-org-detail', orgId],
     queryFn: async () => {
-      const res = await api.get(`/platform-admin/organizations/${orgId}/`);
+      const res = await platformApi.get(`/platform-admin/organizations/${orgId}/`);
       return res.data?.data;
     },
     enabled: !!orgId,
   });
 
   if (!orgId) return null;
+  const subscription = subscriptionStates.find(state => state.id === detail?.subscription_status);
 
   const content = (
     <div className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
@@ -60,7 +66,7 @@ export default function TenantDetailDrawer({
                   {detail?.name || 'Cargando Organización...'}
                 </h2>
                 {detail && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-accent-green/15 text-accent-green border border-accent-green/30 font-mono">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-accent-green/15 text-accent-green border border-accent-green/30 font-mono">
                     {detail.plan_tier}
                   </span>
                 )}
@@ -72,14 +78,28 @@ export default function TenantDetailDrawer({
           </div>
           <button
             onClick={onClose}
+            aria-label="Cerrar ficha del cliente"
             className="p-2 text-text-dim hover:text-text-main hover:bg-bg-dark rounded-xl transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
+        {detail && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-border-base px-4 py-3 sm:px-6">
+            <span className="ui-status" data-tone={subscription?.tone ?? 'muted'}>
+              {subscription?.label ?? 'Estado desconocido'}
+            </span>
+            <button type="button" className="ui-button" onClick={() => onChangePlan(detail)}>
+              Cambiar plan
+            </button>
+            <button type="button" className="ui-button" onClick={() => onExtendTrial(detail)}>
+              Extender prueba
+            </button>
+          </div>
+        )}
         {/* Navigation Tabs */}
-        <div className="flex border-b border-border-base bg-bg-dark/40 px-6 text-xs font-semibold">
+        <div className="flex shrink-0 overflow-x-auto border-b border-border-base bg-bg-dark/40 px-4 text-xs font-semibold sm:px-6">
           {[
             { id: 'general', label: 'General & Facturación', icon: Building },
             { id: 'users', label: `Usuarios (${detail?.users?.length || 0})`, icon: Users },
@@ -129,7 +149,9 @@ export default function TenantDetailDrawer({
                       </div>
                       <div>
                         <span className="text-text-dim block">Estado Suscripción:</span>
-                        <span className="font-bold text-accent-green uppercase font-mono">{detail.subscription_status}</span>
+                        <span className="ui-tone font-semibold" data-tone={subscription?.tone ?? 'muted'}>
+                          {subscription?.label ?? 'Estado desconocido'}
+                        </span>
                       </div>
                       <div>
                         <span className="text-text-dim block">En Periodo Trial:</span>
@@ -171,7 +193,7 @@ export default function TenantDetailDrawer({
                       </div>
                       <div>
                         <span className="text-text-dim block">Frecuencia Mínima:</span>
-                        <span className="font-mono font-bold text-text-main">{detail.limits?.min_interval}s</span>
+                        <span className="font-mono font-bold text-text-main">{detail.limits.min_check_interval_seconds} s</span>
                       </div>
                     </div>
                   </div>
@@ -217,14 +239,14 @@ export default function TenantDetailDrawer({
                             {u.first_name} {u.last_name}
                           </span>
                           {u.is_staff && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-purple/20 text-accent-purple border border-accent-purple/30">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-purple/20 text-accent-purple border border-accent-purple/30">
                               Admin
                             </span>
                           )}
                         </div>
                         <p className="text-text-dim font-mono truncate">{u.email}</p>
                       </div>
-                      <div className="text-right font-mono text-[11px] text-text-dim shrink-0">
+                      <div className="text-right font-mono text-xs text-text-dim shrink-0">
                         <span>Último login: {u.last_login ? new Date(u.last_login).toLocaleDateString() : 'Nunca'}</span>
                       </div>
                     </div>
@@ -252,7 +274,7 @@ export default function TenantDetailDrawer({
                               <span className="font-bold text-text-main">{p.name}</span>
                               <span className="text-text-dim">({p.ip_address || 'IP desconocida'})</span>
                             </div>
-                            <span className="text-accent-purple text-[11px]">{p.version}</span>
+                            <span className="text-accent-purple text-xs">{p.version}</span>
                           </div>
                         ))}
                       </div>
@@ -274,7 +296,7 @@ export default function TenantDetailDrawer({
                           >
                             <div className="min-w-0">
                               <div className="font-semibold text-text-main truncate max-w-[280px]">{t.name}</div>
-                              <div className="text-[11px] text-text-dim font-mono truncate max-w-[280px]">{t.endpoint}</div>
+                              <div className="text-xs text-text-dim font-mono truncate max-w-[280px]">{t.endpoint}</div>
                             </div>
                             <div className="text-right shrink-0">
                               <span className={`font-mono text-xs font-bold ${t.last_status === 'up' ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -299,7 +321,7 @@ export default function TenantDetailDrawer({
                         key={a.id}
                         className="p-3 rounded-xl bg-bg-dark/70 border border-border-base text-xs space-y-1"
                       >
-                        <div className="flex items-center justify-between text-[11px] text-text-dim font-mono">
+                        <div className="flex items-center justify-between text-xs text-text-dim font-mono">
                           <span className="font-semibold text-text-muted">{a.user_email}</span>
                           <span>{new Date(a.created_at).toLocaleString()}</span>
                         </div>

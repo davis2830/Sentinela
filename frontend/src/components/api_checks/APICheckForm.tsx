@@ -450,7 +450,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
               <label className="text-xs font-semibold text-text-muted">
                 URL del Endpoint REST
               </label>
-              <span className="text-[11px] text-text-dim">Protocolo HTTP o HTTPS</span>
+              <span className="text-xs text-text-dim">Protocolo HTTP o HTTPS</span>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -510,7 +510,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   </span>
                   {testResult.status_code && (
                     <span
-                      className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-[11px] ${
+                      className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-xs ${
                         testResult.status_code < 300
                           ? 'bg-accent-green/15 text-accent-green border border-accent-green/30'
                           : testResult.status_code < 400
@@ -522,7 +522,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                     </span>
                   )}
                   {testResult.response_time_ms !== null && (
-                    <span className="px-2 py-0.5 rounded-full font-mono text-[11px] bg-bg-dark text-text-muted border border-border-base flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full font-mono text-xs bg-bg-dark text-text-muted border border-border-base flex items-center gap-1">
                       <Clock size={11} />
                       {testResult.response_time_ms} ms
                     </span>
@@ -534,7 +534,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   <button
                     type="button"
                     onClick={handleAutoGenerateSchema}
-                    className="flex items-center gap-1 px-3 py-1 bg-accent-green/15 border border-accent-green/40 text-accent-green hover:bg-accent-green hover:text-black rounded-full font-bold text-[11px] transition-all cursor-pointer shadow-xs"
+                    className="flex items-center gap-1 px-3 py-1 bg-accent-green/15 border border-accent-green/40 text-accent-green hover:bg-accent-green hover:text-black rounded-full font-bold text-xs transition-all cursor-pointer shadow-xs"
                     title="Ajustar parámetros y schema automáticamente con esta respuesta"
                   >
                     <Sparkles size={12} />
@@ -547,11 +547,11 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
               {/* Response Body Inspector */}
               <div className="mt-2.5">
-                <div className="text-[11px] text-text-dim mb-1 font-mono flex items-center justify-between">
+                <div className="text-xs text-text-dim mb-1 font-mono flex items-center justify-between">
                   <span>Cuerpo de Respuesta {testResult.is_json ? '(JSON)' : '(Texto)'}:</span>
                   <span>{testResult.size_bytes} bytes</span>
                 </div>
-                <pre className="p-3 bg-bg-dark rounded-xl border border-border-base/70 font-mono text-[11px] text-text-main max-h-36 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">
+                <pre className="p-3 bg-bg-dark rounded-xl border border-border-base/70 font-mono text-xs text-text-main max-h-36 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">
                   {testResult.success
                     ? typeof testResult.body === 'object'
                       ? JSON.stringify(testResult.body, null, 2)
@@ -609,7 +609,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 <option value={120} disabled={minInterval > 120}>Cada 2 min</option>
                 <option value={300}>Cada 5 min</option>
               </select>
-              <p className="mt-1 text-[11px] text-text-dim">Mínimo de tu plan: {minInterval} segundos.</p>
+              <p className="mt-1 text-xs text-text-dim">Mínimo de tu plan: {minInterval} segundos.</p>
             </div>
           </div>
 
@@ -689,7 +689,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 {authType === 'basic' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-[11px] text-text-dim mb-1">Usuario / Email</label>
+                      <label className="block text-xs text-text-dim mb-1">Usuario / Email</label>
                       <input
                         type="text"
                         placeholder="usuario@empresa.com"
@@ -699,7 +699,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-text-dim mb-1">Contraseña</label>
+                      <label className="block text-xs text-text-dim mb-1">Contraseña</label>
                       <input
                         type="password"
                         placeholder="••••••••"
@@ -713,7 +713,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
                 {authType === 'bearer' && (
                   <div className="pt-2">
-                    <label className="block text-[11px] text-text-dim mb-1">
+                    <label className="block text-xs text-text-dim mb-1">
                       Bearer Token (JWT / API Token)
                     </label>
                     <input
@@ -729,7 +729,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 {authType === 'apikey' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-[11px] text-text-dim mb-1">Nombre del Header</label>
+                      <label className="block text-xs text-text-dim mb-1">Nombre del Header</label>
                       <input
                         type="text"
                         placeholder="X-API-Key"
@@ -739,7 +739,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-text-dim mb-1">Valor de la Llave</label>
+                      <label className="block text-xs text-text-dim mb-1">Valor de la Llave</label>
                       <input
                         type="password"
                         placeholder="sk_live_..."

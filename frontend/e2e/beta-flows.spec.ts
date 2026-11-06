@@ -17,12 +17,18 @@ test('private beta requires an invitation and explains closed admission', async 
   await betaFixture(page, { closed: true });
   await page.goto('/register');
   await expect(page.getByText('La beta está cerrada a nuevos registros.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Completar Registro' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Completar Registro' })).toHaveCount(0);
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByText(/registro está disponible únicamente con una invitación/)).toBeVisible();
 });
 
 test('register leads to verification, never to an authenticated dashboard', async ({ page }) => {
   await betaFixture(page);
   await page.goto('/register#token=invitation-fixture');
+  for (const label of ['Nombre', 'Apellido', 'Nombre de la Organización', 'Correo Electrónico', 'Contraseña', 'Confirmar Contraseña']) {
+    await expect(page.getByLabel(label, {exact:true})).toBeVisible();
+  }
+  await expect(page.getByRole('button', {name:'Ver contraseña',exact:true})).toBeVisible();
   const inputs = page.locator('form input');
   await inputs.nth(0).fill('Ana');
   await inputs.nth(1).fill('Beta');

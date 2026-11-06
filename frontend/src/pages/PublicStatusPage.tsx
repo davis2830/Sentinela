@@ -152,7 +152,7 @@ export default function PublicStatusPage() {
                 {statusData.company_name}
               </h1>
               {statusData.description && (
-                <p className="text-[11px] text-[#94A3B8] line-clamp-1">{statusData.description}</p>
+                <p className="text-xs text-[#94A3B8] line-clamp-1">{statusData.description}</p>
               )}
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function PublicStatusPage() {
                 href={statusData.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-dark border border-border-base text-[11px] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-dark border border-border-base text-xs text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
                 title="Visitar sitio oficial"
               >
                 <span>Sitio Oficial</span>
@@ -175,7 +175,7 @@ export default function PublicStatusPage() {
             {statusData.support_email && (
               <a
                 href={`mailto:${statusData.support_email}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-dark border border-border-base text-[11px] text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-dark border border-border-base text-xs text-[#94A3B8] hover:text-[#F8FAFC] hover:border-emerald-500/40 transition-colors"
                 title="Contactar soporte técnico"
               >
                 <Mail size={12} />
@@ -210,7 +210,7 @@ export default function PublicStatusPage() {
           >
             <Radio size={16} className="shrink-0 mt-0.5 animate-pulse" />
             <div className="flex-1 min-w-0">
-              <span className="font-bold uppercase tracking-wider text-[10px] block mb-0.5">
+              <span className="font-bold uppercase tracking-wider text-xs block mb-0.5">
                 Comunicado Oficial en Vivo
               </span>
               <p className="text-[#F8FAFC] leading-relaxed text-xs">
@@ -284,7 +284,7 @@ export default function PublicStatusPage() {
               <ShieldCheck size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-medium text-[#94A3B8] block">Disponibilidad 90d</span>
+              <span className="text-xs font-medium text-[#94A3B8] block">Disponibilidad 90d</span>
               <div className="text-base font-bold text-emerald-400 font-mono">
                 {statusData.global_uptime_pct == null ? 'Sin mediciones' : `${statusData.global_uptime_pct}%`}
               </div>
@@ -297,7 +297,7 @@ export default function PublicStatusPage() {
               <Clock size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-medium text-[#94A3B8] block">Latencia Media 24h</span>
+              <span className="text-xs font-medium text-[#94A3B8] block">Latencia Media 24h</span>
               <div className="text-base font-bold text-sky-400 font-mono">
                 {statusData.global_avg_latency_ms == null ? 'Sin mediciones' : `${statusData.global_avg_latency_ms}ms`}
               </div>
@@ -310,7 +310,7 @@ export default function PublicStatusPage() {
               <Activity size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-medium text-[#94A3B8] block">Servicios Activos</span>
+              <span className="text-xs font-medium text-[#94A3B8] block">Servicios Activos</span>
               <div className="text-base font-bold text-[#F8FAFC] font-mono">
                 {statusData.operational_services_count} / {statusData.total_services_count}
               </div>
@@ -323,7 +323,7 @@ export default function PublicStatusPage() {
               <Calendar size={18} />
             </div>
             <div>
-              <span className="text-[11px] font-medium text-[#94A3B8] block">Mantenimientos</span>
+              <span className="text-xs font-medium text-[#94A3B8] block">Mantenimientos</span>
               <div className="text-base font-bold text-[#F8FAFC] font-mono">
                 {statusData.maintenances?.length || 0} Registrados
               </div>
@@ -354,7 +354,7 @@ export default function PublicStatusPage() {
                     <div>
                       <h4 className="font-bold text-[#F8FAFC] text-sm">{inc.title}</h4>
                       {inc.impacted_service && (
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-bg-card text-[10px] text-[#94A3B8] border border-border-base mt-1">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-bg-card text-xs text-[#94A3B8] border border-border-base mt-1">
                           Servicio: {inc.impacted_service}
                         </span>
                       )}
@@ -366,7 +366,7 @@ export default function PublicStatusPage() {
                     {inc.description || 'El equipo de operaciones está conteniendo la incidencia.'}
                   </p>
 
-                  <div className="text-[10px] font-mono text-[#64748B] pt-2 border-t border-border-base/60">
+                  <div className="text-xs font-mono text-[#64748B] pt-2 border-t border-border-base/60">
                     Reportado: {new Date(inc.opened_at).toLocaleString('es-ES')}
                   </div>
                 </div>
@@ -409,7 +409,7 @@ export default function PublicStatusPage() {
                     <p className="text-xs text-[#94A3B8] leading-relaxed">{m.description}</p>
                   )}
 
-                  <div className="flex items-center gap-4 text-[11px] font-mono text-[#64748B] pt-2 border-t border-border-base/60 flex-wrap">
+                  <div className="flex items-center gap-4 text-xs font-mono text-[#64748B] pt-2 border-t border-border-base/60 flex-wrap">
                     <span>
                       Inicio:{' '}
                       <strong className="text-[#F8FAFC]">
@@ -428,7 +428,7 @@ export default function PublicStatusPage() {
                   {/* Nested Live Updates */}
                   {m.updates && m.updates.length > 0 && (
                     <div className="pt-2 border-t border-border-base/40 space-y-2">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-[#64748B] block">
+                      <span className="text-xs uppercase tracking-wider font-semibold text-[#64748B] block">
                         Bitácora de Avance en Vivo:
                       </span>
                       <div className="space-y-1.5">
@@ -437,13 +437,13 @@ export default function PublicStatusPage() {
                             key={up.id}
                             className="bg-bg-card rounded-xl p-2.5 border border-border-base/60 text-xs"
                           >
-                            <div className="flex items-center justify-between text-[10px] text-[#64748B] font-mono mb-0.5">
+                            <div className="flex items-center justify-between text-xs text-[#64748B] font-mono mb-0.5">
                               <span className="text-purple-400 font-semibold uppercase">
                                 {up.status}
                               </span>
                               <span>{new Date(up.posted_at).toLocaleTimeString('es-ES')}</span>
                             </div>
-                            <p className="text-[#94A3B8] text-[11px] leading-relaxed">
+                            <p className="text-[#94A3B8] text-xs leading-relaxed">
                               {up.message}
                             </p>
                           </div>
@@ -516,7 +516,7 @@ export default function PublicStatusPage() {
                     >
                       <div className="flex items-center gap-2.5">
                         <span className="font-bold text-[#F8FAFC] text-sm">{category}</span>
-                        <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-semibold">
+                        <span className="text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-semibold">
                           {catUpCount} de {servicesList.length} Operacionales
                         </span>
                       </div>
@@ -604,14 +604,14 @@ export default function PublicStatusPage() {
                     </span>
                   </div>
                   {pInc.impacted_service && (
-                    <span className="text-[10px] text-[#94A3B8]">
+                    <span className="text-xs text-[#94A3B8]">
                       Servicio: {pInc.impacted_service}
                     </span>
                   )}
                   <p className="text-xs text-[#94A3B8] leading-relaxed">
                     {pInc.description || 'Incidente resuelto satisfactoriamente.'}
                   </p>
-                  <div className="flex items-center justify-between text-[10px] text-[#64748B] border-t border-border-base/60 pt-2 font-mono">
+                  <div className="flex items-center justify-between text-xs text-[#64748B] border-t border-border-base/60 pt-2 font-mono">
                     <span>Abierto: {new Date(pInc.opened_at).toLocaleDateString('es-ES')}</span>
                     {pInc.closed_at && (
                       <span>Resuelto: {new Date(pInc.closed_at).toLocaleDateString('es-ES')}</span>
@@ -629,7 +629,7 @@ export default function PublicStatusPage() {
         <p>
           Powered by <strong className="text-[#F8FAFC]">Sentinel Observability</strong> &bull; Monitorización continua
         </p>
-        <p className="text-[11px] text-[#64748B]/80">
+        <p className="text-xs text-[#64748B]/80">
           Los datos de disponibilidad se actualizan cada 30 segundos automáticamente.
         </p>
       </footer>

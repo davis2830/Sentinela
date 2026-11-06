@@ -48,7 +48,7 @@ export default function UptimeBar90Days({
         <div className="text-text-muted flex items-center gap-2">
           {hoveredDay ? (
             <span className="text-text-main font-semibold bg-bg-dark/95 px-2.5 py-1 rounded-xl border border-border-base flex items-center gap-2 shadow-xs animate-in fade-in duration-100">
-              <span className="text-text-dim text-[11px]">{hoveredDay.date}:</span>
+              <span className="text-text-dim text-xs">{hoveredDay.date}:</span>
               <span
                 className={
                   hoveredDay.status === 'up'
@@ -61,11 +61,11 @@ export default function UptimeBar90Days({
                 {hoveredDay.uptime_pct == null ? '—' : `${hoveredDay.uptime_pct}%`} ({getStatusLabel(hoveredDay.status)})
               </span>
               {hoveredDay.total_checks && hoveredDay.total_checks > 0 ? (
-                <span className="text-text-dim text-[10px] hidden sm:inline">
+                <span className="text-text-dim text-xs hidden sm:inline">
                   &bull; {hoveredDay.total_checks} verificaciones
                 </span>
               ) : (
-                <span className="text-text-dim text-[10px] hidden sm:inline">
+                <span className="text-text-dim text-xs hidden sm:inline">
                   &bull; Sin mediciones
                 </span>
               )}
@@ -79,7 +79,7 @@ export default function UptimeBar90Days({
 
         <div className="flex items-center gap-2">
           {avgLatencyMs != null && avgLatencyMs > 0 && (
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 font-semibold flex items-center gap-1">
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 font-semibold flex items-center gap-1">
               <Clock size={11} />
               {avgLatencyMs}ms 24h
             </span>
@@ -107,7 +107,7 @@ export default function UptimeBar90Days({
       </div>
 
       {/* Footer Labels */}
-      <div className="flex items-center justify-between text-[10px] font-mono text-text-dim px-0.5">
+      <div className="flex items-center justify-between text-xs font-mono text-text-dim px-0.5">
         <span>Hace 90 días</span>
         <span className="text-accent-green font-semibold">Hoy (En Vivo)</span>
       </div>

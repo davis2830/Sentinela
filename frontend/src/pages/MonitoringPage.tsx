@@ -3,9 +3,8 @@ import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
 import AdminButton from '../components/common/AdminButton';
 import { useAuthStore } from '../store/authStore';
-import ReloadDataButton from '../components/common/ReloadDataButton';
+import { NOCPageHeader } from '../components/common/noc';
 import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
-import AutomaticRefreshControl from '../components/common/AutomaticRefreshControl';
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -295,26 +294,13 @@ export default function MonitoringPage() {
 
   return (
     <div className="compact-workspace space-y-4 animate-in fade-in duration-300">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-semibold tracking-tight">Uptime & Latencia</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-accent-green/10 text-accent-green border border-accent-green/30">
-              TELEMETRÍA EN VIVO
-            </span>
-          </div>
-          <p className="text-text-muted text-sm mt-1">
-            Supervisión continua de disponibilidad, latencia y acuerdos de nivel de servicio (SLA).
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-          <AutomaticRefreshControl {...autoRefresh} onToggle={autoRefresh.toggle} />
-
-          <ReloadDataButton queryKeys={["monitoring-targets","agent-probes","org-subscription","target-timeseries"]} scanIntervalSeconds={autoRefresh.ready ? autoRefresh.intervalSeconds : undefined} />
-
-
+      <NOCPageHeader
+        title="Uptime & Latencia"
+        badgeText="RESULTADOS DE MONITOREO"
+        description="Supervisión continua de disponibilidad, latencia y acuerdos de nivel de servicio (SLA)."
+        queryKeys={['monitoring-targets', 'agent-probes', 'org-subscription', 'target-timeseries']}
+        autoRefresh={{ ...autoRefresh, onToggle: autoRefresh.toggle }}
+        actions={<>
           <button
             onClick={() => setShowProbeDrawer(true)}
             className="flex items-center gap-2 bg-accent-purple/10 border border-accent-purple/40 text-accent-purple font-medium px-4 py-2 rounded-full text-sm hover:bg-accent-purple/20 transition-all shadow-sm"
@@ -324,15 +310,15 @@ export default function MonitoringPage() {
             <span>Senti9 ({probes?.length || 0})</span>
           </button>
 
-          <button
+          <AdminButton
             onClick={handleNewTarget}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
           >
             <Plus size={16} />
             Nuevo Target
-          </button>
-        </div>
-      </div>
+          </AdminButton>
+        </>}
+      />
 
       <CompactModuleSummary variant="status" items={[
         {label:'Targets',value:targets ? totalCount : null,icon:Server,tone:'neutral',active:statusFilter==='all',onClick:()=>setStatusFilter('all')},
@@ -344,9 +330,9 @@ export default function MonitoringPage() {
 
       {/* Search, Filter Toolbar & View Switcher */}
       <div className="border-b border-border-base/70 py-3 space-y-2.5">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-stretch md:items-center justify-between gap-3">
           {/* Search input */}
-          <div className="relative flex-1">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim" size={16} />
             <input
               type="text"
@@ -400,10 +386,22 @@ export default function MonitoringPage() {
         </div>
 
         {/* Filters Row: Protocol Chips & Status Pills */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border-base/40">
+        <div className="grid grid-cols-2 gap-2 md:hidden">
+          <label className="min-w-0 text-xs text-text-muted">Tipo
+            <select aria-label="Filtrar por protocolo" value={protocolFilter} onChange={event => setProtocolFilter(event.target.value)} className="block w-full rounded-xl border border-border-base bg-bg-dark px-2 text-sm text-text-main">
+              {['all', 'https', 'http', 'tcp', 'dns', 'api', 'ssl'].map(type => <option key={type} value={type}>{type === 'all' ? 'Todos' : type.toUpperCase()}</option>)}
+            </select>
+          </label>
+          <label className="min-w-0 text-xs text-text-muted">Estado
+            <select aria-label="Filtrar por estado" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)} className="block w-full rounded-xl border border-border-base bg-bg-dark px-2 text-sm text-text-main">
+              <option value="all">Todos</option><option value="up">Online</option><option value="slow">Lentos</option><option value="down">Caídos</option><option value="disabled">Pausados</option>
+            </select>
+          </label>
+        </div>
+        <div className="hidden md:flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border-base/40">
           {/* Protocol Chips */}
           <div className="flex flex-wrap items-center gap-1.5 max-w-full text-xs">
-            <span className="text-[11px] text-text-dim font-semibold mr-1">Tipo:</span>
+            <span className="text-xs text-text-dim font-semibold mr-1">Tipo:</span>
             {['all', 'https', 'http', 'tcp', 'dns', 'api', 'ssl'].map((proto) => (
               <button
                 key={proto}

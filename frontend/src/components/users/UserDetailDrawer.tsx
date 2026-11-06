@@ -169,19 +169,19 @@ export default function UserDetailDrawer({
   const quickKpis = (
     <div className="grid grid-cols-3 gap-2 w-full pt-1">
       <div className="bg-bg-card border border-border-base rounded-xl p-2.5 text-center">
-        <p className="text-[10px] text-text-dim uppercase tracking-wider font-mono">Rol Actual</p>
+        <p className="text-xs text-text-dim uppercase tracking-wider font-mono">Rol Actual</p>
         <p className="text-xs font-bold text-text-main mt-0.5 capitalize">
           {member.role === 'admin' ? 'Admin' : member.role === 'operator' ? 'Operador' : member.role === 'viewer' ? 'Lector' : member.role}
         </p>
       </div>
       <div className="bg-bg-card border border-border-base rounded-xl p-2.5 text-center">
-        <p className="text-[10px] text-text-dim uppercase tracking-wider font-mono">Equipos</p>
+        <p className="text-xs text-text-dim uppercase tracking-wider font-mono">Equipos</p>
         <p className="text-xs font-bold text-accent-blue mt-0.5">
           {member.teams?.length || 0} asignados
         </p>
       </div>
       <div className="bg-bg-card border border-border-base rounded-xl p-2.5 text-center">
-        <p className="text-[10px] text-text-dim uppercase tracking-wider font-mono">Tipo</p>
+        <p className="text-xs text-text-dim uppercase tracking-wider font-mono">Tipo</p>
         <p className="text-xs font-bold text-accent-purple mt-0.5">
           {member.is_invitation ? 'Invitación' : 'Usuario'}
         </p>
@@ -199,7 +199,7 @@ export default function UserDetailDrawer({
           <Mail size={12} className="text-accent-blue" />
           {member.email}
           {isSelf && (
-            <span className="px-1.5 py-0.2 rounded text-[10px] bg-accent-green/20 text-accent-green font-semibold">
+            <span className="px-1.5 py-0.2 rounded text-xs bg-accent-green/20 text-accent-green font-semibold">
               Tú
             </span>
           )}
@@ -226,7 +226,7 @@ export default function UserDetailDrawer({
               </h3>
               <p className="text-xs text-text-muted font-mono truncate">{member.email}</p>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-[11px] font-mono text-text-dim flex items-center gap-1">
+                <span className="text-xs font-mono text-text-dim flex items-center gap-1">
                   <Calendar size={12} />
                   Alta: {member.date_joined ? new Date(member.date_joined).toLocaleDateString() : 'Desconocida'}
                 </span>
@@ -243,7 +243,7 @@ export default function UserDetailDrawer({
                   <h4 className="text-xs font-semibold text-text-main">
                     Invitación por Correo Pendiente
                   </h4>
-                  <p className="text-[11px] text-text-muted mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     El usuario aún no ha aceptado su enlace de acceso seguro enviado por correo.
                   </p>
                 </div>
@@ -263,19 +263,19 @@ export default function UserDetailDrawer({
           {/* User Details Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3.5 rounded-xl bg-bg-card border border-border-base space-y-1">
-              <p className="text-[10px] text-text-dim font-mono uppercase">Nombre</p>
+              <p className="text-xs text-text-dim font-mono uppercase">Nombre</p>
               <p className="text-xs font-semibold text-text-main">{member.first_name || '—'}</p>
             </div>
             <div className="p-3.5 rounded-xl bg-bg-card border border-border-base space-y-1">
-              <p className="text-[10px] text-text-dim font-mono uppercase">Apellidos</p>
+              <p className="text-xs text-text-dim font-mono uppercase">Apellidos</p>
               <p className="text-xs font-semibold text-text-main">{member.last_name || '—'}</p>
             </div>
             <div className="p-3.5 rounded-xl bg-bg-card border border-border-base space-y-1">
-              <p className="text-[10px] text-text-dim font-mono uppercase">Correo Corporativo</p>
+              <p className="text-xs text-text-dim font-mono uppercase">Correo Corporativo</p>
               <p className="text-xs font-mono font-medium text-text-main truncate">{member.email}</p>
             </div>
             <div className="p-3.5 rounded-xl bg-bg-card border border-border-base space-y-1">
-              <p className="text-[10px] text-text-dim font-mono uppercase">Último Inicio de Sesión</p>
+              <p className="text-xs text-text-dim font-mono uppercase">Último Inicio de Sesión</p>
               <p className="text-xs font-mono text-text-muted flex items-center gap-1">
                 <Clock size={12} className="text-accent-blue" />
                 {member.last_login ? new Date(member.last_login).toLocaleString() : 'Sin registros'}
@@ -385,7 +385,7 @@ export default function UserDetailDrawer({
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-text-dim leading-snug">{roleOption.desc}</p>
+                    <p className="text-xs text-text-dim leading-snug">{roleOption.desc}</p>
                   </AdminButton>
                 );
               })}
@@ -399,7 +399,7 @@ export default function UserDetailDrawer({
                 <Layers size={14} className="text-accent-blue" />
                 Asignación a Equipos de Trabajo
               </label>
-              <span className="text-[11px] font-mono text-text-dim">
+              <span className="text-xs font-mono text-text-dim">
                 {selectedTeamIds.length} seleccionados
               </span>
             </div>
@@ -407,7 +407,7 @@ export default function UserDetailDrawer({
             {availableTeams.length === 0 ? (
               <div className="p-6 rounded-2xl bg-bg-card border border-border-base text-center space-y-1">
                 <p className="text-xs font-medium text-text-main">No hay equipos creados todavía</p>
-                <p className="text-[11px] text-text-dim">
+                <p className="text-xs text-text-dim">
                   Crea un equipo en la pestaña principal de "Equipos de Trabajo".
                 </p>
               </div>
@@ -436,7 +436,7 @@ export default function UserDetailDrawer({
                           <p className="text-xs font-semibold text-text-main truncate">
                             {team.name}
                           </p>
-                          <p className="text-[10px] text-text-dim">
+                          <p className="text-xs text-text-dim">
                             {team.member_count || 0} integrantes
                           </p>
                         </div>
@@ -498,7 +498,7 @@ export default function UserDetailDrawer({
               <History size={14} className="text-accent-green" />
               Historial de Eventos del Operador
             </h4>
-            <span className="text-[11px] font-mono text-text-dim">
+            <span className="text-xs font-mono text-text-dim">
               {auditLogs?.length || 0} eventos registrados
             </span>
           </div>
@@ -512,7 +512,7 @@ export default function UserDetailDrawer({
             <div className="p-8 rounded-2xl bg-bg-card border border-border-base text-center space-y-2">
               <History size={32} className="text-text-dim mx-auto opacity-50" />
               <p className="text-xs font-medium text-text-main">Sin actividad reciente registrada</p>
-              <p className="text-[11px] text-text-dim max-w-sm mx-auto">
+              <p className="text-xs text-text-dim max-w-sm mx-auto">
                 No se han capturado eventos de auditoría para {member.email} en los últimos registros del sistema.
               </p>
             </div>
@@ -528,7 +528,7 @@ export default function UserDetailDrawer({
                       {log.action}
                     </span>
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
                         log.result === 'success'
                           ? 'bg-accent-green/10 text-accent-green'
                           : 'bg-accent-red/10 text-accent-red'
@@ -538,7 +538,7 @@ export default function UserDetailDrawer({
                     </span>
                   </div>
                   <p className="text-xs text-text-muted">{log.description}</p>
-                  <div className="flex items-center justify-between text-[10px] font-mono text-text-dim pt-1">
+                  <div className="flex items-center justify-between text-xs font-mono text-text-dim pt-1">
                     <span>Módulo: {log.module || 'General'}</span>
                     <span>{new Date(log.created_at).toLocaleString()}</span>
                   </div>
@@ -557,7 +557,7 @@ export default function UserDetailDrawer({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-semibold text-text-main">Estado de Autenticación</h4>
-                <p className="text-[11px] text-text-dim mt-0.5">
+                <p className="text-xs text-text-dim mt-0.5">
                   Controla la capacidad del usuario de iniciar sesión en Sentinel.
                 </p>
               </div>

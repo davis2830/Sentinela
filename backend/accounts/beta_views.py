@@ -8,6 +8,7 @@ from common.client_ip import get_client_ip
 from common.responses import success_response, error_response
 from . import beta
 from .models import BetaInvitation, IdentityMail
+from .platform_auth import PlatformAPIView
 
 
 class TokenInput(serializers.Serializer):
@@ -67,15 +68,7 @@ class EmailChangeView(APIView):
             return error_response(str(exc), status_code=400)
 
 
-class BetaAdminView(APIView):
-    permission_classes = (IsAuthenticated,)
-
-    def check_permissions(self, request):
-        super().check_permissions(request)
-        if not request.user.is_superuser:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Solo la administración de plataforma puede gestionar la beta.")
-
+class BetaAdminView(PlatformAPIView):
     def get(self, request):
         from .models import BetaControl
         control = BetaControl.objects.get(pk=1)

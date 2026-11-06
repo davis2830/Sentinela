@@ -13,6 +13,9 @@ if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
     raise ImproperlyConfigured("Production requires explicit ALLOWED_HOSTS without '*'.")
 
 SECURE_SSL_REDIRECT = True
+# Gateway still redirects public HTTP. This exact readiness route must also
+# work over the loopback HTTP listener used by Compose and controlled cutover.
+SECURE_REDIRECT_EXEMPT = [r"^health/?$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_CONTENT_TYPE_NOSNIFF = True

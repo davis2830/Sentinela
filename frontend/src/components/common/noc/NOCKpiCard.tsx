@@ -103,7 +103,7 @@ export default function NOCKpiCard({
         </span>
         {badge && (
           <span
-            className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${getBadgeClasses(
+            className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0 ${getBadgeClasses(
               badge.variant
             )}`}
           >
@@ -167,7 +167,7 @@ export default function NOCKpiCard({
                     <div className={`text-base font-bold ${styles.num}`}>
                       {item.count}
                     </div>
-                    <div className={`text-[10px] font-medium ${styles.lbl} truncate`}>
+                    <div className={`text-xs font-medium ${styles.lbl} truncate`}>
                       {item.label}
                     </div>
                   </div>
@@ -177,7 +177,7 @@ export default function NOCKpiCard({
           )}
 
           {subtitle && (
-            <p className="text-[11px] text-text-muted truncate mt-0.5 font-sans">
+            <p className="text-xs text-text-muted truncate mt-0.5 font-sans">
               {subtitle}
             </p>
           )}
@@ -186,7 +186,7 @@ export default function NOCKpiCard({
 
       {/* Footer slot */}
       {footer && (
-        <div className="text-[11px] text-text-muted pt-2 mt-2 border-t border-border-base/40">
+        <div className="text-xs text-text-muted pt-2 mt-2 border-t border-border-base/40">
           {footer}
         </div>
       )}

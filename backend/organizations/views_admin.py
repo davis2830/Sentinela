@@ -4,9 +4,9 @@ from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.views import APIView
+from rest_framework import serializers
 
-from common.permissions import IsSuperUser
+from accounts.platform_auth import PlatformAPIView
 from common.responses import error_response, success_response
 from organizations.models import (
     Organization,
@@ -18,12 +18,11 @@ from audit.models import AuditLog
 from audit.services import AuditService
 
 
-class PlatformStatsView(APIView):
+class PlatformStatsView(PlatformAPIView):
     """Business metrics & SaaS financial telemetry.
 
     GET /api/v1/platform-admin/stats/
     """
-    permission_classes = (IsSuperUser,)
 
     def get(self, request):
         now = timezone.now()
@@ -105,12 +104,11 @@ class PlatformStatsView(APIView):
         })
 
 
-class PlatformOrganizationListView(APIView):
+class PlatformOrganizationListView(PlatformAPIView):
     """List and filter all tenant organizations.
 
     GET /api/v1/platform-admin/organizations/
     """
-    permission_classes = (IsSuperUser,)
 
     def get(self, request):
         search = request.query_params.get("search", "").strip()
@@ -157,22 +155,21 @@ class PlatformOrganizationListView(APIView):
                 "sla_target_percentage": float(org.sla_target_percentage),
                 "created_at": org.created_at.isoformat(),
                 "users_count": users_count,
-                "max_users": limits.get("max_users", 3),
+                "max_users": limits["max_team_members"],
                 "targets_count": targets_count,
-                "max_targets": limits.get("max_targets", 5),
+                "max_targets": limits["max_monitoring_targets"],
                 "probes_count": probes_count,
-                "max_probes": limits.get("max_probes", 0),
+                "max_probes": limits["max_private_agents"],
             })
 
         return success_response(data)
 
 
-class PlatformOrganizationDetailView(APIView):
+class PlatformOrganizationDetailView(PlatformAPIView):
     """Retrieve full detail for a tenant organization.
 
     GET /api/v1/platform-admin/organizations/{id}/
     """
-    permission_classes = (IsSuperUser,)
 
     def get(self, request, org_id):
         try:
@@ -256,6 +253,12 @@ class PlatformOrganizationDetailView(APIView):
             "sla_target_percentage": float(org.sla_target_percentage),
             "created_at": org.created_at.isoformat(),
             "limits": limits,
+            "users_count": len(users),
+            "max_users": limits["max_team_members"],
+            "targets_count": MonitoringTarget.objects.filter(organization=org).count(),
+            "max_targets": limits["max_monitoring_targets"],
+            "probes_count": len(probes),
+            "max_probes": limits["max_private_agents"],
             "users": users,
             "targets": targets,
             "probes": probes,
@@ -263,13 +266,12 @@ class PlatformOrganizationDetailView(APIView):
         })
 
 
-class PlatformOrganizationExtendTrialView(APIView):
+class PlatformOrganizationExtendTrialView(PlatformAPIView):
     """Extend the trial period of a tenant.
 
     POST /api/v1/platform-admin/organizations/{id}/extend-trial/
     Payload: { "days": 14 }
     """
-    permission_classes = (IsSuperUser,)
 
     def post(self, request, org_id):
         try:
@@ -277,9 +279,13 @@ class PlatformOrganizationExtendTrialView(APIView):
         except Organization.DoesNotExist:
             return error_response("Organization not found.", status_code=status.HTTP_404_NOT_FOUND)
 
-        days = int(request.data.get("days", 14))
-        if days <= 0 or days > 365:
+        class TrialExtension(serializers.Serializer):
+            days = serializers.IntegerField(min_value=1, max_value=365, default=14)
+
+        payload = TrialExtension(data=request.data)
+        if not payload.is_valid():
             return error_response("Días de extensión inválidos (1 - 365).")
+        days = payload.validated_data["days"]
 
         base_time = max(timezone.now(), org.trial_ends_at or timezone.now())
         org.trial_ends_at = base_time + timedelta(days=days)
@@ -302,13 +308,12 @@ class PlatformOrganizationExtendTrialView(APIView):
         })
 
 
-class PlatformOrganizationSetPlanView(APIView):
+class PlatformOrganizationSetPlanView(PlatformAPIView):
     """Manually assign plan tier and status to a tenant.
 
     POST /api/v1/platform-admin/organizations/{id}/set-plan/
     Payload: { "plan_tier": "enterprise", "subscription_status": "active" }
     """
-    permission_classes = (IsSuperUser,)
 
     def post(self, request, org_id):
         try:
@@ -350,13 +355,12 @@ class PlatformOrganizationSetPlanView(APIView):
         })
 
 
-class PlatformOrganizationToggleStatusView(APIView):
+class PlatformOrganizationToggleStatusView(PlatformAPIView):
     """Suspend or reactivate a tenant.
 
     POST /api/v1/platform-admin/organizations/{id}/toggle-status/
     Payload: { "action": "suspend" | "reactivate" }
     """
-    permission_classes = (IsSuperUser,)
 
     def post(self, request, org_id):
         try:
@@ -391,12 +395,11 @@ class PlatformOrganizationToggleStatusView(APIView):
         })
 
 
-class PlatformExportCSVView(APIView):
+class PlatformExportCSVView(PlatformAPIView):
     """Export all tenants and subscription metrics as CSV.
 
     GET /api/v1/platform-admin/export-csv/
     """
-    permission_classes = (IsSuperUser,)
 
     def get(self, request):
         from accounts.models import User
@@ -417,8 +420,8 @@ class PlatformExportCSVView(APIView):
             "Días Restantes Trial",
             "Vencimiento Trial",
             "Email Facturación",
-            "Usuarios Activos",
-            "Monitores Activos",
+            "Usuarios registrados",
+            "Monitores registrados",
             "Agentes Probes",
             "Fecha Registro",
         ])
@@ -430,14 +433,14 @@ class PlatformExportCSVView(APIView):
 
             writer.writerow([
                 str(org.id),
-                org.name,
-                org.slug,
+                safe_csv_cell(org.name),
+                safe_csv_cell(org.slug),
                 org.plan_tier.upper(),
                 org.subscription_status.upper(),
                 "SI" if org.is_in_trial else "NO",
                 org.trial_days_remaining,
                 org.trial_ends_at.strftime("%Y-%m-%d %H:%M") if org.trial_ends_at else "N/A",
-                org.billing_email or "N/A",
+                safe_csv_cell(org.billing_email or "N/A"),
                 users_count,
                 targets_count,
                 probes_count,
@@ -445,3 +448,9 @@ class PlatformExportCSVView(APIView):
             ])
 
         return response
+
+
+def safe_csv_cell(value):
+    if value.lstrip().startswith(("=", "+", "-", "@")) or value.startswith(("\t", "\r", "\n")):
+        return "'" + value
+    return value

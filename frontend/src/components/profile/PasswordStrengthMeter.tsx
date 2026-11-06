@@ -67,8 +67,8 @@ export default function PasswordStrengthMeter({ password }: PasswordStrengthMete
     <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
       {/* Segmented Strength Bar */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[11px] text-text-dim">Fuerza de la contraseña:</span>
-        <span className={`text-[11px] font-semibold ${analysis.textColor}`}>
+        <span className="text-xs text-text-dim">Fuerza de la contraseña:</span>
+        <span className={`text-xs font-semibold ${analysis.textColor}`}>
           {analysis.label}
         </span>
       </div>
@@ -85,7 +85,7 @@ export default function PasswordStrengthMeter({ password }: PasswordStrengthMete
       </div>
 
       {/* Criteria Checklist */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-[11px]">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 text-xs">
         <div className="flex items-center gap-1.5">
           {analysis.hasMinLength ? (
             <Check size={12} className="text-accent-green shrink-0" />

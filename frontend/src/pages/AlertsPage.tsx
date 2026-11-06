@@ -928,7 +928,7 @@ export default function AlertsPage() {
                           {/* Auto-Resolved Badge */}
                           {alert.auto_resolved && (
                             <span
-                              className="px-2 py-0.5 rounded-full bg-accent-green/10 border border-accent-green/30 text-accent-green text-[11px] font-medium"
+                              className="px-2 py-0.5 rounded-full bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs font-medium"
                               title="Auto-mitigada automáticamente al recuperarse el servicio"
                             >
                               Auto-Mitigada
@@ -943,7 +943,7 @@ export default function AlertsPage() {
 
                         {/* Timestamps & Module Route Link */}
                         <div className="flex items-center gap-3 text-xs font-mono text-text-dim mt-2 flex-wrap">
-                          <span className="flex items-center gap-1 text-[11px]">
+                          <span className="flex items-center gap-1 text-xs">
                             <Clock size={12} />
                             Inicio: {new Date(alert.triggered_at).toLocaleString('es-ES')}
                           </span>
@@ -951,7 +951,7 @@ export default function AlertsPage() {
                           {alert.last_seen_at && alert.last_seen_at !== alert.triggered_at && (
                             <>
                               <span>•</span>
-                              <span className="text-[11px] text-text-dim">
+                              <span className="text-xs text-text-dim">
                                 Último: {new Date(alert.last_seen_at).toLocaleTimeString('es-ES')}
                               </span>
                             </>
@@ -1202,7 +1202,7 @@ export default function AlertsPage() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
-                      <span className="font-mono text-[11px]">
+                      <span className="font-mono text-xs">
                         Creada: {new Date(rule.created_at).toLocaleDateString('es-ES')}
                       </span>
                       <div className="flex items-center gap-1">
@@ -1439,7 +1439,7 @@ export default function AlertsPage() {
                         key={key}
                         className="bg-bg-card border border-border-base/40 rounded-xl p-2.5"
                       >
-                        <span className="text-text-dim block text-[10px] uppercase truncate">
+                        <span className="text-text-dim block text-xs uppercase truncate">
                           {key.replace(/_/g, ' ')}
                         </span>
                         <span className="text-accent-green font-semibold truncate block mt-0.5">

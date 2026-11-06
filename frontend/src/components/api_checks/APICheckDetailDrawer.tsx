@@ -85,13 +85,13 @@ export default function APICheckDetailDrawer({
   const quickKpis = (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-        <div className="text-[11px] text-text-dim">Status Esperado</div>
+        <div className="text-xs text-text-dim">Status Esperado</div>
         <div className="text-base font-bold font-mono text-accent-green mt-0.5">
           {target.expected_status}
         </div>
       </div>
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-        <div className="text-[11px] text-text-dim">Última Latencia</div>
+        <div className="text-xs text-text-dim">Última Latencia</div>
         <div className="text-base font-bold font-mono text-text-main mt-0.5">
           {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined
             ? `${Math.round(target.last_response_time_ms)} ms`
@@ -99,7 +99,7 @@ export default function APICheckDetailDrawer({
         </div>
       </div>
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-        <div className="text-[11px] text-text-dim">Monitoreo</div>
+        <div className="text-xs text-text-dim">Monitoreo</div>
         <div className="text-sm font-semibold mt-0.5">
           {target.enabled ? (
             <span className="text-accent-green">Activo</span>
@@ -109,7 +109,7 @@ export default function APICheckDetailDrawer({
         </div>
       </div>
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-        <div className="text-[11px] text-text-dim">Frecuencia</div>
+        <div className="text-xs text-text-dim">Frecuencia</div>
         <div className="text-sm font-semibold font-mono text-accent-cyan mt-0.5">
           Cada {target.check_interval || 60}s
         </div>
@@ -155,7 +155,7 @@ export default function APICheckDetailDrawer({
       title={target.name}
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 bg-accent-purple/10 text-accent-purple border border-accent-purple/30 rounded-full text-[11px] font-bold font-mono">
+          <span className="px-2.5 py-0.5 bg-accent-purple/10 text-accent-purple border border-accent-purple/30 rounded-full text-xs font-bold font-mono">
             {target.method}
           </span>
           <span className="truncate">{target.url}</span>
@@ -186,7 +186,7 @@ export default function APICheckDetailDrawer({
             <h3 className="text-xs font-semibold text-text-muted">
               Últimas Verificaciones Ejecutadas por Celery
             </h3>
-            <span className="text-[11px] text-text-dim">
+            <span className="text-xs text-text-dim">
               {results?.length || 0} registros
             </span>
           </div>

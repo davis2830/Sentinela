@@ -311,7 +311,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
               </span>
               {durationStr && (
                 <span
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold ${
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold ${
                     durationStr.includes('debe ser')
                       ? 'bg-accent-red/10 text-accent-red border border-accent-red/30'
                       : 'bg-accent-green/10 text-accent-green border border-accent-green/30'
@@ -410,7 +410,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                 <Globe size={16} className={scopeType === 'all' ? 'text-accent-green' : 'text-text-dim'} />
                 <div>
                   <div className="font-bold text-xs">Mantenimiento Global</div>
-                  <div className="text-[10px] text-text-dim">Cubre toda la infraestructura</div>
+                  <div className="text-xs text-text-dim">Cubre toda la infraestructura</div>
                 </div>
               </label>
 
@@ -431,7 +431,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                 <Layers size={16} className={scopeType === 'custom' ? 'text-accent-green' : 'text-text-dim'} />
                 <div>
                   <div className="font-bold text-xs">Targets Específicos</div>
-                  <div className="text-[10px] text-text-dim">Selección granular ({selectedTargets.length})</div>
+                  <div className="text-xs text-text-dim">Selección granular ({selectedTargets.length})</div>
                 </div>
               </label>
             </div>
@@ -441,7 +441,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
               <div className="p-4 bg-bg-dark border border-border-base rounded-2xl space-y-3 max-h-56 overflow-y-auto">
                 {/* Uptime Targets */}
                 <div>
-                  <div className="text-[11px] font-mono text-text-dim mb-1.5 flex items-center gap-1 font-bold">
+                  <div className="text-xs font-mono text-text-dim mb-1.5 flex items-center gap-1 font-bold">
                     <Zap size={12} className="text-accent-green" /> Targets de Uptime & Latencia:
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -452,7 +452,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                       return (
                         <label
                           key={t.id}
-                          className="flex items-center gap-2 p-1.5 rounded-lg bg-bg-card hover:bg-bg-card-hover border border-border-base/60 text-[11px] cursor-pointer"
+                          className="flex items-center gap-2 p-1.5 rounded-lg bg-bg-card hover:bg-bg-card-hover border border-border-base/60 text-xs cursor-pointer"
                         >
                           <input
                             type="checkbox"
@@ -470,7 +470,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                 {/* API Checks */}
                 {apiChecks && apiChecks.length > 0 && (
                   <div className="pt-2 border-t border-border-base/50">
-                    <div className="text-[11px] font-mono text-text-dim mb-1.5 flex items-center gap-1 font-bold">
+                    <div className="text-xs font-mono text-text-dim mb-1.5 flex items-center gap-1 font-bold">
                       <Plug size={12} className="text-accent-purple" /> API Endpoints:
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -481,7 +481,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                         return (
                           <label
                             key={a.id}
-                            className="flex items-center gap-2 p-1.5 rounded-lg bg-bg-card hover:bg-bg-card-hover border border-border-base/60 text-[11px] cursor-pointer"
+                            className="flex items-center gap-2 p-1.5 rounded-lg bg-bg-card hover:bg-bg-card-hover border border-border-base/60 text-xs cursor-pointer"
                           >
                             <input
                               type="checkbox"
@@ -512,7 +512,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                   <BellOff size={15} className="text-accent-yellow" />
                   <div>
                     <div className="font-semibold text-text-main">Silenciar Notificaciones Externas</div>
-                    <div className="text-[10px] text-text-dim">
+                    <div className="text-xs text-text-dim">
                       No despacha alertas a Slack, Teams, Telegram ni Email durante la ventana
                     </div>
                   </div>
@@ -530,7 +530,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                   <Shield size={15} className="text-accent-green" />
                   <div>
                     <div className="font-semibold text-text-main">Excluir de Penalización de SLA</div>
-                    <div className="text-[10px] text-text-dim">
+                    <div className="text-xs text-text-dim">
                       El downtime en este lapso no restará porcentaje de disponibilidad mensual
                     </div>
                   </div>
@@ -548,7 +548,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                   <Globe size={15} className="text-accent-blue" />
                   <div>
                     <div className="font-semibold text-text-main">Publicar en Status Page de Clientes</div>
-                    <div className="text-[10px] text-text-dim">
+                    <div className="text-xs text-text-dim">
                       Sincroniza automáticamente este aviso y sus avances en el portal público
                     </div>
                   </div>
@@ -563,7 +563,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
 
               {publishToStatusPage && (
                 <div className="p-3 bg-bg-dark border border-border-base/80 rounded-xl space-y-2 mt-1">
-                  <label className="block text-text-dim text-[11px] font-mono">
+                  <label className="block text-text-dim text-xs font-mono">
                     Status Page de Publicación:
                   </label>
                   <select
@@ -578,7 +578,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-text-dim leading-relaxed">
+                  <p className="text-xs text-text-dim leading-relaxed">
                     Se mantendrán sincronizados en tiempo real el título, fechas de intervención y las notas de avance que publiques en la bitácora de mantenimiento.
                   </p>
                 </div>

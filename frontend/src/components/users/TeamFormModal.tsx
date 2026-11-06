@@ -245,7 +245,7 @@ export default function TeamFormModal({
                 <Users size={13} className="text-accent-green" />
                 Asignar Miembros al Equipo
               </label>
-              <span className="text-[10px] font-mono text-text-dim">
+              <span className="text-xs font-mono text-text-dim">
                 {selectedMemberIds.length} seleccionados
               </span>
             </div>
@@ -275,7 +275,7 @@ export default function TeamFormModal({
                           {memberName || member.email}
                         </p>
                         {memberName && (
-                          <p className="text-[10px] text-text-dim font-mono truncate">
+                          <p className="text-xs text-text-dim font-mono truncate">
                             {member.email}
                           </p>
                         )}

@@ -1,3 +1,4 @@
+import ModalSurface from '../components/common/ModalSurface';
 import { useConfigurationDiagnostic } from '../hooks/useConfigurationDiagnostic';
 import ConfigurationDiagnosticNotice from '../components/common/ConfigurationDiagnosticNotice';
 import { useLinkedResource } from '../hooks/useLinkedResource';
@@ -124,7 +125,7 @@ export default function SSLCertificatesPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: certificates, isLoading } = useQuery<SSLCertificate[]>({
+  const { data: certificates, isLoading, isError, refetch } = useQuery<SSLCertificate[]>({
     queryKey: ['ssl-certificates', organizationId, filter],
     queryFn: async () => {
       const response = await api.get(getEndpoint());
@@ -488,9 +489,9 @@ export default function SSLCertificatesPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         statusPills={[
-          { id: 'all', label: 'Todos', count: totalCount, variant: 'all' },
-          { id: 'expiring', label: 'Por expirar', count: expiringCount, variant: 'warning' },
-          { id: 'expired', label: 'Expirados / Fallos', count: expiredCount, variant: 'danger' },
+          { id: 'all', label: 'Todos', count: isError ? undefined : totalCount, variant: 'all' },
+          { id: 'expiring', label: 'Por expirar', count: isError ? undefined : expiringCount, variant: 'warning' },
+          { id: 'expired', label: 'Expirados / Fallos', count: isError ? undefined : expiredCount, variant: 'danger' },
         ]}
         selectedStatus={filter}
         onStatusChange={(st) => setFilter(st as FilterType)}
@@ -518,6 +519,10 @@ export default function SSLCertificatesPage() {
       />
 
       {/* 5. MAIN CONTENT: DUAL VIEW (GRID OR COMPACT TABLE) */}
+      {isError && <section role="alert" className="rounded-2xl border border-accent-yellow/40 bg-bg-card p-5 text-sm text-text-main">
+        <p>No pudimos consultar los certificados. Esto no significa que se hayan eliminado.</p>
+        <button className="mt-2 text-accent-green" onClick={() => refetch()}>Reintentar consulta de certificados</button>
+      </section>}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-accent-green" size={32} />
@@ -586,7 +591,7 @@ export default function SSLCertificatesPage() {
                               {cert.domain}
                             </h3>
                             {cert.port && cert.port !== 443 && (
-                              <span className="font-mono text-[10px] px-1.5 py-0.2 bg-bg-dark border border-border-base rounded text-accent-blue">
+                              <span className="font-mono text-xs px-1.5 py-0.2 bg-bg-dark border border-border-base rounded text-accent-blue">
                                 :{cert.port}
                               </span>
                             )}
@@ -676,10 +681,10 @@ export default function SSLCertificatesPage() {
                   {/* Footer: Grade + Algorithm + Actions */}
                   <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green border border-accent-green/30">
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green border border-accent-green/30">
                         {cert.security_grade || 'A'}
                       </span>
-                      <span className="font-mono text-[11px] bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50">
+                      <span className="font-mono text-xs bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50">
                         {cert.tls_version || 'TLS 1.3'}
                       </span>
                     </div>
@@ -732,7 +737,7 @@ export default function SSLCertificatesPage() {
           />
         )
       ) : (
-        <EmptyState requiresAdmin
+        !isError && <EmptyState requiresAdmin
           title="No hay certificados SSL registrados"
           description="Añade tus dominios críticos para auditar la vigencia de sus certificados SSL/TLS y recibir avisos antes del vencimiento."
           actionLabel="Monitorear Primer Certificado"
@@ -788,7 +793,7 @@ export default function SSLCertificatesPage() {
             {/* Quick Lifetime Metric Strip */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-bg-dark/90 border border-border-base rounded-2xl p-3.5">
-                <span className="text-[11px] text-text-dim block mb-1">Días Restantes</span>
+                <span className="text-xs text-text-dim block mb-1">Días Restantes</span>
                 <span
                   className={`text-2xl font-bold font-mono ${
                     (selectedCert.days_remaining || 0) <= 0
@@ -804,7 +809,7 @@ export default function SSLCertificatesPage() {
                 </span>
               </div>
               <div className="bg-bg-dark/90 border border-border-base rounded-2xl p-3.5">
-                <span className="text-[11px] text-text-dim block mb-1">Protocolo Activo</span>
+                <span className="text-xs text-text-dim block mb-1">Protocolo Activo</span>
                 <span className="text-2xl font-bold font-mono text-accent-blue">
                   {selectedCert.tls_version || 'TLS 1.3'}
                 </span>
@@ -920,13 +925,13 @@ export default function SSLCertificatesPage() {
                     <button
                       type="button"
                       onClick={() => handleCopyFingerprint(selectedCert.fingerprint || '')}
-                      className="text-accent-green hover:underline flex items-center gap-1 text-[11px] cursor-pointer"
+                      className="text-accent-green hover:underline flex items-center gap-1 text-xs cursor-pointer"
                     >
                       {copiedFingerprint ? <Check size={12} /> : <Copy size={12} />}
                       {copiedFingerprint ? 'Copiado' : 'Copiar'}
                     </button>
                   </div>
-                  <p className="text-text-muted break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40 text-[11px]">
+                  <p className="text-text-muted break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40 text-xs">
                     {selectedCert.fingerprint}
                   </p>
                 </div>
@@ -979,7 +984,7 @@ export default function SSLCertificatesPage() {
                         >
                           <Lock size={11} className={isWildcard ? 'text-accent-purple' : 'text-accent-green'} />
                           <span>{san}</span>
-                          {isWildcard && <span className="text-[10px] font-sans opacity-80">(Wildcard)</span>}
+                          {isWildcard && <span className="text-xs font-sans opacity-80">(Wildcard)</span>}
                         </span>
                       );
                     })}
@@ -1000,17 +1005,15 @@ export default function SSLCertificatesPage() {
           className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
           onClick={handleCloseModal}
         >
-          <div
-            className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <ModalSurface label={editingCert ? "Editar Certificado SSL" : "Monitorear Nuevo Certificado SSL"} onClose={handleCloseModal}
+            className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2 font-sans">
                 <Lock size={19} className="text-accent-green" />
                 {editingCert ? 'Editar Certificado SSL' : 'Monitorear Nuevo Certificado SSL'}
               </h2>
               <button
-                type="button"
+                type="button" aria-label="Cerrar formulario SSL"
                 onClick={handleCloseModal}
                 className="text-text-muted hover:text-text-main transition-colors p-1"
               >
@@ -1027,7 +1030,7 @@ export default function SSLCertificatesPage() {
                   <input
                     type="text"
                     required
-                    placeholder="ej. api.tuempresa.com"
+                    id="ssl-domain" aria-label="Dominio o FQDN" placeholder="ej. api.tuempresa.com"
                     value={domainInput}
                     onChange={(e) => {
                       setDomainInput(e.target.value);
@@ -1044,7 +1047,7 @@ export default function SSLCertificatesPage() {
                     type="number"
                     min={1}
                     max={65535}
-                    value={portInput}
+                    aria-label="Puerto" value={portInput}
                     onChange={(e) => {
                       setPortInput(parseInt(e.target.value, 10) || 443);
                       setTestResult(null);
@@ -1053,7 +1056,7 @@ export default function SSLCertificatesPage() {
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-text-dim">
+              <p className="text-xs text-text-dim">
                 Puertos comunes: <span className="font-mono text-accent-green">443</span> (HTTPS), <span className="font-mono text-accent-blue">8443</span> (Paneles), <span className="font-mono text-accent-purple">636</span> (LDAPS).
               </p>
 
@@ -1095,15 +1098,15 @@ export default function SSLCertificatesPage() {
                         <span className="font-bold text-accent-green flex items-center gap-1.5">
                           <Check size={14} /> Conexión Exitosa &bull; Grado {testResult.security_grade}
                         </span>
-                        <span className="font-mono text-[11px] text-text-dim">
+                        <span className="font-mono text-xs text-text-dim">
                           {testResult.tls_version}
                         </span>
                       </div>
-                      <div className="text-[11px] text-text-muted">
+                      <div className="text-xs text-text-muted">
                         <span>Emisor: </span>
                         <span className="font-mono text-text-main">{parseIssuerName(testResult.issuer || null)}</span>
                       </div>
-                      <div className="text-[11px] text-text-muted">
+                      <div className="text-xs text-text-muted">
                         <span>Vigencia: </span>
                         <span className="font-mono text-accent-green font-bold">{testResult.days_remaining} días</span>
                         {testResult.san_domains && (
@@ -1116,7 +1119,7 @@ export default function SSLCertificatesPage() {
                       <ShieldAlert size={16} className="shrink-0 mt-0.5" />
                       <div>
                         <span className="font-bold block">Fallo en la prueba de conexión</span>
-                        <span className="text-[11px] font-mono opacity-90">{testResult.error_message}</span>
+                        <span className="text-xs font-mono opacity-90">{testResult.error_message}</span>
                       </div>
                     </div>
                   )}
@@ -1146,7 +1149,7 @@ export default function SSLCertificatesPage() {
                 </AdminButton>
               </div>
             </form>
-          </div>
+          </ModalSurface>
         </div>,
         document.body
       )}

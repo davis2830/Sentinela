@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, LogIn, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff, Shield, ShieldCheck, ArrowLeft, KeyRound } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck, ArrowLeft, KeyRound } from 'lucide-react';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { useAuthStore } from '../../store/authStore';
 
@@ -18,7 +18,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +75,7 @@ export default function LoginPage() {
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-5 flex items-center gap-3 bg-accent-red/10 border border-accent-red/40 text-accent-red px-4 py-3 rounded-xl text-sm font-sans animate-in fade-in">
+          <div role="alert" className="mb-5 flex items-center gap-3 bg-accent-red/10 border border-accent-red/40 text-accent-red px-4 py-3 rounded-xl text-sm font-sans animate-in fade-in">
             <AlertCircle size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
@@ -94,15 +93,13 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-text-muted mb-2 font-sans text-center">
-                Código de Verificación o Respaldo
-              </label>
+              <label htmlFor="auth-totpCode" className="block text-sm font-semibold text-text-muted mb-2 font-sans text-center">Código de Verificación o Respaldo</label>
               <div className="relative group">
                 <KeyRound
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                   size={19}
                 />
-                <input
+                <input id="auth-totpCode" aria-label="Código de Verificación o Respaldo" autoComplete="one-time-code"
                   type="text"
                   placeholder="000 000"
                   value={totpCode}
@@ -153,15 +150,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label className="block text-sm font-semibold text-text-muted mb-1.5 font-sans">
-                Correo Electrónico
-              </label>
+              <label htmlFor="auth-email" className="block text-sm font-semibold text-text-muted mb-1.5 font-sans">Correo Electrónico</label>
               <div className="relative group">
                 <Mail
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                   size={19}
                 />
-                <input
+                <input id="auth-email" aria-label="Correo Electrónico" autoComplete="email"
                   type="email"
                   placeholder="usuario@dominio.com"
                   value={email}
@@ -178,26 +173,15 @@ export default function LoginPage() {
             {/* Password Field */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-semibold text-text-muted font-sans">
-                  Contraseña
-                </label>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert('Por favor contacta al administrador del sistema para restablecer tu contraseña.');
-                  }}
-                  className="text-xs text-accent-green hover:underline font-medium transition-colors font-sans"
-                >
-                  ¿Olvidaste tu contraseña?
-                </a>
+                <label htmlFor="auth-password" className="text-sm font-semibold text-text-muted font-sans">Contraseña</label>
+                <Link to="/forgot-password" className="inline-flex min-h-11 items-center text-xs text-accent-green hover:underline">¿Olvidaste tu contraseña?</Link>
               </div>
               <div className="relative group">
                 <Lock
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-accent-green transition-colors"
                   size={19}
                 />
-                <input
+                <input id="auth-password" aria-label="Contraseña" autoComplete="current-password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••"
                   value={password}
@@ -219,22 +203,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me Checkbox */}
-            <div className="flex items-center gap-2.5 pt-0.5">
-              <input
-                type="checkbox"
-                id="rememberMe"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-border-base text-accent-green bg-bg-dark focus:ring-accent-green/20 accent-accent-green cursor-pointer"
-              />
-              <label
-                htmlFor="rememberMe"
-                className="text-sm text-text-muted select-none cursor-pointer font-sans"
-              >
-                Recordar mi sesión en este equipo
-              </label>
-            </div>
+            <p className="text-xs text-text-muted">La sesión se conserva en este navegador. En un equipo compartido, cierra sesión al terminar.</p>
 
             {/* Submit Button */}
             <button
@@ -266,10 +235,6 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <div className="flex items-center justify-center gap-1.5 text-xs text-text-dim mt-4 font-sans">
-            <Shield size={14} className="text-accent-green" />
-            <span>Sentinel &bull; <span className="font-mono">v1.0.0</span></span>
-          </div>
         </div>
       </div>
     </AuthLayout>

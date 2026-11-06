@@ -1,0 +1,53 @@
+# Layer ONLY over docker-compose.prod.yml, using .env.production.example.
+# All images/certificates/data below are isolated fixtures, never deployment values.
+services:
+  db:
+    container_name: !reset null
+  redis:
+    container_name: !reset null
+  backend:
+    container_name: !reset null
+    image: sentinel-audit-backend:local
+    environment:
+      SECRET_KEY: isolated-audit-only-key-not-for-production-or-existing-data-20261104
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend,nginx
+      CORS_ALLOWED_ORIGINS: https://localhost:31843
+      CSRF_TRUSTED_ORIGINS: https://localhost:31843
+      TRUSTED_PROXY_CIDRS: 172.31.240.10/32
+      PUBLIC_APP_URL: https://localhost:31843
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      EMAIL_HOST: ""
+      EMAIL_HOST_USER: ""
+      EMAIL_HOST_PASSWORD: ""
+      TURNSTILE_SITE_KEY: ""
+      TURNSTILE_SECRET_KEY: ""
+  celery_worker:
+    container_name: !reset null
+    image: sentinel-audit-backend:local
+    environment:
+      SECRET_KEY: isolated-audit-only-key-not-for-production-or-existing-data-20261104
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend,nginx
+      PUBLIC_APP_URL: https://localhost:31843
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      EMAIL_HOST: ""
+      EMAIL_HOST_USER: ""
+      EMAIL_HOST_PASSWORD: ""
+  frontend:
+    container_name: !reset null
+    image: sentinel-audit-frontend-prod:local
+  nginx:
+    container_name: !reset null
+    image: sentinel-audit-gateway:local
+    ports: !override ["127.0.0.1:31843:443", "127.0.0.1:31880:80"]
+    volumes: !override
+      - ./.tmp/audit-tls/tls.crt:/etc/nginx/tls/tls.crt:ro
+      - ./.tmp/audit-tls/tls.key:/etc/nginx/tls/tls.key:ro
+      - django_static:/var/www/static:ro
+    networks:
+      sentinel_internal_net:
+        ipv4_address: 172.31.240.10
+networks:
+  sentinel_internal_net:
+    ipam:
+      config: !override
+        - subnet: 172.31.240.0/24

@@ -129,7 +129,7 @@ class ConcurrentAgentDeliveryTests(TransactionTestCase):
     def test_concurrent_retries_commit_one_measurement(self):
         from concurrent.futures import ThreadPoolExecutor
         from threading import Barrier
-        from django.db import close_old_connections
+        from django.db import connections
         org=Organization.objects.create(name='Concurrent delivery',slug='concurrent-delivery',beta_managed=False)
         _,token_hash=AgentProbe.generate_token()
         probe=AgentProbe.objects.create(organization=org,name='LAN',token_hash=token_hash)
@@ -139,13 +139,13 @@ class ConcurrentAgentDeliveryTests(TransactionTestCase):
                 'completed_at':timezone.now().isoformat(),'status':'up','response_time_ms':50}
         barrier=Barrier(2)
         def submit():
-            close_old_connections()
+            connections.close_all()
             try:
                 local_probe=AgentProbe.objects.get(pk=probe.id)
                 barrier.wait(timeout=10)
                 return ingest_batch(local_probe,[result])[0]['status']
             finally:
-                close_old_connections()
+                connections.close_all()
         with ThreadPoolExecutor(max_workers=2) as executor:
             results=list(executor.map(lambda _:submit(),range(2)))
         self.assertCountEqual(results,['accepted','duplicate'])

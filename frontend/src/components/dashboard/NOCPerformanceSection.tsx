@@ -63,15 +63,20 @@ function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isL
   const rate = finite(checksPerMinute);
   const maxLatency = Math.max(0, ...points.map(point => point.latency ?? 0));
   const latencyCeiling = Math.max(100, Math.ceil(maxLatency * 1.15 / 100) * 100);
-  const samples = points.map(point=>point.sampleAt);
-  const first = Math.min(...samples), last = Math.max(...samples);
-  const timeDomain: [number,number] = first === last ? [first-60000,last+60000] : [first,last];
+  const samples = points.map(point => point.sampleAt);
+  const first = samples.length ? Math.min(...samples) : 0;
+  const last = samples.length ? Math.max(...samples) : 0;
+  const hasTimestamps = points.some(point => point.timestamp != null);
+  const padding = hasTimestamps ? 60000 : 1;
+  const timeDomain: [number, number] = first === last ? [first - padding, last + padding] : [first, last];
   const timeAxis = {
     dataKey: 'sampleAt', type: 'number' as const, scale: 'time' as const, domain: timeDomain,
-    ticks: Array.from({length:5},(_,index)=>timeDomain[0]+(timeDomain[1]-timeDomain[0])*index/4),
+    ticks: first === last ? [first] : hasTimestamps
+      ? Array.from({length:5},(_,index)=>timeDomain[0]+(timeDomain[1]-timeDomain[0])*index/4)
+      : undefined,
     padding: {left:12,right:12},
     tickFormatter: (sample:number) => {
-      if (!points.some(point=>point.timestamp!=null)) return points.find(point=>point.sampleAt===sample)?.time||'';
+      if (!hasTimestamps) return points.find(point=>point.sampleAt===sample)?.time||'';
       return new Date(sample).toLocaleString('es', timeRange==='7d'
         ? {day:'2-digit',month:'2-digit',hour:'2-digit'} : {hour:'2-digit',minute:'2-digit'});
     },
@@ -95,8 +100,8 @@ function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isL
   const margin = { top: 8, right: 12, left: 0, bottom: 8 };
   return <section className="min-w-0 bg-bg-card border border-border-base rounded-2xl p-4 h-full" data-testid="dashboard-performance" aria-label="Rendimiento global">
     <header className="flex flex-wrap items-center justify-between gap-2 mb-3">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-text-main"><TrendingUp size={18} className="text-accent-green"/>Histórico de comprobaciones</h3>
-      <span className="text-xs text-text-muted">Solo Monitoring · {timeRange}</span>
+      <h3 className="flex items-center gap-2 text-base font-bold text-text-main"><TrendingUp size={18} className="text-accent-green"/>Histórico de comprobaciones</h3>
+      <span className="rounded-full border border-border-base bg-bg-dark px-2.5 py-1 text-xs text-text-muted">Solo Monitoring · {timeRange}</span>
     </header>
     {isLoading ? <div role="status" className="h-72 space-y-4 animate-pulse rounded-xl bg-bg-dark/40 p-4"><p className="text-sm text-text-muted">Cargando mediciones…</p><div className="h-28 bg-border-base/40 rounded-lg"/><div className="h-12 bg-border-base/25 rounded-lg"/></div>
     : isError || !hasData ? <div role="status" className="h-72 flex flex-col items-center justify-center gap-3 text-center px-6">
@@ -105,7 +110,7 @@ function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isL
       <p className="max-w-sm text-xs text-text-muted">{isError ? 'No pudimos consultar las mediciones. Actualiza los datos para intentarlo de nuevo.' : 'Las gráficas aparecerán cuando se registren comprobaciones. Los intervalos vacíos no se consideran saludables.'}</p>
     </div> : <>
       <CheckOutcomes counts={outcomes} period={timeRange}/>
-      <div className="flex flex-wrap justify-between gap-2 text-xs mb-1"><span className="font-semibold text-text-main">Tiempo medio · ms</span><span className="text-text-muted">Intentos con tiempo registrado</span></div>
+      <div className="flex flex-wrap justify-between gap-2 text-xs mb-1"><span className="font-semibold text-text-main">Latencia media · ms</span><span className="text-text-muted">Intentos con tiempo registrado</span></div>
       <div className="h-24 w-full" role="img" aria-label="Latencia histórica en milisegundos" {...trackEvents('latency')}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} syncId={id} margin={margin}>
@@ -120,12 +125,12 @@ function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isL
         </ResponsiveContainer>
       </div>
       <div className="flex flex-wrap justify-between gap-2 text-xs mt-2 mb-1"><span className="font-semibold text-text-main">Disponibilidad · %</span><span className="text-text-muted">Referencia visual: 99,9% / 99%</span></div>
-      <div className="h-16 w-full" role="img" aria-label="Disponibilidad histórica de cero a cien por ciento" {...trackEvents('uptime')}>
+      <div className={hasRate ? 'h-16 w-full' : 'h-[88px] w-full'} role="img" aria-label="Disponibilidad histórica de cero a cien por ciento" {...trackEvents('uptime')}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} syncId={id} margin={margin}>
             <CartesianGrid vertical={false} stroke={colors.grid} strokeDasharray="3 5" opacity={0.65}/>
             <defs><linearGradient id={id+'-availability'} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={margin.top} y2={64-margin.bottom}><stop offset="0%" stopColor="#4ade80"/><stop offset="0.1%" stopColor="#4ade80"/><stop offset="0.1%" stopColor="#fbbf24"/><stop offset="1%" stopColor="#fbbf24"/><stop offset="1%" stopColor="#ff7384"/><stop offset="100%" stopColor="#ff7384"/></linearGradient></defs>
-            <XAxis {...timeAxis} hide/>
+            <XAxis {...axis} {...timeAxis} hide={hasRate} minTickGap={36} interval="preserveStartEnd" height={24}/>
             <YAxis {...axis} width={52} domain={[0,100]} ticks={[0,100]} interval={0} tickFormatter={value=>number(value)+'%'}/>
             <Tooltip content={props=>activeTrack==='uptime'?tooltip(props):null}/>
             <ReferenceLine y={99.9} stroke="#fbbf24" strokeDasharray="4 4" opacity={0.5}/><ReferenceLine y={99} stroke="#ff7384" strokeDasharray="4 4" opacity={0.5}/>
@@ -137,6 +142,7 @@ function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isL
       {hasRate ? <div className="h-20 w-full" role="img" aria-label="Comprobaciones por minuto y eje de tiempo" {...trackEvents('volume')}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={points} syncId={id} margin={margin}>
+            <CartesianGrid vertical={false} stroke={colors.grid} strokeDasharray="3 5" opacity={0.65}/>
             <XAxis {...axis} {...timeAxis} minTickGap={36} interval="preserveStartEnd" height={24}/>
             <YAxis {...axis} width={52} tickCount={2} domain={[0,'auto']} tickFormatter={number}/>
             <Tooltip content={props=>activeTrack==='volume'?tooltip(props):null} cursor={{fill:'#94a3b815'}}/>

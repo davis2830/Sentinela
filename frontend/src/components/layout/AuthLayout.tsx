@@ -75,7 +75,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
                 <span className="text-3xl xl:text-4xl font-extrabold tracking-tight text-text-main font-sans block">
                   Sentinel
                 </span>
-                <span className="text-[11px] xl:text-xs font-semibold text-text-dim tracking-[0.2em] uppercase font-sans">
+                <span className="text-xs xl:text-xs font-semibold text-text-dim tracking-[0.2em] uppercase font-sans">
                   Observabilidad &bull; Monitoreo &bull; Seguridad
                 </span>
               </div>
@@ -101,7 +101,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-text-main font-sans leading-tight">Telemetría</div>
-                  <div className="text-[11px] text-text-dim font-sans">en tiempo real</div>
+                  <div className="text-xs text-text-dim font-sans">en tiempo real</div>
                 </div>
               </div>
 
@@ -111,7 +111,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-text-main font-sans leading-tight">Detección</div>
-                  <div className="text-[11px] text-text-dim font-sans">de incidentes</div>
+                  <div className="text-xs text-text-dim font-sans">de incidentes</div>
                 </div>
               </div>
 
@@ -121,7 +121,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-text-main font-sans leading-tight">Protección</div>
-                  <div className="text-[11px] text-text-dim font-sans">de servicios</div>
+                  <div className="text-xs text-text-dim font-sans">de servicios</div>
                 </div>
               </div>
             </div>
@@ -143,13 +143,13 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               {/* Floating Status Badge: SERVIDORES */}
               <div className="absolute top-[30%] left-[18%] flex items-center gap-2 bg-bg-card backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
                 <div>
-                  <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase font-sans">Servidores</div>
+                  <div className="text-xs font-bold text-text-muted tracking-wider uppercase font-sans">Servidores</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-green" />
                     </span>
-                    <span className="text-[10px] font-bold text-accent-green font-sans">ONLINE</span>
+                    <span className="text-xs font-bold text-accent-green font-sans">ONLINE</span>
                   </div>
                 </div>
               </div>
@@ -157,13 +157,13 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               {/* Floating Status Badge: APIs */}
               <div className="absolute top-[15%] right-[22%] flex items-center gap-2 bg-bg-card backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
                 <div>
-                  <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase font-sans">APIs</div>
+                  <div className="text-xs font-bold text-text-muted tracking-wider uppercase font-sans">APIs</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-green" />
                     </span>
-                    <span className="text-[10px] font-bold text-accent-green font-sans">ONLINE</span>
+                    <span className="text-xs font-bold text-accent-green font-sans">ONLINE</span>
                   </div>
                 </div>
               </div>
@@ -171,13 +171,13 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
               {/* Floating Status Badge: BASES DE DATOS */}
               <div className="absolute bottom-[18%] right-[12%] flex items-center gap-2 bg-bg-card backdrop-blur-sm border border-border-base/60 rounded-xl px-3.5 py-2 shadow-lg animate-in fade-in">
                 <div>
-                  <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase font-sans">Bases de datos</div>
+                  <div className="text-xs font-bold text-text-muted tracking-wider uppercase font-sans">Bases de datos</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-green" />
                     </span>
-                    <span className="text-[10px] font-bold text-accent-green font-sans">ONLINE</span>
+                    <span className="text-xs font-bold text-accent-green font-sans">ONLINE</span>
                   </div>
                 </div>
               </div>

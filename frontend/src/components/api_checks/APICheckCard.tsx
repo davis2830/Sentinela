@@ -149,7 +149,7 @@ export default function APICheckCard({
               {target.last_http_status && (
                 <span className="text-text-main">{target.last_http_status}</span>
               )}
-              <span className="text-text-dim text-[11px]">
+              <span className="text-text-dim text-xs">
                 (esperado {target.expected_status})
               </span>
             </div>
@@ -169,7 +169,7 @@ export default function APICheckCard({
               ) : (
                 <span className="text-text-dim">-</span>
               )}
-              <span className="text-text-dim text-[11px]">
+              <span className="text-text-dim text-xs">
                 / &lt;{maxLatency}ms
               </span>
             </div>
@@ -178,12 +178,12 @@ export default function APICheckCard({
           <div className="flex justify-between font-sans">
             <span className="text-text-dim font-medium">Esquema:</span>
             {hasSchema ? (
-              <span className="inline-flex items-center gap-1 text-accent-purple font-mono font-medium text-[11px]">
+              <span className="inline-flex items-center gap-1 text-accent-purple font-mono font-medium text-xs">
                 <Code2 size={11} />
                 {Object.keys(target.expected_schema || {}).length} Campos
               </span>
             ) : (
-              <span className="text-text-dim font-mono text-[11px]">Sin Schema</span>
+              <span className="text-text-dim font-mono text-xs">Sin Schema</span>
             )}
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function APICheckCard({
 
       {/* Footer: Last checked time + Actions */}
       <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
-        <span className="flex items-center gap-1 font-mono text-[11px]">
+        <span className="flex items-center gap-1 font-mono text-xs">
           <Clock size={12} />
           {target.last_checked_at
             ? new Date(target.last_checked_at).toLocaleTimeString('es-ES', {

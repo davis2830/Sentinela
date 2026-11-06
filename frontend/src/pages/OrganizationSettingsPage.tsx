@@ -375,7 +375,7 @@ export default function OrganizationSettingsPage() {
           <Sparkles size={16} />
           <span>Plan & Límites en Vivo</span>
           {subData?.is_in_trial && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
               TRIAL
             </span>
           )}
@@ -428,7 +428,7 @@ export default function OrganizationSettingsPage() {
                   disabled
                   className="w-full bg-bg-dark/50 border border-border-base/50 rounded-xl px-4 py-2.5 text-sm text-text-dim cursor-not-allowed font-mono"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   El slug identifica a tu empresa en portales y status pages públicas.
                 </p>
               </div>
@@ -537,7 +537,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setSlaTarget(e.target.value)}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Estándar para contratos corporativos (ej. 99.90% o 99.95%).
                 </p>
               </div>
@@ -554,7 +554,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setFlappingThreshold(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Cambios de estado en 15m para escalar a alerta crítica anti-ruido.
                 </p>
               </div>
@@ -571,7 +571,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setDefaultInterval(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Intervalo sugerido al registrar nuevos objetivos (segundos).
                 </p>
               </div>
@@ -597,7 +597,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setMetricsRetention(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Configurada: {orgData?.metrics_retention_days ?? '—'} días. Límite del plan: {subData?.limits.metrics_retention_days ?? '—'} días. Purga aplicada: {subData?.retention_policy?.applied_days ?? '—'} días.
                     {subData?.retention_policy?.review_required && ' Ajuste histórico pendiente de revisión y respaldo; no se ha activado automáticamente.'}
                 </p>
@@ -615,7 +615,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setAuditRetention(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Bitácora inmutable de eventos y cambios de configuración.
                 </p>
               </div>
@@ -632,7 +632,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setIncidentsRetention(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Historial de RCA, post-mortems y análisis de incidentes resueltos.
                 </p>
               </div>
@@ -658,7 +658,7 @@ export default function OrganizationSettingsPage() {
                   onChange={(e) => setSessionTimeout(Number(e.target.value))}
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Tiempo de espera antes de invalidar la sesión por inactividad.
                 </p>
               </div>
@@ -692,7 +692,7 @@ export default function OrganizationSettingsPage() {
                   placeholder="Ej. 190.148.20.0/24, 200.50.10.15 (dejar en blanco para permitir acceso global)"
                   className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:outline-none focus:border-accent-green"
                 />
-                <p className="text-[11px] text-text-dim mt-1.5">
+                <p className="text-xs text-text-dim mt-1.5">
                   Restringe el acceso a la plataforma únicamente desde las VPNs o IPs corporativas de tu empresa.
                 </p>
               </div>
@@ -783,7 +783,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.targets?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.targets?.percentage ?? 0}% consumido</span>
                   <span>Frecuencia: {subData?.limits?.min_check_interval_seconds ?? 60}s</span>
                 </div>
@@ -807,7 +807,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.ssl_certificates?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.ssl_certificates?.percentage ?? 0}% consumido</span>
                   <span>Multi-puerto activo</span>
                 </div>
@@ -831,7 +831,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.api_checks?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.api_checks?.percentage ?? 0}% consumido</span>
                   <span>JSON Schema</span>
                 </div>
@@ -855,7 +855,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.dns_records?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.dns_records?.percentage ?? 0}% consumido</span>
                   <span>SPF / DMARC / Latencia</span>
                 </div>
@@ -879,7 +879,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.domains?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.domains?.percentage ?? 0}% consumido</span>
                   <span>Protección Anti-Robo</span>
                 </div>
@@ -903,7 +903,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.security_headers?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.security_headers?.percentage ?? 0}% consumido</span>
                   <span>Auditoría CSP / HSTS</span>
                 </div>
@@ -927,7 +927,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.notification_channels?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.notification_channels?.percentage ?? 0}% consumido</span>
                   <span>Slack / Email / Webhooks</span>
                 </div>
@@ -951,7 +951,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.team_members?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.team_members?.percentage ?? 0}% consumido</span>
                   <span>Roles RBAC</span>
                 </div>
@@ -975,7 +975,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.status_pages?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.status_pages?.percentage ?? 0}% consumido</span>
                   <span>Dominio custom</span>
                 </div>
@@ -999,7 +999,7 @@ export default function OrganizationSettingsPage() {
                     style={{ width: `${usage?.private_agents?.percentage || 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-text-dim">
+                <div className="flex justify-between text-xs text-text-dim">
                   <span>{usage?.private_agents?.percentage ?? 0}% consumido</span>
                   <span>Red Privada / LAN</span>
                 </div>
@@ -1017,7 +1017,7 @@ export default function OrganizationSettingsPage() {
                 <Check size={18} className="text-accent-green shrink-0 mt-0.5" />
                 <div>
                   <h4 className="text-xs font-bold text-text-main">Frecuencia de Escaneo</h4>
-                  <p className="text-[11px] text-text-muted mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     Chequeos automáticos cada {subData?.limits.min_check_interval_seconds} segundos.
                   </p>
                 </div>
@@ -1027,7 +1027,7 @@ export default function OrganizationSettingsPage() {
                 <Check size={18} className="text-accent-green shrink-0 mt-0.5" />
                 <div>
                   <h4 className="text-xs font-bold text-text-main">Retención PostgreSQL</h4>
-                  <p className="text-[11px] text-text-muted mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     {subData?.limits.metrics_retention_days} días de historial de latencia y disponibilidad.
                   </p>
                 </div>
@@ -1041,7 +1041,7 @@ export default function OrganizationSettingsPage() {
                 )}
                 <div>
                   <h4 className="text-xs font-bold text-text-main">Ventanas de Mantenimiento</h4>
-                  <p className="text-[11px] text-text-muted mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     {subData?.limits.maintenance_windows
                       ? 'Supresión inteligente de alertas habilitada.'
                       : 'Disponible a partir del plan Business.'}
@@ -1057,7 +1057,7 @@ export default function OrganizationSettingsPage() {
                 )}
                 <div>
                   <h4 className="text-xs font-bold text-text-main">Análisis Causa Raíz (RCA)</h4>
-                  <p className="text-[11px] text-text-muted mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     {subData?.limits.rca_postmortem
                       ? 'Gestión estructurada de incidentes y post-mortem.'
                       : 'Disponible a partir del plan Business.'}
@@ -1116,7 +1116,7 @@ export default function OrganizationSettingsPage() {
                           ${inv.amount_usd.toFixed(2)} USD
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold border bg-accent-green/10 text-accent-green border-accent-green/30">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-accent-green/10 text-accent-green border-accent-green/30">
                             {inv.status_label}
                           </span>
                         </td>
@@ -1218,11 +1218,11 @@ export default function OrganizationSettingsPage() {
                           <div className="font-semibold text-text-main">
                             {m.first_name || m.last_name ? `${m.first_name} ${m.last_name}` : m.email}
                           </div>
-                          <div className="text-[11px] text-text-dim font-mono">{m.email}</div>
+                          <div className="text-xs text-text-dim font-mono">{m.email}</div>
                         </td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                               m.role === 'admin'
                                 ? 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
                                 : 'bg-white/5 text-text-muted border-white/10'
@@ -1233,7 +1233,7 @@ export default function OrganizationSettingsPage() {
                         </td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                               m.status_code === 'active'
                                 ? 'bg-accent-green/10 text-accent-green border-accent-green/30'
                                 : 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30'

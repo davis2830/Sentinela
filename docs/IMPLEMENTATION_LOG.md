@@ -1,5 +1,88 @@
 # Bitácora de implementación
 
+## 2026-11-04 — Recuperación de acceso: separación, formato y confirmación
+
+- Etiquetas separadas 8 px de los campos para evitar que el foco las cubra;
+  nombres/ayudas asociados y errores de correo junto al campo. Validación de
+  formato en frontend y Django; no se consulta públicamente si una cuenta existe.
+- Confirmación visible «Contraseña cambiada correctamente», siguiente paso para
+  iniciar sesión y conservación de 2FA. El detalle técnico de refresh/access tokens
+  permanece documentado en el contrato, sin ocupar la confirmación principal.
+  Errores de enlace/servidor y respuestas sin confirmación explícita no muestran éxito.
+- Navegar a solicitar otro enlace limpia el error del formulario anterior. Retirada
+  la versión placeholder `v1.0.0` de login, registro y sidebar; mensaje de cambio
+  de contraseña del perfil simplificado sin afirmar propiedades criptográficas.
+- Evidencia nueva: **302/302 Django**, **26/26 Chromium dirigidas** (acceso, beta
+  y recuperación), TypeScript/build, guard y diff check aprobados. La suite completa
+  de navegador de la fase anterior no se repitió. Revisión visual de recuperación
+  con widget real en 1440×900 y 390×844; no se enviaron correos ni se cambiaron
+  contraseñas reales. Las confirmaciones de prueba usan respuestas controladas.
+- Capturas/logs locales en `.tmp/recovery-ui-polish-20261104/` y
+  `.tmp/recovery-ui-polish-final.log`. Fuente actual disponible por el montaje y
+  HMR del frontend habitual; backend y políticas de autenticación sin cambios.
+  Servicios de BD/caché aislados retirados conservando volúmenes. Sin commit,
+  push, migraciones o despliegue productivo.
+
+## 2026-11-04 — Reconstrucción del entorno local para validación
+
+- Reconstruidos y recreados backend, frontend, worker y Beat del proyecto `sentinela`.
+  PostgreSQL y Redis intactos; conservado `sentinela_postgres_data`, renovada solo la
+  caché anónima de dependencias frontend. No se aplicaron migraciones.
+- Django check/migrate --check aprobados; nuevas rutas de recuperación presentes,
+  frontend y recuperación HTTP 200, readiness 200 y worker respondió al ping.
+- Healthchecks locales por rol: ping al worker propio; proceso y conexión al broker
+  en Beat. Sustituyen el probe HTTP heredado de la imagen backend. Logs de Beat
+  confirmaron despacho normal de tareas. Producción no modificada ni aprobada.
+
+## 2026-11-04 — Plan y corrección de los doce hallazgos UX
+
+- Recuperación de contraseña con outbox cifrado, enlace de una hora/uso único,
+  presupuesto, Turnstile y revocación transaccional de refresh; conserva 2FA,
+  verificación y plan. Retirada la preferencia de sesión sin efecto; alta oculta a Viewer.
+- Diálogo reutilizable para Target/SSL, foco/Escape/fondo inerte, etiquetas y nombres
+  accesibles; mínimo tipográfico de 12 px y controles de 44 px. Un solo selector
+  Nube/Senti9. Monitoring conserva tabla desktop y ofrece filas/filtros móviles.
+- Error de lectura SSL separado de vacío, registro cerrado sin formulario inútil,
+  mensajes de consulta distintos del sondeo y auditoría sin garantías criptográficas ficticias.
+- Cierre local: **301/301 Django**, **210/210 Chromium** sin reintentos/omisiones,
+  TypeScript/build, guard de archivos/secretos y configuración Compose aprobados.
+  Fallos intermedios y correcciones documentados; no se reutilizan como evidencia
+  nueva los escaneos de imágenes o integraciones de la fase anterior.
+- Fixtures retirados, auditoría y volúmenes conservados; sin migraciones, commit,
+  push o despliegue. [Plan ejecutado, contratos y evidencia](UX_REMEDIATION_2026-11-04.md).
+
+## 2026-11-04 — Validación UX local
+
+- Inspección de 18 rutas principales en 1440×900 y 390×844, login, registro,
+  formularios representativos y Viewer; 47 observaciones DOM/capturas aisladas.
+- Doce hallazgos abiertos (seis P1 UX/accesibilidad y seis P2): persistencia y
+  recuperación de sesión, foco/etiquetas, creación visible a Viewer, tabla móvil,
+  selector Cloud/Senti9 duplicado, tamaño de texto, vacío confundido con fallo,
+  mensajes de actividad, admisión cerrada e integridad criptográfica no demostrada.
+- Sin cambios funcionales ni nuevas ejecuciones de suites completas. Fixtures
+  retirados, auditoría y volúmenes conservados, servicios de prueba detenidos.
+  [Hallazgos, evidencia y orden de corrección](UX_AUDIT_2026-11-04.md).
+
+## 2026-11-04 — Correcciones y auditoría por módulo
+
+- Dependencias npm parcheadas, inventario Python fijado con constraints, backend Alpine
+  sin pip en runtime y usuarios no-root. Gateway propio parcheado incluido en GHCR/CI;
+  nueva variable `GATEWAY_IMAGE` y llave TLS legible por grupo 101, modo 0440.
+- Health interno compatible con TLS; `REDIS_PASSWORD` llega al caché productivo.
+  E2E inicia worker; CD manual exige CI del mismo SHA y conserva el gate de entorno.
+  Backup custom y restauración fatal sobre BD recreada solo bajo flag irreversible.
+- Status Page valida UUID de filtros y conserva selección por tenant. Correcciones
+  del harness de navegador sin cambiar cadencias, cuotas ni presupuestos de login.
+  Dockerfile legacy carga agente canónico; corregida limpieza de conexiones de tests.
+- Cierre local: **291/291 Django, 58/58 agente Linux, 204/204 Chromium**, build,
+  npm/pip sin hallazgos, seis Dockerfiles y tres imágenes sin High/Critical.
+  Smoke sobre Compose productivo real aislado y restauración de 2.500 checks ficticios.
+  k6: 18 endpoints, 2.269 solicitudes, cero errores, p95 global 59,42 ms, hasta 5 VUs;
+  baseline local, no capacidad global. Fallos intermedios y límites documentados.
+- Sin migraciones de datos operativos, commit, push ni despliegue. CI remoto,
+  integraciones reales, saneamiento histórico/rotación, retención aprobada y apertura
+  de producción permanecen pendientes. [Evidencia por módulo](AUDIT_HARDENING_2026-11-04.md).
+
 ## 2026-11-01 — Plantillas de entorno para otro equipo
 
 - `.env.example` contrastado con settings Django, cifrado y entradas Compose: incorpora SMTP, URL pública, Turnstile, beta, límites de previews, zona horaria y opciones de observabilidad. Se retira `PROMETHEUS_URL` sin lector backend; JWT de acceso corregido de 60 a 15 minutos en el ejemplo.

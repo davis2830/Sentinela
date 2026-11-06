@@ -1,5 +1,28 @@
 # Estrategia de pruebas
 
+**2026-11-04, ajuste posterior de recuperación:** **302/302 Django**, **26/26
+Chromium dirigidas** de acceso/beta/recuperación, TypeScript/build y guard
+aprobados. Incluye validación de correo, separación del foco, éxito explícito,
+errores 400/503 y respuesta 200 sin confirmación, navegación a otro enlace y
+ausencia de versión placeholder. Validación visual desktop/móvil sin cambiar
+cuentas reales. La suite completa Chromium de 210 casos queda como evidencia
+de la fase anterior, no como ejecución de este ajuste. Ver bitácora de implementación.
+
+**2026-11-04, cierre UX posterior:** **301/301 Django**, **210/210 Chromium**,
+TypeScript/build y guard de archivos/secretos aprobados localmente. Diez pruebas
+Django nuevas de recuperación (incluida concurrencia real) y seis nuevas de UX/
+recuperación en Chromium. Sin reintentos/omisiones en el cierre de navegador.
+[Plan ejecutado, fallos intermedios y límites](UX_REMEDIATION_2026-11-04.md).
+CI remoto e integraciones SMTP/Turnstile reales no reevaluados en esta fase.
+
+**2026-11-04, cierre local:** 291/291 Django, 58/58 agente Linux, 204/204 Chromium
+sin reintentos/omisiones, TypeScript/build, 7 regresiones de guard, 3 de endpoints
+y 2 del gate de release. npm/pip sin hallazgos conocidos; Trivy de seis Dockerfiles
+y tres imágenes sin High/Critical. Smoke del Compose productivo real con fixtures,
+Redis autenticado, TLS y recuperación de worker; backup ficticio restaurado.
+[Matriz, rendimiento por módulo, reproducciones y limitaciones](AUDIT_HARDENING_2026-11-04.md).
+No acredita CI remoto ni integraciones reales; los resultados siguientes son históricos.
+
 **Higiene del repositorio, 2026-11-01:** 288/288 Django, TypeScript/build Vite 7.3.7, 6/6 regresiones del guard/exportación saneada, 3/3 pruebas de endpoints de red y 9/9 Chromium dirigidas (sesiones y telemetría) aprobados localmente. No se repitió Chromium completo ni CI remoto. Se retiraron del seguimiento 142 archivos generados/privados/obsoletos, conservando copias locales; cinco componentes React sin importadores y tres logos sin referencias se archivaron. Los 176 módulos fuente restantes son alcanzables desde la aplicación y no hay referencias configuradas en BD a los logos retirados. Las métricas del benchmark histórico se compararon con HEAD: solo se suprimió `setup_data`. El guard ahora bloquea backups, artefactos y JWT serializados; el historial público expuesto sigue pendiente de tratamiento separado. Véase [política y recuperación local](DEV_WORKFLOW.md#higiene-del-repositorio).
 
 **Guía de laboratorio personal, 2026-10-22:** configuración Compose combinada validada

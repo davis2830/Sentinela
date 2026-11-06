@@ -1,6 +1,6 @@
 import csv
 from django.http import HttpResponse
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
@@ -20,6 +20,15 @@ from .serializers import (
     PublicSubscribeSerializer,
 )
 from .services import StatusPageService
+
+
+class PageFilterAPIView(APIView):
+    """Validate optional page filters after authorization, before ORM lookup."""
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if 'page_id' in request.query_params:
+            serializers.UUIDField().run_validation(request.query_params['page_id'])
 
 
 class StatusPageListView(APIView):
@@ -121,7 +130,7 @@ class StatusPageSetDefaultView(APIView):
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class StatusPageConfigView(APIView):
+class StatusPageConfigView(PageFilterAPIView):
     """Endpoint for retrieving and updating Status Page settings for an organization.
 
     GET /api/v1/status-page/config/?page_id=<uuid>
@@ -152,7 +161,7 @@ class StatusPageConfigView(APIView):
         return success_response(res_serializer.data)
 
 
-class StatusPageStatsView(APIView):
+class StatusPageStatsView(PageFilterAPIView):
     """Endpoint for retrieving Status Page administrative telemetry and KPIs.
 
     GET /api/v1/status-page/stats/?page_id=<uuid>
@@ -181,7 +190,7 @@ class StatusPageAvailableTargetsView(APIView):
         return success_response(targets)
 
 
-class MaintenanceListView(APIView):
+class MaintenanceListView(PageFilterAPIView):
     """Endpoint for listing and creating scheduled maintenances.
 
     GET /api/v1/status-page/maintenances/
@@ -287,7 +296,7 @@ class MaintenanceUpdateView(APIView):
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class SubscriberListView(APIView):
+class SubscriberListView(PageFilterAPIView):
     """Endpoint for listing all active subscribers.
 
     GET /api/v1/status-page/subscribers/
@@ -320,7 +329,7 @@ class SubscriberDeleteView(APIView):
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
-class SubscriberExportCSVView(APIView):
+class SubscriberExportCSVView(PageFilterAPIView):
     """Export subscribers list in CSV format with UTF-8 BOM.
 
     GET /api/v1/status-page/subscribers/export/?page_id=<uuid>

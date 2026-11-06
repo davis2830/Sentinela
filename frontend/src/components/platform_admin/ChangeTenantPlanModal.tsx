@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../services/api';
+import { platformApi } from '../../services/platformApi';
 import type { PlatformOrganization } from '../../types/platform_admin';
 import { X, Crown, ShieldCheck, AlertCircle, Loader2, Check } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function ChangeTenantPlanModal({
   const mutation = useMutation({
     mutationFn: async () => {
       if (!organization) return;
-      await api.post(`/platform-admin/organizations/${organization.id}/set-plan/`, {
+      await platformApi.post(`/platform-admin/organizations/${organization.id}/set-plan/`, {
         plan_tier: planTier,
         subscription_status: status,
       });
@@ -29,6 +29,7 @@ export default function ChangeTenantPlanModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-admin-orgs'] });
       queryClient.invalidateQueries({ queryKey: ['platform-admin-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['platform-admin-org-detail', organization?.id] });
       onClose();
     },
     onError: (err: any) => {
@@ -95,7 +96,7 @@ export default function ChangeTenantPlanModal({
                       <span className="font-bold text-xs text-text-main">{p.name}</span>
                       {isSelected && <Check size={14} className="text-accent-green" />}
                     </div>
-                    <span className="text-[11px] font-mono text-accent-green font-semibold">
+                    <span className="text-xs font-mono text-accent-green font-semibold">
                       {p.price}
                     </span>
                   </button>
@@ -120,7 +121,7 @@ export default function ChangeTenantPlanModal({
             </select>
           </div>
 
-          <div className="p-3 bg-bg-dark rounded-xl border border-border-base/50 text-[11px] text-text-dim">
+          <div className="p-3 bg-bg-dark rounded-xl border border-border-base/50 text-xs text-text-dim">
             Al asignar manualmente un plan Enterprise o Business, los límites de targets, monitores de latencia, retención de telemetría en PostgreSQL y agentes satélite se ajustarán automáticamente de acuerdo a las cuotas del sistema.
           </div>
         </div>

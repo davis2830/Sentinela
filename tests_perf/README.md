@@ -14,7 +14,17 @@ Higiene del 2026-11-01: el baseline JSON histórico conserva sus estadísticas p
 
 Baseline local de lectura del 2026-10-07: 529 solicitudes, 0 errores, p95 28,79 ms y máximo 5 VUs. **No es el benchmark oficial de capacidad global**: usa diez targets deshabilitados, fixtures compartidos y cambios no comprometidos. Véanse [escenario](scenarios/06_beta_read_baseline.js), [salida](reports/beta-read-baseline-20261007.json) y [hardware, dataset y límites](../docs/BETA_VALIDATION_FOLLOWUP.md#baseline-de-capacidad-no-benchmark-oficial).
 
-No hay benchmark oficial vigente después del hardening del 2026-10-03. Para designar uno se debe conservar:
+No hay benchmark oficial vigente después del hardening del 2026-10-03.
+
+Baseline posterior **2026-11-04**, lectura de 18 endpoints con dataset aislado:
+2.269 solicitudes, cero errores, hasta 5 VUs, p95 global 59,42 ms. Todos los p95
+por módulo quedaron bajo 500 ms. Escenario `07_module_read_audit.js`, preparación
+`seed_audit_dataset.py` y salida local saneada `reports/module-audit-local.json`.
+El reporte no se versiona y no contiene `setup_data` de autenticación. Esta prueba
+no mide saturación, sondeos reales ni capacidad máxima; conserva su alcance local.
+Véase [auditoría actual](../docs/AUDIT_HARDENING_2026-11-04.md).
+
+Para designar un benchmark oficial se debe conservar:
 
 - commit SHA e imagen;
 - archivo de escenario k6;

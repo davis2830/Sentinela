@@ -88,7 +88,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
 
   const statusBadge = (
     <span
-      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1.5 ${
+      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border inline-flex items-center gap-1.5 ${
         isLive
           ? 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30'
           : item.status === 'completed'
@@ -162,7 +162,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
 
             <div className="grid grid-cols-2 gap-3 text-xs font-mono">
               <div className="p-2.5 bg-bg-card border border-border-base/70 rounded-xl">
-                <div className="text-[10px] text-text-dim flex items-center gap-1 mb-1">
+                <div className="text-xs text-text-dim flex items-center gap-1 mb-1">
                   <Calendar size={11} className="text-accent-blue" /> Fecha y Hora Inicio:
                 </div>
                 <div className="text-text-main font-bold">
@@ -171,7 +171,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
               </div>
 
               <div className="p-2.5 bg-bg-card border border-border-base/70 rounded-xl">
-                <div className="text-[10px] text-text-dim flex items-center gap-1 mb-1">
+                <div className="text-xs text-text-dim flex items-center gap-1 mb-1">
                   <Clock size={11} className="text-accent-yellow" /> Fecha y Hora Fin:
                 </div>
                 <div className="text-text-main font-bold">
@@ -206,7 +206,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <BellOff size={18} />
                 <div>
                   <div className="font-bold text-xs">Alertas Silenciadas</div>
-                  <div className="text-[10px]">Sin avisos externos</div>
+                  <div className="text-xs">Sin avisos externos</div>
                 </div>
               </div>
 
@@ -220,7 +220,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <Shield size={18} />
                 <div>
                   <div className="font-bold text-xs">Excluido de SLA</div>
-                  <div className="text-[10px]">Sin castigo en reportes</div>
+                  <div className="text-xs">Sin castigo en reportes</div>
                 </div>
               </div>
             </div>
@@ -233,7 +233,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <Globe size={18} className="text-accent-blue shrink-0" />
                 <div>
                   <div className="font-bold text-text-main">Publicado en Status Page</div>
-                  <div className="text-[10px] text-text-dim mt-0.5">
+                  <div className="text-xs text-text-dim mt-0.5">
                     Visible para clientes en {item.status_page_name || 'Portal Principal'}
                   </div>
                 </div>
@@ -242,7 +242,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 href={`/status/${item.status_page_slug || 'global'}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-bg-dark hover:bg-bg-card border border-border-base text-accent-blue hover:text-white transition-colors text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="px-3 py-1.5 rounded-lg bg-bg-dark hover:bg-bg-card border border-border-base text-accent-blue hover:text-white transition-colors text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 <span>Ver Portal</span>
                 <ExternalLink size={12} />
@@ -285,7 +285,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                       {t.target_type === 'all' ? 'Toda la Organización (Global)' : t.target_name || t.target_id}
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-bg-card border border-border-base text-text-dim uppercase">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-bg-card border border-border-base text-text-dim uppercase">
                     {t.target_type}
                   </span>
                 </div>
@@ -315,7 +315,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
               <select
                 value={updateStatus}
                 onChange={(e) => setUpdateStatus(e.target.value)}
-                className="bg-bg-card border border-border-base rounded-xl px-2.5 py-1 text-[11px] text-text-main font-mono focus:outline-none focus:border-accent-green"
+                className="bg-bg-card border border-border-base rounded-xl px-2.5 py-1 text-xs text-text-main font-mono focus:outline-none focus:border-accent-green"
               >
                 <option value="">Mantener estado actual ({item.status})</option>
                 <option value="in_progress">En Curso</option>
@@ -338,7 +338,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
               item.updates.map((u) => (
                 <div key={u.id} className="relative space-y-1 bg-bg-dark border border-border-base rounded-xl p-3 text-xs">
                   <div className="absolute -left-[19px] top-3.5 w-2.5 h-2.5 rounded-full bg-accent-blue border-2 border-bg-card" />
-                  <div className="flex items-center justify-between text-[10px] text-text-dim font-mono">
+                  <div className="flex items-center justify-between text-xs text-text-dim font-mono">
                     <span className="font-bold text-text-main">{u.actor_name || 'Operador'}</span>
                     <span>{new Date(u.posted_at).toLocaleString('es-ES')}</span>
                   </div>
@@ -359,7 +359,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
         <div className="space-y-4 text-xs">
           <div className="p-4 bg-bg-dark border border-border-base rounded-2xl space-y-3">
             <h4 className="font-bold text-text-main">Transiciones Rápidas de Estado</h4>
-            <p className="text-text-dim text-[11px] leading-relaxed">
+            <p className="text-text-dim text-xs leading-relaxed">
               Controla manualmente el ciclo de vida del mantenimiento sin esperar a los límites horarios.
             </p>
 

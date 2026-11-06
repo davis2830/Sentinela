@@ -466,7 +466,7 @@ export default function NotificationsPage() {
                         <h3 className="font-bold text-text-main truncate text-sm group-hover:text-accent-green transition-colors">
                           {channel.name}
                         </h3>
-                        <p className="text-[11px] font-mono text-text-dim capitalize">
+                        <p className="text-xs font-mono text-text-dim capitalize">
                           {channel.channel_type}
                         </p>
                       </div>
@@ -478,7 +478,7 @@ export default function NotificationsPage() {
                         e.stopPropagation();
                         handleToggleEnable(channel);
                       }}
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border transition-all ${
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all ${
                         channel.enabled
                           ? 'bg-accent-green/10 text-accent-green border-accent-green/30 hover:bg-accent-green/20'
                           : 'bg-bg-dark text-text-dim border-border-base hover:text-text-main'
@@ -498,7 +498,7 @@ export default function NotificationsPage() {
 
                   {/* Destination snippet with copy */}
                   <div className="bg-bg-dark border border-border-base/60 rounded-xl p-2.5 font-mono text-xs text-text-muted flex items-center justify-between gap-2 mb-3">
-                    <span className="truncate text-[11px]" title={endpointPreview}>
+                    <span className="truncate text-xs" title={endpointPreview}>
                       {endpointPreview}
                     </span>
                     <button
@@ -518,7 +518,7 @@ export default function NotificationsPage() {
                   {/* Smart Routing Indicators */}
                   <div className="flex flex-wrap items-center gap-1.5 mb-4">
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
                         channel.min_severity === 'critical'
                           ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
                           : channel.min_severity === 'warning'
@@ -535,7 +535,7 @@ export default function NotificationsPage() {
 
                     {channel.quiet_hours_enabled && (
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-bg-dark border border-border-base text-text-dim"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono bg-bg-dark border border-border-base text-text-dim"
                         title={`Horario de silencio: ${channel.quiet_hours_start} a ${channel.quiet_hours_end}`}
                       >
                         <Moon size={10} className="text-accent-purple" />
@@ -545,7 +545,7 @@ export default function NotificationsPage() {
 
                     {channel.rate_limit_per_hour > 0 && (
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-bg-dark border border-border-base text-text-dim"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono bg-bg-dark border border-border-base text-text-dim"
                         title={`Límite: máx ${channel.rate_limit_per_hour} alertas/hora`}
                       >
                         <Gauge size={10} className="text-accent-yellow" />
@@ -713,7 +713,7 @@ export default function NotificationsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left font-mono text-xs">
               <thead>
-                <tr className="border-b border-border-base/50 text-text-dim text-[11px] font-semibold">
+                <tr className="border-b border-border-base/50 text-text-dim text-xs font-semibold">
                   <th className="pb-3 px-2">Fecha y Hora</th>
                   <th className="pb-3 px-2">Canal</th>
                   <th className="pb-3 px-2">Título de la Notificación</th>
@@ -746,7 +746,7 @@ export default function NotificationsPage() {
                       </td>
                       <td className="py-3 px-2 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
                             log.severity === 'critical'
                               ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
                               : log.severity === 'warning'
@@ -778,7 +778,7 @@ export default function NotificationsPage() {
                             type="button"
                             onClick={() => handleRetryNotification(log.id)}
                             disabled={isRetrying}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent-yellow/10 hover:bg-accent-yellow hover:text-black text-accent-yellow border border-accent-yellow/30 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent-yellow/10 hover:bg-accent-yellow hover:text-black text-accent-yellow border border-accent-yellow/30 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
                             title="Reintentar entrega"
                           >
                             {isRetrying ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}

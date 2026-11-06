@@ -96,7 +96,7 @@ export default function Sidebar() {
           ...group,
           items: [
             ...group.items,
-            { to: '/admin/platform', icon: Crown, label: 'Administración de Plataforma' },
+            { to: import.meta.env.PROD ? 'https://admin.sentinel.gctechops.com/' : '/admin/login', icon: Crown, label: 'Administración de Plataforma' },
           ],
         };
       }
@@ -171,7 +171,7 @@ export default function Sidebar() {
           } pb-2 border-b border-border-base/50`}
         >
           {!isCollapsed && (
-            <span className="text-[10px] font-mono font-bold tracking-wider text-text-dim">
+            <span className="text-xs font-mono font-bold tracking-wider text-text-dim">
               NAVEGACIÓN
             </span>
           )}
@@ -187,7 +187,7 @@ export default function Sidebar() {
         {/* STANDALONE TOP ITEM: Dashboard */}
         <div>
           {!isCollapsed && (
-            <div className="text-[10px] font-mono font-semibold text-text-dim px-2 mb-1.5">
+            <div className="text-xs font-mono font-semibold text-text-dim px-2 mb-1.5">
               GENERAL
             </div>
           )}
@@ -252,7 +252,7 @@ export default function Sidebar() {
           <div className="space-y-5">
             {/* Section: Operaciones */}
             <div className="space-y-3">
-              <div className="text-[10px] font-mono font-semibold text-text-dim px-2">
+              <div className="text-xs font-mono font-semibold text-text-dim px-2">
                 OPERACIONES
               </div>
 
@@ -286,7 +286,7 @@ export default function Sidebar() {
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono bg-bg-card border border-border-base px-1.5 py-0.2 rounded-full text-text-dim">
+                          <span className="text-xs font-mono bg-bg-card border border-border-base px-1.5 py-0.2 rounded-full text-text-dim">
                             {group.items.length}
                           </span>
                           <ChevronDown
@@ -329,7 +329,7 @@ export default function Sidebar() {
 
             {/* Section: Sistema */}
             <div className="space-y-3 pt-2 border-t border-border-base/40">
-              <div className="text-[10px] font-mono font-semibold text-text-dim px-2">
+              <div className="text-xs font-mono font-semibold text-text-dim px-2">
                 CONFIGURACIÓN
               </div>
 
@@ -361,7 +361,7 @@ export default function Sidebar() {
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono bg-bg-card border border-border-base px-1.5 py-0.2 rounded-full text-text-dim">
+                          <span className="text-xs font-mono bg-bg-card border border-border-base px-1.5 py-0.2 rounded-full text-text-dim">
                             {group.items.length}
                           </span>
                           <ChevronDown
@@ -404,18 +404,17 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Sidebar Footer (Version/Status Indicator) */}
+      {/* Sidebar Footer */}
       <div className="pt-3 border-t border-border-base/50">
         {!isCollapsed ? (
-          <div className="px-2 flex items-center justify-between text-[11px] font-mono text-text-dim">
+          <div className="px-2 flex items-center justify-between text-xs font-mono text-text-dim">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
-              <span>Monitoreo Activo</span>
+              <span>Consola Sentinel</span>
             </span>
-            <span>v1.0.0</span>
           </div>
         ) : (
-          <div className="flex justify-center" title="Monitoreo Activo (v1.0.0)">
+          <div className="flex justify-center" title="Consola Sentinel">
             <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
           </div>
         )}

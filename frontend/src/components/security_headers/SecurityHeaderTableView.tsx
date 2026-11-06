@@ -160,7 +160,7 @@ export default function SecurityHeaderTableView({
 
                   {/* Critical Protections (HSTS, CSP, XFO) */}
                   <td className="py-3 px-3">
-                    <div className="flex items-center gap-1 font-mono text-[10px]">
+                    <div className="flex items-center gap-1 font-mono text-xs">
                       <span
                         className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
                           target.has_hsts
@@ -221,14 +221,14 @@ export default function SecurityHeaderTableView({
                   <td className="py-3 px-3">
                     {!target.last_checked_at ? <span className="text-text-dim">Sin datos</span> : target.info_leak_detected ? (
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse"
                         title={target.server_header || target.powered_by_header || 'Expone software de servidor'}
                       >
                         <ShieldAlert size={11} />
                         Fuga detectada
                       </span>
                     ) : (
-                      <span className="text-emerald-400/80 text-[11px] font-mono">
+                      <span className="text-emerald-400/80 text-xs font-mono">
                         Protegido
                       </span>
                     )}

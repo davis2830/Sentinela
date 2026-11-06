@@ -1,4 +1,5 @@
 import TargetLatency, { TargetDiagnostic } from './TargetLatency';
+import { useEffect, useState } from 'react';
 
 import AdminButton from '../common/AdminButton';
 import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check, Layers } from 'lucide-react';
@@ -56,12 +57,19 @@ export default function TargetTableView({
   onSortChange,
 }: TargetTableViewProps) {
   const allSelected = targets.length > 0 && selectedIds.length === targets.length;
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setMobile(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
 
   const renderStatus = (target: MonitoringTarget) => {
     if (!target.enabled) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
           Pausado
         </span>
@@ -69,7 +77,7 @@ export default function TargetTableView({
     }
     if (target.last_status === 'up') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -80,7 +88,7 @@ export default function TargetTableView({
     }
     if (target.last_status === 'slow') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
@@ -91,7 +99,7 @@ export default function TargetTableView({
     }
     if (target.last_status === 'down' || target.last_status === 'error') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
@@ -101,7 +109,7 @@ export default function TargetTableView({
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
         Desconocido
       </span>
@@ -110,7 +118,47 @@ export default function TargetTableView({
 
   return (
     <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl">
-      <div className="overflow-x-auto">
+      {mobile ? <div className="divide-y divide-border-base" data-testid="monitoring-mobile-list">
+        <details className="p-3">
+          <summary className="flex items-center text-xs text-text-muted cursor-pointer">Orden y selección</summary>
+          <div className="flex flex-wrap items-center gap-3">
+          <button className="text-xs text-accent-green" onClick={onSelectAllToggle}>{allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}</button>
+          <label className="text-xs text-text-muted">Ordenar por
+            <select aria-label="Ordenar targets" className="ml-2 bg-bg-dark border border-border-base rounded-lg p-2" value={sortField} onChange={e => onSortChange(e.target.value as 'name' | 'latency' | 'status')}>
+              <option value="name">Nombre</option><option value="status">Estado</option><option value="latency">Latencia</option>
+            </select>
+          </label>
+          <button onClick={() => onSortChange(sortField)} aria-label="Invertir orden">{sortAsc ? 'Ascendente' : 'Descendente'}</button>
+          </div>
+        </details>
+        {targets.map(target => <article key={target.id} className="min-w-0 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <button aria-label={`Seleccionar ${target.name}`} aria-pressed={selectedIds.includes(target.id)} onClick={() => onSelectToggle(target)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg">
+              <span aria-hidden="true" className="grid h-5 w-5 place-items-center rounded-md border border-border-base">
+                {selectedIds.includes(target.id) && <Check className="text-accent-green" size={14} />}
+              </span>
+            </button>
+            <button onClick={() => onClick(target)} aria-label={`Ver detalle de ${target.name}`} className="min-w-0 flex-1 text-left">
+              <span className="block font-semibold text-text-main break-words">{target.name}</span>
+              <span className="block text-xs text-text-muted break-all">{target.endpoint}</span>
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+            {renderStatus(target)}<span>{target.target_type.toUpperCase()} · cada {target.interval}s</span>
+            <TargetLatency target={target} />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
+            <span>Última medición: {target.last_checked_at ? new Date(target.last_checked_at).toLocaleString('es-ES') : 'Sin mediciones'}</span>
+            <button className="text-accent-green" onClick={() => onClick(target)}>Ver detalle</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <AdminButton className="text-xs text-text-main" onClick={() => onEdit(target)}>Editar</AdminButton>
+            {onAlert && <AdminButton className="text-xs text-accent-yellow" onClick={() => onAlert(target)}>Vincular alerta</AdminButton>}
+            <AdminButton className="text-xs text-text-muted" onClick={() => onToggle(target)}>{target.enabled ? 'Pausar' : 'Reanudar'}</AdminButton>
+            <AdminButton className="text-xs text-accent-red" onClick={() => onDelete(target)}>Eliminar</AdminButton>
+          </div>
+        </article>)}
+      </div> : <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-text-main border-collapse">
           <thead>
             <tr className="border-b border-border-base bg-bg-dark/80 font-medium text-xs text-text-muted">
@@ -211,7 +259,7 @@ export default function TargetTableView({
                           </div>
                           {target.owner_team_name && (
                             <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border shrink-0"
                               style={{
                                 backgroundColor: `${target.owner_team_color || '#8B5CF6'}15`,
                                 borderColor: `${target.owner_team_color || '#8B5CF6'}40`,
@@ -224,7 +272,7 @@ export default function TargetTableView({
                           )}
                           {target.runner_type === 'agent' && (
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border shrink-0 ${
                                 target.agent_probe_online === false || target.agent_probe_status === 'offline'
                                   ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
                                   : 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
@@ -326,7 +374,7 @@ export default function TargetTableView({
             })}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -13,7 +13,7 @@ export default function ModuleLoadingSkeleton() {
         <span className="text-xs font-semibold text-text-muted tracking-wide font-sans">
           Cargando telemetría...
         </span>
-        <span className="text-[10px] font-mono text-text-dim">
+        <span className="text-xs font-mono text-text-dim">
           Sentinel NOC
         </span>
       </div>
