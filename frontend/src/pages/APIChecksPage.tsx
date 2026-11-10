@@ -6,14 +6,12 @@ import { useAuthStore } from '../store/authStore';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import ReloadDataButton from '../components/common/ReloadDataButton';
 import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
   APICheckTarget,
   CreateAPICheckTargetData,
   APICheckStats,
 } from '../types/api_checks';
-import StatusBadge from '../components/common/StatusBadge';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
 import APICheckCard from '../components/api_checks/APICheckCard';
@@ -22,8 +20,6 @@ import APICheckDetailDrawer from '../components/api_checks/APICheckDetailDrawer'
 import APICheckForm from '../components/api_checks/APICheckForm';
 import {
   NOCPageHeader,
-  NOCKpiGrid,
-  NOCKpiCard,
   NOCToolbar,
   NOCBulkActionBar,
 } from '../components/common/noc';
@@ -34,7 +30,6 @@ import {
   Plus,
   Loader2,
   Trash2,
-  RefreshCw,
   Activity,
   ShieldCheck,
   Zap,
@@ -289,10 +284,6 @@ export default function APIChecksPage() {
     allTargets.filter((t: APICheckTarget) => t.last_status === 'fail' || t.last_status === 'error').length;
   const pausedCount = stats?.paused_count || allTargets.filter((t: APICheckTarget) => !t.enabled).length;
 
-  const globalSla =
-    totalCount > 0
-      ? Math.round((passCount / Math.max(totalCount - pausedCount, 1)) * 1000) / 10
-      : 100.0;
 
   // Filtered & Searched Targets
   const filteredTargets = allTargets.filter((t: APICheckTarget) => {
@@ -345,7 +336,7 @@ export default function APIChecksPage() {
             </button>
 
 
-            <AdminButton
+            <AdminButton capability="api_checks.create"
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
@@ -403,7 +394,7 @@ export default function APIChecksPage() {
         actions={
           <>
 
-            <AdminButton
+            <AdminButton capability="api_checks.update"
               type="button"
               onClick={() => handleBulkAction('pause')}
               disabled={bulkProcessing}
@@ -412,7 +403,7 @@ export default function APIChecksPage() {
               <Pause size={13} />
               Pausar
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="api_checks.update"
               type="button"
               onClick={() => handleBulkAction('resume')}
               disabled={bulkProcessing}
@@ -421,7 +412,7 @@ export default function APIChecksPage() {
               <Play size={13} />
               Reanudar
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="api_checks.delete"
               type="button"
               onClick={() => handleBulkAction('delete')}
               disabled={bulkProcessing}
@@ -478,7 +469,7 @@ export default function APIChecksPage() {
           />
         )
       ) : (
-        <EmptyState requiresAdmin
+        <EmptyState capability="api_checks.create"
           icon={Plug}
           title={
             searchTerm || methodFilter !== 'all' || statusFilter !== 'all'

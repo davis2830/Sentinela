@@ -17,9 +17,9 @@ export default function AlertRuleTableView(props: AlertRuleTableViewProps) {
       title={rule=>rule.name} subtitle={rule=>rule.condition} status={rule=>rule.enabled ? 'Activa' : 'Pausada'}
       metadata={rule=>`${rule.target_type} · ${rule.severity} · Umbral ${rule.threshold}`}
       actions={rule=>[
-        {label:'Editar',onClick:()=>props.onEdit(rule)},
-        {label:'Posponer',onClick:()=>props.onSnooze(rule)},
-        {label:'Eliminar',onClick:()=>props.onDelete(rule)},
+        {label:'Editar',capability:'alerts.update',onClick:()=>props.onEdit(rule)},
+        {label:'Posponer',capability:'alerts.snooze',onClick:()=>props.onSnooze(rule)},
+        {label:'Eliminar',capability:'alerts.delete',onClick:()=>props.onDelete(rule)},
       ]}
     />
     <NOCDrawer isOpen={Boolean(selected)} onClose={()=>setSelected(null)} title={selected?.name ?? 'Regla'} subtitle={selected?.condition}>

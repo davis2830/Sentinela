@@ -10,9 +10,9 @@ export interface APICheckTarget {
   expected_status: number;
   expected_response_time_ms: number;
   expected_headers?: Record<string, string>;
-  expected_schema?: Record<string, any>;
+  expected_schema?: Record<string, unknown>;
   request_headers?: Record<string, string>;
-  request_body?: Record<string, any>;
+  request_body?: Record<string, unknown>;
   check_interval: number;
   enabled: boolean;
   last_checked_at: string | null;
@@ -32,9 +32,9 @@ export interface CreateAPICheckTargetData {
   check_interval?: number;
   enabled?: boolean;
   request_headers?: Record<string, string>;
-  request_body?: Record<string, any>;
+  request_body?: Record<string, unknown>;
   expected_headers?: Record<string, string>;
-  expected_schema?: Record<string, any>;
+  expected_schema?: Record<string, unknown>;
 }
 
 export interface APICheckResult {
@@ -66,7 +66,7 @@ export interface APITestRequestResult {
   status_code: number | null;
   response_time_ms: number | null;
   headers: Record<string, string>;
-  body: any;
+  body: unknown;
   is_json: boolean;
   size_bytes: number;
   schema_inferred?: Record<string, string>;

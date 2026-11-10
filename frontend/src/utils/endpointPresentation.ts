@@ -23,6 +23,7 @@ export const securityTone = (n: unknown): UITone => !finite(n) || n < 0 || n > 1
 
 export function coveragePresentation(module: CoverageModule, section?: CoverageSection) {
   if (!section) return { value: '—', caption: 'Sin datos de cobertura', tone: 'muted' as UITone };
+  if (section.status === 'restricted') return {value:'Sin acceso', caption:'Permiso de consulta requerido', tone:'muted' as UITone};
   if (section.status !== 'linked') return {
     value: section.status === 'not_applicable' ? 'No aplica' : section.status === 'needs_review' ? 'Revisar vínculo' : section.candidates.length ? 'Sin vincular' : 'Sin configurar',
     caption: section.status === 'needs_review' ? 'La asociación cambió' : section.status === 'not_applicable' ? 'Según protocolo o ejecutor' : 'Sin evaluación disponible',

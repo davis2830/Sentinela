@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Mail } from 'lucide-react';
@@ -46,7 +47,8 @@ export default function PasswordRecoveryPage({ reset = false }: { reset?: boolea
         await useAuthStore.getState().logout();
         useAuthStore.getState().cancel2FA();
       }
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       const data = err.response?.data;
       const details = data?.errors?.password || data?.errors?.email || data?.password || data?.email;
       setError(err.response?.status === 429 ? 'Alcanzaste el límite de intentos. Espera antes de solicitar otro enlace o vuelve a intentarlo más tarde.'

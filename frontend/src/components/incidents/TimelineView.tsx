@@ -1,4 +1,3 @@
-import React from 'react';
 import type { IncidentTimelineEvent } from '../../types/incidents';
 import {
   PlusCircle,

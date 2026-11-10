@@ -1,13 +1,8 @@
 import logging
-
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
-
 from common.responses import error_response, success_response
-
-logger = logging.getLogger(__name__)
-
 from .serializers import (
     ChangePasswordSerializer,
     LoginSerializer,
@@ -16,6 +11,15 @@ from .serializers import (
     RegisterSerializer,
 )
 from .services import AuthService
+from .models import APIToken, User
+from .serializers import (
+    APITokenCreateSerializer,
+    APITokenSerializer,
+    UserUpdateSerializer,
+)
+
+logger = logging.getLogger(__name__)
+
 
 
 class LoginView(APIView):
@@ -179,18 +183,6 @@ class ChangePasswordView(APIView):
             )
 
 
-import secrets
-from .models import APIToken, User
-from .serializers import (
-    APITokenCreateSerializer,
-    APITokenSerializer,
-    ChangePasswordSerializer,
-    LoginSerializer,
-    LogoutSerializer,
-    RefreshTokenSerializer,
-    RegisterSerializer,
-    UserUpdateSerializer,
-)
 
 
 class MeView(APIView):
@@ -212,6 +204,7 @@ class MeView(APIView):
                 "timezone": user.organization.timezone,
                 "locale": user.organization.locale,
                 "require_2fa": getattr(user.organization, "require_2fa", False),
+                "beta_managed": user.organization.beta_managed,
             }
 
         # Teams the user belongs to

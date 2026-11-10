@@ -1,3 +1,8 @@
+export interface ChannelConfig {
+  bot_token?: string; chat_id?: string; webhook_url?: string; url?: string; headers?: Record<string, string>;
+  recipients?: string[]; smtp_host?: string; smtp_port?: number; smtp_user?: string; smtp_password?: string;
+  use_tls?: boolean; from_email?: string;
+}
 export type ChannelType = 'email' | 'slack' | 'teams' | 'discord' | 'telegram' | 'webhook';
 export type NotificationStatus = 'pending' | 'sent' | 'failed';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
@@ -8,7 +13,7 @@ export interface NotificationChannel {
   name: string;
   description: string;
   channel_type: ChannelType;
-  config: Record<string, any>;
+  config: ChannelConfig;
   enabled: boolean;
   min_severity: NotificationSeverity;
   subscribed_events: string[];
@@ -25,7 +30,7 @@ export interface CreateChannelData {
   name: string;
   description?: string;
   channel_type: ChannelType;
-  config: Record<string, any>;
+  config: ChannelConfig;
   enabled?: boolean;
   min_severity?: NotificationSeverity;
   subscribed_events?: string[];
@@ -70,7 +75,7 @@ export interface NotificationStats {
 
 export interface TestChannelConfigPayload {
   channel_type: ChannelType;
-  config: Record<string, any>;
+  config: ChannelConfig;
   custom_title?: string;
   custom_message?: string;
 }

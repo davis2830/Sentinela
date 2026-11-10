@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import DataConsultationAge from './DataConsultationAge';
@@ -8,17 +8,18 @@ export default function ReloadDataButton({ queryKeys, scanIntervalSeconds, compa
 }) {
   const organizationId = useAuthStore(s=>s.user?.organization?.id);
   const client = useQueryClient(); const [updatedAt, setUpdatedAt] = useState(0); const [pending, setPending] = useState(false); const [failed, setFailed] = useState(false);
-  const key = queryKeys.join('|');
-  useEffect(() => { const update = () => { const queries = client.getQueryCache().getAll().filter(q => queryKeys.includes(String(q.queryKey[0])) && q.queryKey[1] === organizationId && q.isActive()); setUpdatedAt(Math.max(0, ...queries.map(q => q.state.dataUpdatedAt))); setFailed(queries.some(q=>q.state.status==='error')); };
+  const key = JSON.stringify(queryKeys);
+  const watchedKeys = useMemo(() => JSON.parse(key) as string[], [key]);
+  useEffect(() => { const update = () => { const queries = client.getQueryCache().getAll().filter(q => watchedKeys.includes(String(q.queryKey[0])) && q.isActive()); setUpdatedAt(Math.max(0, ...queries.map(q => q.state.dataUpdatedAt))); setFailed(queries.some(q=>q.state.status==='error')); };
     update(); return client.getQueryCache().subscribe(update);
-  }, [client, key, organizationId]);
+  }, [client, watchedKeys]);
   return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs text-text-muted">
     {!compact && <DataConsultationAge updatedAt={updatedAt} />}
     {failed && <span role="status" className="text-accent-yellow">Datos parciales. Recarga para reintentar.</span>}
     <button type="button" aria-label="Actualizar datos" disabled={pending} onClick={async () => {
       setPending(true);
       try {
-        await Promise.all([...queryKeys, 'scan-detail'].map(key => client.refetchQueries({ queryKey: [key, organizationId], type: 'active' }, { throwOnError: true })));
+        await Promise.all([...queryKeys, 'scan-detail'].map(key => client.refetchQueries({ queryKey: [key], type: 'active' }, { throwOnError: true })));
         // A manual GET never changes the area's automatic deadline.
         const plan = client.getQueryData<{ limits?: { min_check_interval_seconds?: number } }>(['org-subscription', organizationId]);
         const interval = plan ? plan.limits?.min_check_interval_seconds : scanIntervalSeconds;

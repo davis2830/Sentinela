@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import { useState } from 'react';
 import { api } from '../../services/api';
 
@@ -16,7 +17,8 @@ export default function ChangeEmailForm() {
       try {
         const r = await api.post('auth/email/change/', { email, password });
         setMessage(r.data.data.message); setPassword('');
-      } catch (e: any) { setMessage(e.response?.data?.message || 'No pudimos solicitar el cambio.'); }
+      } catch (caughtError: unknown) {
+ const e = apiFailure(caughtError); setMessage(e.response?.data?.message || 'No pudimos solicitar el cambio.'); }
       finally { setBusy(false); }
     }}>{busy ? 'Enviando…' : 'Enviar confirmación'}</button>
     {message && <p role="status">{message}</p>}

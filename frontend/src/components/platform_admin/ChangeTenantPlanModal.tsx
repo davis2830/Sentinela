@@ -1,163 +1,185 @@
-import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { platformApi } from '../../services/platformApi';
-import type { PlatformOrganization } from '../../types/platform_admin';
-import { X, Crown, ShieldCheck, AlertCircle, Loader2, Check } from 'lucide-react';
-
-interface ChangeTenantPlanModalProps {
-  organization: PlatformOrganization | null;
-  onClose: () => void;
-}
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { platformApi } from "../../services/platformApi";
+import type { PlatformOrganization } from "../../types/platform_admin";
+import type { PlanPreview } from "../../types/platform_beta";
+import PlatformActionModal from "./PlatformActionModal";
+import { subscriptionStates } from "./OrganizationDistribution";
 
 export default function ChangeTenantPlanModal({
   organization,
   onClose,
-}: ChangeTenantPlanModalProps) {
-  const queryClient = useQueryClient();
-  const [planTier, setPlanTier] = useState<string>(organization?.plan_tier || 'pro');
-  const [status, setStatus] = useState<string>(organization?.subscription_status || 'active');
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!organization) return;
-      await platformApi.post(`/platform-admin/organizations/${organization.id}/set-plan/`, {
-        plan_tier: planTier,
-        subscription_status: status,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-orgs'] });
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-org-detail', organization?.id] });
-      onClose();
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.message || 'Error al actualizar el plan.');
-    },
-  });
-
-  if (!organization) return null;
-
-  const plans = [
-    { id: 'free', name: 'Free Tier', price: '$0/mes', color: 'border-zinc-700' },
-    { id: 'pro', name: 'Pro', price: '$29/mes', color: 'border-accent-green' },
-    { id: 'business', name: 'Business', price: '$99/mes', color: 'border-accent-blue' },
-    { id: 'enterprise', name: 'Enterprise Custom', price: '$299/mes', color: 'border-accent-purple' },
-  ];
-
-  const content = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-bg-card border border-border-base rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative">
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-border-base flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent-purple/10 border border-accent-purple/30 flex items-center justify-center text-accent-purple shadow-inner">
-              <Crown size={20} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-text-main">
-                Asignación Manual de Plan
-              </h3>
-              <p className="text-xs text-text-muted mt-0.5 truncate max-w-[300px]">
-                {organization.name} ({organization.slug})
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-text-dim hover:text-text-main p-1.5 rounded-lg hover:bg-bg-dark transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-text-muted mb-2">
-              Selecciona el Nivel de Suscripción
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              {plans.map((p) => {
-                const isSelected = planTier === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPlanTier(p.id)}
-                    className={`p-3.5 rounded-2xl border text-left transition-all ${
-                      isSelected
-                        ? 'bg-accent-green/10 border-accent-green ring-1 ring-accent-green/40 shadow-sm'
-                        : 'bg-bg-dark border-border-base hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-xs text-text-main">{p.name}</span>
-                      {isSelected && <Check size={14} className="text-accent-green" />}
-                    </div>
-                    <span className="text-xs font-mono text-accent-green font-semibold">
-                      {p.price}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-text-muted mb-1.5">
-              Estado de Facturación
-            </label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full bg-bg-dark border border-border-base rounded-xl px-3.5 py-2.5 text-xs text-text-main focus:outline-none focus:border-accent-green cursor-pointer font-mono"
-            >
-              <option value="active">ACTIVE (Suscripción activa / pagada)</option>
-              <option value="trialing">TRIALING (En periodo de prueba)</option>
-              <option value="past_due">PAST_DUE (Pago pendiente de procesamiento)</option>
-              <option value="suspended">SUSPENDED (Acceso temporalmente suspendido)</option>
-            </select>
-          </div>
-
-          <div className="p-3 bg-bg-dark rounded-xl border border-border-base/50 text-xs text-text-dim">
-            Al asignar manualmente un plan Enterprise o Business, los límites de targets, monitores de latencia, retención de telemetría en PostgreSQL y agentes satélite se ajustarán automáticamente de acuerdo a las cuotas del sistema.
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 bg-bg-dark/80 border-t border-border-base flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-text-muted hover:text-text-main hover:bg-bg-card transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate()}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-accent-green hover:bg-accent-green/90 text-black shadow-md shadow-accent-green/20 transition-all flex items-center gap-2 disabled:opacity-50"
-          >
-            {mutation.isPending ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                <span>Actualizando...</span>
-              </>
-            ) : (
-              <>
-                <ShieldCheck size={14} />
-                <span>Guardar Cambios</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
+  onSuccess,
+}: {
+  organization: PlatformOrganization | null;
+  onClose: () => void;
+  onSuccess?: (message: string) => void;
+}) {
+  const [plan, setPlan] = useState(organization?.plan_tier || "pro");
+  const [status, setStatus] = useState(
+    organization?.subscription_status || "active",
   );
-
-  if (typeof document === 'undefined') return null;
-  return createPortal(content, document.body);
+  const client = useQueryClient();
+  const catalog = useQuery<{
+    plans: {
+      id: PlatformOrganization["plan_tier"];
+      name: string;
+      price: number | null;
+    }[];
+  }>({
+    queryKey: ["platform-catalog", organization?.id],
+    queryFn: async () =>
+      (
+        await platformApi.get("platform-admin/catalog/", {
+          params: { organization_id: organization?.id },
+        })
+      ).data.data,
+  });
+  const preview = useQuery<PlanPreview>({
+    queryKey: ["platform-plan-preview", organization?.id, plan, status],
+    enabled: !!organization,
+    refetchOnWindowFocus: false,
+    queryFn: async ({ signal }) =>
+      (
+        await platformApi.post(
+          "platform-admin/organizations/" + organization?.id + "/plan-preview/",
+          { plan_tier: plan, subscription_status: status },
+          { signal },
+        )
+      ).data.data,
+  });
+  if (!organization) return null;
+  const label = (id: string) =>
+    subscriptionStates.find((item) => item.id === id)?.label || "Desconocida";
+  return (
+    <PlatformActionModal
+      title="Cambiar plan"
+      description={
+        organization.name +
+        ": " +
+        organization.plan_tier.toUpperCase() +
+        " / " +
+        label(organization.subscription_status) +
+        " → " +
+        plan.toUpperCase() +
+        " / " +
+        label(status) +
+        ". Asignar un plan no confirma un cobro."
+      }
+      onClose={onClose}
+      onSuccess={onSuccess}
+      confirmDisabled={
+        !catalog.data ||
+        catalog.isError ||
+        !preview.data ||
+        preview.isFetching ||
+        preview.isError
+      }
+      onConfirm={async (reason) => {
+        await platformApi.post(
+          "platform-admin/organizations/" + organization.id + "/set-plan/",
+          { plan_tier: plan, subscription_status: status, reason },
+        );
+        await Promise.all(
+          [
+            "platform-admin-orgs",
+            "platform-admin-stats",
+            "platform-admin-org-detail",
+            "beta-overview",
+          ].map((key) => client.invalidateQueries({ queryKey: [key] })),
+        );
+      }}
+    >
+      <label className="block text-sm">
+        Plan
+        <select
+          className="platform-field"
+          value={plan}
+          onChange={(e) =>
+            setPlan(e.target.value as PlatformOrganization["plan_tier"])
+          }
+          disabled={!catalog.data}
+        >
+          {catalog.data?.plans.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ·{" "}
+              {p.price === null ? "Bajo cotización" : "$" + p.price + "/mes"}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-sm">
+        Suscripción
+        <select
+          className="platform-field"
+          value={status}
+          onChange={(e) =>
+            setStatus(
+              e.target.value as PlatformOrganization["subscription_status"],
+            )
+          }
+        >
+          {subscriptionStates.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {catalog.isError && (
+        <p role="alert">
+          No se pudo consultar el catálogo.{" "}
+          <button type="button" onClick={() => void catalog.refetch()}>
+            Reintentar catálogo
+          </button>
+        </p>
+      )}
+      {preview.isPending && <p role="status">Calculando impacto…</p>}
+      {preview.isError && (
+        <p role="alert">
+          No se pudo calcular el impacto.{" "}
+          <button type="button" onClick={() => void preview.refetch()}>
+            Reintentar vista previa
+          </button>
+        </p>
+      )}
+      {preview.data && (
+        <section
+          className="space-y-2 border-t border-border-base pt-3"
+          aria-label="Impacto del cambio de plan"
+        >
+          <h3 className="font-medium">Consumo y límites efectivos</h3>
+          <ul className="space-y-1 text-xs">
+            {preview.data.consumption.map((row) => (
+              <li
+                key={row.key}
+                className={row.exceeds ? "text-accent-yellow" : ""}
+              >
+                {row.label}: {row.used} en uso · límite {row.current_limit} →{" "}
+                {row.proposed_limit}
+                {row.exceeds ? " · supera el nuevo límite" : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-text-muted">
+            Intervalo mínimo:{" "}
+            {String(preview.data.current_limits.min_check_interval_seconds)} →{" "}
+            {String(preview.data.proposed_limits.min_check_interval_seconds)} s.
+            Retención:{" "}
+            {String(preview.data.current_limits.metrics_retention_days)} →{" "}
+            {String(preview.data.proposed_limits.metrics_retention_days)} días.
+          </p>
+          {preview.data.warnings.map((warning) => (
+            <p className="text-xs text-accent-yellow" key={warning}>
+              {warning}
+            </p>
+          ))}
+          <p className="text-xs text-text-muted">
+            Se conservan los recursos; la ejecución y las nuevas altas siguen
+            las reglas del plan. El estado de acceso no cambia.
+          </p>
+        </section>
+      )}
+    </PlatformActionModal>
+  );
 }

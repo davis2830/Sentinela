@@ -1,0 +1,2 @@
+# Development and CI tools; never installed in the application runtime image.
+ruff==0.17.4

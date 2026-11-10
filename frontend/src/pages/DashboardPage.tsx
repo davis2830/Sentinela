@@ -1,9 +1,10 @@
+import { apiFailure } from '../services/errors';
 import NOCAttentionPreview from '../components/dashboard/NOCAttentionPreview';
 import ScanAction from '../components/common/ScanAction';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, Info, RefreshCw, Rocket, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ExternalLink, Info, Rocket, Sparkles, X } from 'lucide-react';
 import { api } from '../services/api';
 import type { MonitoringTarget } from '../types/monitoring';
 import type { SSLCertificate } from '../types/ssl';
@@ -129,7 +130,7 @@ export default function DashboardPage() {
     return buildDashboardActivityEvents(source, auditQuery.data ?? []).filter((event) => event.occurredAt >= cutoff);
   }, [source, auditQuery.data, timeRange]);
 
-  const queryList = [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, alertsQuery, incidentsQuery, agentsQuery, auditQuery, performanceQuery];
+  const queryList = useMemo(() => [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, alertsQuery, incidentsQuery, agentsQuery, auditQuery, performanceQuery], [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, alertsQuery, incidentsQuery, agentsQuery, auditQuery, performanceQuery]);
   const hasTelemetryError = queryList.some((query) => query.isError);
   const hasOperationalStateError = [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, agentsQuery].some((query) => query.isError);
   const isStateLoading = [monitoringQuery, apiQuery, sslQuery, domainQuery, dnsQuery, securityQuery, alertsQuery, incidentsQuery, agentsQuery].some((query) => query.isLoading);
@@ -151,7 +152,7 @@ export default function DashboardPage() {
       const resources = operationalItems.filter((item) => item.module === key);
       return [key, { count: resources.filter((item) => item.health === 'healthy').length, total: resources.length, attention: resources.filter(isAttentionItem).length, degraded:resources.filter(item=>item.health==='degraded').length, down:resources.filter(item=>item.health==='down').length, unknown:resources.filter(item=>item.health==='unknown').length, unavailable:queries[key].isError, loading:queries[key].isLoading } satisfies ServiceCategoryMetric];
     })) as Record<Exclude<DashboardModuleFilter, 'alerts'>, ServiceCategoryMetric>;
-  }, [operationalItems,monitoringQuery.isError,monitoringQuery.isLoading,apiQuery.isError,apiQuery.isLoading,sslQuery.isError,sslQuery.isLoading,dnsQuery.isError,dnsQuery.isLoading,domainQuery.isError,domainQuery.isLoading,securityQuery.isError,securityQuery.isLoading,agentsQuery.isError,agentsQuery.isLoading]);
+  }, [monitoringQuery, apiQuery, sslQuery, dnsQuery, domainQuery, securityQuery, agentsQuery, operationalItems]);
 
   const lastSampleAt = latestTimestamp([
     ...source.monitoring.map((item) => item.last_checked_at), ...source.apiChecks.map((item) => item.last_checked_at), ...source.ssl.map((item) => item.last_scanned_at), ...source.domains.map((item) => item.last_scanned_at), ...source.dns.map((item) => item.last_scanned_at), ...source.security.map((item) => item.last_checked_at), ...source.agents.map((item) => item.last_heartbeat),
@@ -182,7 +183,7 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['dash-monitoring', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-api-checks', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-ssl', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-domains', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-dns-records', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-sec-headers', user?.organization?.id] }); queryClient.invalidateQueries({ queryKey: ['dash-global-perf', user?.organization?.id] });
       notify(fresh ? 'Re-escaneo completado y datos actualizados.' : 'El escaneo continúa en cola; el auto-refresh actualizará el resultado.', fresh ? 'success' : 'info');
     },
-    onError: (error: any) => notify(error.response?.data?.message || 'No fue posible solicitar el re-escaneo.', error.response?.status === 429 ? 'info' : 'error'),
+    onError: (error: unknown) => notify(apiFailure(error).response?.data.message || 'No fue posible solicitar el re-escaneo.', apiFailure(error).response?.status === 429 ? 'info' : 'error'),
     onSettled: () => setPendingKey(null),
   });
 

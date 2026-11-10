@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ReportItem, ReportType } from '../../types/reports';
+import type { ReportItem } from '../../types/reports';
 import CompactResourceList from '../common/CompactResourceList';
 interface ReportTableViewProps {
   reports: ReportItem[];
@@ -23,7 +23,7 @@ export default function ReportTableView(props: ReportTableViewProps) {
         {label:'Exportar CSV',readOnly:true,onClick:(event:React.MouseEvent)=>props.onExportCSV(item.id,event)},
         {label:'Informe imprimible (HTML)',readOnly:true,onClick:(event:React.MouseEvent)=>props.onExportPDF(item.id,event)},
       ] : []),
-      {label:'Eliminar',onClick:()=>props.onDelete(item)},
+      {label:'Eliminar',capability:'reports.delete',onClick:()=>props.onDelete(item)},
     ]}
   />;
 }

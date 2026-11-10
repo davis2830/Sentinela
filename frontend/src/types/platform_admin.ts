@@ -7,6 +7,7 @@ export interface PlatformStats {
     currency: string;
   };
   organizations: {
+    trial_expiring_7d?: number;
     total: number;
     by_plan: Record<string, number>;
     by_status: Record<string, number>;
@@ -22,6 +23,11 @@ export interface PlatformStats {
 }
 
 export interface PlatformOrganization {
+  access_status: "active" | "suspended" | "cancelled";
+  access_protected?: boolean;
+  beta_managed: boolean;
+  beta_status: string | null;
+  is_test?: boolean;
   id: string;
   name: string;
   slug: string;
@@ -31,6 +37,7 @@ export interface PlatformOrganization {
   trial_days_remaining: number;
   trial_ends_at: string | null;
   billing_email: string;
+  website?: string;
   tax_id: string;
   contact_phone: string;
   sla_target_percentage: number;
@@ -44,6 +51,9 @@ export interface PlatformOrganization {
 }
 
 export interface PlatformOrganizationDetail extends PlatformOrganization {
+  resource_usage?: import("./platform_beta").ResourceUsage[];
+  counts?: { users: number; targets: number; probes: number; audit: number };
+  has_next?: boolean;
   website: string;
   limits: {
     min_check_interval_seconds: number;

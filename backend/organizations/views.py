@@ -1,3 +1,6 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
+import smtplib
 import json
 from django.db import transaction
 from django.http import HttpResponse
@@ -5,14 +8,12 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-
 from audit.services import AuditService
 from common.permissions import IsOrganizationMember, IsAdminOrReadOnly
 from accounts.platform_auth import PlatformAPIView
 from common.membership import check_member_capacity, guard_admin_removal, guard_platform_accounts
 from accounts.beta import public_link, control_lock
 from common.responses import error_response, success_response
-
 from .models import Organization
 from .serializers import (
     OrganizationChangePlanSerializer,
@@ -21,7 +22,7 @@ from .serializers import (
     OrganizationUpdateSerializer,
 )
 from .services import OrganizationService, QuotaService, QuotaExceededException
-
+from rest_framework.permissions import AllowAny
 
 class OrganizationListView(PlatformAPIView):
     """Endpoint for listing and creating organizations.
@@ -56,7 +57,7 @@ class OrganizationListView(PlatformAPIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -117,7 +118,6 @@ class OrganizationDetailView(PlatformAPIView):
             )
 
 
-from rest_framework.permissions import AllowAny, IsAuthenticated
 
 class OrganizationMembersView(APIView):
     """Endpoint for listing and inviting team members within the organization.
@@ -129,58 +129,8 @@ class OrganizationMembersView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        org_id = request.user.organization_id
-        from accounts.models import User
-        from .models import InvitationToken
-
-        users = User.objects.filter(organization_id=org_id).prefetch_related("teams").order_by("-created_at")
-        registered_emails = set()
-
-        data = []
-        for u in users:
-            registered_emails.add(u.email)
-            user_teams = [
-                {"id": str(t.id), "name": t.name, "color": t.color}
-                for t in u.teams.all()
-            ]
-            data.append({
-                "id": str(u.id),
-                "email": u.email,
-                "first_name": u.first_name,
-                "last_name": u.last_name,
-                "role": "admin" if u.is_staff else "member",
-                "is_active": u.is_active,
-                "status_code": "active" if u.is_active else "revoked",
-                "status_label": "Activo" if u.is_active else "Desactivado",
-                "date_joined": u.created_at.isoformat() if u.created_at else None,
-                "last_login": u.last_login.isoformat() if u.last_login else None,
-                "is_invitation": False,
-                "teams": user_teams,
-            })
-
-        # Add active pending invitations
-        pending_invites = InvitationToken.objects.filter(
-            organization_id=org_id, is_used=False
-        ).order_by("-created_at")
-
-        for inv in pending_invites:
-            if inv.email not in registered_emails and inv.is_valid():
-                data.append({
-                    "id": str(inv.id),
-                    "email": inv.email,
-                    "first_name": inv.first_name,
-                    "last_name": inv.last_name,
-                    "role": inv.role,
-                    "is_active": False,
-                    "status_code": "pending",
-                    "status_label": "Invitación Pendiente",
-                    "date_joined": inv.created_at.isoformat() if inv.created_at else None,
-                    "last_login": None,
-                    "is_invitation": True,
-                    "teams": [],
-                })
-
-        return success_response(data)
+        from .member_directory import members
+        return members(request)
 
     @transaction.atomic
     def post(self, request):
@@ -210,7 +160,7 @@ class OrganizationMembersView(APIView):
             return error_response("Un usuario con este correo ya está registrado.", status_code=status.HTTP_400_BAD_REQUEST)
 
         from .models import InvitationToken, Organization
-        from .services import QuotaExceededException, QuotaService
+        from .services import QuotaExceededException
         control_lock()
         org = Organization.objects.select_for_update().get(id=org_id)
         from common.subscriptions import require_monitoring
@@ -287,10 +237,10 @@ class OrganizationMembersView(APIView):
                 },
             )
             EmailDeliveryHandler.send(channel_copy, notif)
-        except Exception as exc:
+        except (smtplib.SMTPException, OSError) as exc:
             inv_token.delete()
             return error_response(
-                f"Error al enviar el correo mediante el servidor SMTP: {str(exc)}. Verifica la configuración en el módulo de Notificaciones.",
+                exc,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -479,9 +429,9 @@ Equipo de Operaciones Sentinel""",
             )
 
             return success_response({"detail": "Invitación reenviada exitosamente."})
-        except Exception as exc:
+        except (smtplib.SMTPException, OSError) as exc:
             return error_response(
-                f"Error al enviar correo SMTP: {str(exc)}",
+                exc,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -798,6 +748,7 @@ class OrganizationCurrentView(APIView):
         serializer = OrganizationSerializer(org)
         return success_response(serializer.data)
 
+    @transaction.atomic
     def patch(self, request):
         if not (request.user.is_staff or request.user.is_superuser):
             return error_response(
@@ -826,23 +777,21 @@ class OrganizationCurrentView(APIView):
         org.save()
 
         # Audit log for security & compliance
-        try:
-            from common.client_ip import get_client_ip
-            ip = get_client_ip(request)
-            if ip and "," in ip:
-                ip = ip.split(",")[0].strip()
-            AuditService.log(
-                action="ORGANIZATION_UPDATED",
-                module="ORGANIZATION",
-                organization_id=org.id,
-                user_id=request.user.id,
-                user_email=request.user.email,
-                ip_address=ip,
-                description=f"Configuración de organización actualizada por {request.user.email}: {', '.join(updated_fields)}",
-                metadata={"updated_fields": updated_fields},
-            )
-        except Exception:
-            pass
+        from common.client_ip import get_client_ip
+        ip = get_client_ip(request)
+        if ip and "," in ip:
+            ip = ip.split(",")[0].strip()
+        AuditService.log(
+            action="ORGANIZATION_UPDATED",
+            module="ORGANIZATION",
+            organization_id=org.id,
+            user_id=request.user.id,
+            user_email=request.user.email,
+            ip_address=ip,
+            description=f"Configuración de organización actualizada por {request.user.email}: {', '.join(updated_fields)}",
+            metadata={"updated_fields": updated_fields},
+        )
+
 
         response_serializer = OrganizationSerializer(org)
         return success_response(
@@ -878,6 +827,7 @@ class OrganizationChangePlanView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    @transaction.atomic
     def post(self, request):
         if not (request.user.is_staff or request.user.is_superuser):
             return error_response(
@@ -913,27 +863,25 @@ class OrganizationChangePlanView(APIView):
             updated_org = OrganizationService.change_plan(
                 org.id, new_tier, is_superuser=False
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
         # Audit log for billing & plan change
-        try:
-            from common.client_ip import get_client_ip
-            ip = get_client_ip(request)
-            if ip and "," in ip:
-                ip = ip.split(",")[0].strip()
-            AuditService.log(
-                action="PLAN_CHANGED",
-                module="BILLING",
-                organization_id=org.id,
-                user_id=request.user.id,
-                user_email=request.user.email,
-                ip_address=ip,
-                description=f"Plan actualizado de {old_tier.upper()} a {new_tier.upper()} por {request.user.email}",
-                metadata={"old_tier": old_tier, "new_tier": new_tier},
-            )
-        except Exception:
-            pass
+        from common.client_ip import get_client_ip
+        ip = get_client_ip(request)
+        if ip and "," in ip:
+            ip = ip.split(",")[0].strip()
+        AuditService.log(
+            action="PLAN_CHANGED",
+            module="BILLING",
+            organization_id=org.id,
+            user_id=request.user.id,
+            user_email=request.user.email,
+            ip_address=ip,
+            description=f"Plan actualizado de {old_tier.upper()} a {new_tier.upper()} por {request.user.email}",
+            metadata={"old_tier": old_tier, "new_tier": new_tier},
+        )
+
 
         summary = QuotaService.get_usage_summary(updated_org)
         return success_response(
@@ -1006,37 +954,6 @@ class OrganizationInvoicesView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        from datetime import timedelta
-        from django.utils import timezone
-        from .models import PLAN_LIMITS
-
-        plan_meta = PLAN_LIMITS.get(org.plan_tier, {})
-        price = plan_meta.get("price_monthly_usd", 0)
-
-        invoices = []
-        created_at = org.created_at or timezone.now()
-        current_date = timezone.now()
-
-        # Calculate monthly intervals (up to 6 months back)
-        months_back = max(1, min(6, (current_date.year - created_at.year) * 12 + (current_date.month - created_at.month) + 1))
-
-        for i in range(months_back):
-            invoice_date = current_date - timedelta(days=30 * i)
-            inv_num = f"SNT-{invoice_date.strftime('%Y%m')}-{str(org.id)[:4].upper()}-{i+1:02d}"
-            invoices.append({
-                "id": inv_num,
-                "invoice_number": inv_num,
-                "period": invoice_date.strftime("%B %Y"),
-                "date": invoice_date.strftime("%Y-%m-%d"),
-                "due_date": (invoice_date + timedelta(days=15)).strftime("%Y-%m-%d"),
-                "plan_name": plan_meta.get("name", "Plan"),
-                "plan_tier": org.plan_tier,
-                "amount_usd": float(price),
-                "status": "paid" if price > 0 or org.subscription_status in ("active", "trialing") else "free",
-                "status_label": "Pagada" if price > 0 else "Gratuito / Starter",
-                "payment_method": "Tarjeta Corporativa (•••• 4242)" if price > 0 else "N/A",
-                "billing_email": org.billing_email or request.user.email,
-                "tax_id": org.tax_id or "N/A",
-            })
-
-        return success_response(invoices)
+        response = success_response([])
+        response.data["meta"] = {"billing_available": False}
+        return response

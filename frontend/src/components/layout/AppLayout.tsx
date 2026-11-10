@@ -1,3 +1,4 @@
+import PortalAccess from './PortalAccess';
 import { ReactNode, useEffect, useRef, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -33,7 +34,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <Sidebar />
         <main ref={mainRef} className="flex-1 min-w-0 p-4 lg:px-6 lg:py-5 overflow-y-auto h-full">
           <Suspense fallback={<ModuleLoadingSkeleton />}>
-            {children || <Outlet />}
+            <PortalAccess>{children || <Outlet />}</PortalAccess>
           </Suspense>
         </main>
       </div>

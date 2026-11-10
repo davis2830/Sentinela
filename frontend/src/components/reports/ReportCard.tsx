@@ -16,7 +16,6 @@ import {
   Layers,
   CheckSquare,
   Square,
-  Clock,
 } from 'lucide-react';
 
 interface ReportCardProps {
@@ -101,7 +100,6 @@ export default function ReportCard({
   const mttrVal =
     report.data?.mttr_minutes ??
     report.data?.summary?.mttr_minutes;
-  const errorBudgetConsumed = report.data?.consumed_downtime_minutes;
   const remainingBudget = report.data?.remaining_budget_minutes;
 
   return (
@@ -284,7 +282,7 @@ export default function ReportCard({
             </>
           )}
 
-          <AdminButton
+          <AdminButton capability="reports.delete"
             type="button"
             onClick={() => onDelete(report)}
             title="Eliminar reporte"

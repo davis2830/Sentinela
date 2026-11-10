@@ -6,7 +6,6 @@ import {
   Clock,
   Pencil,
   Trash2,
-  RefreshCw,
   ExternalLink,
   CheckSquare,
   Square,
@@ -36,8 +35,6 @@ export default function SecurityHeaderTableView({
   onToggleSelect,
   onSelectAll,
   onSelectTarget,
-  onScan,
-  scanningId,
   onEdit,
   onDelete,
 }: SecurityHeaderTableViewProps) {
@@ -89,7 +86,6 @@ export default function SecurityHeaderTableView({
           <tbody className="divide-y divide-border-base/40">
             {targets.map((target) => {
               const isSelected = selectedIds.includes(target.id);
-              const isScanning = scanningId === target.id;
               const grade = calculateGrade(target);
 
               return (
@@ -267,7 +263,7 @@ export default function SecurityHeaderTableView({
                       onClick={(e) => e.stopPropagation()}
                     >
 
-                      <AdminButton
+                      <AdminButton capability="security_headers.update"
                         type="button"
                         onClick={(e) => onEdit(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
@@ -275,7 +271,7 @@ export default function SecurityHeaderTableView({
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="security_headers.delete"
                         type="button"
                         onClick={(e) => onDelete(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"

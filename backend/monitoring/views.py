@@ -1,13 +1,13 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
 from common.subscriptions import OperationalAPIView as APIView
 from common.diagnostics import ConfigurationDiagnosticAPIView
-
 from common.client_ip import get_client_ip
 from common.responses import error_response, queued_scan_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrgAdmin
-
 from .serializers import (
     AgentProbeCreateSerializer,
     AgentProbeSerializer,
@@ -19,7 +19,10 @@ from .serializers import (
 )
 from .models import MaintenanceWindow, MonitoringTarget
 from .services import AgentProbeService, MonitoringService
-
+import csv
+from django.http import HttpResponse
+import socket
+import time
 
 class MonitoringTargetListView(APIView):
     """Endpoint for listing and creating monitoring targets.
@@ -76,6 +79,7 @@ class MonitoringTargetListView(APIView):
                 runner_type=serializer.validated_data.get("runner_type", "cloud"),
                 agent_probe=serializer.validated_data.get("agent_probe"),
                 related_modules=serializer.validated_data.get("related_modules"),
+                actor=request.user,
                 http_method=serializer.validated_data.get("http_method", "GET"),
                 expected_status=serializer.validated_data.get("expected_status", 200),
                 custom_headers=serializer.validated_data.get("custom_headers", {}),
@@ -95,7 +99,7 @@ class MonitoringTargetListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -117,7 +121,7 @@ class MonitoringTargetDetailView(APIView):
             target = MonitoringService.get_target(target_id, org_id)
             serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Target not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -161,7 +165,7 @@ class MonitoringTargetDetailView(APIView):
             )
             response_serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(response_serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Target not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -181,7 +185,7 @@ class MonitoringTargetDetailView(APIView):
                 description=f"El usuario eliminó el objetivo de monitoreo {target_name} ({target_endpoint}).",
             )
             return success_response({"detail": "Target deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Target not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -202,7 +206,7 @@ class MonitoringCheckListView(APIView):
             checks = MonitoringService.list_checks(target_id, org_id, limit=limit)
             serializer = MonitoringCheckSerializer(checks, many=True)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Target not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -224,7 +228,7 @@ class MonitoringUptimeView(APIView):
                 target_id, org_id, hours=hours
             )
             return success_response(stats)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Target not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -248,7 +252,7 @@ class MonitoringTimeseriesView(APIView):
                 target_id, org_id, period=period
             )
             return success_response(data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 f"Error retrieving timeseries: {str(exc)}",
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -273,7 +277,7 @@ class MonitoringGlobalPerformanceView(APIView):
                 org_id, period=period
             )
             return success_response(data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 f"Error retrieving global performance: {str(exc)}",
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -297,7 +301,7 @@ class MonitoringTargetScanView(APIView):
             return queued_scan_response(task, target.id)
         except ScanLimited as exc:
             return limited_response(exc)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -419,12 +423,10 @@ class MonitoringTargetBulkScanView(APIView):
             from .tasks import run_monitoring_check
             from .models import MonitoringTarget
             return success_response(enqueue_many(MonitoringTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_monitoring_check))
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
-import csv
-from django.http import HttpResponse
 
 class MonitoringTargetExportView(APIView):
     """Endpoint to export a target's monitoring history as CSV.
@@ -456,7 +458,7 @@ class MonitoringTargetExportView(APIView):
                 ])
 
             return response
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -476,7 +478,7 @@ class MaintenanceWindowListView(APIView):
             windows = target.maintenance_windows.all()
             serializer = MaintenanceWindowSerializer(windows, many=True)
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, target_id):
@@ -496,7 +498,7 @@ class MaintenanceWindowListView(APIView):
                 serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -527,7 +529,7 @@ class MaintenanceWindowDetailView(APIView):
             return success_response(serializer.data)
         except MaintenanceWindow.DoesNotExist:
             return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, window_id):
@@ -540,12 +542,10 @@ class MaintenanceWindowDetailView(APIView):
             return success_response({"detail": "Maintenance window deleted."})
         except MaintenanceWindow.DoesNotExist:
             return error_response("Not found.", status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
-import socket
-import time
 
 
 class TestConnectionView(ConfigurationDiagnosticAPIView):
@@ -631,7 +631,7 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
                 })
             else:
                 return error_response(f"Tipo {target_type} no soportado para test rápido.", status_code=status.HTTP_400_BAD_REQUEST)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             latency = round((time.perf_counter() - start) * 1000, 2)
             return success_response({
                 "status": "down",
@@ -723,14 +723,14 @@ class AgentProbeListView(APIView):
         from urllib.parse import urlsplit
         if urlsplit(f'http://{host}').hostname in ('localhost','127.0.0.1','::1'):
             docker_cmd = (
-                f"docker run -d --name sentinine --network gc_ops_obs_default --restart unless-stopped --mount source=sentinine_state,target=/data "
-                f"--user 10001:10001 --read-only --cap-drop ALL --security-opt no-new-privileges:true "
-                f"--pids-limit 128 --memory 256m --cpus 1 "
-                f"--mount type=bind,source=REEMPLAZAR_RUTA_TOKEN,target=/run/secrets/sentinine_token,readonly "
-                f"-e SENTININE_TOKEN_FILE=/run/secrets/sentinine_token "
-                f"-e SENTININE_ENV=development -e SENTININE_ALLOW_HTTP=true "
-                f"-e SENTININE_SERVER=\"http://backend:8000\" "
-                f"davis1924/senti9:1.7.0"
+                "docker run -d --name sentinine --network gc_ops_obs_default --restart unless-stopped --mount source=sentinine_state,target=/data "
+                "--user 10001:10001 --read-only --cap-drop ALL --security-opt no-new-privileges:true "
+                "--pids-limit 128 --memory 256m --cpus 1 "
+                "--mount type=bind,source=REEMPLAZAR_RUTA_TOKEN,target=/run/secrets/sentinine_token,readonly "
+                "-e SENTININE_TOKEN_FILE=/run/secrets/sentinine_token "
+                "-e SENTININE_ENV=development -e SENTININE_ALLOW_HTTP=true "
+                "-e SENTININE_SERVER=\"http://backend:8000\" "
+                "davis1924/senti9:1.7.0"
             )
         else:
             docker_cmd = (
@@ -756,7 +756,7 @@ class AgentProbeListView(APIView):
                 module="monitoring",
                 description=f"Se registró un nuevo Guardián Sentinine: {probe.name}",
             )
-        except Exception:
+        except ObjectDoesNotExist:
             pass
 
         response = success_response(probe_data, status_code=status.HTTP_201_CREATED)
@@ -777,7 +777,7 @@ class AgentProbeDetailView(APIView):
         try:
             AgentProbeService.delete_probe(probe_id, org_id)
             return success_response({"message": "Agente satélite eliminado exitosamente."})
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
 
 

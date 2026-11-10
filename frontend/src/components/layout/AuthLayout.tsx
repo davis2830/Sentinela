@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 import { ShieldCheck, Zap, Shield, Radar } from 'lucide-react';
 
 interface AuthLayoutProps {

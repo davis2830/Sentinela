@@ -1,3 +1,4 @@
+import MemberPicker from '../users/MemberPicker';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +11,6 @@ import {
   AlertOctagon,
   Flame,
   UserCheck,
-  User,
   Server,
   Globe,
   Lock,
@@ -52,12 +52,6 @@ const SUGGESTED_SERVICES = [
   'Cabeceras HSTS/CSP Producción',
 ];
 
-interface Member {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-}
 
 export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFormProps) {
   const [title, setTitle] = useState('');
@@ -68,20 +62,6 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
   const [assignedTo, setAssignedTo] = useState<string>('');
   const [assignedTeam, setAssignedTeam] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Fetch team members for assignee dropdown
-  const { data: members = [] } = useQuery<Member[]>({
-    queryKey: ['org-members-select'],
-    queryFn: async () => {
-      try {
-        const response = await api.get('organizations/members/');
-        return (response.data?.data || response.data || []) as Member[];
-      } catch {
-        return [];
-      }
-    },
-    staleTime: 60000,
-  });
 
   // Fetch squads/teams for team assignment dropdown
   const { data: teams = [] } = useQuery<Team[]>({
@@ -250,20 +230,7 @@ export default function IncidentForm({ incident, onSubmit, onClose }: IncidentFo
                 <UserCheck size={14} className="text-accent-green" />
                 Ingeniero Responsable
               </label>
-              <select
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-sans cursor-pointer"
-              >
-                <option value="">-- Sin asignar (Albergar en cola) --</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.first_name || m.last_name
-                      ? `${m.first_name} ${m.last_name} (${m.email})`
-                      : m.email}
-                  </option>
-                ))}
-              </select>
+              <MemberPicker value={assignedTo} onChange={setAssignedTo} />
             </div>
 
             <div>

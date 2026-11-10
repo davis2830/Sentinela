@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 
-from .models import Permission, Role, Team, UserRole
+from .models import Permission, Role, Team
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -17,6 +17,7 @@ class PermissionSerializer(serializers.ModelSerializer):
 class RoleSerializer(serializers.ModelSerializer):
     """Serializer for Role model."""
 
+    reason = serializers.CharField(max_length=1000, required=False, write_only=True, allow_blank=True)
     permissions = PermissionSerializer(many=True, read_only=True)
     permission_codes = serializers.ListField(
         child=serializers.CharField(max_length=100),
@@ -32,6 +33,7 @@ class RoleSerializer(serializers.ModelSerializer):
             "organization",
             "permissions",
             "permission_codes",
+            "reason",
             "created_at",
             "updated_at",
         )
@@ -53,6 +55,7 @@ class UserListSerializer(serializers.ModelSerializer):
             "last_name",
             "is_active",
             "is_staff",
+            "authorization_mode",
             "last_login",
             "roles",
             "teams",
@@ -63,7 +66,7 @@ class UserListSerializer(serializers.ModelSerializer):
 
     def get_roles(self, obj):
         """Return role names for the user."""
-        user_roles = UserRole.objects.filter(user=obj).select_related("role")
+        user_roles = obj.user_roles.all()
         return [{"id": str(ur.role.id), "name": ur.role.name} for ur in user_roles]
 
     def get_teams(self, obj):

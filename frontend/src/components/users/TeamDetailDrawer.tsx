@@ -1,6 +1,7 @@
+import { apiFailure } from '../../services/errors';
 import { useAuthStore } from '../../store/authStore';
 import AdminButton from '../common/AdminButton';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Team, TeamMember, UpdateTeamPayload } from '../../types/users';
 import type { MonitoringTarget } from '../../types/monitoring';
 import type { Incident } from '../../types/incidents';
@@ -18,15 +19,11 @@ import {
   UserMinus,
   Mail,
   Calendar,
-  ExternalLink,
-  Shield,
   Edit2,
   Trash2,
   Loader2,
   CheckCircle2,
-  Clock,
   ArrowUpRight,
-  Sparkles,
 } from 'lucide-react';
 
 interface TeamDetailDrawerProps {
@@ -111,7 +108,8 @@ export default function TeamDetailDrawer({
     setIsUpdatingMembers(true);
     try {
       await onUpdateTeam(team.id, { lead_id: userId });
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       alert(err.response?.data?.message || 'Error al designar líder del equipo.');
     } finally {
       setIsUpdatingMembers(false);
@@ -127,7 +125,8 @@ export default function TeamDetailDrawer({
         payload.lead_id = null;
       }
       await onUpdateTeam(team.id, payload);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       alert(err.response?.data?.message || 'Error al remover integrante.');
     } finally {
       setIsUpdatingMembers(false);
@@ -141,7 +140,8 @@ export default function TeamDetailDrawer({
     try {
       await onUpdateTeam(team.id, { member_ids: updatedIds });
       setSelectedNewMemberId('');
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       alert(err.response?.data?.message || 'Error al añadir integrante al equipo.');
     } finally {
       setIsUpdatingMembers(false);

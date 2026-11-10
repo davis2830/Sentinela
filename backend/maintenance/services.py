@@ -389,7 +389,7 @@ class MaintenanceWindowService:
         )
 
         count = windows.count()
-        user_name = (user.get_full_name() if user else None) or getattr(user, "email", "Operador")
+        (user.get_full_name() if user else None) or getattr(user, "email", "Operador")
 
         transitions = {"start": MaintenanceWindowService.start_window, "complete": MaintenanceWindowService.complete_window,
                        "cancel": MaintenanceWindowService.cancel_window, "delete": MaintenanceWindowService.delete_window}

@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, Activity, Search } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import { hasCapability } from "../../hooks/useCapability";
+import BetaFeedbackLink from '../common/BetaFeedbackLink';
 import OmnibarSearch from '../common/OmnibarSearch';
-import SentinelBrand from './SentinelBrand';
+import NavbarFrame from './NavbarFrame';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const canSearch = hasCapability(user, ["monitoring.read", "ssl_monitor.read", "dns_monitor.read", "api_checks.read", "alerts.read", "incidents.read"]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   useEffect(() => {
+    if (!canSearch) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -19,7 +23,7 @@ export default function Navbar() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [canSearch]);
 
   const handleLogout = async () => {
     await logout();
@@ -28,18 +32,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="h-14 shrink-0 flex items-center justify-between gap-3 px-4 lg:px-6 bg-bg-dark/95 backdrop-blur-md border-b border-border-base z-30">
-        {/* Brand */}
-        <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="no-underline">
-            <SentinelBrand />
-          </Link>
-          <span className="hidden xl:inline bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs px-2.5 py-0.5 rounded-full font-semibold">
-            Observabilidad
-          </span>
-        </div>
-
-        {/* Omnibar Search Trigger Button */}
+      <NavbarFrame badge="Observabilidad" home="/dashboard" center={canSearch && (
         <button
           aria-label="Buscar en Sentinel"
           onClick={() => setIsSearchOpen(true)}
@@ -50,10 +43,10 @@ export default function Navbar() {
           <span className="hidden lg:inline bg-bg-dark border border-border-base text-text-dim px-2 py-0.5 rounded-full text-xs font-mono">
             Ctrl K
           </span>
-        </button>
-
-        {/* User + Logout */}
-        <div className="flex items-center gap-4">
+        </button>)
+      } actions={
+<div className="flex items-center gap-4">
+          <BetaFeedbackLink/>
           <Link
             to="/profile"
             className="hidden md:flex items-center gap-2 text-xs text-text-muted hover:text-accent-green transition-colors"
@@ -70,10 +63,10 @@ export default function Navbar() {
             <span className="hidden sm:inline">Cerrar Sesion</span>
           </button>
         </div>
-      </nav>
+      } />
 
       {/* Omnibar Modal */}
-      <OmnibarSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <OmnibarSearch isOpen={canSearch && isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
   );
 }

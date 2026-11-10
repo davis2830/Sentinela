@@ -1,5 +1,4 @@
 import AdminButton from '../common/AdminButton';
-import React from 'react';
 import type { Team } from '../../types/users';
 import {
   Layers,
@@ -13,8 +12,6 @@ import {
   Activity,
   Sparkles,
   Loader2,
-  ExternalLink,
-  Mail,
   Eye,
 } from 'lucide-react';
 

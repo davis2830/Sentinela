@@ -1,3 +1,5 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
@@ -48,7 +50,7 @@ class SecurityHeaderTargetListView(APIView):
         # Enforce quota limits
         if getattr(request.user, "organization", None):
             try:
-                from organizations.services import QuotaService, QuotaExceededException
+                from organizations.services import QuotaExceededException
 
             except QuotaExceededException as qe:
                 return error_response(
@@ -72,7 +74,7 @@ class SecurityHeaderTargetListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -94,7 +96,7 @@ class SecurityHeaderTargetDetailView(APIView):
             target = SecurityHeadersService.get_target(target_id, org_id)
             serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Security header target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -112,7 +114,7 @@ class SecurityHeaderTargetDetailView(APIView):
             )
             serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc,
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -123,7 +125,7 @@ class SecurityHeaderTargetDetailView(APIView):
         try:
             SecurityHeadersService.delete_target(target_id, org_id)
             return success_response({"detail": "Target deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Security header target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -147,7 +149,7 @@ class SecurityHeaderTargetScanView(APIView):
             return queued_scan_response(task, target.id)
         except ScanLimited as exc:
             return limited_response(exc)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -168,7 +170,7 @@ class SecurityHeaderResultListView(APIView):
             )
             serializer = SecurityHeaderResultSerializer(results, many=True)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Security header target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -202,7 +204,7 @@ class SecurityHeaderBulkScanView(APIView):
             from .tasks import scan_security_headers
             from .models import SecurityHeaderTarget
             return success_response(enqueue_many(SecurityHeaderTarget.objects.filter(organization_id=request.user.organization_id), scan_security_headers))
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -252,5 +254,5 @@ class SecurityHeaderBulkActionView(APIView):
         try:
             res = SecurityHeadersService.bulk_action(org_id, action, target_ids)
             return success_response(res)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

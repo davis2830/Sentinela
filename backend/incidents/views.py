@@ -1,6 +1,8 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
@@ -33,8 +35,8 @@ class IncidentStatsView(APIView):
         try:
             stats_data = IncidentService.get_stats(org_id)
             return success_response(stats_data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class IncidentBulkActionView(APIView):
@@ -71,8 +73,8 @@ class IncidentBulkActionView(APIView):
                 actor_name=actor_name,
             )
             return success_response(res)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class IncidentListView(APIView):
@@ -123,7 +125,7 @@ class IncidentListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -145,7 +147,7 @@ class IncidentDetailView(APIView):
             incident = IncidentService.get_incident(incident_id, org_id)
             serializer = IncidentSerializer(incident)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Incidente no encontrado.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -206,7 +208,7 @@ class IncidentDetailView(APIView):
 
             response_serializer = IncidentSerializer(incident)
             return success_response(response_serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -216,7 +218,7 @@ class IncidentDetailView(APIView):
         try:
             IncidentService.delete_incident(incident_id, org_id)
             return success_response({"detail": "Incidente eliminado."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Incidente no encontrado.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -265,8 +267,8 @@ class IncidentRCAView(APIView):
             )
             response_serializer = IncidentSerializer(incident)
             return success_response(response_serializer.data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class IncidentAssignView(APIView):
@@ -299,8 +301,8 @@ class IncidentAssignView(APIView):
             )
             response_serializer = IncidentSerializer(incident)
             return success_response(response_serializer.data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class IncidentTimelineView(APIView):
@@ -318,7 +320,7 @@ class IncidentTimelineView(APIView):
             timeline = IncidentService.get_timeline(incident_id, org_id)
             serializer = IncidentTimelineEventSerializer(timeline, many=True)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Incidente no encontrado.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -344,8 +346,8 @@ class IncidentTimelineView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class IncidentAlertsView(APIView):
@@ -363,7 +365,7 @@ class IncidentAlertsView(APIView):
             alerts = IncidentService.get_linked_alerts(incident_id, org_id)
             serializer = IncidentAlertSerializer(alerts, many=True)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Incidente no encontrado.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -389,5 +391,5 @@ class IncidentAlertsView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Avg, F, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import Incident, IncidentAlert, IncidentTimelineEvent

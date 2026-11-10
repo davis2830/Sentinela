@@ -1,6 +1,5 @@
 import { useAuthStore } from '../../store/authStore';
 import AdminButton from '../common/AdminButton';
-import React from 'react';
 import type { TeamMember } from '../../types/users';
 import {
   CheckSquare,

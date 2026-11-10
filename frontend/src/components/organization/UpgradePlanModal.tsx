@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
+import { apiFailure } from '../../services/errors';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { SubscriptionSummary } from '../../types/organization';
 import {
   X,
   Check,
-  Zap,
   Shield,
-  Server,
-  Layers,
   Sparkles,
   Loader2,
   CheckCircle2,
@@ -51,130 +49,18 @@ export default function UpgradePlanModal({
         setSuccessMsg(null);
       }, 1400);
     },
-    onError: (err: any) => {
+    onError: (caughtError: unknown) => {
+ const err = apiFailure(caughtError);
       setErrorMsg(err.response?.data?.message || 'Error al procesar el cambio de plan.');
     },
   });
 
+  const catalog = useQuery({ queryKey: ['plan-catalog'], enabled: isOpen,
+    queryFn: async ({ signal }) => (await api.get<{data: Array<{tier:string;name:string;price:string;period:string;features:string[];notIncluded:string[]}>}>('organizations/current/plans/', {signal})).data.data,
+  });
+  const plans = (catalog.data || []).map(p => ({ ...p, badge: p.tier === 'free' ? 'Básico' : 'Plan', badgeColor: 'text-accent-green bg-accent-green/10 border-accent-green/30', description: p.name }));
   if (!isOpen) return null;
 
-  const isBeta = subscriptionSummary?.beta_managed === true;
-  const plans = [
-    {
-      tier: 'free',
-      name: 'Starter / Free',
-      badge: 'Básico',
-      badgeColor: 'text-text-muted bg-white/5 border-white/10',
-      price: '$0',
-      period: 'por siempre',
-      description: 'Para desarrolladores independientes y proyectos personales que requieren monitoreo básico.',
-      features: [
-        '5 Monitores de Uptime',
-        'Frecuencia de 5 minutos',
-        '2 Certificados SSL',
-        '1 API Check sintético',
-        '5 Registros DNS monitoreados',
-        '2 Dominios WHOIS y expiración',
-        '2 Chequeos de Cabeceras Seguras',
-        '2 Canales de Notificación',
-        '1 Status Page (con marca de agua)',
-        '7 días de retención de métricas',
-        '1 Miembro de equipo',
-      ],
-      notIncluded: [
-        'Agentes satélite on-premise',
-        'Ventanas de mantenimiento',
-        'Reportes de SLA ejecutivos',
-        'Análisis RCA post-mortem',
-      ],
-    },
-    {
-      tier: 'pro',
-      name: 'Pro / Growth',
-      badge: 'Popular',
-      badgeColor: 'text-accent-blue bg-accent-blue/10 border-accent-blue/30',
-      price: '$29',
-      period: 'USD / mes',
-      description: 'Ideal para startups, agencias y tiendas en línea con servicios críticos de cara al cliente.',
-      features: [
-        '25 Monitores de Uptime',
-        'Frecuencia de 1 minuto (60s)',
-        '10 Certificados SSL multi-puerto',
-        '5 API Checks sintéticos',
-        '25 Registros DNS monitoreados',
-        '10 Dominios WHOIS anti-secuestro',
-        '10 Chequeos de Cabeceras Seguras',
-        '5 Canales de Notificación',
-        '1 Agente Satélite Privado (LAN)',
-        '2 Status Pages con dominio custom',
-        '30 días de retención de telemetría en PostgreSQL',
-        '5 Miembros de equipo',
-        'Reportes de SLA ejecutivos',
-      ],
-      notIncluded: [
-        'Ventanas de mantenimiento',
-        'Análisis RCA post-mortem',
-      ],
-    },
-    {
-      tier: 'business',
-      name: 'Business',
-      badge: 'Recomendado',
-      badgeColor: 'text-accent-green bg-accent-green/10 border-accent-green/30',
-      price: '$99',
-      period: 'USD / mes',
-      description: 'Para empresas en crecimiento y equipos DevOps/SRE que necesitan observabilidad profunda 24/7.',
-      features: [
-        '75 Monitores de Uptime',
-        'Frecuencia de 30 segundos',
-        '50 Certificados SSL multi-puerto',
-        '25 API Checks sintéticos con JSON schema',
-        '100 Registros DNS monitoreados',
-        '50 Dominios WHOIS anti-secuestro',
-        '50 Chequeos de Cabeceras Seguras',
-        '20 Canales de Notificación multicanal',
-        '3 Agentes Satélite Privados (On-Premise)',
-        '10 Status Pages públicas y privadas',
-        '90 días de retención histórica',
-        '15 Miembros de equipo con roles',
-        'Ventanas de Mantenimiento con supresión',
-        'Análisis de Causa Raíz (RCA Post-Mortem)',
-      ],
-      notIncluded: [],
-    },
-    {
-      tier: 'enterprise',
-      name: 'Enterprise Dedicated',
-      badge: 'Corporativo',
-      badgeColor: 'text-accent-purple bg-accent-purple/10 border-accent-purple/30',
-      price: '$399',
-      period: 'USD / mes',
-      description: 'Para bancos, fintechs y corporativos que exigen SLA 99.99%, retención ISO 27001 y soporte VIP.',
-      features: [
-        'Monitores de Uptime ilimitados',
-        'Frecuencia ultra rápida (15 segundos)',
-        'Certificados SSL ilimitados',
-        'API Checks sintéticos ilimitados',
-        'Registros DNS, WHOIS y Cabeceras ilimitados',
-        'Canales de Notificación ilimitados',
-        'Agentes Satélite Privados ilimitados',
-        'Status Pages ilimitadas con SSO',
-        '365 días de retención (Auditoría ISO)',
-        'Usuarios y Cuadrillas ilimitadas',
-        'SLA 99.99% garantizado contractualmente',
-        'Soporte prioritario 24/7 con canal dedicado',
-      ],
-      notIncluded: [],
-    },
-  ].filter(plan => !isBeta || plan.tier !== 'enterprise').map(plan => !isBeta ? plan : {
-    ...plan,
-    price: plan.tier === 'business' ? 'Cotización' : plan.price,
-    period: plan.tier === 'business' ? 'Contacta al administrador' : plan.period,
-    features: plan.tier === 'free' ? plan.features.map(feature => feature
-      .replace('5 Monitores de Uptime', '3 Monitores de Uptime')
-      .replace('7 días de retención de métricas', '3 días de retención de métricas')
-      .replace('2 Canales de Notificación', '2 Canales de correo a destinatarios verificados')) : plan.features,
-  });
 
   const content = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
@@ -219,6 +105,8 @@ export default function UpgradePlanModal({
           </div>
         )}
 
+        {catalog.isLoading && <p className="p-6" role="status">Cargando catálogo de planes…</p>}
+        {catalog.isError && <div className="p-6" role="alert">No se pudo cargar el catálogo. <button type="button" onClick={() => void catalog.refetch()}>Reintentar</button></div>}
         {/* Plan Cards Grid */}
         <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((p) => {

@@ -226,7 +226,6 @@ class HardeningContracts(TestCase):
 
     def test_empty_timeseries_has_nullable_metrics(self):
         from monitoring.models import MonitoringTarget
-        from monitoring.services import MonitoringService
         target = MonitoringTarget.objects.create(organization=self.org, name='No data', endpoint='https://example.test')
         response = self.client.get(f'/api/v1/monitoring/{target.pk}/timeseries/')
         self.assertEqual(response.status_code, 200)

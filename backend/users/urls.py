@@ -13,7 +13,11 @@ from .views import (
     UserRoleView,
 )
 
+from .authorization_views import UserAuthorizationView, AuthorizationCatalogView
+
 urlpatterns = [
+    path("authorization-catalog/", AuthorizationCatalogView.as_view(), name="authorization_catalog"),
+    path("<uuid:user_id>/authorization/", UserAuthorizationView.as_view(), name="user_authorization"),
     # Users
     path("", UserListView.as_view(), name="user_list"),
     path("<uuid:user_id>/", UserDetailView.as_view(), name="user_detail"),

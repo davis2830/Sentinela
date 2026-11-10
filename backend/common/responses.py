@@ -29,13 +29,22 @@ def error_response(message, errors=None, status_code=status.HTTP_400_BAD_REQUEST
     """
     from rest_framework.exceptions import APIException
     if isinstance(message, APIException):
-        return Response(message.detail, status=message.status_code)
+        from common.error_handler import exception_handler
+        return exception_handler(message, {})
     from organizations.services import QuotaExceededException
     if isinstance(message, QuotaExceededException):
         status_code = status.HTTP_403_FORBIDDEN
         errors = {'code': 'QUOTA_EXCEEDED', 'resource': message.resource_type,
                   'limit': message.limit, 'plan': message.plan_tier}
     if isinstance(message, Exception):
+        from common.exceptions import SentinelError
+        from django.core.exceptions import ObjectDoesNotExist, ValidationError
+        if isinstance(message, ObjectDoesNotExist):
+            from common.error_handler import exception_handler
+            return exception_handler(message, {})
+        if not isinstance(message, (ValueError, SentinelError, ValidationError, QuotaExceededException)):
+            from common.error_handler import exception_handler
+            return exception_handler(message, {})
         if getattr(message, 'code', None) == 'LAST_ADMIN_REQUIRED':
             status_code = status.HTTP_400_BAD_REQUEST
             errors = {'code': 'LAST_ADMIN_REQUIRED'}

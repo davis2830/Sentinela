@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, LogIn, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck, ArrowLeft, KeyRound } from 'lucide-react';
 import AuthLayout from '../../components/layout/AuthLayout';
+import AuthCard from '../../components/auth/AuthCard';
 import { useAuthStore } from '../../store/authStore';
 
 export default function LoginPage() {
@@ -37,33 +38,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="bg-bg-card border border-border-base rounded-3xl p-7 sm:p-9 xl:p-10 shadow-2xl relative overflow-hidden w-full font-sans">
-        {/* Subtle top edge glow */}
-        <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-90" />
-
-        {/* Card Header */}
-        <div className="text-center mb-7 sm:mb-8">
-          {/* Logo badge: shown on desktop inside card; on mobile it is in the top header */}
-          <div className="hidden lg:inline-flex p-3.5 rounded-2xl bg-bg-dark border border-border-base shadow-inner mb-3.5">
-            <img
-              src="/logo.webp"
-              alt="Sentinel Logo"
-              width={44}
-              height={44}
-              className="h-11 w-auto object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.35)]"
-            />
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-text-main tracking-tight font-sans">
-            {requires2FA ? 'Verificación 2FA' : 'Iniciar Sesión'}
-          </h2>
-          <p className="text-sm text-text-muted mt-1.5 font-sans">
-            {requires2FA
-              ? `Ingresa el código generado para ${loginEmail || email}`
-              : 'Acceso seguro a la consola de operaciones'}
-          </p>
-        </div>
-
+      <AuthCard title={requires2FA ? 'Verificación 2FA' : 'Iniciar Sesión'} subtitle={requires2FA ? `Ingresa el código generado para ${loginEmail || email}` : 'Acceso seguro a la consola de operaciones'}>
         {/* Success Alert */}
         {sessionExpired && <p role="status" className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">Tu sesión expiró. Inicia sesión nuevamente para continuar.</p>}
         {successMessage && !requires2FA && (
@@ -236,7 +211,7 @@ export default function LoginPage() {
           </p>
 
         </div>
-      </div>
+      </AuthCard>
     </AuthLayout>
   );
 }

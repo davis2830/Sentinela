@@ -56,14 +56,11 @@ class SentinelAPITokenAuthentication(BaseAuthentication):
         if not token.startswith("snt_"):
             return None
 
-        try:
-            api_token = (
-                APIToken.objects.select_related("user", "user__organization")
-                .filter(token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest())
-                .first()
-            )
-        except Exception:
-            return None
+        api_token = (
+            APIToken.objects.select_related("user", "user__organization")
+            .filter(token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest())
+            .first()
+        )
 
         if not api_token:
             raise AuthenticationFailed("Token de API no válido.")

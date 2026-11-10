@@ -148,8 +148,10 @@ class ConfigurationDiagnosticTests(TestCase):
         self.assertEqual(self.post().data['errors']['code'], 'DIAGNOSTIC_PENDING')
         ScanLease.objects.filter(pk=lease_id, token=token).update(pending_until=None)
         self.perform.side_effect = RuntimeError('failed preview')
-        with self.assertRaises(RuntimeError):
-            self.post()
+        response = self.post()
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.data['errors']['code'], 'INTERNAL_ERROR')
+        self.assertNotIn('failed preview', str(response.data))
         self.assertIsNone(ScanLease.objects.get(pk=lease_id).pending_until)
 
 

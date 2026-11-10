@@ -40,7 +40,7 @@ class PlatformUsersTests(TestCase):
         self.assertEqual({row["id"] for row in data["users"]}, {self.admin.id, self.member.id})
         self.assertEqual(set(data["users"][0]), {
             "id", "email", "name", "organization_id", "organization_name", "role",
-            "is_active", "email_verified", "mfa_enabled", "last_login",
+            "is_active", "email_verified", "mfa_enabled", "last_login", "authorization_mode",
         })
 
     def test_protects_superadmin_and_last_tenant_admin(self):

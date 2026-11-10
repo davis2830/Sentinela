@@ -1,6 +1,8 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
@@ -51,7 +53,7 @@ class AlertRuleListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -73,7 +75,7 @@ class AlertRuleDetailView(APIView):
             rule = AlertRuleService.get_rule(rule_id, org_id)
             serializer = AlertRuleSerializer(rule)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Alert rule not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -94,7 +96,7 @@ class AlertRuleDetailView(APIView):
             )
             response_serializer = AlertRuleSerializer(rule)
             return success_response(response_serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Alert rule not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -104,7 +106,7 @@ class AlertRuleDetailView(APIView):
         try:
             AlertRuleService.delete_rule(rule_id, org_id)
             return success_response({"detail": "Alert rule deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Alert rule not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -137,8 +139,8 @@ class AlertRuleSimulateView(APIView):
                 target_id=serializer.validated_data.get("target_id"),
             )
             return success_response(result)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertRuleSnoozeView(APIView):
@@ -159,8 +161,8 @@ class AlertRuleSnoozeView(APIView):
                 "rule": serializer.data,
                 "message": f"Regla silenciada por {minutes} minutos.",
             })
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertRuleEvaluateView(APIView):
@@ -201,8 +203,8 @@ class AlertRuleEvaluateView(APIView):
                     "message": msg,
                 }
             )
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertListView(APIView):
@@ -239,7 +241,7 @@ class AlertDetailView(APIView):
             alert = AlertService.get_alert(alert_id, org_id)
             serializer = AlertSerializer(alert)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Alert not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -268,7 +270,7 @@ class AlertDetailView(APIView):
 
             response_serializer = AlertSerializer(alert)
             return success_response(response_serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Alert not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -292,8 +294,8 @@ class AlertSnoozeView(APIView):
                 "alert": serializer.data,
                 "message": f"Alerta silenciada por {minutes} minutos.",
             })
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertBulkAcknowledgeView(APIView):
@@ -347,8 +349,8 @@ class AlertBulkActionView(APIView):
         try:
             res = AlertService.bulk_action(org_id, action, alert_ids, minutes=minutes)
             return success_response(res)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AlertStatsView(APIView):
@@ -380,5 +382,5 @@ class AlertCreateIncidentView(APIView):
             from incidents.serializers import IncidentSerializer
             serializer = IncidentSerializer(incident)
             return success_response(serializer.data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

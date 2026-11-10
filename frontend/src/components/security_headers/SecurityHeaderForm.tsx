@@ -1,3 +1,5 @@
+import AdminButton from '../common/AdminButton';
+import { apiFailure } from '../../services/errors';
 import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
 import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
 import React, { useState, useEffect } from 'react';
@@ -7,7 +9,6 @@ import type {
   CreateSecurityHeaderTargetData,
   TestHeaderResponse,
 } from '../../types/security_headers';
-import { api } from '../../services/api';
 import GradeBadge from '../common/GradeBadge';
 import {
   X,
@@ -17,7 +18,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  ExternalLink,
   ShieldAlert,
 } from 'lucide-react';
 
@@ -73,7 +73,8 @@ export default function SecurityHeaderForm({
       } else {
         setTestError(data?.error || 'Error al conectar con la URL para auditar cabeceras.');
       }
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       if (diagnostic.isLimit(err)) return;
       setTestError(err?.response?.data?.message || err?.message || 'Error al ejecutar prueba de auditoría.');
     } finally {
@@ -143,7 +144,7 @@ export default function SecurityHeaderForm({
               <label className="text-xs font-semibold text-text-muted">
                 URL del Endpoint / Sitio Web
               </label>
-              <button
+              <AdminButton capability="security_headers.test"
                 type="button"
                 onClick={handleTestAudit}
                 disabled={testing || !url.trim()}
@@ -156,7 +157,7 @@ export default function SecurityHeaderForm({
                   <Zap size={12} />
                 )}
                 {testing ? 'Auditando...' : 'Probar configuración'}
-              </button>
+              </AdminButton>
             </div>
                 <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
             <div className="relative">

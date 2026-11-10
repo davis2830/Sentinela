@@ -87,7 +87,7 @@ export function useAutoRefresh({ intervalSeconds = 30, initialEnabled = true, on
   const refetchInterval = useCallback((query: { queryKey: readonly unknown[] }): false => {
     queries.current.add(JSON.stringify(query.queryKey));
     return false;
-  }, [scope]);
+  }, []);
 
   return { enabled, setEnabled, toggle, countdown, refetchInterval, intervalSeconds };
 }

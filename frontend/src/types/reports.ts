@@ -92,7 +92,7 @@ export interface ReportItem {
   organization: string;
   report_type: ReportType;
   title: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown> & { target_ids?: string[] };
   status: ReportStatus;
   data: ReportData;
   error_message: string;
@@ -108,7 +108,7 @@ export interface CreateReportData {
   title: string;
   target_ids?: string[];
   sla_target?: number;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown> & { target_ids?: string[] };
   period_start?: string;
   period_end?: string;
 }

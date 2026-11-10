@@ -1,4 +1,3 @@
-import React from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2, Loader2 } from 'lucide-react';
 

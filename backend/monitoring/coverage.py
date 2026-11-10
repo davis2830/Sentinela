@@ -114,10 +114,15 @@ def candidates(target, module):
 
 def snapshot(target, request):
     links = TargetCoverage.objects.filter(target=target).select_related("ssl", "domain", "security").prefetch_related("dns").first()
+    from common.authorization import RELATED_MODULES, effective_permissions, uses_custom_permissions
+    capabilities = set(effective_permissions(request.user))
     sections = {}
     related = [("monitoring", str(target.pk))]
     alert_types = {"ssl": "ssl", "dns": "dns", "domain": "domain", "security": "security_headers"}
     for module, (_, serializer) in registry().items():
+        if RELATED_MODULES[module] + ".read" not in capabilities:
+            sections[module] = {"status": "restricted", "resources": [], "candidates": [], "candidates_truncated": False}
+            continue
         allowed = applicable(target, module)
         stored = list(links.dns.all()) if links and module == "dns" else [getattr(links, module)] if links and getattr(links, module, None) else []
         valid = [r for r in stored if matches(target, module, r)]
@@ -144,10 +149,14 @@ def snapshot(target, request):
     query = Q(pk__in=[])
     for kind, pk in related:
         query |= Q(target_type=kind, target_id=pk)
-    alerts = Alert.objects.filter(query, organization_id=target.organization_id).order_by("-triggered_at")[:25]
+    alerts = Alert.objects.filter(query, organization_id=target.organization_id).order_by("-triggered_at")[:25] if "alerts.read" in capabilities else []
     incident_ids = IncidentAlert.objects.filter(alert_id__in=[a.pk for a in alerts], incident__organization_id=target.organization_id).values("incident_id")
     incidents = Incident.objects.filter(Q(pk__in=incident_ids) | query, organization_id=target.organization_id).select_related("assigned_to", "assigned_team").order_by("-opened_at")[:10]
+    if "incidents.read" not in capabilities:
+        incidents = []
     logs = AuditLog.objects.filter(organization_id=target.organization_id, metadata__target_id=str(target.pk)).order_by("-timestamp")[:25]
+    if uses_custom_permissions(request.user):
+        logs = AuditLog.objects.none()
     return {"sections": sections, "activity": {
         "alerts": AlertSerializer(alerts, many=True).data,
         "incidents": IncidentSerializer(incidents, many=True).data,

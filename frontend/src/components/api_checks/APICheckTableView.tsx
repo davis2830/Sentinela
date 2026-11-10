@@ -6,13 +6,9 @@ import {
   Clock,
   Pencil,
   Trash2,
-  RefreshCw,
   ExternalLink,
   CheckSquare,
   Square,
-  Activity,
-  CheckCircle2,
-  XCircle,
   Code2,
 } from 'lucide-react';
 
@@ -34,8 +30,6 @@ export default function APICheckTableView({
   onToggleSelect,
   onSelectAll,
   onSelectTarget,
-  onScan,
-  scanningId,
   onEdit,
   onDelete,
 }: APICheckTableViewProps) {
@@ -94,7 +88,6 @@ export default function APICheckTableView({
           <tbody className="divide-y divide-border-base/40 font-sans">
             {targets.map((target) => {
               const isSelected = selectedIds.includes(target.id);
-              const isScanning = scanningId === target.id;
               const hasSchema =
                 target.expected_schema &&
                 typeof target.expected_schema === 'object' &&
@@ -239,7 +232,7 @@ export default function APICheckTableView({
                       onClick={(e) => e.stopPropagation()}
                     >
 
-                      <AdminButton
+                      <AdminButton capability="api_checks.update"
                         type="button"
                         onClick={(e) => onEdit(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
@@ -247,7 +240,7 @@ export default function APICheckTableView({
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="api_checks.delete"
                         type="button"
                         onClick={(e) => onDelete(target, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"

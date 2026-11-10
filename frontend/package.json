@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "lint": "eslint src --max-warnings 0",
+    "generate:api": "openapi-typescript ../docs/reference-api.json -o src/types/generated/api.ts",
+    "check:types": "tsc --noEmit",
+    "check:api": "node scripts/check-generated-api.mjs",
+    "format:check": "prettier --check src/pages/workspaces src/components/monitoring/workspaces src/services/api.ts src/services/errors.ts src/services/sessionScope.ts src/store/authStore.ts src/components/layout/PortalQueryBoundary.tsx src/components/layout/PortalAccess.tsx src/components/users/RolesPermissions.tsx src/components/users/MemberPicker.tsx src/components/users/DirectoryPagination.tsx src/hooks/useCapability.ts src/hooks/useMemberDirectory.ts",
     "build": "tsc && vite build",
     "test:network-endpoint": "node --test scripts/test-network-endpoint.mjs",
     "preview": "vite preview",
@@ -12,6 +17,9 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:repo": "node scripts/check-secrets.mjs",
     "test:repo-guard": "node --test scripts/check-secrets.test.mjs"
+  },
+  "overrides": {
+    "minimatch@10": "11.0.1"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -25,15 +33,21 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@playwright/test": "^1.55.1",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/react-is": "^18.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.19",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "openapi-typescript": "7.13.0",
     "postcss": "^8.4.39",
+    "prettier": "3.9.10",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.5.0",
+    "typescript-eslint": "8.72.1",
     "vite": "^7.3.7"
   }
 }

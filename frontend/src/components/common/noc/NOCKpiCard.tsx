@@ -7,6 +7,7 @@ export interface NOCKpiDistributionItem {
 }
 
 export interface NOCKpiCardProps {
+  compact?: boolean;
   title: string;
   icon?: React.ReactNode;
   badge?: {
@@ -28,6 +29,7 @@ export interface NOCKpiCardProps {
 }
 
 export default function NOCKpiCard({
+  compact = false,
   title,
   icon,
   badge,
@@ -41,6 +43,12 @@ export default function NOCKpiCard({
   children,
   className = '',
 }: NOCKpiCardProps) {
+  if (compact) return <div className={`min-w-0 ${className}`}>
+    <div className="flex items-center gap-2 text-xs font-medium text-text-muted">{icon}<span>{title}</span></div>
+    {children || <div className="mt-2 flex flex-wrap items-baseline gap-1"><span className={`text-3xl font-semibold tabular-nums break-words ${valueColor}`}>{value}</span>{valueSuffix && <span className="text-sm text-text-muted">{valueSuffix}</span>}</div>}
+    {subtitle && <p className="mt-1 text-xs text-text-muted">{subtitle}</p>}
+    {footer && <div className="mt-2 text-xs text-text-muted">{footer}</div>}
+  </div>;
   const getBadgeClasses = (variant: string = 'neutral') => {
     switch (variant) {
       case 'success':

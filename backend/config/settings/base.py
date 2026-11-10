@@ -158,6 +158,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Django REST Framework
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "common.error_handler.exception_handler",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "accounts.authentication.SentinelAPITokenAuthentication",
         "accounts.authentication.SentinelJWTAuthentication",

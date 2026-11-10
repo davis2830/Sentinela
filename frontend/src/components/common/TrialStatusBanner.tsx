@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import type { SubscriptionSummary } from '../../types/organization';
 import UpgradePlanModal from '../organization/UpgradePlanModal';
-import { Clock, AlertTriangle, Zap, Sparkles, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Clock, Zap, Sparkles, ArrowRight, ShieldAlert } from 'lucide-react';
 
 export default function TrialStatusBanner() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);

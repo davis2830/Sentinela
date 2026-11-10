@@ -1,3 +1,5 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
@@ -41,7 +43,7 @@ class SSLCertificateListView(APIView):
         # Enforce quota limits
         if getattr(request.user, "organization", None):
             try:
-                from organizations.services import QuotaService, QuotaExceededException
+                from organizations.services import QuotaExceededException
 
             except QuotaExceededException as qe:
                 return error_response(
@@ -64,7 +66,7 @@ class SSLCertificateListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -86,7 +88,7 @@ class SSLCertificateDetailView(APIView):
             cert = SSLMonitorService.get_certificate(certificate_id, org_id)
             serializer = SSLCertificateSerializer(cert, context={"request": request})
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Certificate not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -107,7 +109,7 @@ class SSLCertificateDetailView(APIView):
             scan_ssl_certificate.delay(str(cert.id))
             serializer = SSLCertificateSerializer(cert, context={"request": request})
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -117,7 +119,7 @@ class SSLCertificateDetailView(APIView):
         try:
             SSLMonitorService.delete_certificate(certificate_id, org_id)
             return success_response({"detail": "Certificate deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Certificate not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -140,7 +142,7 @@ class SSLCertificateScanView(APIView):
             return queued_scan_response(task, cert.id)
         except ScanLimited as exc:
             return limited_response(exc)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -202,7 +204,7 @@ class SSLBulkScanView(APIView):
             from .tasks import scan_ssl_certificate
             from .models import SSLCertificate
             return success_response(enqueue_many(SSLCertificate.objects.filter(organization_id=request.user.organization_id), scan_ssl_certificate))
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -253,5 +255,5 @@ class SSLBulkActionView(APIView):
         try:
             res = SSLMonitorService.bulk_action(org_id, action, certificate_ids)
             return success_response(res)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

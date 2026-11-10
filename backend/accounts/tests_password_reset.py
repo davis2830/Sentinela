@@ -82,8 +82,9 @@ class PasswordRecoveryTests(TestCase):
     def test_blacklist_failure_rolls_back_password(self):
         RefreshToken.for_user(self.user)
         with patch.object(BlacklistedToken.objects, 'get_or_create', side_effect=RuntimeError('fixture failure')):
-            with self.assertRaises(RuntimeError):
-                self.confirm(self.secret())
+            response = self.confirm(self.secret())
+            self.assertEqual(response.status_code, 500)
+            self.assertNotIn('fixture failure', str(response.data))
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('Initial-secret-592!'))
         self.assertFalse(BlacklistedToken.objects.exists())

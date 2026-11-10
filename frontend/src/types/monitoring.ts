@@ -43,7 +43,7 @@ export interface MonitoringCheck {
   status: 'up' | 'down' | 'slow' | 'error';
   latency: number | null;
   checked_at: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   created_at: string;
 }
 
@@ -56,6 +56,7 @@ export interface UptimeStats {
 }
 
 export interface CreateTargetData {
+  auto_coverage?: boolean;
   related_modules?: string[];
   name: string;
   target_type: 'http' | 'https' | 'tcp' | 'dns' | 'api' | 'ssl';

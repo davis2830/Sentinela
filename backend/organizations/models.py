@@ -1,10 +1,9 @@
 import secrets
 import uuid
 from datetime import timedelta
-
 from django.db import models
 from django.utils import timezone
-
+from .plans import PLAN_LIMITS as PLAN_LIMITS, plan_limits
 
 class OrganizationPlanTier(models.TextChoices):
     FREE = "free", "Free / Community"
@@ -18,94 +17,9 @@ class OrganizationSubscriptionStatus(models.TextChoices):
     ACTIVE = "active", "Active"
     PAST_DUE = "past_due", "Past Due"
     CANCELED = "canceled", "Canceled"
+    SUSPENDED = "suspended", "Suspended"
 
 
-PLAN_LIMITS = {
-    OrganizationPlanTier.FREE: {
-        "tier": "free",
-        "name": "Starter / Free",
-        "price_monthly_usd": 0,
-        "max_monitoring_targets": 5,
-        "max_ssl_certificates": 2,
-        "max_api_checks": 1,
-        "max_dns_records": 5,
-        "max_domains": 2,
-        "max_security_headers": 2,
-        "max_notification_channels": 2,
-        "max_private_agents": 0,
-        "min_check_interval_seconds": 300,
-        "metrics_retention_days": 7,
-        "max_team_members": 1,
-        "max_status_pages": 1,
-        "custom_domain_status_page": False,
-        "sla_reports": False,
-        "maintenance_windows": False,
-        "rca_postmortem": False,
-    },
-    OrganizationPlanTier.PRO: {
-        "tier": "pro",
-        "name": "Pro / Growth",
-        "price_monthly_usd": 29,
-        "max_monitoring_targets": 25,
-        "max_ssl_certificates": 10,
-        "max_api_checks": 5,
-        "max_dns_records": 25,
-        "max_domains": 10,
-        "max_security_headers": 10,
-        "max_notification_channels": 5,
-        "max_private_agents": 1,
-        "min_check_interval_seconds": 60,
-        "metrics_retention_days": 30,
-        "max_team_members": 5,
-        "max_status_pages": 2,
-        "custom_domain_status_page": True,
-        "sla_reports": True,
-        "maintenance_windows": False,
-        "rca_postmortem": False,
-    },
-    OrganizationPlanTier.BUSINESS: {
-        "tier": "business",
-        "name": "Business",
-        "price_monthly_usd": 99,
-        "max_monitoring_targets": 75,
-        "max_ssl_certificates": 50,
-        "max_api_checks": 25,
-        "max_dns_records": 100,
-        "max_domains": 50,
-        "max_security_headers": 50,
-        "max_notification_channels": 20,
-        "max_private_agents": 3,
-        "min_check_interval_seconds": 30,
-        "metrics_retention_days": 90,
-        "max_team_members": 15,
-        "max_status_pages": 10,
-        "custom_domain_status_page": True,
-        "sla_reports": True,
-        "maintenance_windows": True,
-        "rca_postmortem": True,
-    },
-    OrganizationPlanTier.ENTERPRISE: {
-        "tier": "enterprise",
-        "name": "Enterprise Dedicated",
-        "price_monthly_usd": 399,
-        "max_monitoring_targets": 9999,
-        "max_ssl_certificates": 9999,
-        "max_api_checks": 9999,
-        "max_dns_records": 9999,
-        "max_domains": 9999,
-        "max_security_headers": 9999,
-        "max_notification_channels": 9999,
-        "max_private_agents": 9999,
-        "min_check_interval_seconds": 15,
-        "metrics_retention_days": 365,
-        "max_team_members": 9999,
-        "max_status_pages": 9999,
-        "custom_domain_status_page": True,
-        "sla_reports": True,
-        "maintenance_windows": True,
-        "rca_postmortem": True,
-    },
-}
 
 
 class Organization(models.Model):
@@ -117,6 +31,7 @@ class Organization(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
+    is_test = models.BooleanField(default=False, db_index=True)
     beta_managed = models.BooleanField(default=False)
     beta_status = models.CharField(max_length=20, default="active")
     slug = models.SlugField(max_length=255, unique=True)
@@ -238,12 +153,7 @@ class Organization(models.Model):
         return max(0, delta.days)
 
     def get_plan_limits(self):
-        limits = dict(PLAN_LIMITS.get(
-            self.plan_tier, PLAN_LIMITS[OrganizationPlanTier.FREE]
-        ))
-        if self.beta_managed and self.plan_tier == OrganizationPlanTier.FREE:
-            limits.update(max_monitoring_targets=3, metrics_retention_days=3)
-        return limits
+        return plan_limits(self.plan_tier, beta=self.beta_managed)
 
 
 

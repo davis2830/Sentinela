@@ -1,3 +1,5 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
@@ -43,7 +45,7 @@ class DNSRecordListView(APIView):
         # Enforce quota limits
         if getattr(request.user, "organization", None):
             try:
-                from organizations.services import QuotaService, QuotaExceededException
+                from organizations.services import QuotaExceededException
 
             except QuotaExceededException as qe:
                 return error_response(
@@ -66,7 +68,7 @@ class DNSRecordListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -87,7 +89,7 @@ class DNSRecordDetailView(APIView):
             record = DNSMonitorService.get_record(record_id, org_id)
             serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -104,7 +106,7 @@ class DNSRecordDetailView(APIView):
             scan_dns_records.delay(str(record.id))
             serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -114,7 +116,7 @@ class DNSRecordDetailView(APIView):
         try:
             DNSMonitorService.delete_record(record_id, org_id)
             return success_response({"detail": "DNS record deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -137,7 +139,7 @@ class DNSRecordScanView(APIView):
             return queued_scan_response(task, record.id)
         except ScanLimited as exc:
             return limited_response(exc)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -158,7 +160,7 @@ class DNSChangeHistoryView(APIView):
             )
             serializer = DNSChangeHistorySerializer(history, many=True)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -205,7 +207,7 @@ class DNSBulkScanView(APIView):
             from .tasks import scan_dns_records
             from .models import DNSRecord
             return success_response(enqueue_many(DNSRecord.objects.filter(organization_id=request.user.organization_id), scan_dns_records))
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -249,5 +251,5 @@ class DNSBulkActionView(APIView):
         try:
             res = DNSMonitorService.bulk_action(org_id, action, record_ids)
             return success_response(res)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

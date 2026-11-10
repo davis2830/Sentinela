@@ -17,7 +17,12 @@ from .views import (
     ValidateInvitationView,
 )
 
+from .catalog_views import PlanCatalogView
+from .platform_views import BetaFeedbackView
+
 urlpatterns = [
+    path("current/beta-feedback/", BetaFeedbackView.as_view(), name="organization_beta_feedback"),
+    path("current/plans/", PlanCatalogView.as_view(), name="organization_plan_catalog"),
     path("", OrganizationListView.as_view(), name="organization_list"),
     path("current/", OrganizationCurrentView.as_view(), name="organization_current"),
     path("current/subscription/", OrganizationSubscriptionView.as_view(), name="organization_subscription"),

@@ -1,8 +1,8 @@
 """Single operational entitlement policy, independent of the daily billing job."""
 from django.utils import timezone
-from rest_framework.exceptions import APIException, PermissionDenied
+from rest_framework.exceptions import APIException
 from rest_framework.permissions import SAFE_METHODS
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 
 MESSAGE = (
@@ -59,8 +59,6 @@ class OperationalAPIView(APIView):
         super().check_permissions(request)
         # Probe endpoints authenticate their own tokens and apply the policy in services.
         if request.user.is_authenticated and request.method not in SAFE_METHODS:
-            if not (request.user.is_staff or request.user.is_superuser):
-                raise PermissionDenied("Solo un administrador puede modificar recursos o ejecutar escaneos.")
             if request.method != "DELETE":
                 require_monitoring(getattr(request.user, "organization", None))
             org = request.user.organization

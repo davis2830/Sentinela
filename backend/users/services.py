@@ -1,8 +1,9 @@
 from django.db import transaction
+from django.db.models import Prefetch
 
 from accounts.models import User
 
-from .models import Permission, Role, UserRole
+from .models import Permission, Role, UserRole, Team
 
 
 class UserService:
@@ -15,9 +16,7 @@ class UserService:
     @staticmethod
     def list_users(organization_id):
         """Return all users belonging to an organization."""
-        return User.objects.filter(organization_id=organization_id).order_by(
-            "-created_at"
-        )
+        return User.objects.filter(organization_id=organization_id).prefetch_related(Prefetch("teams", queryset=Team.objects.filter(organization_id=organization_id)), Prefetch("user_roles", queryset=UserRole.objects.filter(role__organization_id=organization_id).select_related("role"))).order_by("-created_at", "id")
 
     @staticmethod
     def get_user(user_id, organization_id):
@@ -26,7 +25,7 @@ class UserService:
         Raises:
             User.DoesNotExist if not found.
         """
-        return User.objects.get(id=user_id, organization_id=organization_id)
+        return UserService.list_users(organization_id).get(id=user_id)
 
     @staticmethod
     @transaction.atomic
@@ -85,6 +84,8 @@ class UserService:
         
         if "role" in fields and fields["role"] is not None:
             user.is_staff = (fields.pop("role") == "admin")
+            user.authorization_mode = "legacy"
+            user.session_version += 1
             
         for field, value in fields.items():
             if value is not None:
@@ -104,44 +105,13 @@ class UserService:
         user.delete()
 
     @staticmethod
-    @transaction.atomic
-    def assign_role(user_id, role_id, organization_id):
-        """Assign a role to a user.
-
-        Args:
-            user_id: UUID of the user.
-            role_id: UUID of the role.
-
-        Returns:
-            The created UserRole instance.
-        """
-        user = User.objects.get(id=user_id, organization_id=organization_id)
-        role = Role.objects.get(id=role_id, organization_id=organization_id)
-        user_role, created = UserRole.objects.get_or_create(
-            user=user, role=role
-        )
-        return user_role
-
-    @staticmethod
-    @transaction.atomic
-    def remove_role(user_id, role_id, organization_id):
-        """Remove a role from a user."""
-        user = User.objects.get(id=user_id, organization_id=organization_id)
-        role = Role.objects.get(id=role_id, organization_id=organization_id)
-        UserRole.objects.filter(user=user, role=role).delete()
-
-    @staticmethod
     def get_user_permissions(user):
         """Return all permission codes for a user.
 
         Aggregates permissions from all roles assigned to the user.
         """
-        role_ids = UserRole.objects.filter(user=user).values_list(
-            "role_id", flat=True
-        )
-        return Permission.objects.filter(roles__id__in=role_ids).values_list(
-            "code", flat=True
-        ).distinct()
+        from common.authorization import effective_permissions
+        return effective_permissions(user)
 
     @staticmethod
     def user_has_permission(user, permission_code):
@@ -163,7 +133,7 @@ class RoleService:
     @staticmethod
     def list_roles(organization_id):
         """Return all roles for an organization."""
-        return Role.objects.filter(organization_id=organization_id).order_by(
+        return Role.objects.filter(organization_id=organization_id).prefetch_related("permissions").order_by(
             "-created_at"
         )
 
@@ -174,7 +144,7 @@ class RoleService:
 
     @staticmethod
     @transaction.atomic
-    def create_role(name, organization_id, permission_codes=None):
+    def create_role(name, organization_id, permission_codes=None, *, actor=None, reason=""):
         """Create a new role within an organization.
 
         Args:
@@ -190,33 +160,15 @@ class RoleService:
             organization_id=organization_id,
         )
         if permission_codes:
-            permissions = Permission.objects.filter(
-                code__in=permission_codes
-            )
+            from .authorization import validate_codes
+            permissions = validate_codes(permission_codes)
             role.permissions.set(permissions)
+        if actor is not None:
+            from audit.services import AuditService
+            AuditService.log(action="create", module="users", organization_id=organization_id, user_id=actor.pk,
+                             user_email=actor.email, description=f"Creación del rol {role.name}",
+                             metadata={"role_id": str(role.pk), "permission_codes": permission_codes or [], "reason": reason})
         return role
-
-    @staticmethod
-    @transaction.atomic
-    def update_role(role_id, organization_id, **fields):
-        """Update an existing role."""
-        role = Role.objects.get(id=role_id, organization_id=organization_id)
-        if "name" in fields and fields["name"] is not None:
-            role.name = fields["name"]
-        if "permission_codes" in fields and fields["permission_codes"] is not None:
-            permissions = Permission.objects.filter(
-                code__in=fields["permission_codes"]
-            )
-            role.permissions.set(permissions)
-        role.save()
-        return role
-
-    @staticmethod
-    @transaction.atomic
-    def delete_role(role_id, organization_id):
-        """Delete a role from an organization."""
-        role = Role.objects.get(id=role_id, organization_id=organization_id)
-        role.delete()
 
 
 class PermissionService:

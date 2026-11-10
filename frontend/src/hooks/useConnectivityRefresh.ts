@@ -22,7 +22,7 @@ export function useConnectivityRefresh() {
   // Revalidate plan/operational permission on the same clock, not a separate timer.
   useEffect(() => {
     refresh.refetchInterval({ queryKey: ['org-subscription', organizationId] });
-  }, [organizationId, refresh.refetchInterval]);
+  }, [organizationId, refresh, refresh.refetchInterval]);
   return { ...refresh, subscription: query.data, subscriptionQuery: query, ready,
     blockedReason: ready && query.data?.monitoring_allowed === false ? 'Suscripción no vigente' : undefined };
 }

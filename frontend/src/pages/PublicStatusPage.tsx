@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { apiFailure } from '../services/errors';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
@@ -10,7 +11,6 @@ import {
   ShieldCheck,
   AlertTriangle,
   XCircle,
-  Loader2,
   Calendar,
   Clock,
   Mail,
@@ -27,9 +27,7 @@ import {
   Radio,
   Globe,
   Plug,
-  Lock,
   Server,
-  Sparkles,
 } from 'lucide-react';
 
 export default function PublicStatusPage() {
@@ -81,8 +79,8 @@ export default function PublicStatusPage() {
           <div>
             <h2 className="text-xl font-bold">Status Page No Disponible</h2>
             <p className="text-[#94A3B8] text-xs mt-1.5 leading-relaxed">
-              {(error as any)?.response?.data?.message ||
-                (error as any)?.message ||
+              {apiFailure(error).response?.data.message ||
+                apiFailure(error).message ||
                 'La página de estado solicitada no existe, es privada o ha sido suspendida.'}
             </p>
           </div>
@@ -345,7 +343,7 @@ export default function PublicStatusPage() {
             </div>
 
             <div className="space-y-3">
-              {statusData.active_incidents.map((inc: any) => (
+              {statusData.active_incidents.map((inc) => (
                 <div
                   key={inc.id}
                   className="bg-bg-dark border border-border-base rounded-2xl p-4 space-y-2"
@@ -432,7 +430,7 @@ export default function PublicStatusPage() {
                         Bitácora de Avance en Vivo:
                       </span>
                       <div className="space-y-1.5">
-                        {m.updates.map((up: any) => (
+                        {m.updates.map((up) => (
                           <div
                             key={up.id}
                             className="bg-bg-card rounded-xl p-2.5 border border-border-base/60 text-xs"
@@ -592,7 +590,7 @@ export default function PublicStatusPage() {
               Historial de Incidentes Resueltos (Últimos 30 días)
             </h3>
             <div className="space-y-3 text-xs">
-              {statusData.past_incidents.map((pInc: any) => (
+              {statusData.past_incidents.map((pInc) => (
                 <div
                   key={pInc.id}
                   className="bg-bg-dark border border-border-base rounded-2xl p-4 space-y-1.5"

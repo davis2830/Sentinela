@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { StatusPageSummaryItem, StatusPageCreatePayload } from '../../types/status_page';
@@ -98,7 +99,8 @@ export default function CreateStatusPageModal({
         clone_from_page_id: cloneFromId ? cloneFromId : null,
       });
       onClose();
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       const msg = err.response?.data?.message || err.message || 'Error al crear la Status Page.';
       setErrorMsg(msg);
     } finally {

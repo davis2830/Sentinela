@@ -1,10 +1,9 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, ChevronRight, Eye, RefreshCw, ShieldAlert, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, Eye, ShieldAlert, X } from 'lucide-react';
 import type {
   DashboardAttentionItem,
   DashboardFilterState,
   DashboardHealthFilter,
-  DashboardModuleFilter,
 } from '../../utils/dashboardModel';
 import { dashboardModuleMeta } from '../../utils/dashboardModel';
 
@@ -57,12 +56,10 @@ function NOCOperationalInbox({
   loading,
   partialError,
   canManage,
-  pendingKey,
   onViewChange,
   onClearHealth,
   onClearModule,
   onSelect,
-  onScan,
   onAcknowledge,
   onNavigate,
 }: NOCOperationalInboxProps) {

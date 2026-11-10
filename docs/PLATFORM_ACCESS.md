@@ -23,10 +23,28 @@ consola permanece bloqueada para esa cuenta hasta completar la activación.
 
 ## Operación de la consola
 
-- **Resumen SaaS** muestra estimaciones y distribuciones de organizaciones. El seguimiento de clientes usa estados de suscripción. Los pagos confirmados y las fechas de cobro requieren un registro de facturación real.
-- **Organizaciones** ofrece filtros por plan y estado, exportación CSV y acceso a la ficha de cada cliente. Desde la ficha se puede cambiar el plan o extender la prueba.
-- **Usuarios** muestra organización, rol, estado, verificación de correo, 2FA y último acceso. Las acciones de soporte requieren un motivo para auditoría.
-- **Beta** y **Auditoría** cubren admisión y actividad global de la plataforma. [Componentes de consola](../frontend/src/components/platform_admin) · [Rutas administrativas](../backend/organizations/urls_admin.py).
+- **Resumen SaaS** prioriza cupos, invitaciones, verificaciones y organizaciones de beta. Los grupos de atención abren Beta con el filtro correspondiente; pueden coincidir y no deben sumarse. El contexto comercial se consulta al desplegarlo y conserva su alcance y carácter estimado.
+- **Beta** separa invitación, verificación, organización, recursos y mediciones actuales. Invitar, reenviar, revocar/rechazar, configurar cupos, abrir/cerrar admisiones y configurar comentarios tienen confirmaciones y motivos propios. Un envío aceptado por el servidor de correo no prueba recepción en la bandeja.
+- **Organizaciones** permite buscar, filtrar, ordenar y exportar el directorio. La ficha carga General, Usuarios, Recursos y límites e Historial al seleccionarlos. Contacto, plan, prueba, clasificación y acceso son acciones auditadas. Las vistas previas de plan y prueba se calculan en el servidor.
+- **Usuarios** distingue administradores, lectura heredada y permisos personalizados. La ficha consulta roles y acceso efectivo; su edición permanece en Roles y permisos de la organización. Se mantienen las protecciones de superadmins y del último administrador.
+- **Salud de plataforma** consulta dependencias y colas al entrar; después requiere **Actualizar diagnóstico**. Copia sólo un resumen acotado. Los mensajes listos incluyen prioridades configuradas; no son tareas en ejecución ni un historial de fallos.
+- **Auditoría** nunca consulta eventos al entrar, preparar filtros, editarlos o regresar. Requiere **Consultar auditoría**; la paginación y el detalle pertenecen a la consulta aplicada.
+
+Los directorios usan páginas de 25. Búsqueda y filtros permanecen en memoria al navegar; sólo la sección aparece en la URL. Los recursos se cargan al seleccionar su módulo.
+
+### Suspender y reactivar acceso
+
+**Suspender acceso** bloquea nuevas sesiones y comprobaciones, invalida sesiones web y conserva datos, plan, suscripción, fechas de prueba y roles. Los trabajos pendientes vuelven a comprobar autorización; no se cancelan a la fuerza los que ya comenzaron. Beta y Organizaciones utilizan la misma transición. Se protege cualquier organización con superadmins activos.
+
+**Reactivar acceso** exige iniciar sesión nuevamente. No renueva una prueba vencida ni confirma pagos. Una suscripción antigua marcada como suspendida se muestra por separado del bloqueo completo de acceso.
+
+### Comentarios de participantes
+
+En **Beta → Formulario externo de comentarios** configura un enlace HTTPS público y, opcionalmente, el enlace privado de respuestas. La acción requiere motivo. El portal beta recibe únicamente el enlace público y abre el proveedor sin añadir identidad, organización o credenciales. Sin enlace, muestra configuración pendiente.
+
+El formulario se crea fuera de Sentinel y debe solicitar categoría (error/mejora/duda), módulo, descripción, pasos y resultados esperado/obtenido. Sentinel no crea tickets ni inventa conteos de comentarios. No pegues credenciales en el formulario.
+
+[Guía y matriz de la consola beta](PLATFORM_BETA_CONSOLE_2026-11-09.md) · [Componentes de consola](../frontend/src/components/platform_admin) · [Rutas administrativas](../backend/organizations/urls_admin.py).
 
 ## Publicación de la consola
 

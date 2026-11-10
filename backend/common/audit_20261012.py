@@ -18,6 +18,7 @@ from users.models import Team
 
 
 @override_settings(REST_FRAMEWORK={
+    'EXCEPTION_HANDLER': 'common.error_handler.exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': ('accounts.authentication.SentinelJWTAuthentication',),
     'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
     'DEFAULT_THROTTLE_CLASSES': [],
@@ -298,6 +299,7 @@ class SystemAuditProbes(TestCase):
 
 
 @override_settings(REST_FRAMEWORK={
+    'EXCEPTION_HANDLER': 'common.error_handler.exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': ('accounts.authentication.SentinelJWTAuthentication',),
     'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
     'DEFAULT_THROTTLE_CLASSES': [],

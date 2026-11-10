@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { apiFailure } from '../../services/errors';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
@@ -14,8 +15,6 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
-  Play,
-  ArrowRight,
 } from 'lucide-react';
 
 interface CreateProbeModalProps {
@@ -47,7 +46,8 @@ export default function CreateProbeModal({
       queryClient.invalidateQueries({ queryKey: ['org-subscription'] });
       if (onSuccess) onSuccess();
     },
-    onError: (err: any) => {
+    onError: (caughtError: unknown) => {
+ const err = apiFailure(caughtError);
       setErrorMsg(
         err.response?.data?.message ||
           'Error al registrar el agente satélite. Verifica tus cuotas de plan.'

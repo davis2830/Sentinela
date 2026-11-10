@@ -1,7 +1,7 @@
 import TargetLatency, { TargetDiagnostic } from './TargetLatency';
 
 import AdminButton from '../common/AdminButton';
-import { Globe, Zap, Lock, Plug, Server, Trash2, Pencil, RefreshCw, Bell, Activity, Check, Layers } from 'lucide-react';
+import { Globe, Lock, Plug, Server, Trash2, Pencil, Bell, Activity, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -39,10 +39,8 @@ export default function TargetCard({
   target,
   onEdit,
   onDelete,
-  onScan,
   onToggle,
   onAlert,
-  isScanning,
   onClick,
   isSelected = false,
   onSelectToggle,
@@ -199,7 +197,7 @@ export default function TargetCard({
         <div className="flex items-center gap-1 shrink-0 bg-bg-dark/70 p-1.5 rounded-xl border border-border-base/60">
 
           {onAlert && (
-            <AdminButton
+            <AdminButton capability="alerts.create"
               onClick={(e) => {
                 e.stopPropagation();
                 onAlert(target);
@@ -210,7 +208,7 @@ export default function TargetCard({
               <Bell size={14} />
             </AdminButton>
           )}
-          <AdminButton
+          <AdminButton capability="monitoring.update"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(target);
@@ -220,7 +218,7 @@ export default function TargetCard({
           >
             <Pencil size={14} />
           </AdminButton>
-          <AdminButton
+          <AdminButton capability="monitoring.delete"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(target);
@@ -296,7 +294,7 @@ export default function TargetCard({
           )}
         </div>
 
-        <AdminButton
+        <AdminButton capability="monitoring.update"
           onClick={(e) => {
             e.stopPropagation();
             onToggle(target);

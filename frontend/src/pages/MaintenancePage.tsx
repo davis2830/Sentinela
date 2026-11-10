@@ -3,29 +3,21 @@ import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
 import AdminButton from '../components/common/AdminButton';
 import { useAuthStore } from '../store/authStore';
-import ReloadDataButton from '../components/common/ReloadDataButton';
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wrench,
   Plus,
-  Clock,
-  Calendar,
-  Layers,
-  Shield,
   Download,
   CheckCircle2,
   Play,
   XCircle,
   Trash2,
-  RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import NOCPageHeader from '../components/common/noc/NOCPageHeader';
-import NOCKpiGrid from '../components/common/noc/NOCKpiGrid';
-import NOCKpiCard from '../components/common/noc/NOCKpiCard';
 import NOCToolbar from '../components/common/noc/NOCToolbar';
 import NOCBulkActionBar from '../components/common/noc/NOCBulkActionBar';
 import { MaintenanceCard } from '../components/maintenance/MaintenanceCard';
@@ -57,8 +49,6 @@ export default function MaintenancePage() {
   const {
     data: windows = [],
     isLoading,
-    isRefetching,
-    refetch,
   } = useQuery<MaintenanceWindow[]>({
     queryKey: ['maintenance-windows', organizationId, statusFilter, searchQuery],
     queryFn: async () => {
@@ -89,7 +79,7 @@ export default function MaintenancePage() {
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Partial<MaintenanceWindow>) => {
       const res = await api.post('maintenance/', data);
       return res.data?.data;
     },
@@ -101,7 +91,7 @@ export default function MaintenancePage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<MaintenanceWindow> }) => {
       const res = await api.patch(`maintenance/${id}/`, data);
       return res.data?.data;
     },
@@ -168,7 +158,7 @@ export default function MaintenancePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance-windows', organizationId] });
       if (drawerTarget) {
-        api.get(`maintenance/${drawerTarget.id}/`).then((res: any) => {
+        api.get(`maintenance/${drawerTarget.id}/`).then((res) => {
           setDrawerTarget(res.data?.data);
         });
       }
@@ -286,7 +276,7 @@ export default function MaintenancePage() {
               <Download size={14} />
               <span>Exportar</span>
             </button>
-            <AdminButton
+            <AdminButton capability="maintenance.create"
               type="button"
               onClick={() => {
                 setModalTarget(null);
@@ -350,7 +340,7 @@ export default function MaintenancePage() {
         actions={
           <>
 
-            <AdminButton
+            <AdminButton capability="maintenance.start"
               type="button"
               onClick={() => {
                 if (confirm(`¿Iniciar ${selectedIds.size} ventanas de mantenimiento seleccionadas?`)) {
@@ -361,7 +351,7 @@ export default function MaintenancePage() {
             >
               <Play size={12} /> Iniciar en Lote
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="maintenance.complete"
               type="button"
               onClick={() => {
                 if (confirm(`¿Marcar como completadas ${selectedIds.size} ventanas?`)) {
@@ -372,7 +362,7 @@ export default function MaintenancePage() {
             >
               <CheckCircle2 size={12} /> Completar en Lote
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="maintenance.cancel"
               type="button"
               onClick={() => {
                 if (confirm(`¿Cancelar ${selectedIds.size} ventanas de mantenimiento?`)) {
@@ -383,7 +373,7 @@ export default function MaintenancePage() {
             >
               <XCircle size={12} /> Cancelar en Lote
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="maintenance.delete"
               type="button"
               onClick={() => {
                 if (confirm(`¿Eliminar definitivamente ${selectedIds.size} ventanas de mantenimiento?`)) {
@@ -428,7 +418,7 @@ export default function MaintenancePage() {
             </p>
           </div>
           {!searchQuery && (
-            <AdminButton
+            <AdminButton capability="maintenance.create"
               type="button"
               onClick={() => {
                 setModalTarget(null);

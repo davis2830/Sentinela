@@ -1,4 +1,5 @@
 """Private beta admission and short-lived identity artifacts; no plaintext secrets."""
+
 import uuid
 
 from django.conf import settings
@@ -9,6 +10,8 @@ class BetaControl(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     admissions_open = models.BooleanField(default=False)
     capacity = models.PositiveSmallIntegerField(default=20)
+    feedback_submission_url = models.URLField(max_length=2048, blank=True, default="")
+    feedback_management_url = models.URLField(max_length=2048, blank=True, default="")
 
 
 class BetaInvitation(models.Model):
@@ -16,13 +19,15 @@ class BetaInvitation(models.Model):
     email = models.EmailField()
     token_hash = models.CharField(max_length=64, unique=True)
     status = models.CharField(max_length=24, default="invited")
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True,
-                              on_delete=models.SET_NULL, related_name="beta_invitation")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="beta_invitation"
+    )
     organization_name = models.CharField(max_length=255, blank=True)
     expires_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
-    operator = models.ForeignKey(settings.AUTH_USER_MODEL, null=True,
-                                 on_delete=models.SET_NULL, related_name="issued_beta_invitations")
+    operator = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="issued_beta_invitations"
+    )
     reason = models.TextField(blank=True)
 
 

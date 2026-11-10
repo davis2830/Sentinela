@@ -1,0 +1,1 @@
+"""Explicit isolated validation fixtures."""

@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -83,7 +84,8 @@ export default function TwoFactorModal({
       if (generatedBackupCodes && generatedBackupCodes.length > 0) {
         setBackupCodes(generatedBackupCodes);
       }
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       const backendMsg =
         err?.response?.data?.message ||
         err?.response?.data?.errors?.detail ||

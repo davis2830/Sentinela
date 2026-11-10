@@ -25,6 +25,7 @@ from status_page.services import StatusPageService
 
 
 @override_settings(REST_FRAMEWORK={
+    'EXCEPTION_HANDLER': 'common.error_handler.exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': ('accounts.authentication.SentinelJWTAuthentication',),
     'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
     'DEFAULT_THROTTLE_CLASSES': [],
@@ -189,7 +190,7 @@ class ModuleAuditTests(TestCase):
         alert = Alert.objects.create(organization=self.other, title='Foreign')
         for incident, alert_id in ((own, alert.pk), (foreign, alert.pk)):
             response = self.client.post(f'/api/v1/incidents/{incident.pk}/alerts/', {'alert_id': str(alert_id)}, format='json')
-            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.status_code, 400 if incident == own else 404)
         self.assertFalse(IncidentAlert.objects.exists())
 
     def test_operational_maintenance_rejects_foreign_relations_and_targets(self):
@@ -442,7 +443,7 @@ class ModuleAuditTests(TestCase):
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
     def test_outage_recovery_notifies_and_does_not_group_unrelated_targets(self):
         from alerts.models import AlertRule, Alert
-        from alerts.services import AlertEvaluatorService
+        from alerts.evaluators import MetricEvaluators
         from django.core import mail
         NotificationChannel.objects.create(organization=self.org, name='Lifecycle', channel_type='email',
             config={'recipients': ['isolated@example.test']}, subscribed_events=['alert_triggered', 'alert_resolved'])
@@ -451,14 +452,14 @@ class ModuleAuditTests(TestCase):
         rules = [AlertRule.objects.create(organization=self.org, name=f'Down {i}', target_type='monitoring',
             target_id=t.pk, condition='status_down', severity='critical') for i, t in enumerate(targets)]
         for rule in rules:
-            self.assertTrue(AlertEvaluatorService._check_status_down(rule))
+            self.assertTrue(MetricEvaluators._check_status_down(rule))
         self.assertEqual(Incident.objects.filter(organization=self.org).count(), 2)
         self.assertEqual(len(mail.outbox), 2)
-        self.assertTrue(AlertEvaluatorService._check_status_down(rules[0]))
+        self.assertTrue(MetricEvaluators._check_status_down(rules[0]))
         self.assertEqual(len(mail.outbox), 2)
         targets[0].last_status = 'up'
         targets[0].save()
-        self.assertFalse(AlertEvaluatorService._check_status_down(rules[0]))
+        self.assertFalse(MetricEvaluators._check_status_down(rules[0]))
         self.assertEqual(Alert.objects.get(rule=rules[0]).status, 'resolved')
         self.assertEqual(Alert.objects.get(rule=rules[1]).status, 'active')
         self.assertEqual(len(mail.outbox), 3)

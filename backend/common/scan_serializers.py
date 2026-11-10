@@ -7,6 +7,7 @@ from django.db.models import Prefetch, QuerySet
 from django.utils import timezone
 from rest_framework import serializers
 
+from common.authorization import effective_permissions, uses_custom_permissions
 from common.models import ScanLease
 from common.scan_limits import interval_for
 from common.subscriptions import monitoring_allowed
@@ -16,13 +17,16 @@ def resource_key(resource):
     return f'{resource.organization_id}:{resource._meta.label_lower}:{resource.pk}'
 
 
-def availability(resource, user, lease=None, now=None):
+def availability(resource, user, lease=None, now=None, capabilities=None):
     now = now or timezone.now()
+    can_scan = bool(user and (user.is_staff or user.is_superuser))
+    if user and uses_custom_permissions(user):
+        can_scan = f"{resource._meta.app_label}.scan" in (capabilities if capabilities is not None else effective_permissions(user))
     status = 'ready'
     due = None
     if not monitoring_allowed(resource.organization):
         status = 'subscription_required'
-    elif not user or user.organization_id != resource.organization_id or not (user.is_staff or user.is_superuser):
+    elif not user or user.organization_id != resource.organization_id or not can_scan:
         status = 'read_only'
     elif not getattr(resource, 'enabled', True):
         status = 'disabled'
@@ -74,4 +78,6 @@ class ScanAvailabilitySerializer(serializers.ModelSerializer):
         user = getattr(request, 'user', None)
         if getattr(getattr(request, 'auth', None), 'scope', None) == 'read':
             user = None
-        return availability(obj, user, lease, self.context.get('scan_snapshot_at'))
+        if user and uses_custom_permissions(user) and "scan_capabilities" not in self.context:
+            self.context["scan_capabilities"] = set(effective_permissions(user))
+        return availability(obj, user, lease, self.context.get("scan_snapshot_at"), self.context.get("scan_capabilities"))

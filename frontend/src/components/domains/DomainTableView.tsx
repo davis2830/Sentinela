@@ -1,12 +1,9 @@
 import AdminButton from '../common/AdminButton';
 import React from 'react';
 import type { DomainInfo } from '../../types/domain';
-import StatusBadge from '../common/StatusBadge';
 import {
-  Clock,
   Pencil,
   Trash2,
-  RefreshCw,
   ExternalLink,
   CheckSquare,
   Square,
@@ -34,22 +31,12 @@ export default function DomainTableView({
   onToggleSelect,
   onSelectAll,
   onSelectDomain,
-  onScan,
-  scanningId,
   onEdit,
   onDelete,
 }: DomainTableViewProps) {
   const allSelected =
     domains.length > 0 && selectedIds.length === domains.length;
 
-  const getStatusType = (domain: DomainInfo) => {
-    if (!domain.last_scanned_at) return 'desconocido';
-    if (domain.status === 'error' || Boolean(domain.error_message)) return 'fallo';
-    const days = domain.days_until_expiration;
-    if (days !== null && days <= 0) return 'expirado';
-    if (days !== null && days <= 30) return 'por_expirar';
-    return 'valido';
-  };
 
   const calculateLifePercentage = (domain: DomainInfo) => {
     if (!domain.creation_date || !domain.expiration_date) return null;
@@ -62,7 +49,7 @@ export default function DomainTableView({
     return Math.min(Math.max(Math.round((elapsed / total) * 100), 0), 100);
   };
 
-  const parseNameservers = (nsData: any): string[] => {
+  const parseNameservers = (nsData: unknown): string[] => {
     if (!nsData) return [];
     if (Array.isArray(nsData)) return nsData.map((s) => String(s).toLowerCase());
     if (typeof nsData === 'string') {
@@ -108,8 +95,6 @@ export default function DomainTableView({
           <tbody className="divide-y divide-border-base/40">
             {domains.map((domain) => {
               const isSelected = selectedIds.includes(domain.id);
-              const isScanning = scanningId === domain.id;
-              const statusType = getStatusType(domain);
               const days = domain.days_until_expiration;
               const lifePct = calculateLifePercentage(domain);
               const nsList = parseNameservers(domain.name_servers);
@@ -263,7 +248,7 @@ export default function DomainTableView({
                       onClick={(e) => e.stopPropagation()}
                     >
 
-                      <AdminButton
+                      <AdminButton capability="domain.update"
                         type="button"
                         onClick={(e) => onEdit(domain, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
@@ -271,7 +256,7 @@ export default function DomainTableView({
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="domain.delete"
                         type="button"
                         onClick={(e) => onDelete(domain, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"

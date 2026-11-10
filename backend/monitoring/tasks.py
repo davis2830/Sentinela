@@ -3,7 +3,6 @@ import socket
 from time import perf_counter
 from common.scan_limits import guarded_scan, enqueue_many
 from common.subscriptions import eligible_organization_ids
-from urllib.parse import urlparse, urlunparse
 
 from celery import shared_task
 from django.utils import timezone
@@ -237,7 +236,7 @@ def check_all():
 
 
 @shared_task(name="monitoring.register_target_in_submonitors")
-def register_target_in_submonitors(target_id, related_modules=None):
+def register_target_in_submonitors(target_id, related_modules=None, actor_id=None):
     """Asynchronously registers the target in all other relevant monitoring submodules."""
     try:
         target = MonitoringTarget.objects.get(id=target_id)
@@ -288,6 +287,20 @@ def register_target_in_submonitors(target_id, related_modules=None):
                 org = Organization.objects.select_for_update().get(id=org_id)
                 if not monitoring_allowed(org):
                     return {"status": "skipped", "reason": "subscription_required"}
+                if actor_id is not None:
+                    from accounts.models import User
+                    from accounts.eligibility import require_identity
+                    from common.authorization import RELATED_MODULES, effective_permissions
+                    actor = User.objects.select_related("organization").filter(pk=actor_id, organization_id=org_id, is_active=True).first()
+                    try:
+                        if actor is None:
+                            raise ValueError("Operador no disponible.")
+                        require_identity(actor)
+                        if RELATED_MODULES[module] + ".create" not in effective_permissions(actor):
+                            raise ValueError("La autorización del operador cambió.")
+                    except ValueError:
+                        result["failed"][module] = "authorization_changed"
+                        continue
                 existing = model.objects.filter(organization_id=org_id, **lookup).first()
                 if existing:
                     from .coverage import link_provisioned

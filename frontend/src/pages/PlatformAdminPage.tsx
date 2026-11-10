@@ -1,471 +1,981 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { platformApi } from '../services/platformApi';
-import type { PlatformStats, PlatformOrganization } from '../types/platform_admin';
-import { usePlatformSession } from '../services/platformApi';
+import { useEffect, useState } from "react";
 import {
-  NOCPageHeader,
-  NOCKpiGrid,
-  NOCKpiCard,
-  NOCToolbar,
-} from '../components/common/noc';
-import ExtendTrialModal from '../components/platform_admin/ExtendTrialModal';
-import ChangeTenantPlanModal from '../components/platform_admin/ChangeTenantPlanModal';
-import TenantDetailDrawer from '../components/platform_admin/TenantDetailDrawer';
-import BetaAdminPanel from '../components/platform_admin/BetaAdminPanel';
-import PlatformUsers from '../components/platform_admin/PlatformUsers';
-import PlatformAudit from '../components/platform_admin/PlatformAudit';
-import OrganizationDistribution, { subscriptionStates } from '../components/platform_admin/OrganizationDistribution';
-import {
-  Building,
-  TrendingUp,
-  DollarSign,
-  Server,
+  Building2,
   Users,
-  Activity,
-  Clock,
-  Crown,
-  PauseCircle,
-  PlayCircle,
-  Download,
-  Search,
-  Eye,
-  CheckCircle2,
-  AlertTriangle,
-  RefreshCw,
-  Radio,
-  Sliders,
-  ShieldCheck,
   Zap,
-} from 'lucide-react';
+  HeartPulse,
+  ShieldCheck,
+  LayoutDashboard,
+  Download,
+  Mail,
+  ChevronRight,
+} from "lucide-react";
+import PlatformSectionHeader from "../components/platform_admin/PlatformSectionHeader";
+import {
+  usePlatformNavigation,
+  platformSections,
+} from "../components/platform_admin/PlatformNavigation";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import PlatformRefresh from "../components/platform_admin/PlatformRefresh";
+import PlatformActionModal from "../components/platform_admin/PlatformActionModal";
+import PlatformBetaSummary from "../components/platform_admin/PlatformBetaSummary";
+import PlatformHealth from "../components/platform_admin/PlatformHealth";
+import EditOrganizationContact from "../components/platform_admin/EditOrganizationContact";
+import type { BetaAttention } from "../types/platform_beta";
+import {
+  ActionButton,
+  ActionMenu,
+  FilterChips,
+  InlineNotice,
+} from "../components/platform_admin/PlatformUI";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { platformApi } from "../services/platformApi";
+import type { PlatformOrganization } from "../types/platform_admin";
+import { usePlatformSession } from "../services/platformApi";
+import { NOCPageHeader, NOCToolbar } from "../components/common/noc";
+import ExtendTrialModal from "../components/platform_admin/ExtendTrialModal";
+import ChangeTenantPlanModal from "../components/platform_admin/ChangeTenantPlanModal";
+import TenantDetailDrawer from "../components/platform_admin/TenantDetailDrawer";
+import BetaAdminPanel from "../components/platform_admin/BetaAdminPanel";
+import PlatformUserDetail from "../components/platform_admin/PlatformUserDetail";
+import PlatformUsers from "../components/platform_admin/PlatformUsers";
+import PlatformAudit from "../components/platform_admin/PlatformAudit";
+import { subscriptionStates } from "../components/platform_admin/OrganizationDistribution";
 
 export default function PlatformAdminPage() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const user = usePlatformSession(state => state.session?.user);
-  const [section, setSection] = useState('resumen');
+  const user = usePlatformSession((state) => state.session?.user);
+  const { section, setSection } = usePlatformNavigation();
+  const [visited, setVisited] = useState<string[]>([section]);
+  useEffect(
+    () =>
+      setVisited((previous) =>
+        previous.includes(section) ? previous : [...previous, section],
+      ),
+    [section],
+  );
+  const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
+  const [betaSeed, setBetaSeed] = useState<{
+    attention: BetaAttention;
+    nonce: number;
+  }>();
+  const [selectedForContact, setSelectedForContact] =
+    useState<PlatformOrganization | null>(null);
+  const [accessFilter, setAccessFilter] = useState("all");
+  const [betaFilter, setBetaFilter] = useState("");
+  const [ordering, setOrdering] = useState("-created_at");
+  const [auditSeed, setAuditSeed] = useState<{
+    email?: string;
+    organization_id?: string;
+    nonce: number;
+  }>();
+  const [action, setAction] = useState<{
+    title: string;
+    description: string;
+    run: (reason: string) => Promise<unknown>;
+    destructive?: boolean;
+    confirmLabel?: string;
+  } | null>(null);
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 10000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const [exporting, setExporting] = useState(false);
+  const [classification, setClassification] = useState("all");
+  const [expiring, setExpiring] = useState(false);
+  const [directoryPage, setDirectoryPage] = useState(1);
 
   // Filter & Search State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [planFilter, setPlanFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const settledSearch = useDebouncedValue(searchTerm);
+  const [planFilter, setPlanFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Modals & Drawer State
-  const [selectedForTrial, setSelectedForTrial] = useState<PlatformOrganization | null>(null);
-  const [selectedForPlan, setSelectedForPlan] = useState<PlatformOrganization | null>(null);
+  const [selectedForTrial, setSelectedForTrial] =
+    useState<PlatformOrganization | null>(null);
+  const [selectedForPlan, setSelectedForPlan] =
+    useState<PlatformOrganization | null>(null);
   const [inspectedOrgId, setInspectedOrgId] = useState<string | null>(null);
 
   // Shared area clock; only stored data is consulted.
 
-  // Query: Stats
-  const { data: stats, isError: statsError, refetch: refreshStats } = useQuery<PlatformStats>({
-    queryKey: ['platform-admin-stats', user?.id],
-    enabled: section === 'resumen',
-    queryFn: async () => {
-      const res = await platformApi.get('/platform-admin/stats/');
-      return res.data?.data;
+  // Query: Organizations List
+  const {
+    data: directory,
+    isLoading: isLoadingOrgs,
+    isError: organizationsError,
+    refetch: refreshOrganizations,
+  } = useQuery<{
+    items: PlatformOrganization[];
+    meta: { total: number; has_next: boolean };
+  }>({
+    queryKey: [
+      "platform-admin-orgs",
+      user?.id,
+      settledSearch,
+      planFilter,
+      statusFilter,
+      directoryPage,
+      classification,
+      expiring,
+      accessFilter,
+      betaFilter,
+      ordering,
+    ],
+    enabled: section === "organizaciones" && settledSearch === searchTerm,
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams();
+      params.set("page", String(directoryPage));
+      params.set("access_status", accessFilter);
+      params.set("ordering", ordering);
+      if (betaFilter) params.set("beta", betaFilter);
+      if (settledSearch) params.set("search", settledSearch);
+      params.set("classification", classification);
+      if (expiring) params.set("trial_expiring", "true");
+      if (planFilter !== "all") params.set("plan_tier", planFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      const res = await platformApi.get(
+        `/platform-admin/organizations/?${params.toString()}`,
+        { signal },
+      );
+      return { items: res.data?.data || [], meta: res.data?.meta };
     },
   });
 
-  // Query: Organizations List
-  const { data: organizations, isLoading: isLoadingOrgs, isError: organizationsError, refetch: refreshOrganizations } = useQuery<PlatformOrganization[]>({
-    queryKey: ['platform-admin-orgs', user?.id, searchTerm, planFilter, statusFilter],
-    enabled: section === 'organizaciones',
-    queryFn: async ({ signal }) => {
-      const params = new URLSearchParams();
-      if (searchTerm) params.set('search', searchTerm);
-      if (planFilter !== 'all') params.set('plan_tier', planFilter);
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      const res = await platformApi.get(`/platform-admin/organizations/?${params.toString()}`, { signal });
-      return res.data?.data || [];
-    },
-  });
+  const organizations = directory?.items;
 
   // Toggle Status Mutation (Suspend/Reactivate)
   const toggleStatusMutation = useMutation({
-    mutationFn: async ({ orgId, action }: { orgId: string; action: 'suspend' | 'reactivate' }) => {
-      await platformApi.post(`/platform-admin/organizations/${orgId}/toggle-status/`, { action });
+    mutationFn: async ({
+      orgId,
+      action,
+      reason,
+    }: {
+      orgId: string;
+      action: "suspend" | "reactivate";
+      reason: string;
+    }) => {
+      await platformApi.post(
+        `/platform-admin/organizations/${orgId}/toggle-status/`,
+        { action, reason },
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-orgs'] });
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-org-detail'] });
-      queryClient.invalidateQueries({ queryKey: ['platform-admin-audit'] });
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.message || 'Error al cambiar estado.');
+      queryClient.invalidateQueries({ queryKey: ["platform-admin-orgs"] });
+      queryClient.invalidateQueries({ queryKey: ["platform-admin-stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["platform-admin-org-detail"],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["beta-overview"] });
+      void queryClient.invalidateQueries({ queryKey: ["beta-admin"] });
     },
   });
 
-  function openDirectory(plan: string, status: string) {
+  function openDirectory(plan: string, status: string, expiring = false) {
     setPlanFilter(plan);
     setStatusFilter(status);
-    setSearchTerm('');
-    setSection('organizaciones');
+    setSearchTerm("");
+    setDirectoryPage(1);
+    setClassification("customers");
+    setExpiring(expiring);
+    setAccessFilter("all");
+    setBetaFilter("");
+    setSection("organizaciones");
   }
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = async (filtered = false) => {
+    setExporting(true);
+    setNotice("");
     try {
-      const res = await platformApi.get('/platform-admin/export-csv/', { responseType: 'blob' });
-      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const res = await platformApi.get("/platform-admin/export-csv/", {
+        responseType: "blob",
+        params: filtered
+          ? {
+              search: settledSearch,
+              plan_tier: planFilter,
+              status: statusFilter,
+              classification,
+              trial_expiring: expiring,
+              access_status: accessFilter,
+              beta: betaFilter || undefined,
+              ordering,
+            }
+          : {},
+      });
+      const blob = new Blob([res.data], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `sentinel_tenants_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute(
+        "download",
+        `sentinel_tenants_${new Date().toISOString().slice(0, 10)}.csv`,
+      );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      setNotice(
+        filtered
+          ? "Exportación de resultados filtrados completada."
+          : "Exportación de todas las organizaciones completada.",
+      );
     } catch {
-      alert('Error al exportar CSV de clientes.');
+      setNotice("Error al exportar CSV de clientes.");
+    } finally {
+      setExporting(false);
     }
   };
 
-  // Plan styling helper
-  const getPlanBadge = (tier: string) => {
-    switch (tier) {
-      case 'enterprise':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
-      case 'business':
-        return 'bg-sky-500/10 text-sky-400 border-sky-500/30';
-      case 'pro':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-      default:
-        return 'bg-zinc-800 text-zinc-400 border-zinc-700';
-    }
-  };
+  const moduleIcon = {
+    resumen: LayoutDashboard,
+    beta: Zap,
+    organizaciones: Building2,
+    usuarios: Users,
+    salud: HeartPulse,
+    auditoria: ShieldCheck,
+  }[section];
+  const ModuleIcon = moduleIcon;
+  const moduleLabel =
+    section === "resumen" || section === "beta"
+      ? "BETA CERRADA"
+      : section === "salud" || section === "auditoria"
+        ? "CONTROL DE PLATAFORMA"
+        : "ADMINISTRACIÓN";
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 font-sans pb-10">
+    <div className="platform-workspace space-y-6 pb-8 font-sans">
       {/* 1. TOP HEADER */}
-      <NOCPageHeader queryKeys={["platform-admin-stats","platform-admin-orgs","platform-admin-users","platform-admin-audit"]}
-        title="Administración SaaS"
-        badgeText="SUPERADMIN"
-        description="Gestiona organizaciones, suscripciones, usuarios y actividad de Sentinel."
-        icon={<Crown size={26} className="text-accent-yellow" />}
 
-        actions={section === 'organizaciones' &&
-          <>
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-medium px-4 py-2 rounded-full text-sm hover:bg-bg-dark transition-all shadow-sm"
-              title="Descargar reporte completo de organizaciones en CSV"
-            >
-              <Download size={15} />
-              <span>Exportar Reporte CSV</span>
-            </button>
-          </>
-        }
-      />
+      <div className="platform-page-header">
+        <NOCPageHeader
+          title={platformSections[section].title}
+          badgeText={moduleLabel}
+          icon={
+            <span className="platform-module-icon">
+              <ModuleIcon size={23} aria-hidden="true" />
+            </span>
+          }
+          description={platformSections[section].description}
 
-      <nav aria-label="Secciones de administración SaaS" className="flex flex-wrap gap-1 rounded-2xl border border-border-base bg-bg-card p-1.5">
-        {[
-          ['resumen', 'Resumen SaaS'], ['organizaciones', 'Organizaciones'], ['usuarios', 'Usuarios'],
-          ['beta', 'Beta'], ['auditoria', 'Auditoría'],
-        ].map(([id, label]) => <button type="button" key={id} aria-pressed={section === id}
-          onClick={() => setSection(id)}
-          className={`min-h-11 rounded-xl border px-4 text-sm font-medium ${section === id ? 'border-accent-green/40 bg-accent-green/10 text-accent-green' : 'border-transparent text-text-muted hover:bg-bg-card-hover hover:text-text-main'}`}>
-          {label}
-        </button>)}
-      </nav>
-      {section === 'beta' && <BetaAdminPanel />}
-      {section === 'usuarios' && user && <PlatformUsers operatorId={user.id} onOpenOrganization={setInspectedOrgId} />}
-      {section === 'auditoria' && user && <PlatformAudit operatorId={user.id} onOpenOrganization={setInspectedOrgId} />}
-      {section === 'resumen' && statsError && <p role="alert">No se pudo cargar el resumen. <button onClick={() => void refreshStats()}>Reintentar</button></p>}
-      {section === 'resumen' && !stats && !statsError && <p role="status">Cargando resumen SaaS…</p>}
-      {section === 'resumen' && stats && <>
-      <section className="ui-card p-4" aria-labelledby="customer-follow-up">
-        <h2 id="customer-follow-up" className="text-base font-bold">Seguimiento de clientes</h2>
-        <p className="mt-1 text-sm text-text-muted">Estados de suscripción. Los pagos confirmados y las fechas de cobro aún no están disponibles.</p>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-3">
-          {['past_due', 'trialing', 'active'].map(id => {
-            const state = subscriptionStates.find(item => item.id === id)!;
-            return <li key={id}>
-              <button type="button" data-tone={state.tone} onClick={() => openDirectory('all', id)}
-                className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-border-base px-3 text-left text-sm hover:bg-bg-card-hover">
-                <span aria-hidden="true" className="ui-tone">●</span>
-                <span className="flex-1">{state.label}</span>
-                <strong className="ui-tone tabular-nums">{stats.organizations.by_status[id] ?? 0}</strong>
-              </button>
-            </li>;
-          })}
-        </ul>
-      </section>
-
-      {/* 2. SUPERADMIN FINANCIAL & PLATFORM KPI GRID */}
-      <NOCKpiGrid columns={4}>
-        {/* KPI 1: MRR Estimado */}
-        <NOCKpiCard
-          title="MRR estimado (no cobrado)"
-          icon={<DollarSign size={16} className="text-accent-green" />}
-          badge={{
-            text: `ARR: $${(stats?.financials.arr_usd || 0).toLocaleString()} USD`,
-            variant: 'success',
-          }}
-          value={`$${(stats?.financials.mrr_usd || 0).toLocaleString()} USD`}
-          subtitle={`Estimación de suscripciones activas y con pago pendiente. ${stats.financials.quoted_organizations} bajo cotización.`}
-        />
-
-        {/* KPI 2: Total Organizaciones */}
-        <NOCKpiCard
-          title="Organizaciones y usuarios"
-          icon={<Building size={16} className="text-sky-400" />}
-          badge={{
-            text: `+${stats.organizations.recent_signups_30d} en 30 días`,
-            variant: 'info',
-          }}
-          value={`${stats.organizations.total} organizaciones`}
-          subtitle={`${stats.infrastructure.total_users} usuarios registrados en la plataforma.`}
-        />
-
-        {/* KPI 3: Carga Global de Monitoreo */}
-        <NOCKpiCard
-          title="Monitores Activos Globales"
-          icon={<Activity size={16} className="text-accent-green" />}
-          badge={{
-            text: `${stats?.infrastructure.active_targets || 0} habilitados`,
-            variant: 'success',
-          }}
-          value={`${stats?.infrastructure.total_targets || 0} Targets`}
-          subtitle="Recursos registrados en Uptime y Latencia."
-        />
-
-        {/* KPI 4: Red de Agentes Privados */}
-        <NOCKpiCard
-          title="Agentes Satélite LAN"
-          icon={<Server size={16} className="text-accent-purple" />}
-          badge={{
-            text: `${stats?.infrastructure.online_probes || 0} Online`,
-            variant: 'success',
-          }}
-          value={`${stats?.infrastructure.total_probes || 0} Probes`}
-          subtitle="Agentes satélite desplegados en datacenters privados."
-        />
-      </NOCKpiGrid>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <OrganizationDistribution title="Organizaciones por plan"
-          rows={[{ id: 'free', label: 'Free' }, { id: 'pro', label: 'Pro' }, { id: 'business', label: 'Business' }, { id: 'enterprise', label: 'Enterprise' }]}
-          counts={stats.organizations.by_plan} total={stats.organizations.total}
-          onSelect={plan => openDirectory(plan, 'all')} />
-        <OrganizationDistribution title="Estado de las suscripciones" rows={subscriptionStates}
-          counts={stats.organizations.by_status} total={stats.organizations.total}
-          onSelect={status => openDirectory('all', status)} />
-      </div>
-      </>}
-
-      {section === 'organizaciones' && <>
-      {/* 3. TOOLBAR WITH FILTERS & SEARCH */}
-      <NOCToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por nombre de empresa, slug o email de facturación..."
-        categories={[
-          { id: 'all', label: 'Todos' },
-          { id: 'enterprise', label: 'Enterprise' },
-          { id: 'business', label: 'Business' },
-          { id: 'pro', label: 'Pro' },
-          { id: 'free', label: 'Free' },
-        ]}
-        categoryLabel="Plan:"
-        selectedCategory={planFilter}
-        onCategoryChange={setPlanFilter}
-        statusPills={[
-          { id: 'all', label: 'Todos los estados', variant: 'all' },
-          ...subscriptionStates.map(({ id, label, tone }) => ({ id, label, variant: tone })),
-        ]}
-        selectedStatus={statusFilter}
-        onStatusChange={setStatusFilter}
-      />
-
-      {/* 4. TENANTS TABLE */}
-      <div className="bg-bg-card border border-border-base rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-text-main border-collapse">
-            <thead>
-              <tr className="border-b border-border-base bg-bg-dark/80 font-medium text-xs text-text-muted">
-                <th className="py-3.5 px-4">Empresa & Inquilino</th>
-                <th className="py-3.5 px-4">Plan</th>
-                <th className="py-3.5 px-4">Suscripción</th>
-                <th className="py-3.5 px-4">Periodo de Prueba</th>
-                <th className="py-3.5 px-4">Consumo de Cuotas</th>
-                <th className="py-3.5 px-4">Fecha Registro</th>
-                <th className="py-3.5 px-4 text-right">Acciones Superadmin</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-base/50">
-              {organizationsError ? (
-                <tr><td colSpan={7} className="p-6" role="alert">No se pudieron cargar las organizaciones. <button onClick={() => void refreshOrganizations()}>Reintentar</button></td></tr>
-              ) : isLoadingOrgs ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-text-dim text-xs">
-                    <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-accent-green" />
-                    Cargando directorio de organizaciones...
-                  </td>
-                </tr>
-              ) : organizations?.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-text-dim text-xs">
-                    No se encontraron organizaciones coincidentes con los filtros.
-                  </td>
-                </tr>
-              ) : (
-                organizations?.map((org) => {
-                  const subscription = subscriptionStates.find(state => state.id === org.subscription_status);
-                  const isSuspended = org.subscription_status === 'suspended';
-                  return (
-                    <tr
-                      key={org.id}
-                      className="hover:bg-bg-dark/50 transition-colors cursor-pointer"
-                      onClick={() => setInspectedOrgId(org.id)}
-                    >
-                      {/* Company Name & Slug */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-accent-green/10 border border-accent-green/20 flex items-center justify-center text-accent-green font-bold text-xs shrink-0">
-                            {org.name.substring(0, 2).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-text-main text-sm truncate max-w-[200px]" title={org.name}>
-                              {org.name}
-                            </div>
-                            <div className="text-xs text-text-dim font-mono truncate max-w-[200px]">
-                              {org.slug} &bull; {org.billing_email || 'Sin email'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Plan Tier */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase font-mono ${getPlanBadge(org.plan_tier)}`}>
-                          {org.plan_tier}
-                        </span>
-                      </td>
-
-                      {/* Subscription Status */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="ui-status" data-tone={subscription?.tone ?? 'muted'}>
-                          <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-                          {subscription?.label ?? 'Estado desconocido'}
-                        </span>
-                      </td>
-
-                      {/* Trial Status */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {org.is_in_trial ? (
-                          <div className="space-y-0.5">
-                            <span className="text-xs font-bold font-mono text-accent-yellow">
-                              {org.trial_days_remaining} días restantes
-                            </span>
-                            <div className="text-xs text-text-dim font-mono">
-                              Vence: {org.trial_ends_at ? new Date(org.trial_ends_at).toLocaleDateString() : 'N/A'}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-text-dim font-mono">Sin prueba vigente</span>
-                        )}
-                      </td>
-
-                      {/* Usage */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs font-mono">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-text-dim text-xs">Targets:</span>
-                            <span className="font-bold text-text-main">{org.targets_count}/{org.max_targets}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-text-dim text-xs">Probes:</span>
-                            <span className="font-bold text-accent-purple">{org.probes_count}/{org.max_probes}</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Created At */}
-                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs text-text-dim">
-                        {new Date(org.created_at).toLocaleDateString()}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Extend Trial */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedForTrial(org)}
-                            className="p-1.5 rounded-lg bg-bg-dark border border-border-base text-accent-yellow hover:bg-accent-yellow/10 hover:border-accent-yellow/30 transition-all"
-                            title="Extender periodo de prueba"
-                          >
-                            <Clock size={15} />
-                          </button>
-
-                          {/* Set Plan */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedForPlan(org)}
-                            className="p-1.5 rounded-lg bg-bg-dark border border-border-base text-accent-purple hover:bg-accent-purple/10 hover:border-accent-purple/30 transition-all"
-                            title="Asignar Plan (Enterprise/Business/Pro)"
-                          >
-                            <Crown size={15} />
-                          </button>
-
-                          {/* Suspend / Reactivate */}
-                          <button
-                            type="button"
-                            disabled={toggleStatusMutation.isPending}
-                            onClick={() => {
-                              const actionLabel = isSuspended ? 'reactivar' : 'suspender';
-                              if (!window.confirm(`¿Quieres ${actionLabel} la suscripción de ${org.name}?`)) return;
-                              toggleStatusMutation.mutate({
-                                orgId: org.id,
-                                action: isSuspended ? 'reactivate' : 'suspend',
-                              });
-                            }}
-                            className={`p-1.5 rounded-lg bg-bg-dark border transition-all ${
-                              isSuspended
-                                ? 'border-accent-green/30 text-accent-green hover:bg-accent-green/10'
-                                : 'border-accent-red/30 text-accent-red hover:bg-accent-red/10'
-                            }`}
-                            title={isSuspended ? 'Reactivar suscripción' : 'Suspender suscripción'}
-                          >
-                            {isSuspended ? <PlayCircle size={15} /> : <PauseCircle size={15} />}
-                          </button>
-
-                          {/* Inspect Detail */}
-                          <button
-                            type="button"
-                            onClick={() => setInspectedOrgId(org.id)}
-                            className="p-1.5 rounded-lg bg-bg-dark border border-border-base text-text-muted hover:text-text-main hover:border-zinc-600 transition-all"
-                            title="Inspeccionar inquilino"
-                          >
-                            <Eye size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+          actions={
+            <>
+              {section !== "auditoria" && section !== "salud" && (
+                <PlatformRefresh
+                  prefix={
+                    section === "resumen"
+                      ? "beta-overview"
+                      : section === "organizaciones"
+                        ? "platform-admin-orgs"
+                        : section === "usuarios"
+                          ? "platform-admin-users"
+                          : "beta-admin"
+                  }
+                />
               )}
-            </tbody>
-          </table>
-        </div>
+            </>
+          }
+        />
       </div>
-      </>}
+
+      {(visited.includes("beta") || section === "beta") && (
+        <div hidden={section !== "beta"}>
+          <BetaAdminPanel
+            active={section === "beta"}
+            seed={betaSeed}
+            onOpenOrganization={setInspectedOrgId}
+          />
+        </div>
+      )}
+      {(visited.includes("usuarios") || section === "usuarios") && user && (
+        <div hidden={section !== "usuarios"}>
+          <PlatformUsers
+            active={section === "usuarios"}
+            operatorId={user.id}
+            onOpenOrganization={setInspectedOrgId}
+            onAudit={(email) => {
+              setAuditSeed({ email, nonce: Date.now() });
+              setSection("auditoria");
+            }}
+          />
+        </div>
+      )}
+      {(visited.includes("auditoria") || section === "auditoria") && user && (
+        <div hidden={section !== "auditoria"}>
+          <PlatformAudit
+            active={section === "auditoria"}
+            seed={auditSeed}
+            operatorId={user.id}
+            onOpenOrganization={setInspectedOrgId}
+          />
+        </div>
+      )}
+      {(visited.includes("resumen") || section === "resumen") && (
+        <div hidden={section !== "resumen"}>
+          <PlatformBetaSummary
+            active={section === "resumen"}
+            onOpenDirectory={openDirectory}
+            onOpenBeta={(attention) => {
+              setBetaSeed({ attention, nonce: Date.now() });
+              setSection("beta");
+            }}
+          />
+        </div>
+      )}
+      {(visited.includes("salud") || section === "salud") && (
+        <div hidden={section !== "salud"}>
+          <PlatformHealth
+            active={section === "salud"}
+            onMailFailures={() => {
+              setBetaSeed({ attention: "failed_delivery", nonce: Date.now() });
+              setSection("beta");
+            }}
+          />
+        </div>
+      )}
+
+      {section === "organizaciones" && (
+        <section
+          className="platform-directory space-y-4"
+          aria-labelledby="organizations-title"
+        >
+          <PlatformSectionHeader
+            icon={Building2}
+            id="organizations-title"
+            eyebrow="CLIENTES Y ENTORNOS"
+            title="Directorio de organizaciones"
+            description={
+              <>
+                <strong className="font-semibold text-text-main">
+                  {directory?.meta?.total ?? "—"}
+                </strong>{" "}
+                resultados · 25 por página. Abre una ficha para revisar
+                contacto, usuarios y recursos.
+              </>
+            }
+            actions={
+              <div className="platform-export-control">
+                <Download size={16} aria-hidden="true" />
+                <ActionMenu label={exporting ? "Exportando…" : "Exportar CSV"}>
+                  <ActionButton
+                    disabled={exporting}
+                    tone="tertiary"
+                    onClick={() => void handleExportCSV(true)}
+                  >
+                    Exportar resultados filtrados
+                  </ActionButton>
+                  <ActionButton
+                    disabled={exporting}
+                    tone="tertiary"
+                    onClick={() => void handleExportCSV(false)}
+                  >
+                    Exportar todas
+                  </ActionButton>
+                </ActionMenu>
+              </div>
+            }
+          />
+          {notice && (
+            <InlineNotice message={notice} onDismiss={() => setNotice("")} />
+          )}
+          <NOCToolbar
+            className="platform-toolbar"
+            searchTerm={searchTerm}
+            onSearchChange={(value) => {
+              setSearchTerm(value);
+              setDirectoryPage(1);
+            }}
+            searchPlaceholder="Buscar por nombre de empresa, slug o email de facturación..."
+            categoryLabel="Plan:"
+            categories={[
+              { id: "all", label: "Todos" },
+              { id: "free", label: "Free" },
+              { id: "pro", label: "Pro" },
+              { id: "business", label: "Business" },
+              { id: "enterprise", label: "Enterprise" },
+            ]}
+            selectedCategory={planFilter}
+            onCategoryChange={(value) => {
+              setPlanFilter(value);
+              setDirectoryPage(1);
+            }}
+            statusPills={[
+              { id: "all", label: "Todos los estados" },
+              ...subscriptionStates,
+            ]}
+            selectedStatus={statusFilter}
+            onStatusChange={(value) => {
+              setStatusFilter(value);
+              setDirectoryPage(1);
+            }}
+          />
+          <details className="platform-advanced-filters">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm">
+              Filtros avanzados
+            </summary>
+            <div className="grid gap-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-sm">
+                Acceso
+                <select
+                  className="platform-field"
+                  value={accessFilter}
+                  onChange={(e) => {
+                    setAccessFilter(e.target.value);
+                    setDirectoryPage(1);
+                  }}
+                >
+                  <option value="all">Todos</option>
+                  <option value="active">Habilitado</option>
+                  <option value="suspended">Suspendido</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                Participación beta
+                <select
+                  className="platform-field"
+                  value={betaFilter}
+                  onChange={(e) => {
+                    setBetaFilter(e.target.value);
+                    setDirectoryPage(1);
+                  }}
+                >
+                  <option value="">Todas</option>
+                  <option value="true">Beta</option>
+                  <option value="false">Fuera de beta</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                Ordenar organizaciones
+                <select
+                  className="platform-field"
+                  value={ordering}
+                  onChange={(e) => {
+                    setOrdering(e.target.value);
+                    setDirectoryPage(1);
+                  }}
+                >
+                  <option value="-created_at">Más recientes</option>
+                  <option value="created_at">Más antiguas</option>
+                  <option value="name">Nombre A–Z</option>
+                  <option value="-name">Nombre Z–A</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                Clasificación
+                <select
+                  className="platform-field"
+                  value={classification}
+                  onChange={(e) => {
+                    setClassification(e.target.value);
+                    setDirectoryPage(1);
+                  }}
+                >
+                  <option value="all">Todas</option>
+                  <option value="customers">Clientes</option>
+                  <option value="tests">Pruebas</option>
+                </select>
+              </label>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={expiring}
+                  onChange={(e) => {
+                    setExpiring(e.target.checked);
+                    setDirectoryPage(1);
+                  }}
+                />{" "}
+                Prueba vence en 7 días
+              </label>
+            </div>
+          </details>
+          <FilterChips
+            onClear={() => {
+              setSearchTerm("");
+              setPlanFilter("all");
+              setStatusFilter("all");
+              setClassification("all");
+              setExpiring(false);
+              setAccessFilter("all");
+              setBetaFilter("");
+              setOrdering("-created_at");
+              setDirectoryPage(1);
+            }}
+            items={[
+              ...(searchTerm
+                ? [
+                    {
+                      id: "search",
+                      label: "Búsqueda: " + searchTerm,
+                      remove: () => {
+                        setSearchTerm("");
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(planFilter !== "all"
+                ? [
+                    {
+                      id: "plan",
+                      label: "Plan: " + planFilter,
+                      remove: () => {
+                        setPlanFilter("all");
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(statusFilter !== "all"
+                ? [
+                    {
+                      id: "status",
+                      label:
+                        "Suscripción: " +
+                        (subscriptionStates.find((i) => i.id === statusFilter)
+                          ?.label || statusFilter),
+                      remove: () => {
+                        setStatusFilter("all");
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(classification !== "all"
+                ? [
+                    {
+                      id: "class",
+                      label:
+                        classification === "tests" ? "Pruebas" : "Clientes",
+                      remove: () => {
+                        setClassification("all");
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(expiring
+                ? [
+                    {
+                      id: "expiring",
+                      label: "Vence en 7 días",
+                      remove: () => {
+                        setExpiring(false);
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(accessFilter !== "all"
+                ? [
+                    {
+                      id: "access",
+                      label: "Acceso: " + accessFilter,
+                      remove: () => {
+                        setAccessFilter("all");
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(betaFilter
+                ? [
+                    {
+                      id: "beta",
+                      label: betaFilter === "true" ? "Beta" : "Fuera de beta",
+                      remove: () => {
+                        setBetaFilter("");
+                        setDirectoryPage(1);
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+          />
+          {organizationsError && !!organizations?.length && (
+            <p role="alert">
+              No se pudo actualizar el directorio. Los datos anteriores pueden
+              estar desactualizados.
+            </p>
+          )}
+          {organizationsError && !organizations?.length ? (
+            <p role="alert">
+              No se pudieron cargar las organizaciones.{" "}
+              <ActionButton onClick={() => void refreshOrganizations()}>
+                Reintentar consulta
+              </ActionButton>
+            </p>
+          ) : isLoadingOrgs ? (
+            <p role="status" className="py-8 text-sm text-text-muted">
+              Cargando directorio de organizaciones…
+            </p>
+          ) : !organizations?.length ? (
+            <div className="platform-directory-empty">
+              <span className="platform-section-icon">
+                <Building2 size={24} aria-hidden="true" />
+              </span>
+              <h3 className="mt-4 text-lg font-semibold">
+                Sin resultados en este directorio
+              </h3>
+              <p className="mt-2 max-w-md text-sm text-text-muted">
+                No se encontraron organizaciones coincidentes con los filtros.
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                Prueba otro nombre o ajusta los filtros aplicados.
+              </p>
+            </div>
+          ) : (
+            <div className="platform-table-surface">
+              <table
+                className="platform-directory-table platform-organizations-table"
+                aria-label="Organizaciones de Sentinel"
+              >
+                <thead>
+                  <tr>
+                    {[
+                      "Organización",
+                      "Acceso y suscripción",
+                      "Plan",
+                      "Prueba",
+                      "Uso del plan",
+                      "Registro",
+                      "Acciones",
+                    ].map((label) => (
+                      <th key={label} scope="col">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizations.map((org) => {
+                    const state = subscriptionStates.find(
+                      (item) => item.id === org.subscription_status,
+                    );
+                    const suspended =
+                      org.access_status === "suspended" ||
+                      org.beta_status === "suspended";
+                    const trial = org.is_in_trial
+                      ? org.trial_days_remaining + " días restantes"
+                      : "Sin prueba vigente";
+                    const details = (
+                      <>
+                        <span>Plan: {org.plan_tier}</span>
+                        <span>{trial}</span>
+                        <span>
+                          Monitores: {org.targets_count}/{org.max_targets} ·
+                          Agentes: {org.probes_count}/{org.max_probes}
+                        </span>
+                        <span>
+                          Registro:{" "}
+                          {new Date(org.created_at).toLocaleDateString("es-GT")}
+                        </span>
+                      </>
+                    );
+                    return (
+                      <tr key={org.id} className="hover:bg-bg-card-hover">
+                        <td>
+                          <div className="flex items-start gap-3">
+                            <span
+                              className="platform-org-avatar"
+                              aria-hidden="true"
+                            >
+                              {org.name.trim().slice(0, 2).toUpperCase()}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="break-words text-sm font-semibold leading-snug text-text-main">
+                                {org.name}
+                              </p>
+                              <p className="mt-1 flex items-start gap-1.5 break-all text-xs text-text-muted">
+                                {org.billing_email && (
+                                  <Mail
+                                    size={12}
+                                    className="mt-0.5 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <span
+                                  className="min-w-0 truncate"
+                                  title={org.billing_email || org.slug}
+                                >
+                                  {org.billing_email || org.slug}
+                                </span>
+                              </p>
+                              {org.is_test && (
+                                <span className="platform-test-tag mt-2">
+                                  Entorno de prueba
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <p
+                            className={
+                              "platform-access-state " +
+                              (suspended ? "is-blocked" : "")
+                            }
+                          >
+                            <span aria-hidden="true" />
+                            {org.access_status === "active"
+                              ? "Acceso habilitado"
+                              : org.access_status === "suspended"
+                                ? "Acceso suspendido"
+                                : "Acceso cancelado"}
+                            {org.beta_managed ? " · Beta" : ""}
+                          </p>
+                          <span
+                            className="ui-status mt-2"
+                            title="Estado de la suscripción"
+                            data-tone={state?.tone || "muted"}
+                          >
+                            {state?.label || "Estado desconocido"}
+                          </span>
+                        </td>
+                        <td className="hidden md:table-cell">
+                          <span className="platform-plan-label">
+                            {org.plan_tier}
+                          </span>
+                        </td>
+                        <td className="hidden md:table-cell text-xs">
+                          {trial}
+                          {org.is_in_trial && org.trial_ends_at && (
+                            <p className="mt-1 text-text-muted">
+                              {new Date(org.trial_ends_at).toLocaleDateString(
+                                "es-GT",
+                              )}
+                            </p>
+                          )}
+                        </td>
+                        <td className="hidden md:table-cell text-xs tabular-nums">
+                          <p>
+                            {org.targets_count}/{org.max_targets} monitores
+                          </p>
+                          <p className="mt-1 text-text-muted">
+                            {org.probes_count}/{org.max_probes} agentes
+                          </p>
+                        </td>
+                        <td className="hidden md:table-cell text-xs text-text-muted">
+                          {new Date(org.created_at).toLocaleDateString("es-GT")}
+                        </td>
+                        <td className="platform-cell-extra">
+                          <div className="flex flex-wrap items-center justify-end gap-1">
+                            <ActionButton
+                              tone="tertiary"
+                              className="platform-open-record"
+                              aria-label={"Ver ficha de " + org.name}
+                              onClick={() => setInspectedOrgId(org.id)}
+                            >
+                              Ver ficha{" "}
+                              <ChevronRight size={15} aria-hidden="true" />
+                            </ActionButton>
+                            <ActionMenu
+                              compact
+                              accessibleLabel={"Más acciones de " + org.name}
+                            >
+                              <ActionButton
+                                tone="tertiary"
+                                onClick={() => setSelectedForContact(org)}
+                              >
+                                Editar contacto
+                              </ActionButton>
+                              <ActionButton
+                                tone="tertiary"
+                                onClick={() => setSelectedForPlan(org)}
+                              >
+                                Cambiar plan
+                              </ActionButton>
+                              <ActionButton
+                                tone="tertiary"
+                                onClick={() => setSelectedForTrial(org)}
+                              >
+                                Extender prueba
+                              </ActionButton>
+                              <ActionButton
+                                tone="tertiary"
+                                className={suspended ? "" : "text-accent-red"}
+                                disabled={
+                                  toggleStatusMutation.isPending ||
+                                  org.access_protected
+                                }
+                                title={
+                                  org.access_protected
+                                    ? "Organización con superadmins activos protegida"
+                                    : undefined
+                                }
+                                onClick={() =>
+                                  setAction({
+                                    title: suspended
+                                      ? "Reactivar acceso"
+                                      : "Suspender acceso",
+                                    destructive: !suspended,
+                                    description:
+                                      org.name +
+                                      ". " +
+                                      (suspended
+                                        ? "Restablece el acceso; conserva la suscripción y las fechas de prueba."
+                                        : "Bloquea el acceso y nuevas comprobaciones; invalida sesiones web y conserva datos, plan y suscripción."),
+                                    run: (reason) =>
+                                      toggleStatusMutation.mutateAsync({
+                                        orgId: org.id,
+                                        action: suspended
+                                          ? "reactivate"
+                                          : "suspend",
+                                        reason,
+                                      }),
+                                  })
+                                }
+                              >
+                                {suspended
+                                  ? "Reactivar acceso"
+                                  : "Suspender acceso"}
+                              </ActionButton>
+                            </ActionMenu>
+                          </div>
+                        </td>
+                        <td className="platform-cell-extra md:hidden">
+                          <details>
+                            <summary className="flex min-h-11 cursor-pointer items-center text-sm text-text-muted">
+                              Detalles de organización
+                            </summary>
+                            <div className="grid gap-2 py-2 text-xs text-text-muted">
+                              {details}
+                            </div>
+                          </details>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="platform-pagination">
+            <ActionButton
+              tone="tertiary"
+              disabled={directoryPage === 1 || isLoadingOrgs}
+              onClick={() => setDirectoryPage((p) => p - 1)}
+            >
+              Anterior
+            </ActionButton>
+            <span className="text-text-muted">
+              Página {directoryPage} · {directory?.meta?.total ?? "—"}{" "}
+              organizaciones
+            </span>
+            <ActionButton
+              tone="tertiary"
+              disabled={isLoadingOrgs || !directory?.meta?.has_next}
+              onClick={() => setDirectoryPage((p) => p + 1)}
+            >
+              Siguiente
+            </ActionButton>
+          </div>
+        </section>
+      )}
 
       {/* Modals & Drawer */}
+      {action && (
+        <PlatformActionModal
+          title={action.title}
+          description={action.description}
+          onConfirm={action.run}
+          destructive={action.destructive}
+          confirmLabel={action.confirmLabel}
+          onSuccess={setNotice}
+          onClose={() => setAction(null)}
+        />
+      )}
       {inspectedOrgId && (
         <TenantDetailDrawer
+          key={"organization:" + inspectedOrgId}
           orgId={inspectedOrgId}
+          onOpenUser={setInspectedUserId}
+          onEditContact={setSelectedForContact}
+          onAccess={(org) => {
+            const suspended =
+              org.access_status === "suspended" ||
+              org.beta_status === "suspended";
+            setAction({
+              title: suspended ? "Reactivar acceso" : "Suspender acceso",
+              description:
+                org.name +
+                ". " +
+                (suspended
+                  ? "Restablece acceso sin renovar pruebas ni confirmar pagos."
+                  : "Bloquea acceso y nuevas comprobaciones; invalida sesiones y conserva datos, plan y suscripción."),
+              destructive: !suspended,
+              run: (reason) =>
+                toggleStatusMutation.mutateAsync({
+                  orgId: org.id,
+                  action: suspended ? "reactivate" : "suspend",
+                  reason,
+                }),
+            });
+          }}
+          notice={notice}
+          onDismissNotice={() => setNotice("")}
+          onAudit={(id) => {
+            setAuditSeed({ organization_id: id, nonce: Date.now() });
+            setInspectedOrgId(null);
+            setSection("auditoria");
+          }}
+          onClassify={(org) =>
+            setAction({
+              title: "Clasificar organización",
+              description: `${org.name}: ${org.is_test ? "Prueba → Cliente" : "Cliente → Prueba"}. Las pruebas quedan fuera del resumen comercial. No cambia su plan ni monitoreo.`,
+              confirmLabel: org.is_test
+                ? "Marcar como cliente"
+                : "Marcar como prueba",
+              run: async (reason) => {
+                await platformApi.post(
+                  `platform-admin/organizations/${org.id}/classification/`,
+                  { is_test: !org.is_test, reason },
+                );
+                await Promise.all(
+                  [
+                    "platform-admin-orgs",
+                    "platform-admin-stats",
+                    "platform-admin-org-detail",
+                  ].map((key) =>
+                    queryClient.invalidateQueries({ queryKey: [key] }),
+                  ),
+                );
+              },
+            })
+          }
           onClose={() => setInspectedOrgId(null)}
           onChangePlan={setSelectedForPlan}
           onExtendTrial={setSelectedForTrial}
         />
       )}
 
+      {selectedForContact && (
+        <EditOrganizationContact
+          key={"contact:" + selectedForContact.id}
+          organization={selectedForContact}
+          onClose={() => setSelectedForContact(null)}
+          onSuccess={setNotice}
+        />
+      )}
+      {inspectedUserId && (
+        <PlatformUserDetail
+          account={{ id: inspectedUserId }}
+          onClose={() => setInspectedUserId(null)}
+          onOrganization={setInspectedOrgId}
+          onAudit={(email) => {
+            setInspectedUserId(null);
+            setInspectedOrgId(null);
+            setAuditSeed({ email, nonce: Date.now() });
+            setSection("auditoria");
+          }}
+        />
+      )}
       {selectedForTrial && (
         <ExtendTrialModal
           organization={selectedForTrial}
+          onSuccess={setNotice}
           onClose={() => setSelectedForTrial(null)}
         />
       )}
@@ -473,10 +983,10 @@ export default function PlatformAdminPage() {
       {selectedForPlan && (
         <ChangeTenantPlanModal
           organization={selectedForPlan}
+          onSuccess={setNotice}
           onClose={() => setSelectedForPlan(null)}
         />
       )}
-
     </div>
   );
 }

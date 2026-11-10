@@ -18,7 +18,7 @@ const latencyValue = (n: unknown) => finite(n) && n >= 0 ? n : null;
 const display = (n: unknown) => latencyValue(n) == null ? '—' : `${formatMetric(n as number)} ms`;
 
 // Recorded failures/slow results are preserved; current threshold is a visual reference.
-const chartTone = (point: TimeseriesPoint, value: unknown, threshold: number | null) => latencyTone(value, threshold, point.is_down || point.status === 'down' ? 'down' : point.status === 'slow' ? 'slow' : undefined);
+const chartTone = (point: TimeseriesPoint | undefined, value: unknown, threshold: number | null) => latencyTone(value, threshold, point?.is_down || point?.status === 'down' ? 'down' : point?.status === 'slow' ? 'slow' : undefined);
 const pointColor = (tone: string) => tone === 'danger' ? 'rgb(var(--sentinel-accent-red))' : tone === 'warning' ? 'rgb(var(--sentinel-accent-yellow))' : tone === 'success' ? 'rgb(var(--sentinel-accent-green))' : '#94a3b8';
 
 function ChartTooltip({ active, payload, threshold }: { active?: boolean; payload?: {payload: TimeseriesPoint}[]; threshold: number | null }) {
@@ -67,10 +67,10 @@ export default function LatencyChart({ timeseries, summary, period, isLoading = 
           <YAxis domain={[0,yDomainMax]} tick={{fontSize:12,fill:'var(--monitoring-chart-label)'}} axisLine={false} tickLine={false} width={62} tickFormatter={n=>`${formatMetric(n)}`}/>
           <Tooltip content={<ChartTooltip threshold={threshold}/>}/>
           {threshold!==null&&<ReferenceLine y={threshold} stroke="rgb(var(--sentinel-accent-yellow))" strokeDasharray="4 4"/>}
-          {(viewMode==='both'||viewMode==='avg')&&<Area type="linear" dataKey="displayLatency" name="Media" stroke="var(--monitoring-latency)" strokeWidth={2} fill={`url(#${gradientId})`} connectNulls={false} isAnimationActive={false} dot={(props: any)=>{
+          {(viewMode==='both'||viewMode==='avg')&&<Area type="linear" dataKey="displayLatency" name="Media" stroke="var(--monitoring-latency)" strokeWidth={2} fill={`url(#${gradientId})`} connectNulls={false} isAnimationActive={false} dot={(props: {cx?:number;cy?:number;index?:number;payload?:TimeseriesPoint & {displayLatency:number|null}})=>{
             const tone=chartTone(props.payload,props.payload?.displayLatency,threshold);
             return finite(props.payload?.displayLatency)&&(tone==='danger'||tone==='warning')?<circle key={props.index} cx={props.cx} cy={props.cy} r={4} fill={pointColor(tone)} stroke="rgb(var(--sentinel-bg-card))" strokeWidth={2}/>:<g key={props.index}/>;
-          }} activeDot={(props: any)=><circle cx={props.cx} cy={props.cy} r={5} fill={pointColor(chartTone(props.payload,props.payload?.displayLatency,threshold))} stroke="rgb(var(--sentinel-bg-card))" strokeWidth={2}/>}/>}
+          }} activeDot={(props: {cx?:number;cy?:number;index?:number;payload?:TimeseriesPoint & {displayLatency:number|null}})=><circle cx={props.cx} cy={props.cy} r={5} fill={pointColor(chartTone(props.payload,props.payload?.displayLatency,threshold))} stroke="rgb(var(--sentinel-bg-card))" strokeWidth={2}/>}/>}
           {(viewMode==='both'||viewMode==='max')&&<Area type="linear" dataKey="displayMaxLatency" name="Picos" stroke="rgb(var(--sentinel-accent-yellow))" strokeWidth={1.5} strokeDasharray={viewMode==='both'?'4 3':undefined} fill="none" connectNulls={false} dot={false} isAnimationActive={false}/>}
         </AreaChart>
       </ResponsiveContainer>
