@@ -55,7 +55,7 @@ export default function NOCToolbar({
   className = '',
 }: NOCToolbarProps) {
   const getPillClasses = (
-    pillId: string,
+    _pillId: string,
     variant: string = 'neutral',
     isSelected: boolean
   ) => {

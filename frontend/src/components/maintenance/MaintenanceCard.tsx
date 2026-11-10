@@ -3,16 +3,13 @@ import React from 'react';
 import {
   Calendar,
   Clock,
-  Wrench,
   Play,
   CheckCircle2,
-  XCircle,
   BellOff,
   Shield,
   Repeat,
   ChevronRight,
   Layers,
-  Users,
 } from 'lucide-react';
 import type { MaintenanceWindow } from '../../types';
 
@@ -221,7 +218,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
         {/* Acciones Rápidas */}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {item.status === 'scheduled' && (
-            <AdminButton
+            <AdminButton capability="maintenance.start"
               type="button"
               disabled={isStarting}
               onClick={() => onStart(item.id)}
@@ -236,7 +233,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
           )}
 
           {item.status === 'in_progress' && (
-            <AdminButton
+            <AdminButton capability="maintenance.complete"
               type="button"
               disabled={isCompleting}
               onClick={() => onComplete(item.id)}

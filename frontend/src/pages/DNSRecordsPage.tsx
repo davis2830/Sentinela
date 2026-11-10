@@ -1,60 +1,36 @@
-import { useConfigurationDiagnostic } from '../hooks/useConfigurationDiagnostic';
+import { useDNSRecordsWorkspace } from './workspaces/useDNSRecordsWorkspace';
 import ConfigurationDiagnosticNotice from '../components/common/ConfigurationDiagnosticNotice';
-import { useLinkedResource } from '../hooks/useLinkedResource';
-import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
 import AdminButton from '../components/common/AdminButton';
-import { useAuthStore } from '../store/authStore';
 import ScanAction from '../components/common/ScanAction';
-import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../services/api';
-import ReloadDataButton from '../components/common/ReloadDataButton';
-import { waitForFreshScan, type QueuedScan } from '../utils/scanPolling';
 import type {
-  DNSRecord,
   DNSRecordType,
-  CreateDNSRecordData,
-  DNSChangeHistory,
-  DNSStats,
-  DNSTestResolutionResult,
 } from '../types/dns';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
 import {
   NOCPageHeader,
-  NOCKpiGrid,
-  NOCKpiCard,
   NOCToolbar,
   NOCBulkActionBar,
   NOCDrawer,
 } from '../components/common/noc';
-import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
-import { usePersistentViewMode } from '../hooks/usePersistentViewMode';
 import {
   Globe,
   Plus,
   Loader2,
   Trash2,
-  RefreshCw,
   Clock,
   Pencil,
   ExternalLink,
   History,
   AlertTriangle,
-  Server,
-  Activity,
   CheckSquare,
   Square,
-  ArrowRight,
   Download,
   Zap,
   Check,
   Shield,
-  Layers,
-  Sparkles,
-  Search,
   X,
 } from 'lucide-react';
 
@@ -71,355 +47,9 @@ const RECORD_TYPES: DNSRecordType[] = [
 ];
 
 export default function DNSRecordsPage() {
-  const organizationId = useAuthStore(state => state.user?.organization?.id);
-
-  const queryClient = useQueryClient();
-
-  // State
-  const [showModal, setShowModal] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
-  const [domainInput, setDomainInput] = useState('');
-  const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>('A');
-  const [typeFilter, setTypeFilter] = useUrlFilter('type', ["all","A","AAAA","CNAME","MX","TXT","NS","SOA","SRV","CAA"] as const);
-  const [searchTerm, setSearchTerm] = useState('');
-  // Persistent viewMode: remembers table or grid across refreshes and updates
-  const [viewMode, setViewMode] = usePersistentViewMode('dns_records', 'table');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [scanningId, setScanningId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DNSRecord | null>(null);
-  const [selectedRecord, setSelectedRecord] = useState<DNSRecord | null>(null);
-  const [drawerTab, setDrawerTab] = useState<'history' | 'details' | 'security'>('history');
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-
-  // Live Test Resolution State
-  const diagnostic = useConfigurationDiagnostic();
-  const [isTestingResolution, setIsTestingResolution] = useState(false);
-  const [testResult, setTestResult] = useState<DNSTestResolutionResult | null>(null);
-
-  // Read cadence follows the server plan; GET never triggers a scan.
-  const autoRefresh = useConnectivityRefresh();
-
-  // Stats query
-  const { data: stats } = useQuery<DNSStats>({
-    queryKey: ['dns-stats', organizationId],
-    queryFn: async () => {
-      const response = await api.get('dns-records/stats/');
-      return (response.data?.data || {}) as DNSStats;
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  // Main DNS records query
-  const { data: records, isLoading } = useQuery<DNSRecord[]>({
-    queryKey: ['dns-records', organizationId],
-    queryFn: async () => {
-      const response = await api.get('dns-records/');
-      return (response.data?.data || []) as DNSRecord[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
-  // Selected record change history query
-  const { data: history, isLoading: isLoadingHistory } = useQuery<DNSChangeHistory[]>({
-    queryKey: ['dns-history', organizationId, selectedRecord?.id],
-    queryFn: async () => {
-      if (!selectedRecord) return [];
-      const response = await api.get(`dns-records/${selectedRecord.id}/history/`);
-      return (response.data?.data || []) as DNSChangeHistory[];
-    },
-    enabled: !!selectedRecord,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: CreateDNSRecordData) => {
-      await api.post('dns-records/', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
-      handleCloseModal();
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CreateDNSRecordData }) => {
-      await api.patch(`dns-records/${id}/`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
-      handleCloseModal();
-    },
-  });
-
-  const scanMutation = useMutation({
-    mutationFn: async (id: string) => {
-      setScanningId(id);
-      const response = await api.post(`dns-records/${id}/scan/`);
-      const queued = response.data?.data as QueuedScan;
-      return waitForFreshScan<DNSRecord>(
-        queued,
-        async () => (await api.get(`dns-records/${id}/`)).data?.data as DNSRecord,
-        (record) => record.last_scanned_at,
-      );
-    },
-    onSuccess: (updatedRecord) => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['dns-history', organizationId, selectedRecord?.id] });
-      if (selectedRecord && updatedRecord && selectedRecord.id === updatedRecord.id) {
-        setSelectedRecord(updatedRecord);
-      }
-      setScanningId(null);
-    },
-    onError: () => {
-      setScanningId(null);
-    },
-  });
+ const {showModal, editingRecord, domainInput, setDomainInput, recordTypeInput, setRecordTypeInput, typeFilter, setTypeFilter, searchTerm, setSearchTerm, viewMode, setViewMode, selectedIds, setSelectedIds, deleteTarget, setDeleteTarget, selectedRecord, setSelectedRecord, drawerTab, setDrawerTab, bulkDeleting, diagnostic, isTestingResolution, testResult, setTestResult, autoRefresh, records, isLoading, history, isLoadingHistory, createMutation, updateMutation, scanMutation, deleteMutation, handleToggleSelect, handleSelectAllToggle, handleBulkDelete, handleTestResolution, handleExportCSV, handleOpenCreate, handleOpenEdit, handleCloseModal, handleSubmit, getTypeBadgeClass, isRecentMutation, totalCount, resolvedCount, changedCount, filteredRecords} = useDNSRecordsWorkspace();
 
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`dns-records/${id}/`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
-      if (selectedRecord?.id === deleteTarget?.id) {
-        setSelectedRecord(null);
-      }
-      setDeleteTarget(null);
-    },
-  });
-
-  // Bulk Actions via backend endpoint
-  const handleToggleSelect = (record: DNSRecord) => {
-    setSelectedIds((prev) =>
-      prev.includes(record.id) ? prev.filter((id) => id !== record.id) : [...prev, record.id]
-    );
-  };
-
-  const handleSelectAllToggle = () => {
-    if (!filteredRecords || filteredRecords.length === 0) return;
-    if (selectedIds.length === filteredRecords.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredRecords.map((r: DNSRecord) => r.id));
-    }
-  };
-
-  const handleBulkScan = async () => {
-    if (selectedIds.length === 0) return;
-    try {
-      await api.post('dns-records/bulk-action/', {
-        action: 'scan',
-        record_ids: selectedIds,
-      });
-      setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
-    } catch {
-      for (const id of selectedIds) {
-        api.post(`dns-records/${id}/scan/`).catch(() => {});
-      }
-      setSelectedIds([]);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    if (
-      !window.confirm(
-        `¿Deseas eliminar permanentemente los ${selectedIds.length} registros DNS seleccionados?`
-      )
-    ) {
-      return;
-    }
-    setBulkDeleting(true);
-    try {
-      await api.post('dns-records/bulk-action/', {
-        action: 'delete',
-        record_ids: selectedIds,
-      });
-    } catch {
-      for (const id of selectedIds) {
-        try {
-          await api.delete(`dns-records/${id}/`);
-        } catch {}
-      }
-    }
-    setSelectedIds([]);
-    setBulkDeleting(false);
-    queryClient.invalidateQueries({ queryKey: ['dns-records', organizationId] });
-    queryClient.invalidateQueries({ queryKey: ['dns-stats', organizationId] });
-  };
-
-  // Test DNS Resolution in Modal
-  const handleTestResolution = async () => {
-    if (!domainInput.trim()) return;
-    setIsTestingResolution(true);
-    setTestResult(null);
-
-    let cleanDomain = domainInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
-    if (cleanDomain.includes(':')) {
-      cleanDomain = cleanDomain.split(':')[0];
-    }
-
-    try {
-      const response = await diagnostic.run('dns-records/test-resolution/', {
-        domain: cleanDomain,
-        record_type: recordTypeInput,
-      });
-      setTestResult(response.data?.data as DNSTestResolutionResult);
-    } catch (err: any) {
-      if (diagnostic.isLimit(err)) return;
-      setTestResult({
-        success: false,
-        domain: cleanDomain,
-        record_type: recordTypeInput,
-        values: [],
-        error_message: err.response?.data?.message || 'Error al resolver la consulta DNS.',
-      });
-    } finally {
-      setIsTestingResolution(false);
-    }
-  };
-
-  // Export CSV Report
-  const handleExportCSV = () => {
-    if (!records || records.length === 0) return;
-    const headers = [
-      'Dominio / Host',
-      'Tipo de Registro',
-      'Valor Resuelto',
-      'TTL',
-      'Latencia Consulta (ms)',
-      'Último Cambio Detectado',
-      'Última Comprobación',
-    ];
-    const rows = records.map((r) => [
-      r.domain,
-      r.record_type,
-      `"${(r.value || '').replace(/"/g, '""').replace(/\n/g, ' ; ')}"`,
-      r.ttl ?? 'N/A',
-      r.response_time_ms ? `${r.response_time_ms}ms` : 'N/A',
-      r.last_change_at ? new Date(r.last_change_at).toISOString() : 'Sin cambios',
-      r.last_scanned_at ? new Date(r.last_scanned_at).toISOString() : 'N/A',
-    ]);
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,\uFEFF' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `sentinel_registros_dns_${new Date().toISOString().split('T')[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Modal Handlers
-  const handleOpenCreate = () => {
-    setEditingRecord(null);
-    setDomainInput('');
-    setRecordTypeInput('A');
-    setTestResult(null);
-    setShowModal(true);
-  };
-
-  const handleOpenEdit = (record: DNSRecord, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setEditingRecord(record);
-    setDomainInput(record.domain);
-    setRecordTypeInput(record.record_type);
-    setTestResult(null);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingRecord(null);
-    setDomainInput('');
-    setRecordTypeInput('A');
-    setTestResult(null);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!domainInput.trim()) return;
-    let cleanDomain = domainInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
-    if (cleanDomain.includes(':')) {
-      cleanDomain = cleanDomain.split(':')[0];
-    }
-
-    if (editingRecord) {
-      updateMutation.mutate({
-        id: editingRecord.id,
-        data: { domain: cleanDomain, record_type: recordTypeInput },
-      });
-    } else {
-      createMutation.mutate({ domain: cleanDomain, record_type: recordTypeInput });
-    }
-  };
-
-  const getTypeBadgeClass = (type: string) => {
-    switch (type) {
-      case 'A':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-      case 'AAAA':
-        return 'bg-teal-500/10 text-teal-400 border-teal-500/30';
-      case 'CNAME':
-        return 'bg-sky-500/10 text-sky-400 border-sky-500/30';
-      case 'MX':
-        return 'bg-violet-500/10 text-violet-400 border-violet-500/30';
-      case 'TXT':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-      case 'NS':
-        return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
-      case 'SOA':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
-      case 'PTR':
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
-      case 'CAA':
-        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
-      default:
-        return 'bg-zinc-800 text-zinc-300 border-zinc-700';
-    }
-  };
-
-  const isRecentMutation = (dateStr: string | null) => {
-    if (!dateStr) return false;
-    const changeTime = new Date(dateStr).getTime();
-    const now = Date.now();
-    return now - changeTime < 24 * 60 * 60 * 1000;
-  };
-
-  // KPI Calculations
-  const allRecords = records || [];
-  const totalCount = stats?.total || allRecords.length;
-  const resolvedCount = allRecords.filter((r: DNSRecord) => Boolean(r.value)).length;
-  const changedCount =
-    stats?.changes_24h || allRecords.filter((r: DNSRecord) => isRecentMutation(r.last_change_at)).length;
-
-  const resolutionSla =
-    totalCount > 0 ? Math.round((resolvedCount / totalCount) * 1000) / 10 : 100.0;
-
-  // Filtered & Searched Records
-  const filteredRecords = allRecords.filter((record: DNSRecord) => {
-    const matchesSearch =
-      record.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (record.value && record.value.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    if (!matchesSearch) return false;
-    if (typeFilter !== 'all' && record.record_type !== typeFilter) return false;
-    return true;
-  });
-
-  useLinkedResource(records, selectedRecord, setSelectedRecord);
 
   return (
     <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
@@ -451,7 +81,7 @@ export default function DNSRecordsPage() {
             </button>
 
 
-            <AdminButton
+            <AdminButton capability="dns_monitor.create"
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
@@ -491,7 +121,7 @@ export default function DNSRecordsPage() {
           { id: 'CAA', label: 'CAA' },
         ]}
         selectedCategory={typeFilter}
-        onCategoryChange={(cat) => setTypeFilter(cat as any)}
+        onCategoryChange={(cat) => setTypeFilter(cat as typeof typeFilter)}
       />
 
       {/* 4. FLOATING BULK ACTIONS BAR */}
@@ -502,7 +132,7 @@ export default function DNSRecordsPage() {
         actions={
           <>
 
-            <AdminButton
+            <AdminButton capability="dns_monitor.delete"
               type="button"
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
@@ -559,7 +189,6 @@ export default function DNSRecordsPage() {
                 <tbody className="divide-y divide-border-base/40">
                   {filteredRecords.map((record) => {
                     const isSelected = selectedIds.includes(record.id);
-                    const isScanning = scanningId === record.id;
                     const isMutated = isRecentMutation(record.last_change_at);
                     const isTxt = record.record_type === 'TXT';
                     const isSpf = isTxt && record.value.includes('v=spf1');
@@ -712,7 +341,7 @@ export default function DNSRecordsPage() {
                             onClick={(e) => e.stopPropagation()}
                           >
 
-                            <AdminButton
+                            <AdminButton capability="dns_monitor.update"
                               type="button"
                               onClick={(e) => handleOpenEdit(record, e)}
                               className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
@@ -720,7 +349,7 @@ export default function DNSRecordsPage() {
                             >
                               <Pencil size={14} />
                             </AdminButton>
-                            <AdminButton
+                            <AdminButton capability="dns_monitor.delete"
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -745,7 +374,6 @@ export default function DNSRecordsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredRecords.map((record) => {
               const isSelected = selectedIds.includes(record.id);
-              const isScanning = scanningId === record.id;
               const isMutated = isRecentMutation(record.last_change_at);
 
               return (
@@ -826,7 +454,7 @@ export default function DNSRecordsPage() {
 
                     <div className="flex items-center gap-1">
 
-                      <AdminButton
+                      <AdminButton capability="dns_monitor.update"
                         type="button"
                         onClick={(e) => handleOpenEdit(record, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
@@ -834,7 +462,7 @@ export default function DNSRecordsPage() {
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="dns_monitor.delete"
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -853,7 +481,7 @@ export default function DNSRecordsPage() {
           </div>
         )
       ) : (
-        <EmptyState requiresAdmin
+        <EmptyState capability="dns_monitor.create"
           title="No hay registros DNS monitorizados"
           description="Agrega registros A, MX, TXT, CNAME o NS para vigilar la resolución de nombres y recibir alertas cuando las IPs cambien."
           actionLabel="Agregar Primer Registro DNS"
@@ -939,11 +567,11 @@ export default function DNSRecordsPage() {
             : []),
         ]}
         activeTab={drawerTab}
-        onTabChange={(t) => setDrawerTab(t as any)}
+        onTabChange={(t) => setDrawerTab(t as typeof drawerTab)}
         footerActions={
           selectedRecord && (
             <>
-              <AdminButton
+              <AdminButton capability="dns_monitor.update"
                 type="button"
                 onClick={() => handleOpenEdit(selectedRecord)}
                 className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
@@ -951,7 +579,7 @@ export default function DNSRecordsPage() {
                 <Pencil size={14} />
                 Editar Registro
               </AdminButton>
-              <AdminButton
+              <AdminButton capability="dns_monitor.delete"
                 type="button"
                 onClick={() => setDeleteTarget(selectedRecord)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
@@ -1214,7 +842,7 @@ export default function DNSRecordsPage() {
 
               {/* Test Resolution Button */}
               <div className="pt-1">
-                <button
+                <AdminButton capability="dns_monitor.test"
                   type="button"
                   onClick={handleTestResolution}
                   disabled={!domainInput.trim() || isTestingResolution}
@@ -1231,7 +859,7 @@ export default function DNSRecordsPage() {
                       <span>Probar configuración</span>
                     </>
                   )}
-                </button>
+                </AdminButton>
               </div>
                 <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
 
@@ -1294,7 +922,7 @@ export default function DNSRecordsPage() {
                 >
                   Cancelar
                 </button>
-                <AdminButton
+                <AdminButton capability={editingRecord ? 'dns_monitor.update' : 'dns_monitor.create'}
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
                   className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"

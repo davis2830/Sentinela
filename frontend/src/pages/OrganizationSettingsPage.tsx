@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useOrganizationSettingsWorkspace } from './workspaces/useOrganizationSettingsWorkspace';
+import DirectoryPagination from '../components/users/DirectoryPagination';
 import { createPortal } from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../services/api';
-import { useAuthStore } from '../store/authStore';
 import NOCPageHeader from '../components/common/noc/NOCPageHeader';
 import NOCKpiGrid from '../components/common/noc/NOCKpiGrid';
 import NOCKpiCard from '../components/common/noc/NOCKpiCard';
 import UpgradePlanModal from '../components/organization/UpgradePlanModal';
-import InvoiceReceiptModal from '../components/organization/InvoiceReceiptModal';
-import type { OrganizationData, SubscriptionSummary, OrganizationTeamMember } from '../types/organization';
 import {
   Building,
   Save,
@@ -25,222 +20,21 @@ import {
   UserPlus,
   Trash2,
   Mail,
-  RefreshCw,
   Globe,
-  Phone,
-  Clock,
   Check,
   Server,
-  KeyRound,
-  Sliders,
   ShieldAlert,
-  ArrowUpRight,
   Database,
   FileText,
   Network,
   Bell,
 } from 'lucide-react';
 
-type OrgTab = 'company' | 'billing' | 'team';
 
 export default function OrganizationSettingsPage() {
-  const queryClient = useQueryClient();
-  const { user: currentUser } = useAuthStore();
-  const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<OrgTab>(searchParams.get('tab') === 'billing' ? 'billing' : 'company');
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+ const {currentUser, activeTab, setActiveTab, showUpgradeModal, setShowUpgradeModal, showInviteModal, setShowInviteModal, name, setName, slug, timezoneVal, setTimezoneVal, billingEmail, setBillingEmail, taxId, setTaxId, contactPhone, setContactPhone, website, setWebsite, slaTarget, setSlaTarget, flappingThreshold, setFlappingThreshold, defaultInterval, setDefaultInterval, metricsRetention, setMetricsRetention, auditRetention, setAuditRetention, incidentsRetention, setIncidentsRetention, sessionTimeout, setSessionTimeout, require2fa, setRequire2fa, allowedIpRanges, setAllowedIpRanges, inviteEmail, setInviteEmail, inviteFirstName, setInviteFirstName, inviteLastName, setInviteLastName, inviteRole, setInviteRole, saveMsg, orgData, subData, setMemberPage, memberSearch, setMemberSearch, memberDirectory, isLoadingMembers, members, isLoadingInvoices, updateOrgMutation, inviteMutation, revokeMutation, handleSaveSettings, handleDownloadBackup, usage, totalUsed, totalLimit, overallPct} = useOrganizationSettingsWorkspace();
 
-  // Form states - Company & Compliance
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [timezoneVal, setTimezoneVal] = useState('America/Guatemala');
-  const [localeVal, setLocaleVal] = useState('es-ES');
-  const [billingEmail, setBillingEmail] = useState('');
-  const [taxId, setTaxId] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [website, setWebsite] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
 
-  // SLA & Observability
-  const [slaTarget, setSlaTarget] = useState('99.90');
-  const [flappingThreshold, setFlappingThreshold] = useState(3);
-  const [defaultInterval, setDefaultInterval] = useState(60);
-
-  // Retention & Compliance
-  const [metricsRetention, setMetricsRetention] = useState(90);
-  const [auditRetention, setAuditRetention] = useState(365);
-  const [incidentsRetention, setIncidentsRetention] = useState(180);
-
-  // Security
-  const [sessionTimeout, setSessionTimeout] = useState(120);
-  const [require2fa, setRequire2fa] = useState(false);
-  const [allowedIpRanges, setAllowedIpRanges] = useState('');
-
-  // Invitation Form
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteFirstName, setInviteFirstName] = useState('');
-  const [inviteLastName, setInviteLastName] = useState('');
-  const [inviteRole, setInviteRole] = useState('member');
-
-  // Feedback notifications
-  const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // 1. Fetch current organization details
-  const { data: orgData, isLoading: isLoadingOrg } = useQuery<OrganizationData>({
-    queryKey: ['current-organization'],
-    queryFn: async () => {
-      const res = await api.get('organizations/current/');
-      return res.data?.data;
-    },
-  });
-
-  // 2. Fetch live subscription and quota summary
-  const { data: subData, isLoading: isLoadingSub } = useQuery<SubscriptionSummary>({
-    queryKey: ['org-subscription'],
-    queryFn: async () => {
-      const res = await api.get('organizations/current/subscription/');
-      return res.data?.data;
-    },
-  });
-
-  // 3. Fetch team members
-  const { data: members, isLoading: isLoadingMembers } = useQuery<OrganizationTeamMember[]>({
-    queryKey: ['org-members'],
-    queryFn: async () => {
-      const res = await api.get('organizations/members/');
-      return res.data?.data || [];
-    },
-  });
-
-  // 4. Fetch invoices / billing history
-  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<any[]>({
-    queryKey: ['org-invoices'],
-    queryFn: async () => {
-      const res = await api.get('organizations/current/invoices/');
-      return res.data?.data || [];
-    },
-    enabled: activeTab === 'billing',
-  });
-
-  // Populate form when orgData loads
-  useEffect(() => {
-    if (orgData) {
-      setName(orgData.name || '');
-      setSlug(orgData.slug || '');
-      setTimezoneVal(orgData.timezone || 'America/Guatemala');
-      setLocaleVal(orgData.locale || 'es-ES');
-      setBillingEmail(orgData.billing_email || '');
-      setTaxId(orgData.tax_id || '');
-      setContactPhone(orgData.contact_phone || '');
-      setWebsite(orgData.website || '');
-      setLogoUrl(orgData.logo_url || '');
-      setSlaTarget(String(orgData.sla_target_percentage ?? '99.90'));
-      setFlappingThreshold(orgData.alert_flapping_threshold ?? 3);
-      setDefaultInterval(orgData.default_scan_interval_seconds ?? 60);
-      setMetricsRetention(orgData.metrics_retention_days ?? 90);
-      setAuditRetention(orgData.audit_logs_retention_days ?? 365);
-      setIncidentsRetention(orgData.resolved_incidents_retention_days ?? 180);
-      setSessionTimeout(orgData.session_timeout_minutes ?? 120);
-      setRequire2fa(Boolean(orgData.require_2fa));
-      setAllowedIpRanges(orgData.allowed_ip_ranges || '');
-    }
-  }, [orgData]);
-
-  // Mutation: Save Organization Settings
-  const updateOrgMutation = useMutation({
-    mutationFn: async (payload: Partial<OrganizationData>) => {
-      const res = await api.patch('organizations/current/', payload);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      setSaveMsg({ type: 'success', text: 'Configuración guardada exitosamente.' });
-      queryClient.invalidateQueries({ queryKey: ['current-organization'] });
-      setTimeout(() => setSaveMsg(null), 3000);
-    },
-    onError: (err: any) => {
-      setSaveMsg({
-        type: 'error',
-        text: err.response?.data?.message || 'Error al guardar la configuración.',
-      });
-    },
-  });
-
-  // Mutation: Invite Team Member
-  const inviteMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await api.post('organizations/members/', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-members'] });
-      queryClient.invalidateQueries({ queryKey: ['org-subscription'] });
-      setShowInviteModal(false);
-      setInviteEmail('');
-      setInviteFirstName('');
-      setInviteLastName('');
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.message || 'Error al enviar la invitación.');
-    },
-  });
-
-  // Mutation: Revoke / Delete Member
-  const revokeMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      await api.delete(`organizations/members/${userId}/`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-members'] });
-      queryClient.invalidateQueries({ queryKey: ['org-subscription'] });
-    },
-  });
-
-  // Handle Save
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateOrgMutation.mutate({
-      name: name.trim(),
-      timezone: timezoneVal,
-      locale: localeVal,
-      billing_email: billingEmail.trim(),
-      tax_id: taxId.trim(),
-      contact_phone: contactPhone.trim(),
-      website: website.trim(),
-      logo_url: logoUrl.trim(),
-      sla_target_percentage: parseFloat(slaTarget) || 99.90,
-      alert_flapping_threshold: Number(flappingThreshold),
-      default_scan_interval_seconds: Number(defaultInterval),
-      ...(Number(metricsRetention) !== orgData?.metrics_retention_days ? {metrics_retention_days: Number(metricsRetention)} : {}),
-      audit_logs_retention_days: Number(auditRetention),
-      resolved_incidents_retention_days: Number(incidentsRetention),
-      session_timeout_minutes: Number(sessionTimeout),
-      require_2fa: require2fa,
-      allowed_ip_ranges: allowedIpRanges.trim(),
-    });
-  };
-
-  // Download Backup JSON
-  const handleDownloadBackup = async () => {
-    try {
-      const res = await api.get('organizations/current/export/', { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `sentinel-backup-${slug || 'org'}.json`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch {
-      alert('Error al descargar el archivo de respaldo.');
-    }
-  };
-
-  // Compute total quota usage for KPI
-  const usage = subData?.usage;
-  const totalUsed = (usage?.targets?.current || 0) + (usage?.ssl_certificates?.current || 0) + (usage?.api_checks?.current || 0);
-  const totalLimit = (usage?.targets?.limit || 0) + (usage?.ssl_certificates?.limit || 0) + (usage?.api_checks?.limit || 0);
-  const overallPct = totalLimit > 0 && totalLimit < 9999 ? Math.round((totalUsed / totalLimit) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-12">
@@ -1076,7 +870,7 @@ export default function OrganizationSettingsPage() {
                   Historial de Facturación & Recibos
                 </h3>
                 <p className="text-xs text-text-dim mt-0.5">
-                  Comprobantes pro-forma y facturas mensuales generadas para auditoría, contabilidad y SLA
+                  La integración de facturación todavía no está configurada.
                 </p>
               </div>
             </div>
@@ -1085,54 +879,9 @@ export default function OrganizationSettingsPage() {
               <div className="flex items-center justify-center p-8">
                 <Loader2 size={20} className="animate-spin text-accent-green" />
               </div>
-            ) : invoices.length === 0 ? (
-              <div className="p-8 text-center text-xs text-text-dim border border-dashed border-border-base rounded-xl">
-                No hay facturas registradas en este periodo.
-              </div>
             ) : (
-              <div className="overflow-x-auto border border-border-base rounded-xl">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-bg-dark/70 border-b border-border-base text-text-dim uppercase tracking-wider font-semibold">
-                    <tr>
-                      <th className="py-3 px-4">Factura / Recibo</th>
-                      <th className="py-3 px-4">Periodo</th>
-                      <th className="py-3 px-4">Fecha Emisión</th>
-                      <th className="py-3 px-4">Plan</th>
-                      <th className="py-3 px-4">Monto</th>
-                      <th className="py-3 px-4">Estado</th>
-                      <th className="py-3 px-4 text-right">Comprobante</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-base/60 font-sans">
-                    {invoices.map((inv: any) => (
-                      <tr key={inv.id} className="hover:bg-bg-card-hover/50 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-accent-blue">
-                          {inv.invoice_number}
-                        </td>
-                        <td className="py-3 px-4 text-text-muted">{inv.period}</td>
-                        <td className="py-3 px-4 text-text-dim font-mono">{inv.date}</td>
-                        <td className="py-3 px-4 font-medium text-text-main">{inv.plan_name}</td>
-                        <td className="py-3 px-4 font-mono font-bold text-text-main">
-                          ${inv.amount_usd.toFixed(2)} USD
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-accent-green/10 text-accent-green border-accent-green/30">
-                            {inv.status_label}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => setSelectedInvoice(inv)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-accent-green bg-accent-green/10 border border-accent-green/30 hover:bg-accent-green/20 transition-colors cursor-pointer"
-                          >
-                            <Download size={13} />
-                            <span>Ver Recibo</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="p-8 text-center text-xs text-text-dim border border-dashed border-border-base rounded-xl">
+                Facturación no disponible. No hay comprobantes ni pagos confirmados.
               </div>
             )}
           </div>
@@ -1243,7 +992,7 @@ export default function OrganizationSettingsPage() {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-text-dim">
-                          {new Date(m.date_joined).toLocaleDateString()}
+                          {new Date(m.date_joined || "").toLocaleDateString()}
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           {currentUser?.id !== m.id && (
@@ -1270,6 +1019,7 @@ export default function OrganizationSettingsPage() {
         </div>
       )}
 
+      {activeTab === 'team' && <div><label className="block text-sm">Buscar integrante<input type="search" className="min-h-11 w-full bg-bg-dark border border-border-base rounded-xl px-3" value={memberSearch} onChange={e => {setMemberSearch(e.target.value);setMemberPage(1);}} /></label><DirectoryPagination meta={memberDirectory?.meta} onPage={setMemberPage} /></div>}
       {/* Upgrade Plan Modal */}
       <UpgradePlanModal
         isOpen={showUpgradeModal}
@@ -1278,13 +1028,7 @@ export default function OrganizationSettingsPage() {
         subscriptionSummary={subData}
       />
 
-      {/* Invoice Receipt Modal */}
-      <InvoiceReceiptModal
-        isOpen={!!selectedInvoice}
-        onClose={() => setSelectedInvoice(null)}
-        invoice={selectedInvoice}
-        organizationName={orgData?.name || 'Sentinel'}
-      />
+
 
       {/* Invite Member Modal */}
       {showInviteModal && typeof document !== 'undefined' && createPortal(

@@ -33,7 +33,7 @@ export default function RegisterPage() {
     api.get('auth/beta/config/').then(r => setConfig(r.data.data)).catch(() => setLocalError('No pudimos consultar las admisiones. Recarga la página.'));
     if (invitationToken) api.post('auth/beta/invitation/', { token: invitationToken })
       .then(r => setInvitation(r.data.data)).catch(() => setLocalError('No pudimos consultar tu invitación. Recarga la página.'));
-  }, []);
+  }, [invitationToken]);
   const { register, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

@@ -10,8 +10,6 @@ import {
   Activity,
   AlertTriangle,
   TrendingUp,
-  Calendar,
-  Layers,
   Search,
   CheckSquare,
   Square,
@@ -126,7 +124,7 @@ export default function CreateReportModal({
     onSubmit(payload);
   };
 
-  const typeOptions: { type: ReportType; label: string; desc: string; icon: any }[] = [
+  const typeOptions: { type: ReportType; label: string; desc: string; icon: React.ReactNode }[] = [
     {
       type: 'sla',
       label: 'Disponibilidad medida',
@@ -289,7 +287,7 @@ export default function CreateReportModal({
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => setPeriodPreset(p.id as any)}
+                  onClick={() => setPeriodPreset(p.id as typeof periodPreset)}
                   className={`py-2 px-1 text-center rounded-xl text-xs font-medium transition-all ${
                     periodPreset === p.id
                       ? 'bg-accent-green/10 text-accent-green border border-accent-green/30 font-semibold'

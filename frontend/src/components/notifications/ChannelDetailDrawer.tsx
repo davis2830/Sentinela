@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { apiFailure } from '../../services/errors';
+import { useState } from 'react';
 import type { NotificationChannel, NotificationItem, ChannelType } from '../../types/notifications';
 import NOCDrawer from '../common/noc/NOCDrawer';
 import { api } from '../../services/api';
@@ -24,7 +25,6 @@ import {
   Sparkles,
   Info,
   Calendar,
-  AlertTriangle,
 } from 'lucide-react';
 
 interface ChannelDetailDrawerProps {
@@ -39,7 +39,7 @@ interface ChannelDetailDrawerProps {
   retryingId: string | null;
 }
 
-const TYPE_ICONS: Record<ChannelType, any> = {
+const TYPE_ICONS: Record<ChannelType, import('lucide-react').LucideIcon> = {
   telegram: Send,
   slack: MessageSquare,
   teams: Bell,
@@ -108,7 +108,8 @@ export default function ChannelDetailDrawer({
         custom_message: testMessage,
       });
       setSimulationResult(response.data?.data);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setSimulationResult({
         success: false,
         status_code: err?.response?.status || null,
@@ -162,7 +163,7 @@ export default function ChannelDetailDrawer({
       maxWidthClass="max-w-2xl"
       tabs={tabs}
       activeTab={activeTab}
-      onTabChange={(tabId) => setActiveTab(tabId as any)}
+      onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
       quickKpis={
         <div className="grid grid-cols-4 gap-2.5 my-2">
           <div className="bg-bg-card border border-border-base/70 rounded-xl p-2.5 text-center">
@@ -258,7 +259,7 @@ export default function ChannelDetailDrawer({
                     {channel.config?.chat_id && (
                       <button
                         type="button"
-                        onClick={() => handleCopy(channel.config.chat_id, 'chat_id')}
+                        onClick={() => handleCopy(channel.config.chat_id || '', 'chat_id')}
                         className="p-1.5 text-text-dim hover:text-text-main transition-colors"
                       >
                         {copiedKey === 'chat_id' ? <Check size={13} className="text-accent-green" /> : <Copy size={13} />}
@@ -282,7 +283,7 @@ export default function ChannelDetailDrawer({
                     {channel.config?.webhook_url && (
                       <button
                         type="button"
-                        onClick={() => handleCopy(channel.config.webhook_url, 'webhook_url')}
+                        onClick={() => handleCopy(channel.config.webhook_url || '', 'webhook_url')}
                         className="p-1.5 text-text-dim hover:text-text-main transition-colors shrink-0"
                       >
                         {copiedKey === 'webhook_url' ? <Check size={13} className="text-accent-green" /> : <Copy size={13} />}

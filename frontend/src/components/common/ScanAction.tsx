@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
+import { hasCapability } from "../../hooks/useCapability";
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import type { ScannableResource, ScanAvailability } from '../../types/scan';
@@ -14,7 +15,8 @@ export default function ScanAction({ resource, route, onScan, pending = false, p
   resource: ScannableResource & { id: string }; route: string; onScan: () => void | Promise<unknown>; pending?: boolean; primary?: boolean;
 }) {
   const user = useAuthStore(s => s.user);
-  const canManage = Boolean(user?.is_staff || user?.is_superuser);
+  const modules: Record<string,string> = {"monitoring":"monitoring","ssl-certificates":"ssl_monitor","dns-records":"dns_monitor","domains":"domain","api-checks":"api_checks","security-headers":"security_headers"};
+  const canManage = hasCapability(user, `${modules[route] ?? "unknown"}.scan`);
   const [now, setNow] = useState(Date.now());
   const [submitting, setSubmitting] = useState(false);
   const query = useQuery<ScanAvailability>({

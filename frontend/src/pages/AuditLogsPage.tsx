@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
@@ -18,10 +18,8 @@ import {
   Server,
   Loader2,
   CheckCircle2,
-  AlertTriangle,
   FileCode2,
   Activity,
-  Zap,
 } from 'lucide-react';
 
 interface AuditLogItem {
@@ -33,7 +31,7 @@ interface AuditLogItem {
   ip_address: string;
   description: string;
   timestamp: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export default function AuditLogsPage() {

@@ -1,3 +1,5 @@
+import AdminButton from '../common/AdminButton';
+import { apiFailure } from '../../services/errors';
 import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
 import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
 import React, { useState, useEffect } from 'react';
@@ -17,19 +19,12 @@ import {
   Code2,
   CheckCircle2,
   Lock,
-  User,
-  Key,
   Plus,
   Trash2,
-  KeyRound,
   AlertTriangle,
   Zap,
-  Check,
   Sparkles,
-  ArrowRight,
   Clock,
-  Database,
-  Layers,
 } from 'lucide-react';
 
 interface APICheckFormProps {
@@ -49,6 +44,8 @@ interface KeyValuePair {
   value: string;
 }
 
+const schemaType = (value: unknown): SchemaFieldPair['type'] =>
+  ['string','integer','float','boolean','list','dict'].includes(String(value)) ? value as SchemaFieldPair['type'] : 'string';
 interface SchemaFieldPair {
   field: string;
   type: 'string' | 'integer' | 'float' | 'boolean' | 'list' | 'dict';
@@ -62,14 +59,14 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
   const [expectedStatus, setExpectedStatus] = useState<number>(200);
   const [expectedTimeMs, setExpectedTimeMs] = useState<number>(2000);
   const [checkInterval, setCheckInterval] = useState<number>(300);
-  const { data: subscription } = useQuery({
+  const { data: subscription } = useQuery<import('../../types/organization').SubscriptionSummary>({
     queryKey: ['subscription-summary'],
     queryFn: async () => (await api.get('organizations/current/subscription/')).data?.data,
   });
   const minInterval = subscription?.limits?.min_check_interval_seconds ?? 300;
   useEffect(() => {
     if (subscription) setCheckInterval(target ? Math.max(target.check_interval || minInterval, minInterval) : minInterval);
-  }, [subscription?.plan_tier, minInterval, target]);
+  }, [minInterval, target, subscription]);
   const [enabled, setEnabled] = useState<boolean>(true);
 
   // Authentication states
@@ -159,7 +156,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
       if (schema && typeof schema === 'object' && Object.keys(schema).length > 0) {
         const fields = Object.entries(schema).map(([field, type]) => ({
           field,
-          type: (type as any) || 'string',
+          type: schemaType(type),
         }));
         setSchemaFields(fields.length > 0 ? fields : [{ field: '', type: 'string' }]);
         setExpectedSchemaJson(JSON.stringify(schema, null, 2));
@@ -203,9 +200,10 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
   const addSchemaField = () => setSchemaFields([...schemaFields, { field: '', type: 'string' }]);
   const removeSchemaField = (index: number) =>
     setSchemaFields(schemaFields.filter((_, i) => i !== index));
-  const updateSchemaField = (index: number, key: 'field' | 'type', val: any) => {
+  const updateSchemaField = (index: number, key: 'field' | 'type', val: string) => {
     const updated = [...schemaFields];
-    updated[index][key] = val;
+    if (key === 'field') updated[index].field = val;
+    else updated[index].type = schemaType(val);
     setSchemaFields(updated);
   };
 
@@ -228,12 +226,12 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
     }
 
     // Build body
-    let body: Record<string, any> = {};
+    let body: Record<string, unknown> = {};
     if (method !== 'GET' && method !== 'HEAD') {
       if (bodyMode === 'kv') {
         bodyPairs.forEach((pair) => {
           if (pair.key.trim()) {
-            let parsedVal: any = pair.value.trim();
+            let parsedVal: string | number | boolean = pair.value.trim();
             if (parsedVal === 'true') parsedVal = true;
             else if (parsedVal === 'false') parsedVal = false;
             else if (!isNaN(Number(parsedVal)) && parsedVal !== '') parsedVal = Number(parsedVal);
@@ -257,7 +255,8 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
         body,
       });
       setTestResult(response.data?.data as APITestRequestResult);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,
@@ -283,7 +282,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
       const entries = Object.entries(testResult.schema_inferred);
       const fields: SchemaFieldPair[] = entries.map(([field, type]) => ({
         field,
-        type: (type as any) || 'string',
+        type: schemaType(type),
       }));
       setSchemaFields(fields);
       setExpectedSchemaJson(JSON.stringify(testResult.schema_inferred, null, 2));
@@ -317,12 +316,12 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
     }
 
     // 2. Build Request Body
-    let body: Record<string, any> = {};
+    let body: Record<string, unknown> = {};
     if (method !== 'GET' && method !== 'HEAD') {
       if (bodyMode === 'kv') {
         bodyPairs.forEach((pair) => {
           if (pair.key.trim()) {
-            let parsedVal: any = pair.value.trim();
+            let parsedVal: string | number | boolean = pair.value.trim();
             if (parsedVal === 'true') parsedVal = true;
             else if (parsedVal === 'false') parsedVal = false;
             else if (!isNaN(Number(parsedVal)) && parsedVal !== '') parsedVal = Number(parsedVal);
@@ -464,7 +463,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 }}
                 className="flex-1 bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
               />
-              <button
+              <AdminButton capability="api_checks.test"
                 type="button"
                 onClick={handleTestRequest}
                 disabled={!url.trim() || isTesting}
@@ -482,7 +481,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                     <span>Probar configuración</span>
                   </>
                 )}
-              </button>
+              </AdminButton>
             </div>
                 <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
           </div>

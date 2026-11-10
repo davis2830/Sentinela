@@ -1,4 +1,3 @@
-import json
 import logging
 from django.db import transaction
 from common.beta_quota import beta_creation

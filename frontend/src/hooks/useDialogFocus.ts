@@ -11,7 +11,11 @@ export function useDialogFocus(open: boolean) {
     background.forEach(({ node }) => { node.inert = true; });
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const controls = () => Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')).filter(el=>el.getClientRects().length>0);
+    const controls = () => Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]), summary, a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')).filter(el => {
+      if (!el.getClientRects().length) return false;
+      // Closed native disclosures can retain layout boxes for their hidden children.
+      return !Array.from(root.querySelectorAll('details:not([open])')).some(details => details.contains(el) && details.querySelector('summary') !== el);
+    });
     (root.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled])') || controls()[0] || root).focus();
     const trap = (event: KeyboardEvent) => { if (event.key !== 'Tab') return;
       const list = controls(); const first = list[0], last = list[list.length-1];

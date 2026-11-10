@@ -1,5 +1,4 @@
 from django.test import TestCase
-from django.utils import timezone
 from unittest.mock import patch
 from types import SimpleNamespace
 from organizations.models import Organization

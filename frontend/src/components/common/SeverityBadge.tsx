@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AlertSeverity } from '../../types/alerts';
 import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
 

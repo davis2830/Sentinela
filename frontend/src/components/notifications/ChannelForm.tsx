@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type {
@@ -22,11 +23,7 @@ import {
   ShieldAlert,
   Moon,
   Play,
-  Gauge,
-  Sparkles,
   Link,
-  Layers,
-  HelpCircle,
 } from 'lucide-react';
 
 interface ChannelFormProps {
@@ -35,7 +32,7 @@ interface ChannelFormProps {
   onClose: () => void;
 }
 
-const CHANNEL_TYPES: { type: ChannelType; name: string; description: string; icon: any }[] = [
+const CHANNEL_TYPES: { type: ChannelType; name: string; description: string; icon: import('lucide-react').LucideIcon }[] = [
   {
     type: 'telegram',
     name: 'Telegram Bot',
@@ -172,8 +169,8 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
   }, [channel]);
 
   // Build current config object
-  const buildCurrentConfig = (): Record<string, any> => {
-    const conf: Record<string, any> = {};
+  const buildCurrentConfig = (): import('../../types/notifications').ChannelConfig => {
+    const conf: Record<string, unknown> = {};
     if (channelType === 'telegram') {
       conf.bot_token = botToken.trim();
       conf.chat_id = chatId.trim();
@@ -226,7 +223,8 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
         config: conf,
       });
       setTestResult(response.data?.data);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setTestResult({
         success: false,
         status_code: err?.response?.status || null,
@@ -276,7 +274,8 @@ export default function ChannelForm({ channel, onSubmit, onClose }: ChannelFormP
         quiet_hours_critical_override: quietHoursCriticalOverride,
       });
       onClose();
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setErrorMsg(err?.message || 'Error al guardar el canal de notificación.');
     } finally {
       setSubmitting(false);

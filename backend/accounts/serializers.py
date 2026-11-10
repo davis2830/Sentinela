@@ -1,10 +1,16 @@
 from rest_framework import serializers
 
-from .models import User
+from .models import User, APIToken
 
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model."""
+
+    effective_permissions = serializers.SerializerMethodField()
+
+    def get_effective_permissions(self, obj):
+        from common.authorization import effective_permissions
+        return effective_permissions(obj)
 
     class Meta:
         model = User
@@ -19,11 +25,13 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "is_staff",
             "is_superuser",
+            "authorization_mode",
+            "effective_permissions",
             "last_login",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "is_superuser", "last_login", "created_at", "updated_at")
+        read_only_fields = ("id", "is_superuser", "authorization_mode", "last_login", "created_at", "updated_at")
 
 
 class LoginSerializer(serializers.Serializer):
@@ -78,7 +86,6 @@ class UserUpdateSerializer(serializers.Serializer):
         raise serializers.ValidationError("Cambia tu correo desde el flujo de confirmación de correo.")
 
 
-from .models import APIToken
 
 
 class APITokenSerializer(serializers.ModelSerializer):

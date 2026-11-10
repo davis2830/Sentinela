@@ -11,7 +11,7 @@ export interface CoverageResource {
   [field: string]: unknown;
 }
 export interface CoverageSection {
-  status: 'linked' | 'unlinked' | 'needs_review' | 'not_applicable';
+  status: 'linked' | 'unlinked' | 'needs_review' | 'not_applicable' | 'restricted';
   resources: CoverageResource[];
   candidates: {id: string; label: string}[];
   candidates_truncated: boolean;

@@ -3,17 +3,14 @@ import { useUrlFilter } from '../hooks/useUrlFilter';
 import CompactModuleSummary from '../components/common/CompactModuleSummary';
 import AdminButton from '../components/common/AdminButton';
 import { useAuthStore } from '../store/authStore';
-import ReloadDataButton from '../components/common/ReloadDataButton';
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import type { ReportItem, CreateReportData, ReportType } from '../types/reports';
+import type { ReportItem, CreateReportData } from '../types/reports';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDelete from '../components/common/ConfirmDelete';
 import {
   NOCPageHeader,
-  NOCKpiGrid,
-  NOCKpiCard,
   NOCToolbar,
   NOCBulkActionBar,
 } from '../components/common/noc';
@@ -30,10 +27,6 @@ import {
   FileText,
   Plus,
   Loader2,
-  ShieldCheck,
-  Wrench,
-  Clock,
-  BarChart3,
   Trash2,
 } from 'lucide-react';
 
@@ -177,23 +170,7 @@ export default function ReportsPage() {
   // KPI Calculations
   const allReports = reports || [];
   const totalCount = allReports.length;
-  const completedReports = allReports.filter((r) => r.status === 'completed');
-  const latestSlaReport = completedReports.find(
-    (r) => r.report_type === 'sla' || r.report_type === 'summary'
-  );
 
-  const avgSla =
-    latestSlaReport?.data?.overall_sla ??
-    latestSlaReport?.data?.summary?.overall_sla_percentage ??
-    99.9;
-  const mttr =
-    latestSlaReport?.data?.mttr_minutes ??
-    latestSlaReport?.data?.summary?.mttr_minutes ??
-    14.5;
-  const mttd =
-    latestSlaReport?.data?.mttd_minutes ??
-    latestSlaReport?.data?.summary?.mttd_minutes ??
-    3.2;
 
   // Filtered & Searched Reports
   const filteredReports = allReports.filter((report: ReportItem) => {
@@ -224,7 +201,7 @@ export default function ReportsPage() {
           onToggle: autoRefresh.toggle,
         }}
         actions={
-          <AdminButton
+          <AdminButton capability="reports.create"
             type="button"
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
@@ -270,7 +247,7 @@ export default function ReportsPage() {
         onClearSelection={() => setSelectedIds([])}
         itemLabel="reportes"
         actions={
-          <AdminButton
+          <AdminButton capability="reports.delete"
             type="button"
             onClick={handleBulkDelete}
             disabled={bulkDeleting}
@@ -316,7 +293,7 @@ export default function ReportsPage() {
           </div>
         )
       ) : (
-        <EmptyState requiresAdmin
+        <EmptyState capability="reports.create"
           icon={FileText}
           title="No se encontraron reportes"
           description={

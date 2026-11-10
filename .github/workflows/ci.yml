@@ -43,6 +43,12 @@ jobs:
       - name: Type Check (TypeScript)
         run: npx tsc --noEmit
 
+      - name: Lint and generated API contracts
+        run: |
+          npm run lint
+          npm run format:check
+          npm run check:api
+
       - name: Verify TCP IPv6 endpoint serialization
         run: npm run test:network-endpoint
 
@@ -103,6 +109,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements/base.txt
           pip install -c backend/requirements/constraints.txt flake8 pytest pytest-django
+          pip install -r backend/requirements/quality.txt
+
+      - name: Ruff Python quality
+        run: |
+          ruff check backend
+          ruff format --check backend/common/authorization.py backend/common/error_handler.py backend/common/contracts.py backend/common/pagination.py backend/common/tests_quality.py backend/common/tests_quality_migrations.py backend/common/tests_quality_contracts.py backend/users/authorization.py backend/users/authorization_views.py backend/users/management/commands/seed_quality_audit.py backend/organizations/plans.py backend/organizations/catalog_views.py backend/organizations/member_directory.py backend/notifications/transports.py backend/alerts/evaluators.py
 
       - name: Linting & Flake8 Style Check
         run: flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics

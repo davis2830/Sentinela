@@ -1,4 +1,3 @@
-import React from 'react';
 import type { IncidentPriority } from '../../types/incidents';
 import { Flame, AlertTriangle, Clock, ArrowDown } from 'lucide-react';
 

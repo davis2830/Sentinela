@@ -2,7 +2,7 @@ import TargetLatency, { TargetDiagnostic } from './TargetLatency';
 import { useEffect, useState } from 'react';
 
 import AdminButton from '../common/AdminButton';
-import { Globe, Server, Plug, Lock, RefreshCw, Bell, Pencil, Trash2, ArrowUpDown, Check, Layers } from 'lucide-react';
+import { Globe, Server, Plug, Lock, Bell, Pencil, Trash2, ArrowUpDown, Check, Layers } from 'lucide-react';
 import type { MonitoringTarget } from '../../types/monitoring';
 
 const typeIcons: Record<string, typeof Globe> = {
@@ -47,10 +47,8 @@ export default function TargetTableView({
   onSelectAllToggle,
   onEdit,
   onDelete,
-  onScan,
   onToggle,
   onAlert,
-  scanningId,
   onClick,
   sortField,
   sortAsc,
@@ -152,10 +150,10 @@ export default function TargetTableView({
             <button className="text-accent-green" onClick={() => onClick(target)}>Ver detalle</button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <AdminButton className="text-xs text-text-main" onClick={() => onEdit(target)}>Editar</AdminButton>
-            {onAlert && <AdminButton className="text-xs text-accent-yellow" onClick={() => onAlert(target)}>Vincular alerta</AdminButton>}
-            <AdminButton className="text-xs text-text-muted" onClick={() => onToggle(target)}>{target.enabled ? 'Pausar' : 'Reanudar'}</AdminButton>
-            <AdminButton className="text-xs text-accent-red" onClick={() => onDelete(target)}>Eliminar</AdminButton>
+            <AdminButton capability="monitoring.update" className="text-xs text-text-main" onClick={() => onEdit(target)}>Editar</AdminButton>
+            {onAlert && <AdminButton capability="alerts.create" className="text-xs text-accent-yellow" onClick={() => onAlert(target)}>Vincular alerta</AdminButton>}
+            <AdminButton capability="monitoring.update" className="text-xs text-text-muted" onClick={() => onToggle(target)}>{target.enabled ? 'Pausar' : 'Reanudar'}</AdminButton>
+            <AdminButton capability="monitoring.delete" className="text-xs text-accent-red" onClick={() => onDelete(target)}>Eliminar</AdminButton>
           </div>
         </article>)}
       </div> : <div className="overflow-x-auto">
@@ -332,7 +330,7 @@ export default function TargetTableView({
                     <div className="flex items-center justify-end gap-1">
 
                       {onAlert && (
-                        <AdminButton
+                        <AdminButton capability="alerts.create"
                           onClick={() => onAlert(target)}
                           className="p-1.5 text-text-muted hover:text-accent-yellow hover:bg-accent-yellow/10 rounded transition-colors"
                           title="Vincular regla de alerta"
@@ -340,21 +338,21 @@ export default function TargetTableView({
                           <Bell size={14} />
                         </AdminButton>
                       )}
-                      <AdminButton
+                      <AdminButton capability="monitoring.update"
                         onClick={() => onEdit(target)}
                         className="p-1.5 text-text-muted hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors"
                         title="Editar target"
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="monitoring.delete"
                         onClick={() => onDelete(target)}
                         className="p-1.5 text-text-muted hover:text-accent-red hover:bg-accent-red/10 rounded transition-colors"
                         title="Eliminar target"
                       >
                         <Trash2 size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="monitoring.update"
                         onClick={() => onToggle(target)}
                         className={`w-8 h-4.5 flex items-center rounded-full p-0.5 ml-2 cursor-pointer transition-colors ${
                           target.enabled ? 'bg-accent-green' : 'bg-bg-dark border border-border-base'

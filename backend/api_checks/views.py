@@ -1,3 +1,5 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from common.scan_limits import enqueue_scan, enqueue_many, ScanLimited, limited_response
 from rest_framework.permissions import IsAuthenticated
@@ -65,7 +67,7 @@ class APICheckTargetListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -87,7 +89,7 @@ class APICheckTargetDetailView(APIView):
             target = APICheckService.get_target(target_id, org_id)
             serializer = APICheckTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "API check target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -120,7 +122,7 @@ class APICheckTargetDetailView(APIView):
             )
             response_serializer = APICheckTargetSerializer(target, context={"request": request})
             return success_response(response_serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "API check target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -131,7 +133,7 @@ class APICheckTargetDetailView(APIView):
         try:
             APICheckService.delete_target(target_id, org_id)
             return success_response({"detail": "API check target deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "API check target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -155,7 +157,7 @@ class APICheckTargetScanView(APIView):
             return queued_scan_response(task, target.id)
         except ScanLimited as exc:
             return limited_response(exc)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -174,7 +176,7 @@ class APICheckResultListView(APIView):
             results = APICheckService.list_results(target_id, org_id, limit=limit)
             serializer = APICheckResultSerializer(results, many=True)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "API check target not found.",
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -208,7 +210,7 @@ class APICheckBulkScanView(APIView):
             from .tasks import run_api_check
             from .models import APICheckTarget
             return success_response(enqueue_many(APICheckTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_api_check))
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -269,5 +271,5 @@ class APICheckBulkActionView(APIView):
         try:
             res = APICheckService.bulk_action(org_id, action, target_ids)
             return success_response(res)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

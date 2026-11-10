@@ -2,6 +2,15 @@
 
 Empieza por [AGENTS.md](../AGENTS.md) para conocer las reglas de trabajo y el mapa del código. Usa las guías vigentes según la tarea. Las auditorías fechadas describen el estado de su revisión y deben leerse junto con sus correcciones posteriores.
 
+Consola superadmin: [comportamiento de consultas](PLATFORM_ON_DEMAND.md) y
+[implementación, matriz y validación del 2026-11-08](PLATFORM_VALIDATION_2026-11-08.md).
+Rediseño posterior: [UI/UX, comparación visual y comprobaciones](PLATFORM_UI_REDESIGN_2026-11-08.md).
+Layout vigente: [navbar y menú lateral compartidos con Sentinel; buscador central administrativo retirado](PLATFORM_SHELL_2026-11-08.md).
+
+Consola orientada a beta cerrada: [funciones, operación, contratos y evidencia local](PLATFORM_BETA_CONSOLE_2026-11-09.md).
+Claridad visual vigente: [jerarquía, formularios enfocados y comparaciones por sección](PLATFORM_UI_CLARITY_2026-11-09.md).
+Entorno local actualizado: [aplicación de accounts.0011 y corrección del error 500 de Beta](MIGRATION_BETA_FEEDBACK_2026-11-09.md).
+
 ## Cómo funciona Sentinel
 
 - **Portal web.** React, TypeScript y Vite. Las rutas en [App.tsx](../frontend/src/App.tsx) conectan pantallas y componentes con el API Django. La consola SaaS tiene sesión administrativa propia. Los dashboards presentan resultados guardados y la recarga consulta esos datos.
@@ -25,6 +34,9 @@ Empieza por [AGENTS.md](../AGENTS.md) para conocer las reglas de trabajo y el ma
 La configuración del entorno objetivo y los resultados de CI deben verificarse para la revisión que se va a desplegar. Los informes locales documentan ejecuciones concretas.
 
 ## Evidencia histórica
+
+- [Calidad de código, SOLID y hallazgos reproducidos — 2026-11-08](CODE_QUALITY_SOLID_2026-11-08.md)
+- [Implementación de F01–F09, contratos, migración y resultados locales](QUALITY_REMEDIATION_2026-11-08.md)
 
 Los documentos siguientes conservan hallazgos, decisiones y resultados fechados. Para el comportamiento vigente, usa la guía del área y verifica el código.
 

@@ -1,7 +1,5 @@
 import AdminButton from '../common/AdminButton';
-import React from 'react';
 import type { ScheduledMaintenanceItem } from '../../types/status_page';
-import StatusBadge from '../common/StatusBadge';
 import {
   CheckSquare,
   Square,
@@ -11,7 +9,6 @@ import {
   Pencil,
   Trash2,
   MessageSquarePlus,
-  Flame,
   CheckCircle2,
   XCircle,
   Activity,
@@ -199,7 +196,7 @@ export default function MaintenanceTableView({
                   {/* Actions */}
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <AdminButton
+                      <AdminButton capability="status_page.update"
                         type="button"
                         onClick={() => onAddUpdate(m)}
                         className="p-1.5 text-text-dim hover:text-purple-400 hover:bg-purple-500/10 rounded-full transition-colors cursor-pointer"
@@ -207,7 +204,7 @@ export default function MaintenanceTableView({
                       >
                         <MessageSquarePlus size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="status_page.update"
                         type="button"
                         onClick={() => onEdit(m)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
@@ -215,7 +212,7 @@ export default function MaintenanceTableView({
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="status_page.delete"
                         type="button"
                         onClick={() => onDelete(m)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"

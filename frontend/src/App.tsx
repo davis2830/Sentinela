@@ -3,6 +3,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
+import PortalQueryBoundary from './components/layout/PortalQueryBoundary';
 import PlatformConsole from './components/platform_admin/PlatformConsole';
 import { useAuthStore } from './store/authStore';
 import PageLoadingSpinner from './components/common/PageLoadingSpinner';
@@ -71,7 +72,7 @@ export default function App() {
   React.useEffect(() => {
     if (!isAuthenticated) return;
     const idleCallback =
-      (window as any).requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1000));
+      window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1000));
     const handle = idleCallback(() => {
       import('./pages/MonitoringPage');
       import('./pages/AlertsPage');
@@ -83,8 +84,8 @@ export default function App() {
       import('./pages/SecurityHeadersPage');
     });
     return () => {
-      if ((window as any).cancelIdleCallback) {
-        (window as any).cancelIdleCallback(handle);
+      if (window.cancelIdleCallback) {
+        window.cancelIdleCallback(handle);
       }
     };
   }, [isAuthenticated]);
@@ -124,7 +125,7 @@ export default function App() {
             <Route
               element={
                 <ProtectedRoute>
-                  <AppLayout />
+                  <PortalQueryBoundary><AppLayout /></PortalQueryBoundary>
                 </ProtectedRoute>
               }
             >

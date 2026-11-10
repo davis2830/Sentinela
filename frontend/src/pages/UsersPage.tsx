@@ -1,5 +1,9 @@
+import { apiFailure } from '../services/errors';
+import { useMemberDirectory } from '../hooks/useMemberDirectory';
+import DirectoryPagination from '../components/users/DirectoryPagination';
+import RolesPermissions from '../components/users/RolesPermissions';
 import AdminButton from '../components/common/AdminButton';
-import React, { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -40,17 +44,12 @@ import {
   Send,
   Layers,
   Download,
-  Shield,
   CheckCircle2,
   Clock,
-  XCircle,
-  Plus,
   Trash2,
   Power,
   Filter,
-  Check,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 
 export default function UsersPage() {
@@ -58,7 +57,7 @@ export default function UsersPage() {
   const { user: currentUser } = useAuthStore();
 
   // Tab: 'members' (Todos los Integrantes) | 'teams' (Equipos de Trabajo)
-  const [activeSection, setActiveSection] = useState<'members' | 'teams'>('members');
+  const [activeSection, setActiveSection] = useState<'members' | 'teams' | 'roles'>('members');
 
   // View mode with persistent localStorage ('grid' | 'table')
   const [viewMode, setViewMode] = usePersistentViewMode('users', 'table');
@@ -68,6 +67,10 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
+
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); setSelectedIds([]); }, [searchTerm, roleFilter, statusFilter, teamFilter]);
+  useEffect(() => { setSelectedIds([]); }, [page]);
 
   // Selection for bulk actions
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -117,24 +120,12 @@ export default function UsersPage() {
 
   // System workspace: explicit reads, no periodic polling.
 
-  // Query: Unified Members & Invitations List
-  const {
-    data: members = [],
-    isLoading: isLoadingMembers,
-    refetch: refetchMembers,
-  } = useQuery<TeamMember[]>({
-    queryKey: ['org-members-unified', currentUser?.organization?.id],
-    queryFn: async () => {
-      const response = await api.get('organizations/members/');
-      return (response.data?.data || []) as TeamMember[];
-    },
-  });
+  const { data: directory, isLoading: isLoadingMembers } = useMemberDirectory({ page, search: searchTerm, role: roleFilter, status: statusFilter, team: teamFilter });
+  const members = directory?.data || [];
 
   // Query: Teams & Squads List
   const {
     data: teams = [],
-    isLoading: isLoadingTeams,
-    refetch: refetchTeams,
   } = useQuery<Team[]>({
     queryKey: ['teams-list', currentUser?.organization?.id],
     queryFn: async () => {
@@ -155,7 +146,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['teams-list'] });
       setUserModal({ isOpen: false, mode: 'invite', member: null });
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al enviar invitación.');
     },
   });
@@ -170,7 +162,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['teams-list'] });
       setUserModal({ isOpen: false, mode: 'direct', member: null });
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al crear usuario.');
     },
   });
@@ -185,7 +178,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['teams-list'] });
       setUserModal({ isOpen: false, mode: 'edit', member: null });
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al actualizar usuario.');
     },
   });
@@ -201,7 +195,8 @@ export default function UsersPage() {
       setDeleteConfirm({ isOpen: false, type: 'member', targetId: '', targetName: '' });
       setSelectedIds((prev) => prev.filter((id) => id !== deleteConfirm.targetId));
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al eliminar usuario o revocar invitación.');
     },
   });
@@ -217,7 +212,8 @@ export default function UsersPage() {
       setResendingId(null);
       alert(data?.message || 'Invitación reenviada correctamente con nuevo enlace magic link.');
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       setResendingId(null);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al reenviar invitación.');
     },
@@ -246,7 +242,8 @@ export default function UsersPage() {
         // Notification could be shown here
       }
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al ejecutar acción en lote.');
     },
   });
@@ -261,7 +258,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['org-members-unified'] });
       setTeamModal({ isOpen: false, team: null });
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al crear equipo.');
     },
   });
@@ -281,7 +279,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['org-members-unified'] });
       setTeamModal({ isOpen: false, team: null });
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al actualizar equipo.');
     },
   });
@@ -299,7 +298,8 @@ export default function UsersPage() {
         setSelectedTeamForDrawer(null);
       }
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al eliminar equipo.');
     },
   });
@@ -317,17 +317,18 @@ export default function UsersPage() {
         alert(data.message);
       }
     },
-    onError: (err: any) => {
+    onError: (_caughtError: unknown) => {
+ const err = apiFailure(_caughtError);
       alert(err.response?.data?.message || err.response?.data?.detail || 'Error al aprovisionar cuadrillas sugeridas.');
     },
   });
 
   // ================= CALCULATIONS & FILTERING =================
 
-  const totalMembers = members.length;
-  const activeMembers = members.filter((m) => m.status_code === 'active').length;
-  const pendingMembers = members.filter((m) => m.status_code === 'pending').length;
-  const revokedMembers = members.filter((m) => m.status_code === 'revoked').length;
+  const totalMembers = directory?.meta?.total ?? members.length;
+  const activeMembers = directory?.meta?.counts?.active ?? members.filter((m) => m.status_code === 'active').length;
+  const pendingMembers = directory?.meta?.counts?.pending ?? members.filter((m) => m.status_code === 'pending').length;
+  const revokedMembers = directory?.meta?.counts?.revoked ?? members.filter((m) => m.status_code === 'revoked').length;
   const totalTeams = teams.length;
 
   const activePercent = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
@@ -337,38 +338,7 @@ export default function UsersPage() {
       : 0;
 
   // Filtered members
-  const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      // 1. Search term
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const fullName = `${m.first_name || ''} ${m.last_name || ''}`.toLowerCase();
-        const email = (m.email || '').toLowerCase();
-        const teamNames = (m.teams || []).map((t) => t.name.toLowerCase()).join(' ');
-        if (!fullName.includes(q) && !email.includes(q) && !teamNames.includes(q)) {
-          return false;
-        }
-      }
-
-      // 2. Role filter
-      if (roleFilter !== 'all' && m.role !== roleFilter) {
-        return false;
-      }
-
-      // 3. Status filter
-      if (statusFilter !== 'all' && m.status_code !== statusFilter) {
-        return false;
-      }
-
-      // 4. Team filter
-      if (teamFilter !== 'all') {
-        const hasTeam = (m.teams || []).some((t) => t.id === teamFilter);
-        if (!hasTeam) return false;
-      }
-
-      return true;
-    });
-  }, [members, searchTerm, roleFilter, statusFilter, teamFilter]);
+  const filteredMembers = members;
 
   // Bulk selection toggles
   const handleToggleSelect = (m: TeamMember) => {
@@ -428,7 +398,7 @@ export default function UsersPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
+    } catch (_caughtError: unknown) {
       alert('Error al exportar inventario de usuarios y equipos a formato CSV.');
     } finally {
       setIsExportingCSV(false);
@@ -674,6 +644,8 @@ export default function UsersPage() {
         />
       </NOCKpiGrid>
 
+      <AdminButton onClick={() => setActiveSection("roles")} className="min-h-11 px-4 border border-border-base rounded-xl">Roles y permisos</AdminButton>
+
       {/* 3. Section Tabs (Todos los Integrantes vs Equipos de Trabajo) */}
       <div className="flex items-center justify-between border-b border-border-base pb-3">
         <div className="flex items-center gap-2">
@@ -724,7 +696,7 @@ export default function UsersPage() {
       </div>
 
       {/* 4. CONTENT ACCORDING TO ACTIVE SECTION */}
-      {activeSection === 'teams' ? (
+      {activeSection === 'roles' ? <RolesPermissions /> : activeSection === 'teams' ? (
         <TeamsView
           teams={teams}
           onSelectTeam={(team) => {
@@ -931,6 +903,8 @@ export default function UsersPage() {
           updateMutation.isPending
         }
       />
+
+      {activeSection === "members" && <DirectoryPagination meta={directory?.meta} onPage={setPage} />}
 
       {/* 7. TEAM MODAL (Create / Edit Squads) */}
       <TeamFormModal

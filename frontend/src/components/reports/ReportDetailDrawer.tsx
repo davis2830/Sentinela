@@ -1,23 +1,15 @@
 import React, { useState } from 'react';
 import type { ReportItem } from '../../types/reports';
 import { NOCDrawer } from '../common/noc';
-import StatusBadge from '../common/StatusBadge';
 import {
-  FileText,
-  ShieldCheck,
-  Activity,
-  AlertTriangle,
   FileSpreadsheet,
   Printer,
   Copy,
   Check,
   Calendar,
-  Layers,
   Clock,
-  Wrench,
   CheckCircle2,
   XCircle,
-  TrendingUp,
 } from 'lucide-react';
 
 interface ReportDetailDrawerProps {
@@ -83,7 +75,7 @@ export default function ReportDetailDrawer({
       }
       tabs={tabs}
       activeTab={activeTab}
-      onTabChange={(tabId) => setActiveTab(tabId as any)}
+      onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
     >
       {/* TAB 1: RESUMEN EJECUTIVO */}
       {activeTab === 'summary' && (

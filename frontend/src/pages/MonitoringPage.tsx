@@ -5,7 +5,7 @@ import AdminButton from '../components/common/AdminButton';
 import { useAuthStore } from '../store/authStore';
 import { NOCPageHeader } from '../components/common/noc';
 import { useConnectivityRefresh } from '../hooks/useConnectivityRefresh';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,15 +23,12 @@ import {
   Loader2,
   Trash2,
   TrendingUp,
-  RefreshCw,
   Search,
   LayoutGrid,
   List as ListIcon,
   ShieldCheck,
   Activity,
-  Zap,
   Pause,
-  Play,
   CheckSquare,
   AlertTriangle,
   Server,
@@ -50,7 +47,6 @@ export default function MonitoringPage() {
 
   const [scanningId, setScanningId] = useState<string | null>(null);
   const autoRefresh = useConnectivityRefresh();
-  const { subscription } = autoRefresh;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useUrlFilter('status', ["all","up","down","slow","disabled"] as const);
   const [protocolFilter, setProtocolFilter] = useUrlFilter('type', ["all","http","https","tcp","dns","api","ssl"] as const);
@@ -227,24 +223,14 @@ export default function MonitoringPage() {
   };
 
   // KPI Calculations
-  const allTargets = targets || [];
+  const allTargets = useMemo(() => targets || [], [targets]);
   const totalCount = allTargets.length;
   const onlineCount = allTargets.filter((t) => t.enabled && t.last_status === 'up').length;
   const slowCount = allTargets.filter((t) => t.enabled && t.last_status === 'slow').length;
   const downCount = allTargets.filter((t) => t.enabled && (t.last_status === 'down' || t.last_status === 'error')).length;
   const pausedCount = allTargets.filter((t) => !t.enabled).length;
-  const estimatedChecksPerMinute = subscription?.monitoring_allowed === false ? 0 : allTargets.filter(t => t.enabled).reduce((sum, target) => sum + 60 / Math.max(target.interval || 300, subscription?.limits?.min_check_interval_seconds || 300), 0);
 
-  const activeWithLatency = allTargets.filter((t) => t.enabled && t.last_latency !== null);
-  const avgLatency =
-    activeWithLatency.length > 0
-      ? Math.round(activeWithLatency.reduce((acc, t) => acc + (t.last_latency || 0), 0) / activeWithLatency.length)
-      : 0;
 
-  const globalSla =
-    totalCount > 0
-      ? Math.round(((onlineCount + slowCount) / Math.max(totalCount - pausedCount, 1)) * 1000) / 10
-      : 100.0;
 
   const allTags = useMemo(
     () => Array.from(new Set(allTargets.flatMap((t) => t.tags || []))) as string[],
@@ -310,7 +296,7 @@ export default function MonitoringPage() {
             <span>Senti9 ({probes?.length || 0})</span>
           </button>
 
-          <AdminButton
+          <AdminButton capability="monitoring.create"
             onClick={handleNewTarget}
             className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
           >
@@ -475,21 +461,21 @@ export default function MonitoringPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
 
-            <AdminButton
+            <AdminButton capability="monitoring.update"
               onClick={() => bulkMutation.mutate({ action: 'pause', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
               className="px-3.5 py-1.5 bg-amber-500/10 border border-amber-500/40 text-amber-400 font-medium rounded-full text-xs hover:bg-amber-500/20 transition-all"
             >
               Pausar
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="monitoring.update"
               onClick={() => bulkMutation.mutate({ action: 'resume', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
               className="px-3.5 py-1.5 bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 font-medium rounded-full text-xs hover:bg-emerald-500/20 transition-all"
             >
               Reanudar
             </AdminButton>
-            <AdminButton
+            <AdminButton capability="monitoring.delete"
               onClick={() => bulkMutation.mutate({ action: 'delete', target_ids: selectedIds })}
               disabled={bulkMutation.isPending}
               className="px-3.5 py-1.5 bg-rose-500/10 border border-rose-500/40 text-rose-400 font-medium rounded-full text-xs hover:bg-rose-500/20 transition-all"
@@ -620,7 +606,7 @@ export default function MonitoringPage() {
                 Esta acción eliminará todo su historial de métricas y no se puede deshacer.
               </p>
               <div className="flex gap-3">
-                <AdminButton
+                <AdminButton capability="monitoring.delete"
                   onClick={() => setDeleteConfirm(null)}
                   className="flex-1 py-2.5 border border-border-base rounded-lg text-sm text-text-muted hover:bg-bg-card-hover transition-colors"
                 >

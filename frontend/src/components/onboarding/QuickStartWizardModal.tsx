@@ -1,6 +1,7 @@
+import { apiFailure } from '../../services/errors';
 import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
 import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,7 +53,7 @@ export default function QuickStartWizardModal({
   }, [isOpen]);
 
   // Fetch plan limits to enforce minimum interval smoothly
-  const { data: subData } = useQuery({
+  const { data: subData } = useQuery<import('../../types/organization').SubscriptionSummary>({
     queryKey: ['org-subscription'],
     queryFn: async () => {
       const res = await api.get('organizations/current/subscription/');
@@ -64,7 +65,7 @@ export default function QuickStartWizardModal({
   const minAllowedInterval = subData?.limits?.min_check_interval_seconds || 300;
   useEffect(() => {
     if (isOpen && subData) setInterval(minAllowedInterval);
-  }, [isOpen, subData?.plan_tier, minAllowedInterval]);
+  }, [isOpen, minAllowedInterval, subData]);
 
   // Live Test State
   const diagnostic = useConfigurationDiagnostic();
@@ -83,7 +84,7 @@ export default function QuickStartWizardModal({
       setLaunchError(null);
       // 1. Create Monitoring Target
       const formattedUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
-      let hostname = '';
+      let hostname: string;
       try {
         hostname = new URL(formattedUrl).hostname;
       } catch {
@@ -120,7 +121,8 @@ export default function QuickStartWizardModal({
       // Backend is the sole owner of protocol-aware asynchronous provisioning.
       return newTarget;
     },
-    onError: (err: any) => {
+    onError: (caughtError: unknown) => {
+ const err = apiFailure(caughtError);
       const msg =
         err.response?.data?.message ||
         err.response?.data?.detail ||
@@ -176,7 +178,8 @@ export default function QuickStartWizardModal({
           setName(url);
         }
       }
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,

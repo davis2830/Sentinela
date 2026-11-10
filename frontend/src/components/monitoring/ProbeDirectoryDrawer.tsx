@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { apiFailure } from '../../services/errors';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
@@ -9,16 +10,10 @@ import { useDialogFocus } from '../../hooks/useDialogFocus';
 import {
   X,
   Server,
-  Radio,
   Plus,
   Trash2,
   Loader2,
-  ShieldCheck,
   Clock,
-  Terminal,
-  AlertCircle,
-  CheckCircle2,
-  HardDrive,
   Activity,
   Laptop,
 } from 'lucide-react';
@@ -56,7 +51,8 @@ export default function ProbeDirectoryDrawer({
       queryClient.invalidateQueries({ queryKey: ['agent-probes'] });
       queryClient.invalidateQueries({ queryKey: ['org-subscription'] });
     },
-    onError: (err: any) => {
+    onError: (caughtError: unknown) => {
+ const err = apiFailure(caughtError);
       alert(err.response?.data?.message || 'Error al eliminar el agente satélite.');
     },
   });

@@ -1,3 +1,4 @@
+import { hasCapability } from "../hooks/useCapability";
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,11 +33,11 @@ type Tab = typeof tabs[number];
 const labels: Record<Tab,string> = {summary:'Resumen',availability:'Disponibilidad',ssl:'SSL / TLS',dns:'DNS',domain:'Dominio',security:'Seguridad web',activity:'Actividad',config:'Configuración'};
 const moduleIcons = { ssl: Lock, dns: Network, domain: Globe, security: ShieldCheck };
 const date = (v:unknown) => typeof v==='string' && Number.isFinite(Date.parse(v)) ? new Date(v).toLocaleString() : 'Sin medición';
-const sectionLabel = (s:CoverageSection) => ({linked:'Cobertura vinculada',unlinked:s.candidates.length?'Confirma la asociación':'No configurado',needs_review:'Revisar asociación',not_applicable:'No aplica'})[s.status];
+const sectionLabel = (s:CoverageSection) => ({linked:'Cobertura vinculada',unlinked:s.candidates.length?'Confirma la asociación':'No configurado',needs_review:'Revisar asociación',not_applicable:'No aplica',restricted:'Sin permiso de consulta'})[s.status];
 function StateMessage({section}:{section:CoverageSection}) {
   return <div role="status" className="rounded-xl border border-border-base bg-bg-card p-5 text-sm text-text-muted">
     <p className="font-semibold text-text-main">{sectionLabel(section)}</p>
-    <p className="mt-2">{section.status==='not_applicable'?'Esta cobertura no corresponde al protocolo o a la ejecución Senti9. No se ejecutan consultas Cloud sobre recursos privados.':section.status==='needs_review'?'El endpoint o el recurso cambió. La asociación anterior no se utiliza; confirma una coincidencia válida en Configuración.':section.candidates.length?'Hay recursos configurados que podrían corresponder a este endpoint. Un administrador debe confirmar la asociación en Configuración antes de mostrar sus resultados.':'No hay un recurso vinculado. Puedes configurarlo en su módulo y después asociarlo aquí; abrir esta ficha no crea recursos ni inicia escaneos.'}</p>
+    <p className="mt-2">{section.status==='restricted'?'Tu rol no incluye la consulta de este módulo.':section.status==='not_applicable'?'Esta cobertura no corresponde al protocolo o a la ejecución Senti9. No se ejecutan consultas Cloud sobre recursos privados.':section.status==='needs_review'?'El endpoint o el recurso cambió. La asociación anterior no se utiliza; confirma una coincidencia válida en Configuración.':section.candidates.length?'Hay recursos configurados que podrían corresponder a este endpoint. Un administrador debe confirmar la asociación en Configuración antes de mostrar sus resultados.':'No hay un recurso vinculado. Puedes configurarlo en su módulo y después asociarlo aquí; abrir esta ficha no crea recursos ni inicia escaneos.'}</p>
   </div>;
 }
 
@@ -47,7 +48,7 @@ function CoverageEditor({module,section,onSaved,allowed}:{module:CoverageModule;
   return <section className="ui-card space-y-3" aria-label={`Asociación ${meta[module].title}`}>
     <h3 className="font-semibold">{meta[module].title}</h3>
     <p className="text-xs text-text-muted">{module==='domain'?'Elige el dominio registrable que tienes configurado. No se deduce recortando etiquetas del hostname ni se activa WHOIS automáticamente.':module==='security'?'Coincidencia de URL, ruta y parámetros; no se mezclan otras rutas.':module==='ssl'?'Coincidencia de hostname y puerto.':'Solo registros del hostname exacto; puedes asociar varios tipos.'}</p>
-    {section.status==='not_applicable'?<p className="text-xs text-text-muted">No aplica</p>:<>
+    {(section.status==='not_applicable'||section.status==='restricted')?<p className="text-xs text-text-muted">No aplica</p>:<>
       {module==='dns'?<div className="space-y-2">{section.candidates.map(c=><label key={c.id} className="flex items-start gap-2 text-sm break-all"><input type="checkbox" checked={ids.includes(c.id)} onChange={e=>setIds(e.target.checked?[...ids,c.id]:ids.filter(id=>id!==c.id))}/>{c.label}</label>)}</div>:<select aria-label={`Recurso ${meta[module].title}`} className="w-full rounded-lg border p-2 text-sm" value={ids[0]||''} onChange={e=>setIds(e.target.value?[e.target.value]:[])}><option value="">Sin asociación</option>{section.candidates.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select>}
       {!section.candidates.length&&<p className="text-xs text-text-muted">Sin coincidencias configuradas.</p>}
       {section.candidates_truncated&&<p className="text-xs text-accent-yellow">Se muestran las primeras 50 coincidencias. Revisa el módulo para reducir duplicados.</p>}
@@ -60,7 +61,7 @@ function CoverageEditor({module,section,onSaved,allowed}:{module:CoverageModule;
       }}>{pending?'Guardando…':'Guardar asociación'}</button>
       {!allowed&&<p className="text-xs text-accent-yellow">Necesitas una suscripción vigente para modificar la cobertura.</p>}
     </>}
-    <Link to={meta[module].modulePath} className="inline-flex items-center gap-2 text-xs text-accent-cyan">Abrir módulo <ExternalLink size={12}/></Link>
+    {section.status!=='restricted'&&<Link to={meta[module].modulePath} className="inline-flex items-center gap-2 text-xs text-accent-cyan">Abrir módulo <ExternalLink size={12}/></Link>}
   </section>;
 }
 
@@ -93,7 +94,7 @@ export default function EndpointDetailPage() {
   const {targetId}=useParams(); const [params,setParams]=useSearchParams();
   const rawTab=params.get('tab');const tab:Tab=tabs.includes(rawTab as Tab)?rawTab as Tab:'summary';
   const user=useAuthStore(s=>s.user);const org=user?.organization?.id;
-  const canManage=Boolean(user?.is_staff||user?.is_superuser);
+  const canManage=hasCapability(user,"monitoring.update");
   const refresh=useConnectivityRefresh();const interval=refresh.refetchInterval;
   const client=useQueryClient(); const [pending,setPending]=useState<Set<string>>(()=>new Set());
   const [period,setPeriod]=useState<'24h'|'7d'|'30d'>('24h');
@@ -196,7 +197,7 @@ export default function EndpointDetailPage() {
           {section.status!=='linked'?<StateMessage section={section}/>:<EndpointResourcePanel key={module} module={module} modulePath={meta[module].modulePath} resources={section.resources} fields={meta[module].fields} action={r=><ScanAction route={meta[module].route} resource={r} pending={pending.has(`${meta[module].route}:${r.id}`)} onScan={()=>scan(meta[module].route,r)}/>} history={r=><ResourceHistory key={r.id} module={module} resource={r} interval={interval}/>}/>}</div>;
       })()}
       {tab==='activity'&&coverage&&<EndpointActivityPanel activity={coverage.activity}/>}
-      {tab==='config'&&<div className="space-y-3"><section className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Cobertura del endpoint</h2><p className="mt-1 text-xs text-text-dim">Vincula recursos existentes del mismo endpoint.</p>{!canManage&&<p className="mt-1 text-xs text-text-dim">Solo un administrador puede modificar asociaciones.</p>}</div><Link to={`/monitoring?resource=${target.id}`} className="ui-button ui-button-secondary text-xs">Ajustes del target <ExternalLink size={14}/></Link></section><div className="endpoint-config-grid">{coverage&&(Object.keys(meta) as CoverageModule[]).map(module=>canManage?<CoverageEditor key={`${target.id}:${module}`} module={module} section={coverage.sections[module]} onSaved={refreshCoverage} allowed={refresh.subscription?.monitoring_allowed===true}/>:<section className="ui-card" key={module}><h3 className="font-semibold">{meta[module].title}</h3><p className="mt-2 text-sm text-text-muted">{sectionLabel(coverage.sections[module])}</p></section>)}</div><p className="text-xs text-text-dim">Vincular no ejecuta comprobaciones. Desvincular conserva el recurso original.</p></div>}
+      {tab==='config'&&<div className="space-y-3"><section className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Cobertura del endpoint</h2><p className="mt-1 text-xs text-text-dim">Vincula recursos existentes del mismo endpoint.</p>{!canManage&&<p className="mt-1 text-xs text-text-dim">Tu rol no incluye modificar asociaciones.</p>}</div><Link to={`/monitoring?resource=${target.id}`} className="ui-button ui-button-secondary text-xs">Ajustes del target <ExternalLink size={14}/></Link></section><div className="endpoint-config-grid">{coverage&&(Object.keys(meta) as CoverageModule[]).map(module=>canManage&&coverage.sections[module].status!=='restricted'?<CoverageEditor key={`${target.id}:${module}`} module={module} section={coverage.sections[module]} onSaved={refreshCoverage} allowed={refresh.subscription?.monitoring_allowed===true}/>:<section className="ui-card" key={module}><h3 className="font-semibold">{meta[module].title}</h3><p className="mt-2 text-sm text-text-muted">{sectionLabel(coverage.sections[module])}</p></section>)}</div><p className="text-xs text-text-dim">Vincular no ejecuta comprobaciones. Desvincular conserva el recurso original.</p></div>}
       {coverageQuery.isLoading&&tab!=='summary'&&tab!=='availability'&&<p role="status" className="dashboard-panel text-sm text-text-muted">Consultando cobertura…</p>}
       {tab!=='summary'&&<p className="flex items-center gap-2 text-xs text-text-dim"><ShieldCheck size={14}/>Cada sección conserva su última medición y límite de comprobación. Abrir o recargar esta ficha solo consulta datos guardados.</p>}
     </>}

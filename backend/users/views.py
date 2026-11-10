@@ -1,3 +1,5 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -6,6 +8,7 @@ from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrgAdmin, IsOrganizationMember
 from accounts.models import User
 
+from .authorization import assign
 from .models import Role, Team
 from .serializers import (
     AssignRoleSerializer,
@@ -33,8 +36,30 @@ class UserListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         users = UserService.list_users(org_id)
+        from django.db.models import Q
+        from common.pagination import paginate, directory_response
+        if request.query_params.get("search"):
+            search = request.query_params["search"].strip()
+            users = users.filter(Q(email__icontains=search) | Q(first_name__icontains=search) | Q(last_name__icontains=search))
+        if request.query_params.get("is_active") in ("true", "false"):
+            users = users.filter(is_active=request.query_params["is_active"] == "true")
+        from organizations.member_directory import MemberFilters
+        filters = MemberFilters(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        values = filters.validated_data
+        if values.get("role", "all") != "all":
+            users = users.filter(is_staff=values["role"] == "admin")
+        if values.get("status") in ("active", "revoked"):
+            users = users.filter(is_active=values["status"] == "active")
+        elif values.get("status") == "pending":
+            users = users.none()
+        if values.get("team"):
+            users = users.filter(teams__id=values["team"], teams__organization_id=org_id).distinct()
+        meta = None
+        if "page" in request.query_params:
+            users, meta = paginate(users, request)
         serializer = UserListSerializer(users, many=True)
-        return success_response(serializer.data)
+        return directory_response(serializer.data, meta)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -70,7 +95,7 @@ class UserListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -176,22 +201,22 @@ class UserRoleView(APIView):
             )
 
         try:
-            UserService.assign_role(user_id, serializer.validated_data["role_id"], request.user.organization_id)
+            assign(actor=request.user, user_id=user_id, role_id=serializer.validated_data["role_id"], reason=request.data.get("reason", ""))
             return success_response({"detail": "Role assigned."})
         except (User.DoesNotExist, Role.DoesNotExist):
             return error_response("User or role not found.", status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
 
     def delete(self, request, user_id, role_id):
         try:
-            UserService.remove_role(user_id, role_id, request.user.organization_id)
+            __import__("users.authorization", fromlist=["assign"]).assign(actor=request.user, user_id=user_id, role_id=role_id, remove=True, reason=request.data.get("reason", ""))
             return success_response({"detail": "Role removed."})
         except (User.DoesNotExist, Role.DoesNotExist):
             return error_response("User or role not found.", status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -227,13 +252,15 @@ class RoleListView(APIView):
                 name=serializer.validated_data["name"],
                 organization_id=org_id,
                 permission_codes=serializer.validated_data.get("permission_codes"),
+                actor=request.user,
+                reason=serializer.validated_data.get("reason", ""),
             )
             response_serializer = RoleSerializer(role)
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -255,13 +282,12 @@ class RoleDetailView(APIView):
             role = RoleService.get_role(role_id, org_id)
             serializer = RoleSerializer(role)
             return success_response(serializer.data)
-        except Exception:
+        except Role.DoesNotExist:
             return error_response(
                 "Role not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
     def patch(self, request, role_id):
-        org_id = request.user.organization_id
         serializer = RoleSerializer(data=request.data, partial=True)
         if not serializer.is_valid():
             return error_response(
@@ -271,22 +297,21 @@ class RoleDetailView(APIView):
             )
 
         try:
-            role = RoleService.update_role(
-                role_id, org_id, **serializer.validated_data
-            )
+            from .authorization import change_role
+            role = change_role(actor=request.user, role_id=role_id, fields=serializer.validated_data, reason=request.data.get("reason", ""))
             response_serializer = RoleSerializer(role)
             return success_response(response_serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Role not found.", status_code=status.HTTP_404_NOT_FOUND
             )
 
     def delete(self, request, role_id):
-        org_id = request.user.organization_id
         try:
-            RoleService.delete_role(role_id, org_id)
+            from .authorization import change_role
+            change_role(actor=request.user, role_id=role_id, delete=True, reason=request.data.get("reason", ""))
             return success_response({"detail": "Role deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Role not found.", status_code=status.HTTP_404_NOT_FOUND
             )

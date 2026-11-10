@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Mail, CheckCircle2, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
@@ -35,7 +36,8 @@ export default function SubscribeModal({
     try {
       await api.post(`status-page/public/${slug}/subscribe/`, { email: email.trim().toLowerCase() });
       setSuccess(true);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setErrorMessage(
         err.response?.data?.message || err.message || 'Error al procesar la suscripción. Intenta nuevamente.'
       );

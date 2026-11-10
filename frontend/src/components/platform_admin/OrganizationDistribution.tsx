@@ -13,6 +13,7 @@ export const subscriptionStates: DistributionRow[] = [
 ];
 
 interface Props {
+  embedded?: boolean;
   title: string;
   rows: DistributionRow[];
   counts: Record<string, number>;
@@ -22,10 +23,9 @@ interface Props {
 
 const percent = new Intl.NumberFormat('es', { style: 'percent', maximumFractionDigits: 1 });
 
-export default function OrganizationDistribution({ title, rows, counts, total, onSelect }: Props) {
-  return <section className="ui-card min-w-0 p-4" aria-label={title}>
-    <h2 className="text-base font-bold">{title}</h2>
-    <p className="mt-1 text-xs text-text-muted">Selecciona una fila para abrir el directorio filtrado.</p>
+export default function OrganizationDistribution({ title, rows, counts, total, onSelect, embedded = false }: Props) {
+  return <section className={embedded ? 'min-w-0' : 'ui-card min-w-0 p-4'} aria-label={title}>
+    {!embedded && <><h2 className="text-base font-bold">{title}</h2><p className="mt-1 text-xs text-text-muted">Selecciona una fila para abrir el directorio filtrado.</p></>}
     <ul className="mt-3">
       {rows.map(({ id, label, tone }) => {
         const count = counts[id] ?? 0;

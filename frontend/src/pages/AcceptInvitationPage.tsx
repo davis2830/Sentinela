@@ -1,7 +1,8 @@
+import { apiFailure } from '../services/errors';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { ShieldCheck, Lock, Building, CheckCircle, CheckCircle2, AlertCircle, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { ShieldCheck, Lock, Building, CheckCircle2, AlertCircle, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function AcceptInvitationPage() {
   const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('token') || new URLSearchParams(window.location.search).get('token'));
@@ -36,7 +37,8 @@ export default function AcceptInvitationPage() {
       try {
         const response = await api.post('organizations/invitations/validate/', { token });
         setInvData(response.data?.data);
-      } catch (err: any) {
+      } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
         setErrorMsg(err.response?.data?.message || err.response?.data?.detail || 'El enlace de invitación es inválido o ha expirado.');
       } finally {
         setLoading(false);
@@ -72,7 +74,8 @@ export default function AcceptInvitationPage() {
           message: '¡Cuenta activada con éxito! Ya puedes iniciar sesión con tu correo y nueva contraseña.',
         },
       });
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setSubmitError(err.response?.data?.message || err.response?.data?.detail || 'Error al activar la cuenta.');
     } finally {
       setSubmitting(false);

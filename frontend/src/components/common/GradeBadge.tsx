@@ -1,4 +1,3 @@
-import React from 'react';
 import type { SecurityGrade } from '../../types/security_headers';
 
 interface GradeBadgeProps {

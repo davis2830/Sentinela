@@ -1,10 +1,10 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   X,
   Wrench,
-  Calendar,
   Clock,
   BellOff,
   Shield,
@@ -14,7 +14,6 @@ import {
   Loader2,
   AlertCircle,
   Globe,
-  Lock,
   Plug,
   Zap,
 } from 'lucide-react';
@@ -24,7 +23,7 @@ import type { MaintenanceWindow, MaintenanceWindowTarget } from '../../types';
 interface MaintenanceWindowModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: Partial<MaintenanceWindow>) => Promise<void>;
   initialData?: MaintenanceWindow | null;
   isSubmitting: boolean;
 }
@@ -56,7 +55,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
   const { data: statusPagesData } = useQuery({
     queryKey: ['status-pages-select'],
     queryFn: async () => {
-      const res = await api.get('status-page/pages/');
+      const res = await api.get<{ data: import('../../types/status_page').StatusPageSummaryItem[] }>('status-page/pages/');
       return res.data?.data || [];
     },
     enabled: isOpen,
@@ -66,7 +65,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
   const { data: teamsData } = useQuery({
     queryKey: ['teams-list-select'],
     queryFn: async () => {
-      const res = await api.get('users/teams/');
+      const res = await api.get<{ data: import('../../types/users').Team[] }>('users/teams/');
       return res.data?.data || [];
     },
     enabled: isOpen,
@@ -76,7 +75,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
   const { data: monitoringTargets } = useQuery({
     queryKey: ['monitoring-targets-picker'],
     queryFn: async () => {
-      const res = await api.get('monitoring/');
+      const res = await api.get<{ data: import('../../types/monitoring').MonitoringTarget[] }>('monitoring/');
       return res.data?.data || [];
     },
     enabled: isOpen && scopeType === 'custom',
@@ -86,21 +85,21 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
   const { data: apiChecks } = useQuery({
     queryKey: ['api-checks-picker'],
     queryFn: async () => {
-      const res = await api.get('api-checks/');
+      const res = await api.get<{ data: import('../../types/api_checks').APICheckTarget[] }>('api-checks/');
       return res.data?.data || [];
     },
     enabled: isOpen && scopeType === 'custom',
   });
 
   // Fetch SSL certificates for picker
-  const { data: sslCerts } = useQuery({
-    queryKey: ['ssl-certs-picker'],
-    queryFn: async () => {
-      const res = await api.get('ssl-certificates/');
-      return res.data?.data || [];
-    },
-    enabled: isOpen && scopeType === 'custom',
-  });
+  useQuery({
+queryKey: ['ssl-certs-picker'],
+queryFn: async () => {
+const res=await api.get('ssl-certificates/');
+return res.data?.data||[];
+},
+enabled: isOpen&&scopeType==='custom',
+});
 
   // Initialize form
   useEffect(() => {
@@ -196,9 +195,9 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
     }
 
     // Build targets array
-    let targetsPayload: Array<{ target_type: string; target_id: string | null; target_name: string }> = [];
+    let targetsPayload: MaintenanceWindowTarget[];
     if (scopeType === 'all') {
-      targetsPayload = [{ target_type: 'all', target_id: null, target_name: 'Toda la Organización' }];
+      targetsPayload = [{ target_type: 'all' as const, target_id: null, target_name: 'Toda la Organización' }];
     } else {
       if (selectedTargets.length === 0) {
         setFormError('Debes seleccionar al menos un objetivo de monitoreo o elegir alcance global.');
@@ -230,7 +229,8 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
     try {
       await onSubmit(payload);
       onClose();
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setFormError(err.response?.data?.message || 'Error al guardar la ventana de mantenimiento.');
     }
   };
@@ -354,7 +354,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                 </label>
                 <select
                   value={recurrence}
-                  onChange={(e: any) => setRecurrence(e.target.value)}
+                  onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
                   className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-text-main font-mono focus:outline-none focus:border-accent-green"
                 >
                   <option value="none">Única vez (Sin recurrencia)</option>
@@ -445,7 +445,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                     <Zap size={12} className="text-accent-green" /> Targets de Uptime & Latencia:
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {monitoringTargets?.map((t: any) => {
+                    {monitoringTargets?.map((t) => {
                       const isChecked = selectedTargets.some(
                         (sel) => sel.target_type === 'monitoring' && sel.target_id === t.id
                       );
@@ -474,7 +474,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                       <Plug size={12} className="text-accent-purple" /> API Endpoints:
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {apiChecks.map((a: any) => {
+                      {apiChecks.map((a) => {
                         const isChecked = selectedTargets.some(
                           (sel) => sel.target_type === 'api_check' && sel.target_id === a.id
                         );
@@ -572,7 +572,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                     className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-text-main font-mono focus:outline-none focus:border-accent-green text-xs"
                   >
                     <option value="">Status Page Predeterminada (Principal)</option>
-                    {statusPagesData?.map((page: any) => (
+                    {statusPagesData?.map((page) => (
                       <option key={page.id} value={page.id}>
                         {page.company_name} ({page.slug}){page.is_default ? ' • Principal' : ''}
                       </option>
@@ -596,7 +596,7 @@ export const MaintenanceWindowModal: React.FC<MaintenanceWindowModalProps> = ({
                 className="w-full bg-bg-card border border-border-base rounded-xl px-3 py-2 text-text-main font-mono focus:outline-none focus:border-accent-green"
               >
                 <option value="">Sin cuadrilla asignada</option>
-                {teamsData?.map((team: any) => (
+                {teamsData?.map((team) => (
                   <option key={team.id} value={team.id}>
                     {team.name}
                   </option>

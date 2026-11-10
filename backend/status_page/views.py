@@ -1,8 +1,10 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 import csv
 from django.http import HttpResponse
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
@@ -55,7 +57,7 @@ class StatusPageListView(APIView):
         # Enforce status_pages quota
         if getattr(request.user, "organization", None):
             try:
-                from organizations.services import QuotaService, QuotaExceededException
+                from organizations.services import QuotaExceededException
 
             except QuotaExceededException as qe:
                 return error_response(
@@ -68,7 +70,7 @@ class StatusPageListView(APIView):
             page = StatusPageService.create_status_page(org_id, serializer.validated_data)
             res_serializer = StatusPageConfigSerializer(page)
             return success_response(res_serializer.data, status_code=status.HTTP_201_CREATED)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -88,7 +90,7 @@ class StatusPageDetailView(APIView):
             page = StatusPageService.get_status_page(org_id, page_id)
             serializer = StatusPageConfigSerializer(page)
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, page_id):
@@ -101,7 +103,7 @@ class StatusPageDetailView(APIView):
             page = StatusPageService.update_config(org_id, serializer.validated_data, page_id=page_id)
             res_serializer = StatusPageConfigSerializer(page)
             return success_response(res_serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, page_id):
@@ -109,7 +111,7 @@ class StatusPageDetailView(APIView):
         try:
             StatusPageService.delete_status_page(org_id, page_id)
             return success_response({"message": "Status Page eliminada correctamente."})
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -126,7 +128,7 @@ class StatusPageSetDefaultView(APIView):
         try:
             page = StatusPageService.set_default_status_page(org_id, page_id)
             return success_response({"message": f"'{page.company_name}' es ahora la Status Page principal."})
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -187,6 +189,9 @@ class StatusPageAvailableTargetsView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         targets = StatusPageService.get_available_targets(org_id)
+        from common.authorization import effective_permissions
+        allowed = set(effective_permissions(request.user))
+        targets = [item for item in targets if {"uptime": "monitoring.read", "api": "api_checks.read"}.get(item.get("type")) in allowed]
         return success_response(targets)
 
 
@@ -238,7 +243,7 @@ class MaintenanceBulkActionView(APIView):
                 maintenance_ids=serializer.validated_data["maintenance_ids"],
             )
             return success_response(result)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -257,7 +262,7 @@ class MaintenanceDetailView(APIView):
             m = StatusPageService.update_maintenance(maintenance_id, org_id, request.data)
             serializer = ScheduledMaintenanceSerializer(m)
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, maintenance_id):
@@ -265,7 +270,7 @@ class MaintenanceDetailView(APIView):
         try:
             StatusPageService.delete_maintenance(maintenance_id, org_id)
             return success_response(status_code=status.HTTP_204_NO_CONTENT)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -292,7 +297,7 @@ class MaintenanceUpdateView(APIView):
             )
             res_serializer = MaintenanceUpdateSerializer(update)
             return success_response(res_serializer.data, status_code=status.HTTP_201_CREATED)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -325,7 +330,7 @@ class SubscriberDeleteView(APIView):
         try:
             StatusPageService.remove_subscriber(org_id, subscriber_id)
             return success_response(status_code=status.HTTP_204_NO_CONTENT)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -372,7 +377,7 @@ class PublicStatusPageView(APIView):
             return error_response(str(p_err), status_code=status.HTTP_403_FORBIDDEN)
         except ValueError as v_err:
             return error_response(str(v_err), status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -398,7 +403,7 @@ class PublicSubscribeView(APIView):
             }, status_code=status.HTTP_201_CREATED)
         except ValueError as v_err:
             return error_response(str(v_err), status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -421,5 +426,5 @@ class PublicUnsubscribeView(APIView):
             return success_response({"message": "Te has desuscrito correctamente."})
         except ValueError as v_err:
             return error_response(str(v_err), status_code=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

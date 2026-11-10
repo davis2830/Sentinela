@@ -86,7 +86,7 @@ export interface Alert {
   flapping_count: number;
   snoozed_until: string | null;
   auto_resolved: boolean;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   incident_id?: string | null;
   incident_title?: string | null;
   triggered_at: string;

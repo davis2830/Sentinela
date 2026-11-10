@@ -26,4 +26,4 @@ def evaluate_alert_rules():
         return alerts_created
     except Exception as exc:
         logger.exception("Error evaluating alert rules: %s", exc)
-        return 0
+        raise

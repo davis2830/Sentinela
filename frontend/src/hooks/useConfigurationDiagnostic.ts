@@ -1,3 +1,4 @@
+import { apiFailure } from '../services/errors';
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
@@ -15,7 +16,7 @@ export function useConfigurationDiagnostic() {
     }, 1000);
     return () => clearInterval(timer);
   }, [retryAt]);
-  const isLimit = (error: any) => String(error?.response?.data?.errors?.code || '').startsWith('DIAGNOSTIC_');
+  const isLimit = (error: unknown) => String(apiFailure(error).response?.data.errors.code || '').startsWith('DIAGNOSTIC_');
   const run = async (endpoint: string, payload: Record<string, unknown>) => {
     setNotice('');
     const method = String(payload.http_method || payload.method || 'GET').toUpperCase();
@@ -36,13 +37,14 @@ export function useConfigurationDiagnostic() {
         setNotice(metadata.cached ? `Resultado reciente reutilizado, comprobado a las ${time}. No se realizó otra conexión.` : `Configuración probada a las ${time}. Esta prueba no activa el monitoreo.`);
       }
       return response;
-    } catch (error: any) {
+    } catch (caughtError: unknown) {
+ const error = apiFailure(caughtError);
       if (isLimit(error)) {
-        setNotice(error.response.data.message);
-        const seconds = Number(error.response.data.errors.retry_after_seconds);
+        setNotice(error.response?.data.message || "Espera antes de volver a probar.");
+        const seconds = Number(error.response?.data.errors.retry_after_seconds);
         if (Number.isFinite(seconds) && seconds > 0) {setRetryAt(Date.now()+seconds*1000);setNow(Date.now());}
       }
-      throw error;
+      throw caughtError;
     }
   };
   return {run,isLimit,notice,remaining};

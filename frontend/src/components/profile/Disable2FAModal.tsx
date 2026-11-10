@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShieldAlert, X, Loader2, AlertCircle } from 'lucide-react';
@@ -28,7 +29,8 @@ export default function Disable2FAModal({
       await onConfirm(password);
       setPassword('');
       onClose();
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setErrorMsg(err?.message || 'Contraseña incorrecta. No se pudo desactivar 2FA.');
     }
   };

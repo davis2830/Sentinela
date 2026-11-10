@@ -1,7 +1,9 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
@@ -73,7 +75,7 @@ class ReportListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 str(exc), status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -104,8 +106,8 @@ class ReportLiveSLAMetricsView(APIView):
                 organization_id=org_id, target_sla=target_sla, days=days
             )
             return success_response(metrics)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class ReportBulkActionView(APIView):
@@ -132,8 +134,8 @@ class ReportBulkActionView(APIView):
         try:
             result = ReportService.bulk_action(org_id, action, report_ids)
             return success_response(result)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class ReportDetailView(APIView):
@@ -151,7 +153,7 @@ class ReportDetailView(APIView):
             report = ReportService.get_report(report_id, org_id)
             serializer = ReportSerializer(report)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Report not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -161,7 +163,7 @@ class ReportDetailView(APIView):
         try:
             ReportService.delete_report(report_id, org_id)
             return success_response({"detail": "Report deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Report not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -184,8 +186,8 @@ class ReportExportCSVView(APIView):
             response = HttpResponse(csv_content, content_type="text/csv")
             response["Content-Disposition"] = f'attachment; filename="{filename}"'
             return response
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
 
 
 class ReportExportPDFView(APIView):
@@ -205,5 +207,5 @@ class ReportExportPDFView(APIView):
             response = HttpResponse(html_content, content_type="text/html; charset=utf-8")
             response["Content-Disposition"] = f'inline; filename="{filename}"'
             return response
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_404_NOT_FOUND)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)

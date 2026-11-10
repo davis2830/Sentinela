@@ -2,7 +2,6 @@ from common.beta_quota import beta_creation
 import csv
 from datetime import datetime
 import io
-import json
 import logging
 import time
 import uuid
@@ -271,23 +270,9 @@ class NotificationService:
 
         t0 = time.monotonic()
         try:
-            if channel.channel_type == "email":
-                resp_text, http_code, duration_ms = EmailDeliveryHandler.send(channel, notification)
-            elif channel.channel_type == "slack":
-                resp_text, http_code, duration_ms = SlackDeliveryHandler.send(channel, notification)
-            elif channel.channel_type == "teams":
-                resp_text, http_code, duration_ms = TeamsDeliveryHandler.send(channel, notification)
-            elif channel.channel_type == "discord":
-                resp_text, http_code, duration_ms = DiscordDeliveryHandler.send(channel, notification)
-            elif channel.channel_type == "telegram":
-                resp_text, http_code, duration_ms = TelegramDeliveryHandler.send(channel, notification)
-            elif channel.channel_type == "webhook":
-                resp_text, http_code, duration_ms = WebhookDeliveryHandler.send(channel, notification)
-            else:
-                notification.status = Notification.Status.FAILED
-                notification.error_message = f"Unknown channel type: {channel.channel_type}"
-                notification.save(update_fields=["status", "error_message"])
-                return False
+            from .transports import deliver
+            delivery = deliver(channel, notification)
+            resp_text, http_code, duration_ms = delivery.response, delivery.status, delivery.duration_ms
 
             notification.status = Notification.Status.SENT
             notification.sent_at = timezone.now()
@@ -447,20 +432,9 @@ class NotificationService:
         notif = MockNotification(test_title, test_msg)
 
         try:
-            if channel_type == "email":
-                resp_text, http_code, duration_ms = EmailDeliveryHandler.send(channel, notif)
-            elif channel_type == "slack":
-                resp_text, http_code, duration_ms = SlackDeliveryHandler.send(channel, notif)
-            elif channel_type == "teams":
-                resp_text, http_code, duration_ms = TeamsDeliveryHandler.send(channel, notif)
-            elif channel_type == "discord":
-                resp_text, http_code, duration_ms = DiscordDeliveryHandler.send(channel, notif)
-            elif channel_type == "telegram":
-                resp_text, http_code, duration_ms = TelegramDeliveryHandler.send(channel, notif)
-            elif channel_type == "webhook":
-                resp_text, http_code, duration_ms = WebhookDeliveryHandler.send(channel, notif)
-            else:
-                raise ValueError(f"Tipo de canal no soportado: {channel_type}")
+            from .transports import deliver
+            delivery = deliver(channel, notif)
+            resp_text, http_code, duration_ms = delivery.response, delivery.status, delivery.duration_ms
 
             return {
                 "success": True,
@@ -475,7 +449,7 @@ class NotificationService:
                 "success": False,
                 "status_code": status_code,
                 "duration_ms": duration_ms,
-                "message": str(exc),
+                "message": str(exc) if isinstance(exc, ValueError) else "El canal no confirmó el envío. Revisa la configuración.",
             }
 
     @staticmethod

@@ -1,6 +1,6 @@
 import ScanAction from '../common/ScanAction';
 import AdminButton from '../common/AdminButton';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useConnectivityRefresh } from '../../hooks/useConnectivityRefresh';
@@ -8,7 +8,6 @@ import type { APICheckTarget, APICheckResult } from '../../types/api_checks';
 import StatusBadge from '../common/StatusBadge';
 import { NOCDrawer } from '../common/noc';
 import {
-  RefreshCw,
   Pencil,
   Trash2,
   ExternalLink,
@@ -22,15 +21,13 @@ import {
   Copy,
   Check,
   Terminal,
-  AlertTriangle,
-  FileCode,
 } from 'lucide-react';
 
 export interface APICheckDetailDrawerProps {
   target: APICheckTarget | null;
   isOpen: boolean;
   onClose: () => void;
-  onScan: (id: string) => Promise<any>;
+  onScan: (id: string) => Promise<unknown>;
   isScanning: boolean;
   onEdit: (target: APICheckTarget) => void;
   onDelete: (target: APICheckTarget) => void;
@@ -123,7 +120,7 @@ export default function APICheckDetailDrawer({
 
   const footerActions = (
     <>
-      <AdminButton
+      <AdminButton capability="api_checks.update"
         type="button"
         onClick={() => onEdit(target)}
         className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
@@ -131,7 +128,7 @@ export default function APICheckDetailDrawer({
         <Pencil size={14} />
         Editar Configuración
       </AdminButton>
-      <AdminButton
+      <AdminButton capability="api_checks.delete"
         type="button"
         onClick={() => onDelete(target)}
         className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
@@ -175,7 +172,7 @@ export default function APICheckDetailDrawer({
       quickKpis={quickKpis}
       tabs={tabs}
       activeTab={activeTab}
-      onTabChange={(t) => setActiveTab(t as any)}
+      onTabChange={(t) => setActiveTab(t as typeof activeTab)}
       footerActions={footerActions}
       maxWidthClass="max-w-2xl"
     >

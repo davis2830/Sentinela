@@ -1,5 +1,4 @@
 import AdminButton from '../common/AdminButton';
-import React from 'react';
 import { createPortal } from 'react-dom';
 import type { StatusPageSummaryItem } from '../../types/status_page';
 import {
@@ -12,7 +11,6 @@ import {
   Star,
   Trash2,
   Plus,
-  Radio,
   Check,
   Globe,
   Lock,
@@ -62,7 +60,7 @@ export default function StatusPageDirectoryModal({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <AdminButton
+            <AdminButton capability="status_page.create"
               onClick={() => {
                 onClose();
                 onOpenCreate();
@@ -215,7 +213,7 @@ export default function StatusPageDirectoryModal({
                     </button>
 
                     {!p.is_default && (
-                      <AdminButton
+                      <AdminButton capability="status_page.update"
                         type="button"
                         onClick={() => onSetDefault(p.id)}
                         title="Marcar como Principal"
@@ -226,7 +224,7 @@ export default function StatusPageDirectoryModal({
                     )}
 
                     {pages.length > 1 && !p.is_default && (
-                      <AdminButton
+                      <AdminButton capability="status_page.delete"
                         type="button"
                         onClick={() => onDeletePage(p.id)}
                         title="Eliminar Status Page"

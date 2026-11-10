@@ -83,10 +83,18 @@ test.beforeAll(async () => {
     },
   });
   expect(registration.ok()).toBeTruthy();
-  fixtureSessions.set(admin.email, (await registration.json()).data);
+  const adminSession = (await registration.json()).data;
+  const adminProfile = await api.get('auth/me/', {headers:{Authorization:`Bearer ${adminSession.access_token}`}});
+  expect(adminProfile.ok()).toBeTruthy();
+  adminSession.user = {...adminSession.user,...(await adminProfile.json()).data};
+  fixtureSessions.set(admin.email, adminSession);
   const viewerLogin = await api.post('auth/login/', { data: viewer });
   expect(viewerLogin.ok()).toBeTruthy();
-  fixtureSessions.set(viewer.email, (await viewerLogin.json()).data);
+  const viewerSession = (await viewerLogin.json()).data;
+  const viewerProfile = await api.get('auth/me/', {headers:{Authorization:`Bearer ${viewerSession.access_token}`}});
+  expect(viewerProfile.ok()).toBeTruthy();
+  viewerSession.user = {...viewerSession.user,...(await viewerProfile.json()).data};
+  fixtureSessions.set(viewer.email, viewerSession);
 });
 
 test.afterAll(async () => {
@@ -774,10 +782,12 @@ for(const path of ['/monitoring','/ssl','/dns','/domains','/api-checks','/securi
     page.on('request',r=>{if(r.method()==='POST'&&/\/scan(?:-all)?\/$/.test(new URL(r.url()).pathname))scans++;});
     await page.goto(path, {waitUntil:'domcontentloaded'});
     await expect(page.getByRole('button',{name:'Pausar auto-refresco'})).toBeVisible();
-    const deadline=()=>page.evaluate(p=>{
-      const key=Object.keys(sessionStorage).find(key=>key.startsWith('sentinel:refresh:')&&key.endsWith(':connectivity'));
-      return key?JSON.parse(sessionStorage.getItem(key)!).nextAt:null;
-    },path);
+    const deadline=()=>page.evaluate(()=>{
+      const user=JSON.parse(localStorage.getItem('auth-storage') || '{}').state?.user;
+      const key=['sentinel','refresh',user?.id,user?.organization?.id,'connectivity'].join(':');
+      const saved=sessionStorage.getItem(key);
+      return saved?JSON.parse(saved).nextAt:null;
+    });
     const initial=await deadline();
     const expectPreservedCountdown = async () => {
       await expect(page.getByTestId('automatic-refresh-control')).toBeVisible();
@@ -787,9 +797,9 @@ for(const path of ['/monitoring','/ssl','/dns','/domains','/api-checks','/securi
         const title = document.querySelector('[data-testid="automatic-refresh-control"]')?.getAttribute('title') || '';
         const match = title.match(/(\d+):(\d{2}) min$/);
         const remaining = Math.ceil((nextAt - Date.now()) / 1000);
-        return Boolean(match && remaining > 0 && remaining < 300
-          && Math.abs(Number(match[1]) * 60 + Number(match[2]) - remaining) <= 2);
-      }, initial!)).toBe(true);
+        return {title, remaining, preserved: Boolean(match && remaining > 0 && remaining < 300
+          && Math.abs(Number(match[1]) * 60 + Number(match[2]) - remaining) <= 2)};
+      }, initial!)).toMatchObject({preserved:true});
     };
     await page.clock.fastForward(20000);
     await page.getByRole('link',{name:'Dashboard',exact:true}).click();
@@ -1117,11 +1127,14 @@ test('shared vivid palette and near-white secondary text reach all module groups
     await expect(page.locator('main')).toHaveCSS('--sentinel-bg-card-hover','22 32 43');
     await expect(page.locator('main')).toHaveCSS('--sentinel-border-base','38 51 64');
     await expect(page.locator('main')).toHaveCSS('--sentinel-border-accent','64 80 96');
-    const surface=page.locator('main .bg-bg-card, main .dashboard-panel').first();
-    if(await surface.count()) await expect(surface).toHaveCSS('background-color','rgb(16, 24, 32)');
     await expect(text).toHaveCSS('color','rgb(226, 232, 240)');
-    const dim=page.locator('main .text-text-dim:not(input):not(select):not(textarea)').first();
-    if (await dim.count()) await expect(dim).toHaveCSS('color','rgb(203, 213, 225)');
+    // Query and measure inside one browser task: locator handles can detach during loading.
+    const palette=await page.evaluate(()=>{
+      const surface=document.querySelector('main .bg-bg-card, main .dashboard-panel');
+      return {surface:surface ? getComputedStyle(surface).backgroundColor : null,dim:Array.from(document.querySelectorAll('main .text-text-dim:not(input):not(select):not(textarea)')).map(node=>getComputedStyle(node).color)};
+    });
+    if(palette.surface!==null)expect(palette.surface).toBe('rgb(16, 24, 32)');
+    for (const color of palette.dim) expect(color).toBe('rgb(203, 213, 225)');
     expect(await page.locator('main').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);
     if (['/dashboard','/gestion','/ssl','/profile'].includes(path)) await page.screenshot({path:`test-results/shared-palette-${path.slice(1)}-desktop.png`});
   }
@@ -1268,7 +1281,7 @@ test('legacy dossier asks admin to confirm associations and persists only explic
 
 test('viewer dossier has no mutations and keeps read-only navigation',async({page})=>{
   await mockEndpointDossier(page);await login(page,viewer);await page.goto('/monitoring/mon-down?tab=config');
-  await expect(page.getByTestId('endpoint-dossier')).toContainText('Solo un administrador');
+  await expect(page.getByTestId('endpoint-dossier')).toContainText('Tu rol no incluye modificar asociaciones.');
   await expect(page.getByRole('button',{name:'Guardar asociación'})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Comprobar ahora',exact:true})).toHaveCount(0);
   await page.getByRole('navigation',{name:'Secciones del endpoint'}).getByRole('button',{name:'SSL / TLS',exact:true}).click();

@@ -6,13 +6,10 @@ import {
   Clock,
   Pencil,
   Trash2,
-  RefreshCw,
   ExternalLink,
   CheckSquare,
   Square,
-  Radio,
   Code2,
-  Activity,
 } from 'lucide-react';
 
 export interface APICheckCardProps {
@@ -31,8 +28,6 @@ export default function APICheckCard({
   isSelected,
   onToggleSelect,
   onClick,
-  onScan,
-  isScanning,
   onEdit,
   onDelete,
 }: APICheckCardProps) {
@@ -78,7 +73,7 @@ export default function APICheckCard({
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5 overflow-hidden">
             {/* Selection Checkbox */}
-            <AdminButton
+            <AdminButton capability="api_checks.update"
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -203,7 +198,7 @@ export default function APICheckCard({
 
         <div className="flex items-center gap-1">
 
-          <AdminButton
+          <AdminButton capability="api_checks.update"
             type="button"
             onClick={onEdit}
             className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
@@ -211,7 +206,7 @@ export default function APICheckCard({
           >
             <Pencil size={14} />
           </AdminButton>
-          <AdminButton
+          <AdminButton capability="api_checks.delete"
             type="button"
             onClick={onDelete}
             className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"

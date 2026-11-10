@@ -1,5 +1,6 @@
+import { apiFailure } from '../../services/errors';
 import AdminButton from '../common/AdminButton';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { TeamMember, Team, UpdateUserPayload } from '../../types/users';
 import NOCDrawer, { NOCDrawerTab } from '../common/noc/NOCDrawer';
 import { api } from '../../services/api';
@@ -22,7 +23,6 @@ import {
   Save,
   Loader2,
   Check,
-  ShieldAlert,
   ShieldCheck,
   UserCheck,
 } from 'lucide-react';
@@ -128,7 +128,8 @@ export default function UserDetailDrawer({
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       alert(err.response?.data?.message || err.message || 'Error al actualizar rol y equipos.');
     } finally {
       setIsSavingRoleTeams(false);

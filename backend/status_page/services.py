@@ -1,5 +1,4 @@
 from common.beta_quota import beta_creation
-import uuid
 from datetime import timedelta
 from django.db import transaction
 from django.db.models import Avg, Count, Q

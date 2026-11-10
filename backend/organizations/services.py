@@ -158,7 +158,7 @@ class QuotaService:
 
         Raises QuotaExceededException if quota is exceeded.
         """
-        limits = organization.get_plan_limits()
+        organization.get_plan_limits()
         summary = QuotaService.get_usage_summary(organization)
         metric = summary["usage"].get(resource_type)
 

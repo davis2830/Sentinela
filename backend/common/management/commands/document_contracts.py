@@ -4,6 +4,7 @@ import re
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django.urls import URLPattern, get_resolver
+from common.contracts import ERROR, describe
 
 
 def operations(patterns, prefix=""):
@@ -29,13 +30,14 @@ def operations(patterns, prefix=""):
         ]
         route = re.sub(r"<(?:\w+:)?(\w+)>", r"{\1}", route)
         for method, action in methods.items():
+            contract = describe(view, action)
             yield "/" + route, method, {
                 "summary": f"{view.__name__}.{action}",
-                "parameters": parameters,
+                "parameters": parameters + contract.pop("parameters"),
                 "x-handler": f"{view.__module__}.{view.__name__}.{action}",
                 "x-permission-classes": [cls.__name__ for cls in getattr(view, "permission_classes", ())],
                 "x-authentication-classes": [cls.__name__ for cls in getattr(view, "authentication_classes", ())],
-                "responses": {"default": {"description": "Consultar la vista para el contrato de respuesta."}},
+                **contract,
             }
 
 
@@ -53,11 +55,12 @@ class Command(BaseCommand):
             result = {
                 "openapi": "3.0.3",
                 "info": {
-                    "title": "Sentinel — inventario de API",
+                    "title": "Sentinel — contratos de API",
                     "version": "1",
-                    "description": "Inventario de rutas y métodos. Consultar las vistas para payloads y permisos efectivos.",
+                    "description": "Rutas, parámetros, serializers y errores HTTP. Los campos de JSON dinámico permanecen desconocidos y requieren validación en ejecución.",
                 },
                 "paths": paths,
+                "components": {"responses": {"ApiError": ERROR, "LimitedError": {**ERROR, "headers": {"Retry-After": {"schema": {"type": "string"}, "description": "Segundos antes del próximo intento."}}}}},
             }
         else:
             result = {}

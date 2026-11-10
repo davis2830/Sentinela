@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { DayHistoryBlock } from '../../types/status_page';
-import { Activity, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 
 interface UptimeBar90DaysProps {
   history: DayHistoryBlock[];

@@ -13,6 +13,8 @@ export interface User {
   };
   role?: string;
   is_staff: boolean;
+  authorization_mode?: "legacy" | "custom";
+  effective_permissions?: string[];
   is_superuser?: boolean;
   is_active: boolean;
   is_2fa_enabled?: boolean;
@@ -31,6 +33,8 @@ export interface User {
     name: string;
     timezone: string;
     locale: string;
+    require_2fa?: boolean;
+    beta_managed?: boolean;
   };
 }
 

@@ -5,13 +5,10 @@ import StatusBadge from '../common/StatusBadge';
 import {
   Pencil,
   Trash2,
-  RefreshCw,
   ExternalLink,
   CheckSquare,
   Square,
   Lock,
-  ShieldCheck,
-  ShieldAlert,
   Layers,
 } from 'lucide-react';
 
@@ -42,8 +39,6 @@ export default function SSLCertificateTableView({
   onToggleSelect,
   onSelectAll,
   onSelectCert,
-  onScan,
-  scanningId,
   onEdit,
   onDelete,
 }: SSLCertificateTableViewProps) {
@@ -106,7 +101,6 @@ export default function SSLCertificateTableView({
           <tbody className="divide-y divide-border-base/40 font-sans">
             {certificates.map((cert) => {
               const isSelected = selectedIds.includes(cert.id);
-              const isScanning = scanningId === cert.id;
               const statusType = getStatusType(cert);
               const days = cert.days_remaining;
 
@@ -272,7 +266,7 @@ export default function SSLCertificateTableView({
                       onClick={(e) => e.stopPropagation()}
                     >
 
-                      <AdminButton
+                      <AdminButton capability="ssl_monitor.update"
                         type="button"
                         onClick={(e) => onEdit(cert, e)}
                         className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
@@ -280,7 +274,7 @@ export default function SSLCertificateTableView({
                       >
                         <Pencil size={14} />
                       </AdminButton>
-                      <AdminButton
+                      <AdminButton capability="ssl_monitor.delete"
                         type="button"
                         onClick={(e) => onDelete(cert, e)}
                         className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"

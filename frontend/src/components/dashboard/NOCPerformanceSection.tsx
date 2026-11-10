@@ -134,7 +134,7 @@ function NOCPerformanceSection({ timeRange, checksPerMinute, historicalData, isL
             <YAxis {...axis} width={52} domain={[0,100]} ticks={[0,100]} interval={0} tickFormatter={value=>number(value)+'%'}/>
             <Tooltip content={props=>activeTrack==='uptime'?tooltip(props):null}/>
             <ReferenceLine y={99.9} stroke="#fbbf24" strokeDasharray="4 4" opacity={0.5}/><ReferenceLine y={99} stroke="#ff7384" strokeDasharray="4 4" opacity={0.5}/>
-            <Line type="stepAfter" dataKey="uptime" stroke={`url(#${id}-availability)`} strokeWidth={2} dot={(props:any)=>{const value=props.payload?.uptime;if(value==null)return <g key={props.index}/>;const tone=uptimeTone(value);return <circle key={props.index} className="recharts-line-dot" cx={props.cx} cy={props.cy} r={2} fill={tone==='success'?'#4ade80':tone==='warning'?'#fbbf24':tone==='danger'?'#ff7384':'#94a3b8'}/>;}} connectNulls={false} isAnimationActive={false}/>
+            <Line type="stepAfter" dataKey="uptime" stroke={`url(#${id}-availability)`} strokeWidth={2} dot={(props: {cx?:number;cy?:number;index?:number;payload?:{uptime?:number|null}})=>{const value=props.payload?.uptime;if(value==null)return <g key={props.index}/>;const tone=uptimeTone(value);return <circle key={props.index} className="recharts-line-dot" cx={props.cx} cy={props.cy} r={2} fill={tone==='success'?'#4ade80':tone==='warning'?'#fbbf24':tone==='danger'?'#ff7384':'#94a3b8'}/>;}} connectNulls={false} isAnimationActive={false}/>
           </ComposedChart>
         </ResponsiveContainer>
       </div>

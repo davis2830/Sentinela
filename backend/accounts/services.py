@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate
 from django.db import transaction
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from common.authorization import effective_permissions
 from .models import User
 
 
@@ -99,6 +100,8 @@ class AuthService:
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "is_staff": user.is_staff,
+                "authorization_mode": user.authorization_mode,
+                "effective_permissions": effective_permissions(user),
                 "is_superuser": user.is_superuser,
                 "is_2fa_enabled": user.is_2fa_enabled,
                 "requires_2fa_setup": must_setup_2fa,
@@ -182,6 +185,8 @@ class AuthService:
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "is_staff": user.is_staff,
+                "authorization_mode": user.authorization_mode,
+                "effective_permissions": effective_permissions(user),
                 "is_superuser": user.is_superuser,
                 "is_2fa_enabled": user.is_2fa_enabled,
                 "requires_2fa_setup": False,

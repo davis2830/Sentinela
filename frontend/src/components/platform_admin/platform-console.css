@@ -1,0 +1,534 @@
+/* Administrative surfaces share Sentinel tokens without changing the participant portal. */
+.platform-console {
+  color: #e8eef5;
+  font-size: 14px;
+  line-height: 1.5;
+  --platform-muted: #9baec0;
+  --platform-line: rgb(148 163 184 / 0.14);
+}
+.platform-console .text-text-muted {
+  color: var(--platform-muted);
+}
+.platform-console .text-text-dim {
+  color: #889cb0;
+}
+.platform-console .platform-workspace {
+  max-width: 1680px;
+  margin-inline: auto;
+}
+.platform-console .platform-page-header {
+  padding: 2px 0 20px;
+  border-bottom: 1px solid var(--platform-line);
+}
+.platform-console .platform-page-header h1 {
+  font-size: clamp(23px, 2.2vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+.platform-console .platform-page-header h1 + span {
+  font-size: 12px;
+  letter-spacing: 0.07em;
+}
+.platform-console .platform-page-header p {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 7px;
+  color: var(--platform-muted);
+}
+.platform-console .platform-module-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(0 212 170 / 0.22);
+  border-radius: 13px;
+  background: rgb(0 212 170 / 0.07);
+}
+.platform-console .platform-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.13em;
+  color: #8da3b7;
+}
+.platform-console .platform-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-block: 4px 8px;
+}
+.platform-console .platform-section-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 12px;
+  color: #b8cddd;
+  border: 1px solid var(--platform-line);
+  background: #14202b;
+}
+.platform-console .platform-section-title {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+}
+.platform-console .platform-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.platform-console .platform-action-primary {
+  background: rgb(var(--sentinel-accent-green));
+  color: #041412;
+  border-color: rgb(var(--sentinel-accent-green));
+  box-shadow: 0 2px 0 rgb(0 0 0 / 0.15);
+}
+.platform-console .platform-action-primary:hover:not(:disabled) {
+  background: #2ce3bc;
+}
+.platform-console .platform-action-secondary {
+  border-color: #344858;
+  background: #15212c;
+  color: #e4edf4;
+}
+.platform-console .platform-action-secondary:hover:not(:disabled) {
+  background: #1c2c3b;
+  border-color: #526a7b;
+}
+.platform-console .platform-action-tertiary {
+  background: transparent;
+  color: inherit;
+}
+.platform-console .platform-action-tertiary:hover:not(:disabled) {
+  background: rgb(148 163 184 / 0.08);
+}
+.platform-console .platform-action-danger {
+  background: #b82b48;
+  border-color: #d04762;
+  color: #fff;
+}
+.platform-console .platform-action-danger:hover:not(:disabled) {
+  background: #d43151;
+}
+.platform-console .platform-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.platform-console
+  :is(button, summary, input, select, textarea, a):focus-visible {
+  outline: 2px solid rgb(var(--sentinel-accent-green));
+  outline-offset: 3px;
+}
+.platform-console input[type="text"] {
+  min-height: 44px;
+}
+.platform-console input[aria-label^="Buscar"] {
+  padding-right: 48px;
+}
+.platform-console button[title="Limpiar búsqueda"] {
+  min-height: 44px;
+  min-width: 44px;
+  right: 0;
+}
+.platform-console .platform-action-menu {
+  position: relative;
+  display: inline-block;
+}
+.platform-console .platform-action-menu summary::-webkit-details-marker {
+  display: none;
+}
+.platform-console .platform-action-list {
+  position: absolute;
+  right: 0;
+  z-index: 40;
+  width: max-content;
+  min-width: 215px;
+  max-width: min(310px, 85vw);
+  padding: 6px;
+  border: 1px solid #344858;
+  border-radius: 12px;
+  background: #14202b;
+  box-shadow: 0 16px 48px #0009;
+}
+.platform-console .platform-action-list > button {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  white-space: normal;
+  font-weight: 500;
+}
+.platform-console .platform-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: rgb(0 212 170 / 0.06);
+  border: 1px solid rgb(0 212 170 / 0.2);
+  color: #bcefe3;
+  font-size: 12px;
+}
+.platform-console .platform-field {
+  display: block;
+  min-height: 46px;
+  width: 100%;
+  padding: 11px 13px;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 1px solid #304354;
+  background: #0a121a;
+  color: #ecf2f8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.platform-console .platform-field::placeholder {
+  color: #8296aa;
+}
+.platform-console .platform-field:focus {
+  border-color: rgb(var(--sentinel-accent-green));
+  outline: 2px solid rgb(0 212 170 / 0.15);
+  outline-offset: 2px;
+}
+.platform-console select.platform-field {
+  color-scheme: dark;
+  padding-right: 28px;
+}
+.platform-console textarea.platform-field {
+  min-height: 96px;
+  resize: vertical;
+}
+.platform-console .platform-section {
+  padding: 20px;
+  border: 1px solid var(--platform-line);
+  border-radius: 16px;
+  background: #101b25;
+}
+.platform-console details.platform-section > summary {
+  gap: 12px;
+  min-height: 44px;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.platform-console details.platform-section > summary::-webkit-details-marker {
+  display: none;
+}
+.platform-console details.platform-section > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border: solid #8da3b7;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.platform-console details.platform-section[open] > summary::after {
+  transform: rotate(225deg);
+}
+.platform-console .platform-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--platform-line);
+  border-radius: 14px;
+  background: #101b25;
+  overflow: hidden;
+  gap: 0;
+}
+.platform-console .platform-metric-strip > div {
+  padding: 18px 20px;
+  border-right: 1px solid var(--platform-line);
+}
+.platform-console .platform-metric-strip > div:last-child {
+  border-right: 0;
+}
+.platform-console .platform-metric-strip summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.platform-console .platform-toolbar {
+  padding: 18px;
+  border: 1px solid var(--platform-line);
+  border-radius: 14px;
+  background: #101b25;
+}
+.platform-console .platform-toolbar input {
+  background: #09121a;
+  border-color: #304354;
+  font-size: 14px;
+  min-height: 46px;
+}
+.platform-console .platform-toolbar button {
+  min-height: 44px;
+}
+.platform-console .platform-toolbar > div + div {
+  padding-top: 12px;
+}
+.platform-console .platform-advanced-filters {
+  border: 1px solid var(--platform-line);
+  border-radius: 12px;
+  padding: 0 16px;
+  background: #0d1721;
+}
+.platform-console .platform-advanced-filters > summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a9bdcd;
+}
+.platform-console .platform-export-control {
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  border: 1px solid #344858;
+  border-radius: 10px;
+  color: #b6c8d6;
+}
+.platform-console .platform-export-control .platform-action {
+  padding-left: 8px;
+}
+.platform-console .platform-table-surface {
+  border: 1px solid var(--platform-line);
+  border-radius: 14px;
+  background: #0f1922;
+}
+.platform-console .platform-directory-table {
+  width: 100%;
+  table-layout: fixed;
+  text-align: left;
+  font-size: 14px;
+}
+.platform-console .platform-directory-table th:first-child {
+  width: 25%;
+}
+.platform-console .platform-directory-table th:last-child {
+  width: 24%;
+}
+.platform-console .platform-directory-table :is(td, th) {
+  overflow-wrap: anywhere;
+}
+.platform-console .platform-directory-table thead {
+  background: #131f2a;
+}
+.platform-console .platform-directory-table th {
+  color: #97adbf;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.platform-console .platform-directory-table :is(th, td) {
+  padding: 15px 12px;
+  border-bottom: 1px solid var(--platform-line);
+  vertical-align: middle;
+}
+.platform-console .platform-directory-table th:first-child {
+  border-top-left-radius: 14px;
+}
+.platform-console .platform-directory-table th:last-child {
+  border-top-right-radius: 14px;
+}
+.platform-console .platform-directory-table tr:last-child td {
+  border-bottom: 0;
+}
+.platform-console .platform-org-avatar {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #2d4656;
+  border-radius: 10px;
+  background: #182a36;
+  color: #bad5e4;
+  font-size: 12px;
+  font-weight: 700;
+}
+.platform-console .platform-test-tag {
+  display: inline-flex;
+  padding: 2px 7px;
+  border: 1px dashed #53616f;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #b4c0ce;
+}
+.platform-console .platform-access-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #c6d6e2;
+}
+.platform-console .platform-access-state > span {
+  width: 5px;
+  height: 5px;
+  background: #9aafbe;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+.platform-console .platform-access-state.is-blocked {
+  color: #f49bad;
+}
+.platform-console .platform-access-state.is-blocked > span {
+  background: #fb7185;
+}
+.platform-console .platform-plan-label {
+  display: inline-flex;
+  white-space: nowrap;
+  border: 1px solid #344858;
+  background: #172632;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #cfdfeb;
+}
+.platform-console .platform-open-record {
+  color: #48dfbb;
+  font-size: 13px;
+}
+.platform-console .platform-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  font-size: 13px;
+  color: #9fb2c4;
+}
+.platform-console .platform-directory-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 44px 20px;
+  border: 1px dashed #344858;
+  border-radius: 14px;
+  background: #101b25;
+}
+.platform-console .platform-metric-strip :is(h2, h3) {
+  overflow-wrap: anywhere;
+}
+.platform-console [role="dialog"].ui-card {
+  background: #101b25;
+  border-color: #344858;
+  box-shadow: 0 24px 100px #0009;
+}
+@media (max-width: 1023px) {
+  .platform-console .platform-section-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .platform-console .platform-directory-table :is(th, td) {
+    padding: 13px 9px;
+  }
+}
+@media (max-width: 767px) {
+  .platform-console .platform-page-header {
+    padding-bottom: 16px;
+  }
+  .platform-console .platform-page-header h1 {
+    font-size: 23px;
+  }
+  .platform-console
+    .platform-page-header
+    [data-testid="module-header-actions"] {
+    justify-content: flex-start;
+  }
+  .platform-console .platform-section {
+    padding: 16px;
+  }
+  .platform-console .platform-metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .platform-console .platform-metric-strip > div {
+    padding: 16px;
+  }
+  .platform-console .platform-metric-strip > div:nth-child(2) {
+    border-right: 0;
+  }
+  .platform-console .platform-metric-strip > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--platform-line);
+  }
+  .platform-console .platform-directory-table,
+  .platform-console .platform-directory-table tbody {
+    display: block;
+  }
+  .platform-console .platform-directory-table thead {
+    display: none;
+  }
+  .platform-console .platform-directory-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 16px;
+    gap: 12px;
+    border-bottom: 1px solid var(--platform-line);
+  }
+  .platform-console .platform-directory-table td {
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .platform-console .platform-directory-table .platform-cell-extra {
+    grid-column: 1 / -1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .platform-console * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (min-width: 768px) {
+  .platform-console .platform-organizations-table th {
+    overflow-wrap: normal;
+  }
+  .platform-console .platform-organizations-table th:nth-child(1) {
+    width: 22%;
+  }
+  .platform-console .platform-organizations-table th:nth-child(2) {
+    width: 18%;
+  }
+  .platform-console .platform-organizations-table th:nth-child(3) {
+    width: 10%;
+  }
+  .platform-console .platform-organizations-table th:nth-child(4) {
+    width: 12%;
+  }
+  .platform-console .platform-organizations-table th:nth-child(5) {
+    width: 12%;
+  }
+  .platform-console .platform-organizations-table th:nth-child(6) {
+    width: 8%;
+  }
+  .platform-console .platform-organizations-table th:nth-child(7) {
+    width: 18%;
+  }
+}

@@ -18,8 +18,6 @@ import {
   Zap,
   Plug,
   Lock,
-  FileText,
-  User,
   Users,
   ExternalLink,
 } from 'lucide-react';
@@ -322,7 +320,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <option value="completed">Completado</option>
               </select>
 
-              <AdminButton
+              <AdminButton capability="maintenance.update"
                 type="submit"
                 disabled={isPostingUpdate || !updateMsg.trim()}
                 className="px-3 py-1.5 rounded-full bg-accent-green text-black font-bold text-xs hover:bg-accent-green/90 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
@@ -364,7 +362,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-              <AdminButton
+              <AdminButton capability="maintenance.start"
                 type="button"
                 disabled={isStarting || item.status === 'in_progress' || item.status === 'completed'}
                 onClick={() => onStart(item.id)}
@@ -373,7 +371,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <Play size={14} /> Iniciar Mantenimiento
               </AdminButton>
 
-              <AdminButton
+              <AdminButton capability="maintenance.complete"
                 type="button"
                 disabled={isCompleting || item.status === 'completed'}
                 onClick={() => onComplete(item.id)}
@@ -384,7 +382,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
             </div>
 
             {item.status !== 'cancelled' && item.status !== 'completed' && (
-              <AdminButton
+              <AdminButton capability="maintenance.cancel"
                 type="button"
                 disabled={isCancelling}
                 onClick={() => onCancel(item.id)}
@@ -399,7 +397,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
             <h4 className="font-bold text-text-main">Gestión de la Ventana</h4>
 
             <div className="flex items-center gap-2">
-              <AdminButton
+              <AdminButton capability="maintenance.update"
                 type="button"
                 onClick={() => {
                   onClose();
@@ -410,7 +408,7 @@ export const MaintenanceDetailDrawer: React.FC<MaintenanceDetailDrawerProps> = (
                 <Edit size={14} /> Editar Configuración
               </AdminButton>
 
-              <AdminButton
+              <AdminButton capability="maintenance.delete"
                 type="button"
                 onClick={() => {
                   if (confirm(`¿Estás seguro de eliminar la ventana '${item.title}'?`)) {

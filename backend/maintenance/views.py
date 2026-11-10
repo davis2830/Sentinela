@@ -1,6 +1,8 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
@@ -28,8 +30,8 @@ class MaintenanceWindowStatsView(APIView):
         try:
             stats = MaintenanceWindowService.get_stats(org_id)
             return success_response(stats)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowBulkActionView(APIView):
@@ -54,8 +56,8 @@ class MaintenanceWindowBulkActionView(APIView):
                 user=request.user,
             )
             return success_response(result)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowListView(APIView):
@@ -82,8 +84,8 @@ class MaintenanceWindowListView(APIView):
             )
             serializer = MaintenanceWindowSerializer(windows, many=True)
             return success_response(serializer.data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -111,8 +113,8 @@ class MaintenanceWindowListView(APIView):
             )
             res_serializer = MaintenanceWindowSerializer(window)
             return success_response(res_serializer.data, status_code=status.HTTP_201_CREATED)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowDetailView(APIView):
@@ -131,14 +133,14 @@ class MaintenanceWindowDetailView(APIView):
             window = MaintenanceWindowService.get_window(window_id, org_id)
             serializer = MaintenanceWindowSerializer(window)
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError):
             return error_response("Ventana de mantenimiento no encontrada.", status_code=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, window_id):
         org_id = request.user.organization_id
         try:
             window = MaintenanceWindowService.get_window(window_id, org_id)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response("Ventana de mantenimiento no encontrada.", status_code=status.HTTP_404_NOT_FOUND)
 
         serializer = MaintenanceWindowPatchSerializer(window, data=request.data, partial=True)
@@ -154,16 +156,16 @@ class MaintenanceWindowDetailView(APIView):
             )
             res_serializer = MaintenanceWindowSerializer(updated)
             return success_response(res_serializer.data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, window_id):
         org_id = request.user.organization_id
         try:
             MaintenanceWindowService.delete_window(window_id, org_id, user=request.user)
             return success_response({"deleted": True})
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowStartView(APIView):
@@ -179,8 +181,8 @@ class MaintenanceWindowStartView(APIView):
         try:
             window = MaintenanceWindowService.start_window(window_id, org_id, user=request.user)
             return success_response(MaintenanceWindowSerializer(window).data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowCompleteView(APIView):
@@ -196,8 +198,8 @@ class MaintenanceWindowCompleteView(APIView):
         try:
             window = MaintenanceWindowService.complete_window(window_id, org_id, user=request.user)
             return success_response(MaintenanceWindowSerializer(window).data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowCancelView(APIView):
@@ -213,8 +215,8 @@ class MaintenanceWindowCancelView(APIView):
         try:
             window = MaintenanceWindowService.cancel_window(window_id, org_id, user=request.user)
             return success_response(MaintenanceWindowSerializer(window).data)
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceWindowProgressUpdateView(APIView):
@@ -243,5 +245,5 @@ class MaintenanceWindowProgressUpdateView(APIView):
                 MaintenanceWindowUpdateSerializer(update).data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
-            return error_response(str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)

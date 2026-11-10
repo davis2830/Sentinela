@@ -1,8 +1,10 @@
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+from rest_framework.exceptions import APIException
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from common.authorization import AuthorizedAPIView as APIView
 
 from common.responses import error_response, success_response
 from common.permissions import IsAdminOrReadOnly, IsOrganizationMember
@@ -47,7 +49,7 @@ class NotificationChannelListView(APIView):
         # Enforce quota limits
         if getattr(request.user, "organization", None):
             try:
-                from organizations.services import QuotaService, QuotaExceededException
+                from organizations.services import QuotaExceededException
 
             except QuotaExceededException as qe:
                 return error_response(
@@ -66,7 +68,7 @@ class NotificationChannelListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -88,7 +90,7 @@ class NotificationChannelDetailView(APIView):
             channel = NotificationChannelService.get_channel(channel_id, org_id)
             serializer = NotificationChannelSerializer(channel, context={'request': request})
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Channel not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -109,7 +111,7 @@ class NotificationChannelDetailView(APIView):
             )
             response_serializer = NotificationChannelSerializer(channel, context={'request': request})
             return success_response(response_serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Channel not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -119,7 +121,7 @@ class NotificationChannelDetailView(APIView):
         try:
             NotificationChannelService.delete_channel(channel_id, org_id)
             return success_response({"detail": "Channel deleted."})
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Channel not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -196,7 +198,7 @@ class NotificationListView(APIView):
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc, status_code=status.HTTP_400_BAD_REQUEST
             )
@@ -218,7 +220,7 @@ class NotificationDetailView(APIView):
             )
             serializer = NotificationSerializer(notification)
             return success_response(serializer.data)
-        except Exception:
+        except ObjectDoesNotExist:
             return error_response(
                 "Notification not found.", status_code=status.HTTP_404_NOT_FOUND
             )
@@ -238,7 +240,7 @@ class NotificationRetryView(APIView):
             notification = NotificationService.retry_notification(notification_id, org_id)
             serializer = NotificationSerializer(notification)
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
@@ -256,7 +258,7 @@ class NotificationChannelTestView(APIView):
             notification = NotificationService.test_channel(channel_id, org_id)
             serializer = NotificationSerializer(notification)
             return success_response(serializer.data)
-        except Exception as exc:
+        except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 

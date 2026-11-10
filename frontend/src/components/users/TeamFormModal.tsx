@@ -1,3 +1,5 @@
+import { useMemberDirectory } from '../../hooks/useMemberDirectory';
+import DirectoryPagination from './DirectoryPagination';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { Team, TeamMember } from '../../types/users';
@@ -47,11 +49,13 @@ export default function TeamFormModal({
   isOpen,
   onClose,
   team,
-  availableMembers,
   onSubmit,
   isLoading,
   errorMessage,
 }: TeamFormModalProps) {
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberPage, setMemberPage] = useState(1);
+  const directory = useMemberDirectory({ page: memberPage, search: memberSearch, status: 'active' }, isOpen);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#3B82F6');
@@ -107,7 +111,7 @@ export default function TeamFormModal({
 
   const isEditing = !!team;
   // Filter only active registered users (invitations cannot be assigned yet until accepted)
-  const assignableMembers = availableMembers.filter((m) => !m.is_invitation);
+  const assignableMembers = [...new Map([...(team?.members || []), ...(directory.data?.data || [])].map(m => [m.id, m])).values()];
 
   const content = (
     <div
@@ -250,6 +254,9 @@ export default function TeamFormModal({
               </span>
             </div>
 
+            <label className="block text-sm">Buscar integrante<input type="search" className="min-h-11 w-full bg-bg-dark border border-border-base rounded-xl px-3" value={memberSearch} onChange={e => { setMemberSearch(e.target.value); setMemberPage(1); }} /></label>
+            <DirectoryPagination meta={directory.data?.meta} onPage={setMemberPage} />
+            {directory.isError && <button type="button" onClick={() => void directory.refetch()}>Reintentar búsqueda</button>}
             {assignableMembers.length === 0 ? (
               <p className="text-xs text-text-dim italic p-3 rounded-xl bg-bg-dark border border-border-base">
                 No hay operadores registrados activos disponibles para asignar.

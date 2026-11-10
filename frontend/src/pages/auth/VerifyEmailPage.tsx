@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, Check, CheckCircle2, Clock3, Loader2, Mail, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
@@ -83,7 +84,8 @@ export default function VerifyEmailPage() {
         sessionStorage.removeItem('sentinel:registration-session');
         localStorage.setItem('sentinel_launch_onboarding', 'true');
       } else { setWait(r.data.data.retry_after_seconds || 60); setDelivery('queued'); }
-    } catch (e: any) {
+    } catch (caughtError: unknown) {
+ const e = apiFailure(caughtError);
       const data = e.response?.data;
       setError(data?.message || data?.detail || (data?.token
         ? 'Este enlace está incompleto. Abre el botón del correo más reciente o solicita un enlace nuevo.'

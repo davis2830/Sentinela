@@ -2,7 +2,8 @@ import hashlib
 import secrets
 import uuid
 
-from .beta_models import AbuseBucket, BetaControl, BetaInvitation, EmailChallenge, IdentityMail, DisposableDomainPolicy
+from .beta_models import (AbuseBucket as AbuseBucket, BetaControl as BetaControl, BetaInvitation as BetaInvitation,
+                          EmailChallenge as EmailChallenge, IdentityMail as IdentityMail, DisposableDomainPolicy as DisposableDomainPolicy)
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
@@ -47,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Existing accounts remain an explicitly grandfathered cohort, never falsely verified.
     verification_required = models.BooleanField(default=False)
     session_version = models.PositiveIntegerField(default=0)
+    authorization_mode = models.CharField(max_length=10, choices=[("legacy", "Legacy"), ("custom", "Personalizado")], default="legacy")
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     organization = models.ForeignKey(

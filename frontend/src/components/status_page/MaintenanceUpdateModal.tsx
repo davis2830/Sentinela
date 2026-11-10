@@ -1,3 +1,4 @@
+import AdminButton from "../common/AdminButton";
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ScheduledMaintenanceItem, MaintenanceStatus } from '../../types/status_page';
@@ -131,14 +132,14 @@ export default function MaintenanceUpdateModal({
             >
               Cancelar
             </button>
-            <button
+            <AdminButton capability={`status_page.${({in_progress:"start",completed:"complete",cancelled:"cancel",scheduled:"update"} as const)[status]}`}
               type="submit"
               disabled={submitting || !message.trim()}
               className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-full text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm cursor-pointer"
             >
               {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
               Publicar Avance
-            </button>
+            </AdminButton>
           </div>
         </form>
       </div>

@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from alerts.services import AlertEvaluatorService
+from alerts.evaluators import MetricEvaluators
 from organizations.models import Organization
 from .models import MaintenanceWindow, MonitoringTarget
 from .tasks import _run_http_check, _run_tcp_check
@@ -37,7 +37,7 @@ class LegacyMaintenanceIsolation(TestCase):
             self.assertEqual(response.status_code, 400)
         self.window.refresh_from_db()
         self.assertEqual(self.window.target_id, self.source.pk)
-        self.assertFalse(AlertEvaluatorService._is_target_in_maintenance(self.destination))
+        self.assertFalse(MetricEvaluators._is_target_in_maintenance(self.destination))
 
     def test_creation_binds_to_scoped_url_and_regular_edit_still_works(self):
         response = self.client.post(f'/api/v1/monitoring/{self.source.pk}/maintenance-windows/', {

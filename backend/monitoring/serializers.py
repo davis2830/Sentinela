@@ -185,6 +185,7 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     """Serializer for target creation."""
 
     name = serializers.CharField(max_length=255)
+    auto_coverage = serializers.BooleanField(required=False, default=False)
     related_modules = serializers.ListField(
         child=serializers.ChoiceField(choices=["ssl", "dns", "domain", "security", "api"]),
         required=False,
@@ -226,6 +227,12 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
 
         from .discovery import coverage
         endpoint = attrs.get('endpoint',endpoint)
+        from common.authorization import RELATED_MODULES, effective_permissions, uses_custom_permissions
+        actor = getattr(self.context.get("request"), "user", None)
+        if actor is not None and uses_custom_permissions(actor) and "related_modules" not in attrs:
+            defaults, _, _, _ = coverage(attrs["target_type"], endpoint, "agent" if allow_private else "cloud")
+            permissions = set(effective_permissions(actor))
+            attrs["related_modules"] = [module for module in sorted(defaults) if attrs.get("auto_coverage") and RELATED_MODULES[module] + ".create" in permissions]
         requested = attrs.get("related_modules")
         selected, _, _, _ = coverage(attrs["target_type"], endpoint, "agent" if allow_private else "cloud", requested)
         if requested is not None and set(requested) != selected:

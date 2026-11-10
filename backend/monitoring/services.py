@@ -59,6 +59,7 @@ class MonitoringService:
         custom_headers=None,
         request_body="",
         max_latency_ms=2000,
+        actor=None,
     ):
         owner_team_obj = None
         if owner_team:
@@ -89,7 +90,11 @@ class MonitoringService:
         )
         # Asynchronously register in submonitors after transaction commits
         from .tasks import register_target_in_submonitors
-        transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id), related_modules))
+        from common.authorization import uses_custom_permissions
+        if actor is not None and uses_custom_permissions(actor):
+            transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id), related_modules, str(actor.pk)))
+        else:
+            transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id), related_modules))
 
         return target
 

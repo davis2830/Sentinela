@@ -1,3 +1,4 @@
+import { apiFailure } from '../../services/errors';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -14,8 +15,6 @@ import {
   X,
   Loader2,
   BellRing,
-  Zap,
-  ShieldAlert,
   CheckCircle2,
   AlertTriangle,
   Play,
@@ -203,7 +202,8 @@ export default function AlertRuleForm({ rule, onSubmit, onClose }: AlertRuleForm
         target_id: targetId || null,
       });
       setSimulateResult(response.data?.data as SimulateRuleResult);
-    } catch (err: any) {
+    } catch (caughtError: unknown) {
+ const err = apiFailure(caughtError);
       setSimulateError(err?.response?.data?.message || err?.message || 'Error al simular la regla.');
     } finally {
       setSimulating(false);
