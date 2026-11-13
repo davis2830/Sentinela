@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
-import { useDialogFocus } from '../../../hooks/useDialogFocus';
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 
 export interface NOCDrawerTab {
   id: string;
@@ -23,6 +23,7 @@ export interface NOCDrawerProps {
   children: React.ReactNode;
   footerActions?: React.ReactNode;
   maxWidthClass?: string;
+  tabVariant?: "pills" | "segmented";
 }
 
 export default function NOCDrawer({
@@ -38,19 +39,20 @@ export default function NOCDrawer({
   onTabChange,
   children,
   footerActions,
-  maxWidthClass = 'max-w-xl',
+  maxWidthClass = "max-w-xl",
+  tabVariant = "pills",
 }: NOCDrawerProps) {
   const dialogRef = useDialogFocus(isOpen);
   // Close drawer on ESC key
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -107,12 +109,20 @@ export default function NOCDrawer({
 
           {/* Quick KPI Strip */}
           {quickKpis && (
-            <div className="pt-2 border-t border-border-base/40">{quickKpis}</div>
+            <div className="pt-2 border-t border-border-base/40">
+              {quickKpis}
+            </div>
           )}
 
           {/* Tab Navigation */}
           {tabs && tabs.length > 0 && onTabChange && (
-            <div className="flex items-center gap-1 pt-2 border-t border-border-base/40 overflow-x-auto">
+            <div
+              className={
+                tabVariant === "segmented"
+                  ? "flex items-center gap-1 overflow-x-auto rounded-lg border border-white/5 bg-slate-900/80 p-1"
+                  : "flex items-center gap-1 pt-2 border-t border-border-base/40 overflow-x-auto"
+              }
+            >
               {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -120,10 +130,15 @@ export default function NOCDrawer({
                     type="button"
                     key={tab.id}
                     onClick={() => onTabChange(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 font-sans ${
-                      isActive
-                        ? 'bg-accent-green/15 text-accent-green font-semibold border border-accent-green/30'
-                        : 'text-text-muted hover:text-text-main hover:bg-bg-dark'
+                    aria-pressed={isActive}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors shrink-0 font-sans ${
+                      tabVariant === "segmented"
+                        ? `flex-1 rounded-md border border-transparent ${isActive ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`
+                        : `rounded-full ${
+                            isActive
+                              ? "bg-accent-green/15 text-accent-green font-semibold border border-accent-green/30"
+                              : "text-text-muted hover:text-text-main hover:bg-bg-dark"
+                          }`
                     }`}
                   >
                     {tab.icon && <span className="shrink-0">{tab.icon}</span>}
@@ -146,6 +161,6 @@ export default function NOCDrawer({
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

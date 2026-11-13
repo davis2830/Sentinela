@@ -71,6 +71,7 @@ class APICheckResult(BaseModel):
     response_time_ms = models.FloatField(null=True, blank=True)
     json_valid = models.BooleanField(null=True, blank=True)
     schema_valid = models.BooleanField(null=True, blank=True)
+    schema_failures = models.JSONField(default=list, blank=True)
     headers_valid = models.BooleanField(null=True, blank=True)
     response_headers = models.JSONField(default=dict, blank=True)
     error_message = models.TextField(blank=True)

@@ -1,4 +1,8 @@
-# Senti9 1.7.0 — candidato de distribución
+# Historial de Senti9
+
+Versión candidata actual: [1.8.0, instalación y retorno](RELEASE_1_8_0.md). La información siguiente documenta la entrega anterior.
+
+## Senti9 1.7.0 — candidato de distribución
 
 Destino: `davis1924/senti9:1.7.0` (Docker Hub privado).
 Producto de GcTechOps para Sentinel. Linux/amd64; no acredita ARM64 ni instalación Windows nativa.

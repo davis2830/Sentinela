@@ -1,0 +1,14 @@
+# Only runtime and test sources may enter the build context.
+# In particular: no local tokens, journals, CAs, caches or release archives.
+**
+!Dockerfile
+!.dockerignore
+!agent.py
+!delivery.py
+!security.py
+!diagnostics.py
+!install.py
+!release.py
+!test_*.py
+!common/
+!common/*.py

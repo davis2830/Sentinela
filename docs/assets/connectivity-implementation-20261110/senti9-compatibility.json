@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "baseline": {
+    "reference": "davis1924/senti9:1.7.0",
+    "image_id": "sha256:d1258c0486fe274a7f9b73ee84bea7c87172b3ba4bb81402f565629046c304e9",
+    "os": "linux",
+    "architecture": "amd64"
+  },
+  "candidate": {
+    "reference": "davis1924/senti9:1.8.0",
+    "image_id": "sha256:fe77880d8f7e44ee115eea1a2f31778c6c105e3939c7d7a3639ff3703895bc63",
+    "os": "linux",
+    "architecture": "amd64"
+  },
+  "network": "none",
+  "scope": "journal_compatibility_with_synthetic_data",
+  "phases": [
+    {
+      "phase": "seed",
+      "passed": true,
+      "token_and_configuration_preserved": true,
+      "journal_scope_preserved": true,
+      "drain_preserved": true
+    },
+    {
+      "phase": "upgrade",
+      "passed": true,
+      "token_and_configuration_preserved": true,
+      "journal_scope_preserved": true,
+      "drain_preserved": true
+    },
+    {
+      "phase": "rollback",
+      "passed": true,
+      "token_and_configuration_preserved": true,
+      "journal_scope_preserved": true,
+      "drain_preserved": true
+    },
+    {
+      "phase": "resume",
+      "passed": true,
+      "token_and_configuration_preserved": true,
+      "journal_scope_preserved": true,
+      "drain_preserved": true
+    }
+  ]
+}

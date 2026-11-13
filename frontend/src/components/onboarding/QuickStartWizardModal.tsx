@@ -1,12 +1,13 @@
-import { apiFailure } from '../../services/errors';
-import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
-import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../services/api';
-import RedirectNotice from '../monitoring/RedirectNotice';
+import CoverageProgress from "../monitoring/CoverageProgress";
+import { apiFailure } from "../../services/errors";
+import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
+import ConfigurationDiagnosticNotice from "../../components/common/ConfigurationDiagnosticNotice";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../services/api";
+import RedirectNotice from "../monitoring/RedirectNotice";
 import {
   X,
   Zap,
@@ -23,7 +24,7 @@ import {
   Sparkles,
   Rocket,
   Check,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface QuickStartWizardModalProps {
   isOpen: boolean;
@@ -40,8 +41,8 @@ export default function QuickStartWizardModal({
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Form State
-  const [url, setUrl] = useState('');
-  const [name, setName] = useState('');
+  const [url, setUrl] = useState("");
+  const [name, setName] = useState("");
   const [enableSSL, setEnableSSL] = useState(true);
   const [enableSecurityHeaders, setEnableSecurityHeaders] = useState(true);
   const [enableDNS, setEnableDNS] = useState(true);
@@ -49,14 +50,20 @@ export default function QuickStartWizardModal({
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [scanWarning, setScanWarning] = useState<string | null>(null);
   useEffect(() => {
-    if (isOpen) { setStep(1); setLaunchError(null); setScanWarning(null); }
+    if (isOpen) {
+      setStep(1);
+      setLaunchError(null);
+      setScanWarning(null);
+    }
   }, [isOpen]);
 
   // Fetch plan limits to enforce minimum interval smoothly
-  const { data: subData } = useQuery<import('../../types/organization').SubscriptionSummary>({
-    queryKey: ['org-subscription'],
+  const { data: subData } = useQuery<
+    import("../../types/organization").SubscriptionSummary
+  >({
+    queryKey: ["org-subscription"],
     queryFn: async () => {
-      const res = await api.get('organizations/current/subscription/');
+      const res = await api.get("organizations/current/subscription/");
       return res.data?.data;
     },
     enabled: isOpen,
@@ -83,7 +90,10 @@ export default function QuickStartWizardModal({
     mutationFn: async () => {
       setLaunchError(null);
       // 1. Create Monitoring Target
-      const formattedUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+      const formattedUrl =
+        url.startsWith("http://") || url.startsWith("https://")
+          ? url
+          : `https://${url}`;
       let hostname: string;
       try {
         hostname = new URL(formattedUrl).hostname;
@@ -94,17 +104,22 @@ export default function QuickStartWizardModal({
 
       const effectiveInterval = Math.max(interval, minAllowedInterval);
 
-      const targetRes = await api.post('/monitoring/', {
+      const targetRes = await api.post("/monitoring/", {
         name: targetName,
         endpoint: formattedUrl,
-        target_type: formattedUrl.startsWith('https') ? 'https' : 'http',
+        target_type: formattedUrl.startsWith("https") ? "https" : "http",
         interval: effectiveInterval,
         enabled: true,
-        tags: ['onboarding', 'production'],
+        tags: ["onboarding", "production"],
         related_modules: [
-          ...(enableSSL && formattedUrl.startsWith('https://') ? ['ssl'] : []),
-          ...(enableSecurityHeaders ? ['security'] : []),
-          ...(enableDNS && hostname && !hostname.includes(':') && !/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) ? ['dns'] : []),
+          ...(enableSSL && formattedUrl.startsWith("https://") ? ["ssl"] : []),
+          ...(enableSecurityHeaders ? ["security"] : []),
+          ...(enableDNS &&
+          hostname &&
+          !hostname.includes(":") &&
+          !/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)
+            ? ["dns"]
+            : []),
         ],
       });
       const newTarget = targetRes.data?.data;
@@ -114,7 +129,9 @@ export default function QuickStartWizardModal({
         try {
           await api.post(`/monitoring/${newTarget.id}/scan/`);
         } catch {
-          setScanWarning('El objetivo se guardó, pero el escaneo inicial no pudo encolarse. Reinténtalo desde Monitoring cuando tu suscripción esté vigente.');
+          setScanWarning(
+            "El objetivo se guardó, pero el escaneo inicial no pudo encolarse. Reinténtalo desde Monitoring cuando tu suscripción esté vigente.",
+          );
         }
       }
 
@@ -122,25 +139,25 @@ export default function QuickStartWizardModal({
       return newTarget;
     },
     onError: (caughtError: unknown) => {
- const err = apiFailure(caughtError);
+      const err = apiFailure(caughtError);
       const msg =
         err.response?.data?.message ||
         err.response?.data?.detail ||
-        (typeof err.response?.data === 'string' ? err.response?.data : null) ||
+        (typeof err.response?.data === "string" ? err.response?.data : null) ||
         err.message ||
-        'Error al iniciar el monitoreo. Por favor intenta nuevamente.';
+        "Error al iniciar el monitoreo. Por favor intenta nuevamente.";
       setLaunchError(msg);
     },
     onSuccess: () => {
       setLaunchError(null);
-      queryClient.invalidateQueries({ queryKey: ['dash-monitoring'] });
-      queryClient.invalidateQueries({ queryKey: ['monitoring-targets'] });
-      queryClient.invalidateQueries({ queryKey: ['org-subscription'] });
-      queryClient.invalidateQueries({ queryKey: ['ssl-certificates'] });
-      queryClient.invalidateQueries({ queryKey: ['dns-records'] });
-      queryClient.invalidateQueries({ queryKey: ['security-headers'] });
-      localStorage.removeItem('sentinel_launch_onboarding');
-      localStorage.removeItem('sentinela_launch_onboarding');
+      queryClient.invalidateQueries({ queryKey: ["dash-monitoring"] });
+      queryClient.invalidateQueries({ queryKey: ["monitoring-targets"] });
+      queryClient.invalidateQueries({ queryKey: ["org-subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["ssl-certificates"] });
+      queryClient.invalidateQueries({ queryKey: ["dns-records"] });
+      queryClient.invalidateQueries({ queryKey: ["security-headers"] });
+      localStorage.removeItem("sentinel_launch_onboarding");
+      localStorage.removeItem("sentinela_launch_onboarding");
       setStep(3);
     },
   });
@@ -152,38 +169,48 @@ export default function QuickStartWizardModal({
     setIsTesting(true);
     setTestResult(null);
 
-    const formatted = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+    const formatted =
+      url.startsWith("http://") || url.startsWith("https://")
+        ? url
+        : `https://${url}`;
     try {
-      const res = await diagnostic.run('/monitoring/test-connection/', {
+      const res = await diagnostic.run("/monitoring/test-connection/", {
         endpoint: formatted,
-        target_type: formatted.startsWith('https') ? 'https' : 'http',
+        target_type: formatted.startsWith("https") ? "https" : "http",
         timeout: 8,
       });
 
       const data = res.data?.data;
       setTestResult({
-        success: data?.status === 'up',
+        success: data?.status === "up",
         status_code: data?.status_code,
         latency_ms: data?.latency_ms,
         redirect_location: data?.redirect_location,
-        message: data?.redirect_location ? 'Esta página te envía a otra dirección' : data?.error_message || data?.message || (data?.status === 'up' ? 'Conexión verificada exitosamente' : 'Respuesta con error'),
+        message: data?.redirect_location
+          ? "Esta página te envía a otra dirección"
+          : data?.error_message ||
+            data?.message ||
+            (data?.status === "up"
+              ? "Conexión verificada exitosamente"
+              : "Respuesta con error"),
       });
 
       // Auto-suggest name if empty
       if (!name) {
         try {
           const hostname = new URL(formatted).hostname;
-          setName(hostname.replace('www.', ''));
+          setName(hostname.replace("www.", ""));
         } catch {
           setName(url);
         }
       }
     } catch (caughtError: unknown) {
- const err = apiFailure(caughtError);
+      const err = apiFailure(caughtError);
       if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,
-        message: err.response?.data?.message || 'No se pudo contactar el endpoint.',
+        message:
+          err.response?.data?.message || "No se pudo contactar el endpoint.",
       });
     } finally {
       setIsTesting(false);
@@ -194,7 +221,12 @@ export default function QuickStartWizardModal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div role="dialog" aria-modal="true" aria-label="Inicio guiado" className="readable-form bg-bg-card border border-border-base rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Inicio guiado"
+        className="readable-form bg-bg-card border border-border-base rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]"
+      >
         {/* Top Edge Glow */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-80" />
 
@@ -207,7 +239,9 @@ export default function QuickStartWizardModal({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-bold text-text-main">
-                  {step === 3 ? 'Objetivo registrado' : 'Despliegue Rápido de Observabilidad'}
+                  {step === 3
+                    ? "Objetivo registrado"
+                    : "Despliegue Rápido de Observabilidad"}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-green/15 text-accent-green border border-accent-green/30 font-mono">
                   Inicio guiado
@@ -215,13 +249,14 @@ export default function QuickStartWizardModal({
               </div>
               <p className="text-xs text-text-muted mt-0.5">
                 {step === 3
-                  ? 'Consulta las primeras mediciones cuando finalicen los chequeos.'
-                  : 'Configura tu primer monitor y activa la red de alertas inteligentes de Sentinel.'}
+                  ? "Consulta las primeras mediciones cuando finalicen los chequeos."
+                  : "Configura tu primer monitor y activa la red de alertas inteligentes de Sentinel."}
               </p>
             </div>
           </div>
           <button
-            aria-label="Cerrar inicio guiado" onClick={onClose}
+            aria-label="Cerrar inicio guiado"
+            onClick={onClose}
             className="text-text-dim hover:text-text-main p-1.5 rounded-lg hover:bg-bg-dark transition-colors"
           >
             <X size={18} />
@@ -234,12 +269,20 @@ export default function QuickStartWizardModal({
             <div className="flex items-center gap-2">
               <div
                 className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                  step === 1 ? 'bg-accent-green text-black ring-2 ring-accent-green/30' : 'bg-zinc-800 text-zinc-300'
+                  step === 1
+                    ? "bg-accent-green text-black ring-2 ring-accent-green/30"
+                    : "bg-zinc-800 text-zinc-300"
                 }`}
               >
                 1
               </div>
-              <span className={step === 1 ? 'text-accent-green font-semibold' : 'text-text-muted'}>
+              <span
+                className={
+                  step === 1
+                    ? "text-accent-green font-semibold"
+                    : "text-text-muted"
+                }
+              >
                 Endpoint & Diagnóstico
               </span>
             </div>
@@ -247,12 +290,20 @@ export default function QuickStartWizardModal({
             <div className="flex items-center gap-2">
               <div
                 className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
-                  step === 2 ? 'bg-accent-green text-black ring-2 ring-accent-green/30' : 'bg-zinc-800 text-zinc-300'
+                  step === 2
+                    ? "bg-accent-green text-black ring-2 ring-accent-green/30"
+                    : "bg-zinc-800 text-zinc-300"
                 }`}
               >
                 2
               </div>
-              <span className={step === 2 ? 'text-accent-green font-semibold' : 'text-text-muted'}>
+              <span
+                className={
+                  step === 2
+                    ? "text-accent-green font-semibold"
+                    : "text-text-muted"
+                }
+              >
                 Cobertura de Monitoreo
               </span>
             </div>
@@ -264,12 +315,29 @@ export default function QuickStartWizardModal({
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="rounded-xl border border-accent-green/20 bg-accent-green/5 p-3 text-xs">
-                <div className="flex items-center justify-between gap-3"><span className="font-semibold text-text-main">{subData ? `Plan actual: ${subData.plan_name}` : 'Consultando tu plan…'}</span><Link to="/organization?tab=billing" onClick={onClose} className="text-accent-green hover:underline">Ver planes</Link></div>
-                <p className="mt-1 text-text-muted">Free: cada 5 min. Pro: cada 60 s tras contratarlo. No necesitas un plan de pago para configurar tu primer monitor.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold text-text-main">
+                    {subData
+                      ? `Plan actual: ${subData.plan_name}`
+                      : "Consultando tu plan…"}
+                  </span>
+                  <Link
+                    to="/organization?tab=billing"
+                    onClick={onClose}
+                    className="text-accent-green hover:underline"
+                  >
+                    Ver planes
+                  </Link>
+                </div>
+                <p className="mt-1 text-text-muted">
+                  Free: cada 5 min. Pro: cada 60 s tras contratarlo. No
+                  necesitas un plan de pago para configurar tu primer monitor.
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                  URL o Dominio Corporativo <span className="text-accent-red">*</span>
+                  URL o Dominio Corporativo{" "}
+                  <span className="text-accent-red">*</span>
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1 min-w-0">
@@ -280,8 +348,12 @@ export default function QuickStartWizardModal({
                     <input
                       type="text"
                       placeholder="https://miempresa.com o api.servicio.cl"
-                      aria-label="URL o dominio corporativo" value={url}
-                      onChange={(e) => { setUrl(e.target.value); setTestResult(null); }}
+                      aria-label="URL o dominio corporativo"
+                      value={url}
+                      onChange={(e) => {
+                        setUrl(e.target.value);
+                        setTestResult(null);
+                      }}
                       className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 pl-10 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-accent-green/20 font-mono"
                     />
                   </div>
@@ -291,11 +363,18 @@ export default function QuickStartWizardModal({
                     disabled={!url.trim() || isTesting || !subData}
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-accent-green/10 border border-accent-green/40 text-accent-green hover:bg-accent-green/20 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
-                    {isTesting ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                    {isTesting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Zap size={14} />
+                    )}
                     <span>Probar configuración</span>
                   </button>
                 </div>
-                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
+                <ConfigurationDiagnosticNotice
+                  notice={diagnostic.notice}
+                  remaining={diagnostic.remaining}
+                />
                 <p className="text-xs text-text-dim mt-1.5">
                   Ingresa tu portal web, API pública o microservicio cloud.
                 </p>
@@ -305,36 +384,54 @@ export default function QuickStartWizardModal({
               {testResult && (
                 <div
                   className={`p-3.5 rounded-xl border flex items-start gap-3 animate-in fade-in duration-150 ${
-                    testResult.redirect_location ? 'bg-accent-yellow/10 border-accent-yellow/30 text-amber-300' : testResult.success
-                      ? 'bg-accent-green/10 border-accent-green/30 text-emerald-400'
-                      : 'bg-accent-red/10 border-accent-red/30 text-rose-400'
+                    testResult.redirect_location
+                      ? "bg-accent-yellow/10 border-accent-yellow/30 text-amber-300"
+                      : testResult.success
+                        ? "bg-accent-green/10 border-accent-green/30 text-emerald-400"
+                        : "bg-accent-red/10 border-accent-red/30 text-rose-400"
                   }`}
                 >
                   {testResult.success ? (
-                    <CheckCircle2 size={18} className="shrink-0 text-accent-green mt-0.5" />
+                    <CheckCircle2
+                      size={18}
+                      className="shrink-0 text-accent-green mt-0.5"
+                    />
                   ) : (
                     <AlertCircle size={18} className="shrink-0 mt-0.5" />
                   )}
                   <div className="text-xs">
                     <div className="font-bold flex flex-wrap items-center gap-2">
                       <span>{testResult.message}</span>
-                      {!testResult.redirect_location && testResult.status_code && (
-                        <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-xs">
-                          HTTP {testResult.status_code}
-                        </span>
-                      )}
-                      {!testResult.redirect_location && testResult.latency_ms !== undefined && (
-                        <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-xs">
-                          {testResult.latency_ms.toFixed(0)}ms
-                        </span>
-                      )}
+                      {!testResult.redirect_location &&
+                        testResult.status_code && (
+                          <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-xs">
+                            HTTP {testResult.status_code}
+                          </span>
+                        )}
+                      {!testResult.redirect_location &&
+                        testResult.latency_ms !== undefined && (
+                          <span className="px-1.5 py-0.5 rounded bg-bg-dark text-text-main font-mono text-xs">
+                            {testResult.latency_ms.toFixed(0)}ms
+                          </span>
+                        )}
                     </div>
                     {testResult.redirect_location && (
-                      <RedirectNotice location={testResult.redirect_location} endpoint={url.startsWith('http') ? url : `https://${url}`} statusCode={testResult.status_code} onUseAddress={(address) => { setUrl(address); setTestResult(null); }} />
+                      <RedirectNotice
+                        location={testResult.redirect_location}
+                        endpoint={
+                          url.startsWith("http") ? url : `https://${url}`
+                        }
+                        statusCode={testResult.status_code}
+                        onUseAddress={(address) => {
+                          setUrl(address);
+                          setTestResult(null);
+                        }}
+                      />
                     )}
                     {testResult.success && (
                       <p className="text-emerald-300/80 text-xs mt-1">
-                        Endpoint respondiendo adecuadamente desde la red de monitoreo Sentinel Cloud.
+                        Endpoint respondiendo adecuadamente desde la red de
+                        monitoreo Sentinel Cloud.
                       </p>
                     )}
                   </div>
@@ -349,7 +446,8 @@ export default function QuickStartWizardModal({
                 <input
                   type="text"
                   placeholder="Ej. Producción Web Principal"
-                  aria-label="Nombre identificador del monitor" value={name}
+                  aria-label="Nombre identificador del monitor"
+                  value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-bg-dark border border-border-base focus:border-accent-green/60 rounded-xl px-3.5 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-accent-green/20"
                 />
@@ -362,9 +460,9 @@ export default function QuickStartWizardModal({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: '5 min', value: 300, minPlan: 'Free' },
-                    { label: '60 s', value: 60, minPlan: 'Pro' },
-                    { label: '30 s', value: 30, minPlan: 'Business' },
+                    { label: "5 min", value: 300, minPlan: "Free" },
+                    { label: "60 s", value: 60, minPlan: "Pro" },
+                    { label: "30 s", value: 30, minPlan: "Business" },
                   ].map((opt) => {
                     const isAllowed = opt.value >= minAllowedInterval;
                     const isSelected = interval === opt.value;
@@ -380,15 +478,19 @@ export default function QuickStartWizardModal({
                         disabled={!isAllowed}
                         className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all text-center relative flex flex-col items-center justify-center min-h-[52px] ${
                           !isAllowed
-                            ? 'bg-bg-dark border-border-base/50 text-text-muted cursor-not-allowed'
+                            ? "bg-bg-dark border-border-base/50 text-text-muted cursor-not-allowed"
                             : isSelected
-                            ? 'bg-accent-green/15 border-accent-green text-accent-green shadow-sm cursor-pointer'
-                            : 'bg-bg-dark border-border-base text-text-muted hover:border-zinc-700 cursor-pointer'
+                              ? "bg-accent-green/15 border-accent-green text-accent-green shadow-sm cursor-pointer"
+                              : "bg-bg-dark border-border-base text-text-muted hover:border-zinc-700 cursor-pointer"
                         }`}
-                        title={!isAllowed ? `Requiere plan ${opt.minPlan}` : ''}
+                        title={!isAllowed ? `Requiere plan ${opt.minPlan}` : ""}
                       >
                         <span className="font-mono text-xs">{opt.label}</span>
-                        {isAllowed && opt.value === minAllowedInterval && <span className="mt-0.5 text-xs">Recomendado para tu plan</span>}
+                        {isAllowed && opt.value === minAllowedInterval && (
+                          <span className="mt-0.5 text-xs">
+                            Recomendado para tu plan
+                          </span>
+                        )}
                         {!isAllowed && (
                           <span className="text-xs text-amber-400 font-mono mt-0.5 font-bold">
                             Plan {opt.minPlan}
@@ -410,7 +512,9 @@ export default function QuickStartWizardModal({
                   Descubrimiento Cruzado de Seguridad Automático
                 </h4>
                 <p className="text-xs text-text-muted mb-3">
-                  Al registrar tu endpoint, Sentinel aprovisionará automáticamente los módulos de auditoría para una cobertura 360°:
+                  Al registrar tu endpoint, Sentinel aprovisionará
+                  automáticamente los módulos de auditoría para una cobertura
+                  360°:
                 </p>
 
                 <div className="space-y-2.5">
@@ -428,15 +532,14 @@ export default function QuickStartWizardModal({
                         <span>Monitoreo Uptime & Latencia HTTP/S</span>
                       </div>
                       <p className="text-xs text-text-dim mt-0.5">
-                        Métricas de disponibilidad SLA en tiempo real, sparklines y alertas si el servicio cae.
+                        Métricas de disponibilidad SLA en tiempo real,
+                        sparklines y alertas si el servicio cae.
                       </p>
                     </div>
                   </label>
 
                   {/* Item 2: SSL */}
-                  <label
-                    className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors"
-                  >
+                  <label className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors">
                     <input
                       type="checkbox"
                       checked={enableSSL}
@@ -449,36 +552,38 @@ export default function QuickStartWizardModal({
                         <span>Vigilancia Criptográfica SSL / TLS</span>
                       </div>
                       <p className="text-xs text-text-dim mt-0.5">
-                        Auditoría de vigencia de certificado, emisor, grado de seguridad y alertas 30 días antes del vencimiento.
+                        Auditoría de vigencia de certificado, emisor, grado de
+                        seguridad y alertas 30 días antes del vencimiento.
                       </p>
                     </div>
                   </label>
 
                   {/* Item 3: Security Headers */}
-                  <label
-                    className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors"
-                  >
+                  <label className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors">
                     <input
                       type="checkbox"
                       checked={enableSecurityHeaders}
-                      onChange={(event) => setEnableSecurityHeaders(event.target.checked)}
+                      onChange={(event) =>
+                        setEnableSecurityHeaders(event.target.checked)
+                      }
                       className="mt-0.5 rounded text-accent-green focus:ring-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-text-main">
                         <Shield size={13} className="text-purple-400" />
-                        <span>Análisis de Cabeceras de Seguridad (HSTS, CSP, XFO)</span>
+                        <span>
+                          Análisis de Cabeceras de Seguridad (HSTS, CSP, XFO)
+                        </span>
                       </div>
                       <p className="text-xs text-text-dim mt-0.5">
-                        Detección de vulnerabilidades CWE-200, fugas de versión en encabezados y calificación criptográfica.
+                        Detección de vulnerabilidades CWE-200, fugas de versión
+                        en encabezados y calificación criptográfica.
                       </p>
                     </div>
                   </label>
 
                   {/* Item 4: DNS */}
-                  <label
-                    className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors"
-                  >
+                  <label className="flex items-start gap-3 p-3 rounded-xl bg-bg-card border border-border-base/70 cursor-pointer hover:border-accent-green/40 transition-colors">
                     <input
                       type="checkbox"
                       checked={enableDNS}
@@ -491,7 +596,8 @@ export default function QuickStartWizardModal({
                         <span>Resolución & Mutaciones DNS</span>
                       </div>
                       <p className="text-xs text-text-dim mt-0.5">
-                        Supervisión de registros A/CNAME, latencia de resolución en milisegundos y prevención de secuestro.
+                        Supervisión de registros A/CNAME, latencia de resolución
+                        en milisegundos y prevención de secuestro.
                       </p>
                     </div>
                   </label>
@@ -503,7 +609,9 @@ export default function QuickStartWizardModal({
                 <div className="p-3.5 bg-accent-red/10 border border-accent-red/30 rounded-2xl text-xs text-accent-red flex items-start gap-2.5 animate-in fade-in">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <span className="font-bold block mb-0.5">No se pudo iniciar el monitoreo</span>
+                    <span className="font-bold block mb-0.5">
+                      No se pudo iniciar el monitoreo
+                    </span>
                     <span className="text-xs opacity-90">{launchError}</span>
                   </div>
                 </div>
@@ -511,9 +619,14 @@ export default function QuickStartWizardModal({
 
               {/* Summary notice */}
               <div className="p-3 bg-accent-green/10 border border-accent-green/20 rounded-xl text-xs text-text-main flex items-center gap-2.5">
-                <CheckCircle2 size={16} className="text-accent-green shrink-0" />
+                <CheckCircle2
+                  size={16}
+                  className="text-accent-green shrink-0"
+                />
                 <span>
-                  Solo se crearán los módulos seleccionados, según el protocolo y los límites de tu plan. WHOIS y API Checks se configuran por separado.
+                  Solo se crearán los módulos seleccionados, según el protocolo
+                  y los límites de tu plan. WHOIS y API Checks se configuran por
+                  separado.
                 </span>
               </div>
             </div>
@@ -521,37 +634,62 @@ export default function QuickStartWizardModal({
 
           {step === 3 && (
             <div className="text-center py-6 space-y-4 animate-in fade-in zoom-in-95 duration-300">
-              {scanWarning && <p role="status" className="rounded-xl border border-accent-yellow/30 p-3 text-xs text-accent-yellow">{scanWarning}</p>}
+              {launchMutation.data?.id && (
+                <CoverageProgress id={launchMutation.data.id} />
+              )}
+              {scanWarning && (
+                <p
+                  role="status"
+                  className="rounded-xl border border-accent-yellow/30 p-3 text-xs text-accent-yellow"
+                >
+                  {scanWarning}
+                </p>
+              )}
               <div className="w-16 h-16 rounded-full bg-accent-green/20 border border-accent-green/40 flex items-center justify-center mx-auto shadow-lg shadow-accent-green/20">
-                <Check className="text-accent-green" size={32} strokeWidth={3} />
+                <Check
+                  className="text-accent-green"
+                  size={32}
+                  strokeWidth={3}
+                />
               </div>
               <div>
                 <h4 className="text-xl font-extrabold text-text-main">
                   Tu primer objetivo está registrado
                 </h4>
                 <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-                  El objetivo fue registrado. La cobertura seleccionada se aprovisiona en segundo plano; consulta sus resultados en los módulos. El primer escaneo puede seguir pendiente.
+                  El objetivo fue registrado. La cobertura seleccionada se
+                  aprovisiona en segundo plano; consulta sus resultados en los
+                  módulos. El primer escaneo puede seguir pendiente.
                 </p>
               </div>
 
               <div className="bg-bg-dark border border-border-base rounded-2xl p-4 text-left max-w-md mx-auto text-xs space-y-2 font-mono">
                 <div className="flex justify-between border-b border-border-base/50 pb-1.5">
                   <span className="text-text-dim">Nombre:</span>
-                  <span className="text-text-main font-bold">{name || url}</span>
+                  <span className="text-text-main font-bold">
+                    {name || url}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-border-base/50 pb-1.5">
                   <span className="text-text-dim">Endpoint:</span>
-                  <span className="text-accent-green truncate max-w-[200px]">{url}</span>
+                  <span className="text-accent-green truncate max-w-[200px]">
+                    {url}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-dim">Frecuencia:</span>
-                  <span className="text-text-muted">Cada {Math.max(interval, minAllowedInterval)}s</span>
+                  <span className="text-text-muted">
+                    Cada {Math.max(interval, minAllowedInterval)}s
+                  </span>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => { onComplete?.(); onClose(); }}
+                onClick={() => {
+                  onComplete?.();
+                  onClose();
+                }}
                 className="w-full max-w-md mx-auto py-3 px-6 rounded-xl font-bold text-sm bg-accent-green hover:bg-accent-green/90 text-black shadow-lg shadow-accent-green/20 transition-all flex items-center justify-center gap-2"
               >
                 <span>Ir al Tablero Principal</span>
@@ -617,6 +755,6 @@ export default function QuickStartWizardModal({
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

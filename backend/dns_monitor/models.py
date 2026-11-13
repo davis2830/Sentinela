@@ -20,6 +20,7 @@ class DNSRecord(OrganizationOwnedModel):
         SOA = "SOA", "SOA"
         PTR = "PTR", "PTR"
         CAA = "CAA", "CAA"
+        SRV = "SRV", "SRV"
 
     domain = models.CharField(max_length=500)
     record_type = models.CharField(
@@ -31,6 +32,13 @@ class DNSRecord(OrganizationOwnedModel):
     response_time_ms = models.FloatField(null=True, blank=True)
     last_scanned_at = models.DateTimeField(null=True, blank=True)
     last_change_at = models.DateTimeField(null=True, blank=True)
+    last_attempt_status = models.CharField(max_length=20, default="unknown")
+    last_error_code = models.CharField(max_length=40, blank=True)
+    last_error_message = models.CharField(max_length=500, blank=True)
+    last_successful_at = models.DateTimeField(null=True, blank=True)
+    resolver = models.CharField(max_length=255, blank=True)
+    expected_values = models.JSONField(default=list, blank=True)
+    matches_expected = models.BooleanField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

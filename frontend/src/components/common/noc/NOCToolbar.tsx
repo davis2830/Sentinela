@@ -1,11 +1,14 @@
-import React from 'react';
-import { Search, X, LayoutGrid, List as ListIcon } from 'lucide-react';
+import React from "react";
+import { Search, X, LayoutGrid, List as ListIcon } from "lucide-react";
+import ConnectivityToolbar from "./ConnectivityToolbar";
+import type { ResourceAction } from "../ResourceActions";
 
 export interface NOCStatusPill {
   id: string;
   label: string;
-  count?: number;
-  variant?: 'all' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+  description?: string;
+  count?: number | string;
+  variant?: "all" | "success" | "warning" | "danger" | "info" | "neutral";
 }
 
 export interface NOCCategoryChip {
@@ -14,13 +17,16 @@ export interface NOCCategoryChip {
 }
 
 export interface NOCToolbarProps {
+  layout?: "default" | "inline";
+  utilities?: ResourceAction[];
+  countsScope?: string;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
 
   // View Mode Switcher
-  viewMode?: 'grid' | 'table';
-  onViewModeChange?: (mode: 'grid' | 'table') => void;
+  viewMode?: "grid" | "table";
+  onViewModeChange?: (mode: "grid" | "table") => void;
 
   // Category chips (e.g. HTTP, TCP, DNS, GET, POST, etc.)
   categories?: NOCCategoryChip[];
@@ -41,40 +47,64 @@ export interface NOCToolbarProps {
 export default function NOCToolbar({
   searchTerm,
   onSearchChange,
-  searchPlaceholder = 'Buscar por nombre, URL o dirección IP...',
+  searchPlaceholder = "Buscar por nombre, URL o dirección IP...",
   viewMode,
   onViewModeChange,
   categories,
-  categoryLabel = 'Tipo:',
+  categoryLabel = "Tipo:",
   selectedCategory,
   onCategoryChange,
   statusPills,
   selectedStatus,
   onStatusChange,
   extraFilters,
-  className = '',
+  className = "",
+  layout = "default",
+  utilities,
+  countsScope,
 }: NOCToolbarProps) {
+  if (layout === "inline")
+    return (
+      <ConnectivityToolbar
+        searchTerm={searchTerm}
+        onSearchChange={onSearchChange}
+        searchPlaceholder={searchPlaceholder}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+        categories={categories}
+        categoryLabel={categoryLabel}
+        selectedCategory={selectedCategory}
+        onCategoryChange={onCategoryChange}
+        statusPills={statusPills}
+        selectedStatus={selectedStatus}
+        onStatusChange={onStatusChange}
+        extraFilters={extraFilters}
+        className={className}
+        utilities={utilities}
+        countsScope={countsScope}
+      />
+    );
   const getPillClasses = (
     _pillId: string,
-    variant: string = 'neutral',
-    isSelected: boolean
+    variant: string = "neutral",
+    isSelected: boolean,
   ) => {
     if (!isSelected) {
-      return 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-border-base';
+      return "bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-border-base";
     }
 
     switch (variant) {
-      case 'success':
-        return 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-semibold shadow-sm';
-      case 'warning':
-        return 'bg-amber-500/20 border-amber-500 text-amber-400 font-semibold shadow-sm';
-      case 'danger':
-        return 'bg-rose-500/20 border-rose-500 text-rose-400 font-semibold shadow-sm';
-      case 'info':
-        return 'bg-sky-500/20 border-sky-500 text-sky-400 font-semibold shadow-sm';
-      case 'all':
+      case "success":
+        return "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-semibold shadow-sm";
+      case "warning":
+        return "bg-amber-500/20 border-amber-500 text-amber-400 font-semibold shadow-sm";
+      case "danger":
+        return "bg-rose-500/20 border-rose-500 text-rose-400 font-semibold shadow-sm";
+      case "info":
+        return "bg-sky-500/20 border-sky-500 text-sky-400 font-semibold shadow-sm";
+      case "all":
       default:
-        return 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm';
+        return "bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm";
     }
   };
 
@@ -105,7 +135,7 @@ export default function NOCToolbar({
           {searchTerm && (
             <button
               type="button"
-              onClick={() => onSearchChange('')}
+              onClick={() => onSearchChange("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-main p-0.5 rounded-full"
               title="Limpiar búsqueda"
             >
@@ -122,25 +152,27 @@ export default function NOCToolbar({
           <div className="flex items-center gap-1 bg-bg-dark/80 p-1 rounded-full border border-border-base/80 shrink-0 self-end md:self-auto">
             <button
               type="button"
-              onClick={() => onViewModeChange('grid')}
+              onClick={() => onViewModeChange("grid")}
               className={`p-1.5 rounded-full transition-all ${
-                viewMode === 'grid'
-                  ? 'bg-accent-green text-black font-semibold shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
+                viewMode === "grid"
+                  ? "bg-accent-green text-black font-semibold shadow-sm"
+                  : "text-text-muted hover:text-text-main"
               }`}
-              title="Cuadrícula" aria-label="Cuadrícula"
+              title="Cuadrícula"
+              aria-label="Cuadrícula"
             >
               <LayoutGrid size={16} />
             </button>
             <button
               type="button"
-              onClick={() => onViewModeChange('table')}
+              onClick={() => onViewModeChange("table")}
               className={`p-1.5 rounded-full transition-all ${
-                viewMode === 'table'
-                  ? 'bg-accent-green text-black font-semibold shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
+                viewMode === "table"
+                  ? "bg-accent-green text-black font-semibold shadow-sm"
+                  : "text-text-muted hover:text-text-main"
               }`}
-              title="Lista" aria-label="Lista"
+              title="Lista"
+              aria-label="Lista"
             >
               <ListIcon size={16} />
             </button>
@@ -166,8 +198,8 @@ export default function NOCToolbar({
                     onClick={() => onCategoryChange(cat.id)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-all border shrink-0 ${
                       isSelected
-                        ? 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm'
-                        : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-border-base'
+                        ? "bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm"
+                        : "bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-border-base"
                     }`}
                   >
                     {cat.label}
@@ -185,7 +217,7 @@ export default function NOCToolbar({
                 const pillClasses = getPillClasses(
                   pill.id,
                   pill.variant,
-                  isSelected
+                  isSelected,
                 );
                 return (
                   <button

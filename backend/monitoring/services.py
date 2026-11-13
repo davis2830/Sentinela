@@ -22,22 +22,23 @@ class MonitoringService:
         from datetime import timedelta
 
         since_1h = timezone.now() - timedelta(hours=1)
-        return MonitoringTarget.objects.filter(
-            organization_id=organization_id
-        ).select_related("owner_team", "agent_probe").prefetch_related(
-            Prefetch(
-                "checks",
-                queryset=MonitoringCheck.objects.filter(checked_at__gte=since_1h).order_by("-checked_at"),
-                to_attr="prefetched_recent_checks"
+        return (
+            MonitoringTarget.objects.filter(organization_id=organization_id)
+            .select_related("owner_team", "agent_probe")
+            .prefetch_related(
+                Prefetch(
+                    "checks",
+                    queryset=MonitoringCheck.objects.filter(checked_at__gte=since_1h).order_by("-checked_at"),
+                    to_attr="prefetched_recent_checks",
+                )
             )
-        ).order_by("-created_at")
+            .order_by("-created_at")
+        )
 
     @staticmethod
     def get_target(target_id, organization_id):
         """Return a single target by ID within an organization."""
-        return MonitoringTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        return MonitoringTarget.objects.get(id=target_id, organization_id=organization_id)
 
     @staticmethod
     @transaction.atomic
@@ -64,12 +65,14 @@ class MonitoringService:
         owner_team_obj = None
         if owner_team:
             from users.models import Team
+
             owner_team_obj = Team.objects.filter(id=owner_team, organization_id=organization_id).first()
 
         agent_probe_obj = None
         if agent_probe:
-            from .models import AgentProbe
-            agent_probe_obj = AgentProbe.objects.filter(id=agent_probe, organization_id=organization_id).first()
+            from .probe_management import active_binding
+
+            agent_probe_obj = active_binding(agent_probe, organization_id)
 
         target = MonitoringTarget.objects.create(
             organization_id=organization_id,
@@ -88,13 +91,13 @@ class MonitoringService:
             runner_type=runner_type,
             agent_probe=agent_probe_obj,
         )
-        # Asynchronously register in submonitors after transaction commits
-        from .tasks import register_target_in_submonitors
-        from common.authorization import uses_custom_permissions
-        if actor is not None and uses_custom_permissions(actor):
-            transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id), related_modules, str(actor.pk)))
-        else:
-            transaction.on_commit(lambda: register_target_in_submonitors.delay(str(target.id), related_modules))
+        from .provisioning import schedule
+
+        schedule(target, related_modules, actor)
+        from common.executions import initial_scan
+        from .tasks import run_monitoring_check
+
+        initial_scan(target, run_monitoring_check)
 
         return target
 
@@ -102,13 +105,17 @@ class MonitoringService:
     @transaction.atomic
     def update_target(target_id, organization_id, **fields):
         """Update an existing monitoring target."""
-        target = MonitoringTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = MonitoringTarget.objects.get(id=target_id, organization_id=organization_id)
+        effective_probe = fields.get("agent_probe", target.agent_probe_id)
+        if fields.get("runner_type", target.runner_type) == "agent" and effective_probe:
+            from .probe_management import active_binding
+
+            active_binding(effective_probe, organization_id)
         if "owner_team" in fields:
             team_val = fields.pop("owner_team")
             if team_val:
                 from users.models import Team
+
                 target.owner_team = Team.objects.filter(id=team_val, organization_id=organization_id).first()
             else:
                 target.owner_team = None
@@ -117,6 +124,7 @@ class MonitoringService:
             probe_val = fields.pop("agent_probe")
             if probe_val:
                 from .models import AgentProbe
+
                 target.agent_probe = AgentProbe.objects.filter(id=probe_val, organization_id=organization_id).first()
             else:
                 target.agent_probe = None
@@ -131,9 +139,7 @@ class MonitoringService:
     @transaction.atomic
     def delete_target(target_id, organization_id):
         """Delete a monitoring target."""
-        target = MonitoringTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = MonitoringTarget.objects.get(id=target_id, organization_id=organization_id)
         target.delete()
 
     @staticmethod
@@ -148,9 +154,7 @@ class MonitoringService:
         Returns:
             QuerySet of MonitoringCheck instances.
         """
-        target = MonitoringTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = MonitoringTarget.objects.get(id=target_id, organization_id=organization_id)
         return target.checks.all()[:limit]
 
     @staticmethod
@@ -170,6 +174,9 @@ class MonitoringService:
             The created MonitoringCheck instance.
         """
         target = MonitoringTarget.objects.get(id=target_id)
+        from common.execution_context import matches
+
+        changed = not matches(target)
         now = timezone.now()
 
         check = MonitoringCheck.objects.create(
@@ -179,6 +186,9 @@ class MonitoringService:
             checked_at=now,
             details=details or {},
         )
+
+        if changed:
+            return check
 
         target.last_checked_at = now
         target.last_status = status
@@ -199,9 +209,7 @@ class MonitoringService:
         Returns:
             dict with total_checks, up_checks, uptime_percentage.
         """
-        target = MonitoringTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = MonitoringTarget.objects.get(id=target_id, organization_id=organization_id)
         since = timezone.now() - timedelta(hours=hours)
         checks = target.checks.filter(checked_at__gte=since)
 
@@ -223,9 +231,7 @@ class MonitoringService:
         from django.db.models import Count, Q, Avg
         from django.db.models.functions import TruncDate
 
-        target = MonitoringTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = MonitoringTarget.objects.get(id=target_id, organization_id=organization_id)
         now = timezone.now()
 
         if period == "7d":
@@ -310,16 +316,18 @@ class MonitoringService:
                 if err_msg == "failed":
                     err_msg = f"Fallo de conexión ({target.target_type.upper()}) hacia {target.endpoint}"
 
-                incidents.append({
-                    "id": str(cluster[0]["id"]),
-                    "started_at": start.isoformat(),
-                    "resolved_at": end.isoformat(),
-                    "duration_seconds": dur_secs,
-                    "duration_formatted": dur_str,
-                    "error_message": str(err_msg),
-                    "status_code": err_detail.get("status_code"),
-                    "checks_failed": len(cluster),
-                })
+                incidents.append(
+                    {
+                        "id": str(cluster[0]["id"]),
+                        "started_at": start.isoformat(),
+                        "resolved_at": end.isoformat(),
+                        "duration_seconds": dur_secs,
+                        "duration_formatted": dur_str,
+                        "error_message": str(err_msg),
+                        "status_code": err_detail.get("status_code"),
+                        "checks_failed": len(cluster),
+                    }
+                )
 
         total_downtime_seconds = sum(inc["duration_seconds"] for inc in incidents)
 
@@ -348,11 +356,7 @@ class MonitoringService:
                 u = d["up"]
                 dw = d["down"]
                 day_uptime = round((u / t * 100), 2) if t > 0 else None
-                day_status = (
-                    "down"
-                    if dw > 0
-                    else ("degraded" if d["slow"] > 0 else "operational")
-                )
+                day_status = "down" if dw > 0 else ("degraded" if d["slow"] > 0 else "operational")
                 avg_l = round(d["avg_lat"]) if d["avg_lat"] is not None else None
             else:
                 day_uptime = None
@@ -361,15 +365,17 @@ class MonitoringService:
                 day_status = "no_data"
                 avg_l = None
 
-            daily_availability.append({
-                "date": cur_date.isoformat(),
-                "label": cur_date.strftime("%d %b"),
-                "uptime_percentage": day_uptime,
-                "total_checks": t,
-                "down_checks": dw,
-                "status": day_status,
-                "avg_latency": avg_l,
-            })
+            daily_availability.append(
+                {
+                    "date": cur_date.isoformat(),
+                    "label": cur_date.strftime("%d %b"),
+                    "uptime_percentage": day_uptime,
+                    "total_checks": t,
+                    "down_checks": dw,
+                    "status": day_status,
+                    "avg_latency": avg_l,
+                }
+            )
 
         # Timeseries Buckets for Recharts AreaChart
         start_epoch = int(since.timestamp() // slot_seconds * slot_seconds)
@@ -392,25 +398,27 @@ class MonitoringService:
 
         timeseries = []
         import datetime as dt_mod
+
         for ep, b in sorted(buckets.items()):
             dt = dt_mod.datetime.fromtimestamp(ep, tz=dt_mod.timezone.utc)
             lats = b["lats"]
             bucket_avg = round(sum(lats) / len(lats), 1) if lats else None
             bucket_max = round(max(lats), 1) if lats else None
             is_down = b["down"] > 0
-            bucket_status = ("down" if is_down else "slow" if b["slow"] else
-                             "up" if b["up"] else "no_data")
+            bucket_status = "down" if is_down else "slow" if b["slow"] else "up" if b["up"] else "no_data"
 
-            timeseries.append({
-                "timestamp": dt.isoformat(),
-                "label": dt.strftime(label_fmt),
-                "latency": bucket_avg,
-                "max_latency": bucket_max,
-                "status": bucket_status,
-                "is_down": is_down,
-                "down_count": b["down"],
-                "total_count": b["up"] + b["down"],
-            })
+            timeseries.append(
+                {
+                    "timestamp": dt.isoformat(),
+                    "label": dt.strftime(label_fmt),
+                    "latency": bucket_avg,
+                    "max_latency": bucket_max,
+                    "status": bucket_status,
+                    "is_down": is_down,
+                    "down_count": b["down"],
+                    "total_count": b["up"] + b["down"],
+                }
+            )
 
         return {
             "period": period,
@@ -439,6 +447,7 @@ class MonitoringService:
         """Calculate real aggregate timeseries metrics and breakdown per service for the NOC Dashboard."""
         period = (period or "24h").strip().lower()
         from django.core.cache import cache
+
         cache_key = f"noc_perf_v3_{organization_id}_{period}"
         cached = cache.get(cache_key)
         if cached is not None:
@@ -483,10 +492,7 @@ class MonitoringService:
         elif bucket_epochs[-1] < end_epoch - (slot_seconds // 3):
             bucket_epochs.append(end_epoch)
 
-        buckets = {
-            ep: {"lats": [], "up": 0, "down": 0, "slow": 0}
-            for ep in bucket_epochs
-        }
+        buckets = {ep: {"lats": [], "up": 0, "down": 0, "slow": 0} for ep in bucket_epochs}
 
         for chk in checks_qs:
             ep = int(chk["checked_at"].timestamp() // slot_seconds * slot_seconds)
@@ -497,7 +503,7 @@ class MonitoringService:
                 # Buscar bucket correspondiente
                 candidates = [b for b in bucket_epochs if b <= ep]
                 target_ep = candidates[-1] if candidates else bucket_epochs[0]
-            
+
             if chk["latency"] is not None:
                 buckets[target_ep]["lats"].append(chk["latency"])
             if chk["status"] in ("up", "slow"):
@@ -508,6 +514,7 @@ class MonitoringService:
                 buckets[target_ep]["down"] += 1
 
         import datetime as dt_mod
+
         points = []
         all_latencies = []
         total_up = 0
@@ -530,18 +537,20 @@ class MonitoringService:
             uptime = round((b["up"] / t) * 100, 2) if t > 0 else None
             # First and current buckets may cover less than a full slot.
             observed_seconds = max(1, min(ep + slot_seconds, end_epoch) - max(ep, since.timestamp()))
-            points.append({
-                "timestamp": ep * 1000,
-                "time": dt.strftime(label_fmt),
-                "uptime": uptime,
-                "latency": avg_l,
-                "operational_checks": b["up"] - b["slow"],
-                "degraded_checks": b["slow"],
-                "failed_checks": b["down"],
-                "requests": t,
-                "checks": t,
-                "checks_per_minute": round(t * 60 / observed_seconds, 6),
-            })
+            points.append(
+                {
+                    "timestamp": ep * 1000,
+                    "time": dt.strftime(label_fmt),
+                    "uptime": uptime,
+                    "latency": avg_l,
+                    "operational_checks": b["up"] - b["slow"],
+                    "degraded_checks": b["slow"],
+                    "failed_checks": b["down"],
+                    "requests": t,
+                    "checks": t,
+                    "checks_per_minute": round(t * 60 / observed_seconds, 6),
+                }
+            )
 
         total_checks = total_up + total_down
         global_avg_uptime = round((total_up / total_checks * 100), 2) if total_checks > 0 else None
@@ -550,8 +559,7 @@ class MonitoringService:
         # Subservices real data
         # 1. Web targets (HTTP/HTTPS)
         web_targets = MonitoringTarget.objects.filter(
-            organization_id=organization_id,
-            target_type__in=["http", "https"]
+            organization_id=organization_id, target_type__in=["http", "https"]
         )
         web_total = web_targets.count()
         web_up = web_targets.filter(last_status="up").count()
@@ -560,6 +568,7 @@ class MonitoringService:
 
         # 2. Synthetic API Checks
         from api_checks.models import APICheckTarget
+
         api_targets = APICheckTarget.objects.filter(organization_id=organization_id)
         api_total = api_targets.count()
         api_up = api_targets.filter(last_status="pass").count()
@@ -567,10 +576,7 @@ class MonitoringService:
         api_avg_lat = round(sum(api_lats) / len(api_lats)) if api_lats else 0
 
         # 3. Network Sockets & Puertos TCP
-        tcp_targets = MonitoringTarget.objects.filter(
-            organization_id=organization_id,
-            target_type__in=["tcp", "db"]
-        )
+        tcp_targets = MonitoringTarget.objects.filter(organization_id=organization_id, target_type__in=["tcp", "db"])
         tcp_total = tcp_targets.count()
         tcp_up = tcp_targets.filter(last_status="up").count()
         tcp_lats = [t.last_latency for t in tcp_targets if t.last_latency is not None]
@@ -578,12 +584,14 @@ class MonitoringService:
 
         # 4. SSL Certificates
         from ssl_monitor.models import SSLCertificate
+
         ssl_certs = SSLCertificate.objects.filter(organization_id=organization_id)
         ssl_total = ssl_certs.count()
         ssl_valid = ssl_certs.filter(is_valid=True).count()
 
         # 5. DNS Records
         from dns_monitor.models import DNSRecord
+
         dns_records = DNSRecord.objects.filter(organization_id=organization_id)
         dns_total = dns_records.count()
         dns_valid = dns_records.filter(last_scanned_at__isnull=False).count()
@@ -602,7 +610,9 @@ class MonitoringService:
                 "operational_checks": total_up - total_slow,
                 "degraded_checks": total_slow,
                 "failed_checks": total_down,
-                "operational_percentage": round((total_up - total_slow) * 100 / total_checks, 2) if total_checks else None,
+                "operational_percentage": round((total_up - total_slow) * 100 / total_checks, 2)
+                if total_checks
+                else None,
                 "total_requests": total_checks,
                 "total_checks": total_checks,
                 "checks_per_minute": round(total_checks * 60 / period_seconds, 6),
@@ -628,33 +638,61 @@ class AgentProbeService:
     @staticmethod
     def list_probes(organization_id):
         from .models import AgentProbe
-        return AgentProbe.objects.filter(organization_id=organization_id).order_by("-created_at")
+        from django.db.models import Count, Q, Max
+        from django.utils import timezone
+        from datetime import timedelta
+
+        return (
+            AgentProbe.objects.filter(organization_id=organization_id)
+            .annotate(
+                assigned_count=Count("assigned_targets", distinct=True),
+                receipt_pending=Count(
+                    "agentexecution",
+                    filter=Q(agentexecution__accepted_at__isnull=True, agentexecution__expires_at__gt=timezone.now()),
+                    distinct=True,
+                ),
+                receipt_overdue=Count(
+                    "agentexecution",
+                    filter=Q(
+                        agentexecution__accepted_at__isnull=True,
+                        agentexecution__created_at__lte=timezone.now() - timedelta(minutes=10),
+                        agentexecution__expires_at__gt=timezone.now(),
+                    ),
+                    distinct=True,
+                ),
+                receipt_last=Max("agentexecution__accepted_at"),
+            )
+            .order_by("-created_at")
+        )
 
     @staticmethod
     def get_probe(probe_id, organization_id):
         from .models import AgentProbe
+
         return AgentProbe.objects.get(id=probe_id, organization_id=organization_id)
 
     @staticmethod
     @transaction.atomic
-    @beta_creation('private_agents')
+    @beta_creation("private_agents")
     def create_probe(organization_id, name):
         from .models import AgentProbe
+
         raw_token, token_hash = AgentProbe.generate_token()
         probe = AgentProbe.objects.create(
             organization_id=organization_id,
             name=name,
             token_hash=token_hash,
             status=AgentProbe.ProbeStatus.OFFLINE,
+            version="",
         )
         return probe, raw_token
 
     @staticmethod
     @transaction.atomic
-    def delete_probe(probe_id, organization_id):
-        from .models import AgentProbe
-        probe = AgentProbe.objects.get(id=probe_id, organization_id=organization_id)
-        probe.delete()
+    def delete_probe(probe_id, organization_id, reason=None, user=None):
+        from .probe_management import revoke
+
+        return revoke(probe_id, organization_id, reason, user)
 
     @staticmethod
     def authenticate_token(raw_token):
@@ -663,14 +701,33 @@ class AgentProbeService:
             return None
         import hashlib
         from .models import AgentProbe
+
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-        return AgentProbe.objects.filter(token_hash=token_hash).first()
+        return AgentProbe.objects.filter(token_hash=token_hash, revoked_at__isnull=True).first()
 
     @staticmethod
     @transaction.atomic
-    def process_heartbeat(probe, hostname="", ip_address="", os_info="", version="1.0.0",
-                          delivery_protocol=1, capacity=10, known_executions=(), telemetry=None):
+    def process_heartbeat(
+        probe,
+        hostname="",
+        ip_address="",
+        os_info="",
+        version="1.0.0",
+        delivery_protocol=1,
+        capacity=10,
+        known_executions=(),
+        telemetry=None,
+    ):
         from .models import AgentProbe
+
+        authenticated_hash = probe.token_hash
+        probe = (
+            AgentProbe.objects.select_for_update()
+            .select_related("organization")
+            .get(pk=probe.pk, organization_id=probe.organization_id)
+        )
+        if probe.revoked_at or probe.token_hash != authenticated_hash:
+            return []
         probe.last_heartbeat = timezone.now()
         probe.status = AgentProbe.ProbeStatus.ONLINE
         probe.operational_snapshot = telemetry
@@ -683,14 +740,28 @@ class AgentProbeService:
             probe.os_info = os_info
         if version:
             probe.version = version
-        probe.save(update_fields=["last_heartbeat", "status", "hostname", "ip_address", "os_info", "version", "updated_at", "operational_snapshot", "telemetry_received_at"])
+        probe.save(
+            update_fields=[
+                "last_heartbeat",
+                "status",
+                "hostname",
+                "ip_address",
+                "os_info",
+                "version",
+                "updated_at",
+                "operational_snapshot",
+                "telemetry_received_at",
+            ]
+        )
 
         # Fetch assigned active targets
         from common.subscriptions import monitoring_allowed
+
         if not monitoring_allowed(probe.organization):
             return []
-        targets = probe.assigned_targets.filter(enabled=True, runner_type='agent')
+        targets = probe.assigned_targets.filter(enabled=True, runner_type="agent")
         from .agent_delivery import redeliver, issue
+
         task_list = redeliver(probe, capacity, known_executions) if delivery_protocol == 2 else []
         for t in targets:
             if delivery_protocol == 2 and len(task_list) >= capacity:
@@ -699,6 +770,7 @@ class AgentProbeService:
             if t.last_checked_at and (timezone.now() - t.last_checked_at).total_seconds() < interval:
                 continue
             from common.scan_limits import reserve, start, ScanLimited
+
             try:
                 token = reserve(t)
                 if not start(t, token):
@@ -725,9 +797,21 @@ class AgentProbeService:
     def ingest_results(probe, results):
         """Ingest batch check execution results from private probe."""
         from common.subscriptions import require_monitoring
+        from .models import AgentProbe
+
+        authenticated_hash = probe.token_hash
+        probe = (
+            AgentProbe.objects.select_for_update()
+            .select_related("organization")
+            .get(pk=probe.pk, organization_id=probe.organization_id)
+        )
+        if probe.revoked_at or probe.token_hash != authenticated_hash:
+            return 0
+
         require_monitoring(probe.organization)
         from .models import MonitoringCheck, MonitoringTarget
         from .agent_payload import validated_results
+
         results = validated_results(results)
         ingested = 0
         now = timezone.now()
@@ -735,10 +819,13 @@ class AgentProbeService:
             target_id = item.get("target_id")
             if not target_id:
                 continue
-            target = MonitoringTarget.objects.filter(id=target_id, organization=probe.organization, agent_probe=probe, runner_type='agent', enabled=True).first()
+            target = MonitoringTarget.objects.filter(
+                id=target_id, organization=probe.organization, agent_probe=probe, runner_type="agent", enabled=True
+            ).first()
             if not target:
                 continue
             from common.scan_limits import accept_agent_result
+
             if not accept_agent_result(target):
                 continue
 
@@ -773,6 +860,7 @@ class AgentProbeService:
             # Evaluate alert rules
             try:
                 from alerts.services import AlertRuleService
+
                 AlertRuleService.evaluate_target(target, check)
             except Exception:
                 pass

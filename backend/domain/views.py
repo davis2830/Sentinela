@@ -27,8 +27,9 @@ class DomainListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         domains = DomainService.list_domains(org_id)
-        serializer = DomainInfoSerializer(domains, many=True, context={"request": request})
-        return success_response(serializer.data)
+        from common.connectivity_directory import directory
+
+        return directory(domains, request, DomainInfoSerializer, "domain")
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -48,7 +49,12 @@ class DomainListView(APIView):
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -57,8 +63,6 @@ class DomainListView(APIView):
                 organization_id=org_id,
                 domain=serializer.validated_data["domain"],
             )
-            from .tasks import scan_whois
-            scan_whois.delay(str(domain_info.id))
 
             response_serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(
@@ -66,9 +70,7 @@ class DomainListView(APIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DomainDetailView(APIView):
@@ -87,29 +89,19 @@ class DomainDetailView(APIView):
             serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(serializer.data)
         except ObjectDoesNotExist:
-            return error_response(
-                "Domain not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Domain not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, domain_id):
         org_id = request.user.organization_id
         domain = request.data.get("domain")
         if not domain:
-            return error_response(
-                "Domain is required.", status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response("Domain is required.", status_code=status.HTTP_400_BAD_REQUEST)
         try:
-            domain_info = DomainService.update_domain_record(
-                domain_id, org_id, domain
-            )
-            from .tasks import scan_whois
-            scan_whois.delay(str(domain_info.id))
+            domain_info = DomainService.update_domain_record(domain_id, org_id, domain)
             serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(serializer.data)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, domain_id):
         org_id = request.user.organization_id
@@ -117,9 +109,7 @@ class DomainDetailView(APIView):
             DomainService.delete_domain(domain_id, org_id)
             return success_response({"detail": "Domain deleted."})
         except ObjectDoesNotExist:
-            return error_response(
-                "Domain not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Domain not found.", status_code=status.HTTP_404_NOT_FOUND)
 
 
 class DomainScanView(APIView):
@@ -135,6 +125,7 @@ class DomainScanView(APIView):
         try:
             domain_info = DomainService.get_domain(domain_id, org_id)
             from .tasks import scan_whois
+
             task = enqueue_scan(domain_info, scan_whois)
             return queued_scan_response(task, domain_info.id)
         except ScanLimited as exc:
@@ -200,7 +191,12 @@ class DomainBulkScanView(APIView):
         try:
             from .tasks import scan_whois
             from .models import DomainInfo
-            return success_response(enqueue_many(DomainInfo.objects.filter(organization_id=request.user.organization_id), scan_whois))
+
+            return success_response(
+                enqueue_many(
+                    DomainInfo.objects.filter(organization_id=request.user.organization_id), scan_whois, report=True
+                )
+            )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 

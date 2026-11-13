@@ -14,7 +14,28 @@ export interface paths {
         /** AgentProbeListView.get */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -40,21 +61,34 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                /** Format: date-time */
+                                revoked_at?: string | null;
                                 /** @enum {string} */
                                 status?: "online" | "offline";
                                 telemetry?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
-                                version?: string;
+                                version?: unknown;
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -78,7 +112,11 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        distribution?: "registry" | "local";
                         name: string;
+                        /** @enum {string} */
+                        platform?: "linux" | "windows";
                     };
                 };
             };
@@ -102,14 +140,17 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                /** Format: date-time */
+                                revoked_at?: string | null;
                                 /** @enum {string} */
                                 status?: "online" | "offline";
                                 telemetry?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
-                                version?: string;
+                                version?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -138,14 +179,17 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                /** Format: date-time */
+                                revoked_at?: string | null;
                                 /** @enum {string} */
                                 status?: "online" | "offline";
                                 telemetry?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
-                                version?: string;
+                                version?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -164,6 +208,56 @@ export interface paths {
                 500: components["responses"]["ApiError"];
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-probes/diagnostic/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ProbeDiagnosticView.get */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: unknown;
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -367,6 +461,210 @@ export interface paths {
                 500: components["responses"]["ApiError"];
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-probes/{probe_id}/detail/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ProbeReadView.get */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    probe_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                assigned_targets_count?: unknown;
+                                /** Format: date-time */
+                                created_at?: string;
+                                delivery?: unknown;
+                                hostname?: string;
+                                /** Format: uuid */
+                                id?: string;
+                                ip_address?: string;
+                                is_online?: boolean;
+                                /** Format: date-time */
+                                last_heartbeat?: string | null;
+                                lifecycle?: unknown;
+                                name: string;
+                                os_info?: string;
+                                /** Format: date-time */
+                                revoked_at?: string | null;
+                                /** @enum {string} */
+                                status?: "online" | "offline";
+                                telemetry?: unknown;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                version?: unknown;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-probes/{probe_id}/installation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ProbeInstallationView.get */
+        get: {
+            parameters: {
+                query?: {
+                    platform?: string;
+                    distribution?: string;
+                };
+                header?: never;
+                path: {
+                    probe_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: unknown;
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-probes/{probe_id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ProbeRevokeView.post */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    probe_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: unknown;
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: unknown;
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1842,7 +2140,28 @@ export interface paths {
         /** APICheckTargetListView.get */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1885,10 +2204,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -2565,6 +2894,7 @@ export interface paths {
                                 json_valid?: boolean | null;
                                 response_headers?: unknown;
                                 response_time_ms?: number | null;
+                                schema_failures?: unknown;
                                 schema_valid?: boolean | null;
                                 /** @enum {string} */
                                 status: "pass" | "fail" | "slow" | "error";
@@ -4369,6 +4699,26 @@ export interface paths {
             parameters: {
                 query?: {
                     domain?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
                 };
                 header?: never;
                 path?: never;
@@ -4387,15 +4737,23 @@ export interface paths {
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
+                                expected_values?: unknown;
                                 /** Format: uuid */
                                 id?: string;
+                                last_attempt_status?: string;
                                 /** Format: date-time */
                                 last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                matches_expected?: boolean | null;
                                 organization?: string;
                                 /** @enum {string} */
-                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA";
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                resolver?: string;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
                                 ttl?: number | null;
@@ -4405,10 +4763,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -4433,8 +4801,9 @@ export interface paths {
                 content: {
                     "application/json": {
                         domain: string;
+                        expected_values?: string[];
                         /** @enum {string} */
-                        record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA";
+                        record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
                     };
                 };
             };
@@ -4450,15 +4819,23 @@ export interface paths {
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
+                                expected_values?: unknown;
                                 /** Format: uuid */
                                 id?: string;
+                                last_attempt_status?: string;
                                 /** Format: date-time */
                                 last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                matches_expected?: boolean | null;
                                 organization?: string;
                                 /** @enum {string} */
-                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA";
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                resolver?: string;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
                                 ttl?: number | null;
@@ -4485,15 +4862,23 @@ export interface paths {
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
+                                expected_values?: unknown;
                                 /** Format: uuid */
                                 id?: string;
+                                last_attempt_status?: string;
                                 /** Format: date-time */
                                 last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                matches_expected?: boolean | null;
                                 organization?: string;
                                 /** @enum {string} */
-                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA";
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                resolver?: string;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
                                 ttl?: number | null;
@@ -4886,15 +5271,23 @@ export interface paths {
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
+                                expected_values?: unknown;
                                 /** Format: uuid */
                                 id?: string;
+                                last_attempt_status?: string;
                                 /** Format: date-time */
                                 last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                matches_expected?: boolean | null;
                                 organization?: string;
                                 /** @enum {string} */
-                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA";
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                resolver?: string;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
                                 ttl?: number | null;
@@ -4979,7 +5372,10 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        domain: string;
+                        expected_values?: string[];
+                        /** @enum {string} */
+                        record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
                     };
                 };
             };
@@ -4995,15 +5391,23 @@ export interface paths {
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
+                                expected_values?: unknown;
                                 /** Format: uuid */
                                 id?: string;
+                                last_attempt_status?: string;
                                 /** Format: date-time */
                                 last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                matches_expected?: boolean | null;
                                 organization?: string;
                                 /** @enum {string} */
-                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA";
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                resolver?: string;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
                                 ttl?: number | null;
@@ -5192,7 +5596,28 @@ export interface paths {
         /** DomainListView.get */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -5211,6 +5636,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5219,9 +5645,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5229,6 +5657,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5236,10 +5665,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -5280,6 +5719,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5288,9 +5728,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5298,6 +5740,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5323,6 +5766,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5331,9 +5775,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5341,6 +5787,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5470,6 +5917,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5478,9 +5926,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5488,6 +5938,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5549,6 +6000,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5557,9 +6009,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5567,6 +6021,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5838,6 +6293,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5846,9 +6302,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5856,6 +6314,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5955,6 +6414,7 @@ export interface paths {
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
+                                data_source?: string;
                                 days_until_expiration?: number | null;
                                 dnssec?: string;
                                 domain: string;
@@ -5963,9 +6423,11 @@ export interface paths {
                                 expiration_date?: string | null;
                                 /** Format: uuid */
                                 id?: string;
-                                is_locked?: boolean;
+                                is_locked?: boolean | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
                                 name_servers?: string;
@@ -5973,6 +6435,7 @@ export interface paths {
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
+                                source_url?: string;
                                 status?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -8685,6 +9148,26 @@ export interface paths {
             parameters: {
                 query?: {
                     team_id?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
                 };
                 header?: never;
                 path?: never;
@@ -8704,6 +9187,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -8737,10 +9221,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -8800,6 +9294,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -8851,6 +9346,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -9377,6 +9873,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -9519,6 +10016,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -10122,6 +10620,26 @@ export interface paths {
             parameters: {
                 query?: {
                     team_id?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
                 };
                 header?: never;
                 path?: never;
@@ -10141,6 +10659,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -10174,10 +10693,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -10237,6 +10766,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -10288,6 +10818,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -10814,6 +11345,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -10956,6 +11488,7 @@ export interface paths {
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
@@ -16743,6 +17276,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scan-executions/{execution_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ScanExecutionView.get */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    execution_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                error_code?: string;
+                                finished_at?: string | null;
+                                id?: string;
+                                /** @enum {string} */
+                                origin?: "cloud" | "agent";
+                                started_at?: string | null;
+                                /** @enum {string} */
+                                state?: "queued" | "running" | "completed" | "failed" | "expired";
+                                submitted_at?: string;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/security-headers/": {
         parameters: {
             query?: never;
@@ -16753,7 +17348,28 @@ export interface paths {
         /** SecurityHeaderTargetListView.get */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -16793,10 +17409,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -17555,7 +18181,28 @@ export interface paths {
         /** SSLCertificateListView.get */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    page?: number;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    search?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    status?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    method?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    type?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    grade?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    lifecycle?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    ordering?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    tag?: string;
+                    /** @description page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página. */
+                    export?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -17585,8 +18232,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
@@ -17599,10 +18249,20 @@ export interface paths {
                             }[];
                             message?: string;
                             meta?: {
-                                [key: string]: unknown;
+                                counts?: {
+                                    active: number;
+                                    pending: number;
+                                    revoked: number;
+                                };
+                                has_next: boolean;
+                                page: number;
+                                page_size: number;
+                                total: number;
+                                total_pages: number;
                             };
                             success: boolean;
                         };
+                        "text/csv": string;
                     };
                 };
                 400: components["responses"]["ApiError"];
@@ -17655,8 +18315,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
@@ -17698,8 +18361,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
@@ -17845,8 +18511,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
@@ -17924,8 +18593,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
@@ -18213,8 +18885,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
@@ -18330,8 +19005,11 @@ export interface paths {
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;

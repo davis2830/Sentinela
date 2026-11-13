@@ -1,9 +1,12 @@
+import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
+import { domainStatus } from "../../utils/healthPresentation";
+import { bulkOutcome } from "../../utils/bulkOutcome";
 import { apiFailure } from "../../services/errors";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
 import { useLinkedResource } from "../../hooks/useLinkedResource";
 import { useUrlFilter } from "../../hooks/useUrlFilter";
 import { useAuthStore } from "../../store/authStore";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../services/api";
 import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
@@ -16,24 +19,6 @@ import type {
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
 import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
 
-function renderNameServersList(nsData: unknown): string[] {
-  if (!nsData) return [];
-  if (Array.isArray(nsData))
-    return nsData.map((item) => String(item).toLowerCase());
-  if (typeof nsData === "string") {
-    try {
-      const parsed = JSON.parse(nsData);
-      if (Array.isArray(parsed))
-        return parsed.map((item) => String(item).toLowerCase());
-    } catch {
-      return nsData
-        .split(/[\s,]+/)
-        .filter(Boolean)
-        .map((s) => s.toLowerCase());
-    }
-  }
-  return [];
-}
 /** Data, mutations and transient workflow state; rendering stays in the page. */
 export function useDomainsWorkspace() {
   const organizationId = useAuthStore((state) => state.user?.organization?.id);
@@ -72,17 +57,6 @@ export function useDomainsWorkspace() {
   // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
 
-  const getEndpoint = () => {
-    switch (filter) {
-      case "expiring":
-        return "domains/expiring/?days=30";
-      case "expired":
-        return "domains/expired/";
-      default:
-        return "domains/";
-    }
-  };
-
   const { data: stats } = useQuery<DomainStats>({
     queryKey: ["domain-stats", organizationId],
     queryFn: async () => {
@@ -92,14 +66,15 @@ export function useDomainsWorkspace() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  const { data: domains, isLoading } = useQuery<DomainInfo[]>({
-    queryKey: ["domains", organizationId, filter],
-    queryFn: async () => {
-      const response = await api.get(getEndpoint());
-      return (response.data?.data || []) as DomainInfo[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
+  const directory = useConnectivityDirectory<DomainInfo>(
+    "domains/",
+    "domains",
+    { search: searchTerm, status: filter },
+    autoRefresh.refetchInterval,
+  );
+  const { data: domains, isLoading, isError, refetch } = directory;
+  const selectionScope = JSON.stringify(directory.params);
+  useEffect(() => setSelectedIds([]), [selectionScope]);
 
   const createMutation = useMutation({
     mutationFn: async (data: CreateDomainInfoData) => {
@@ -194,27 +169,28 @@ export function useDomainsWorkspace() {
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     if (
-      !window.confirm(
+      !(await directory.confirmDelete(
         `¿Deseas eliminar permanentemente los ${selectedIds.length} dominios seleccionados?`,
-      )
-    ) {
+      ))
+    )
       return;
-    }
     setBulkDeleting(true);
     try {
-      await api.post("domains/bulk-action/", {
+      const response = await api.post("domains/bulk-action/", {
         action: "delete",
         domain_ids: selectedIds,
       });
-    } catch (error) {
-      window.alert(
-        apiFailure(error).response?.data.message ||
-          "No se pudo eliminar la selección. Puedes volver a intentarlo.",
+      const outcome = bulkOutcome(response.data.data, selectedIds);
+      setSelectedIds(outcome.pending);
+      directory.setMessage(outcome.message);
+    } catch {
+      directory.setMessage(
+        "No se pudo eliminar la selección. Puedes volver a intentarlo.",
       );
       setBulkDeleting(false);
       return;
     }
-    setSelectedIds([]);
+
     setBulkDeleting(false);
     queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
     queryClient.invalidateQueries({
@@ -254,47 +230,7 @@ export function useDomainsWorkspace() {
   };
 
   // Export CSV Report
-  const handleExportCSV = () => {
-    if (!domains || domains.length === 0) return;
-    const headers = [
-      "Dominio",
-      "Registrador",
-      "Bloqueo EPP (Transfer Lock)",
-      "Días Restantes",
-      "Fecha Vencimiento",
-      "Fecha Creación",
-      "Servidores NS",
-      "Última Sincronización",
-    ];
-    const rows = domains.map((d) => [
-      d.domain,
-      `"${d.registrar || "Desconocido"}"`,
-      d.is_locked ? "Protegido (Locked)" : "Sin Bloqueo",
-      d.days_until_expiration ?? "N/A",
-      d.expiration_date
-        ? new Date(d.expiration_date).toISOString().split("T")[0]
-        : "N/A",
-      d.creation_date
-        ? new Date(d.creation_date).toISOString().split("T")[0]
-        : "N/A",
-      `"${renderNameServersList(d.name_servers).join(" ; ")}"`,
-      d.last_scanned_at ? new Date(d.last_scanned_at).toISOString() : "N/A",
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8,\uFEFF" +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `sentinel_dominios_whois_${new Date().toISOString().split("T")[0]}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const handleExportCSV = () => void directory.exportCSV();
 
   // Modal Handlers
   const handleOpenCreate = () => {
@@ -336,14 +272,7 @@ export function useDomainsWorkspace() {
     }
   };
 
-  const getStatusType = (domain: DomainInfo) => {
-    if (domain.status === "error" || Boolean(domain.error_message))
-      return "fallo";
-    const days = domain.days_until_expiration;
-    if (days !== null && days <= 0) return "expirado";
-    if (days !== null && days <= 30) return "por_expirar";
-    return "valido";
-  };
+  const getStatusType = domainStatus;
 
   const calculateLifePercentage = (domain: DomainInfo) => {
     if (!domain.creation_date || !domain.expiration_date) return null;
@@ -358,55 +287,19 @@ export function useDomainsWorkspace() {
 
   // KPI Calculations
   const allDomains = domains || [];
-  const totalCount = stats?.total || allDomains.length;
-  const activeCount =
-    stats?.active ||
-    allDomains.filter(
-      (d: DomainInfo) =>
-        !d.error_message && (d.days_until_expiration ?? 999) > 30,
-    ).length;
-  const expiringCount =
-    stats?.expiring_30d ||
-    allDomains.filter(
-      (d: DomainInfo) =>
-        d.days_until_expiration !== null &&
-        d.days_until_expiration <= 30 &&
-        d.days_until_expiration > 0,
-    ).length;
-  const lockedCount =
-    stats?.locked_count ||
-    allDomains.filter((d: DomainInfo) => d.is_locked).length;
+  const totalCount = stats?.total ?? "—";
+  const activeCount = stats?.active ?? "—";
+  const expiringCount = stats?.expiring_30d ?? "—";
+  const lockedCount = stats?.locked_count ?? "—";
 
   // Filtered & Searched Domains
-  const filteredDomains = allDomains.filter((domain: DomainInfo) => {
-    const matchesSearch =
-      domain.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (domain.registrar &&
-        domain.registrar.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    if (!matchesSearch) return false;
-
-    if (filter === "expiring") {
-      return (
-        domain.days_until_expiration !== null &&
-        domain.days_until_expiration <= 30 &&
-        domain.days_until_expiration > 0
-      );
-    }
-    if (filter === "expired") {
-      return (
-        domain.status === "error" ||
-        Boolean(domain.error_message) ||
-        (domain.days_until_expiration !== null &&
-          domain.days_until_expiration <= 0)
-      );
-    }
-
-    return true;
-  });
+  const filteredDomains = allDomains;
 
   useLinkedResource(domains, selectedDomain, setSelectedDomain);
   return {
+    directory,
+    isError,
+    refetch,
     filter,
     setFilter,
     searchTerm,

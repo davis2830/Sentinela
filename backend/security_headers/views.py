@@ -28,8 +28,9 @@ class SecurityHeaderTargetListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         targets = SecurityHeadersService.list_targets(org_id)
-        serializer = SecurityHeaderTargetSerializer(targets, many=True, context={"request": request})
-        return success_response(serializer.data)
+        from common.connectivity_directory import directory
+
+        return directory(targets, request, SecurityHeaderTargetSerializer, "security_headers")
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -42,6 +43,7 @@ class SecurityHeaderTargetListView(APIView):
             )
 
         from common.security import validate_safe_public_url, SSRFSecurityException
+
         try:
             validate_safe_public_url(serializer.validated_data["url"])
         except SSRFSecurityException as s_exc:
@@ -55,7 +57,12 @@ class SecurityHeaderTargetListView(APIView):
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -67,6 +74,7 @@ class SecurityHeaderTargetListView(APIView):
                 enabled=serializer.validated_data.get("enabled", True),
             )
             from .tasks import scan_security_headers
+
             scan_security_headers.delay(str(target.id))
 
             response_serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
@@ -75,9 +83,7 @@ class SecurityHeaderTargetListView(APIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class SecurityHeaderTargetDetailView(APIView):
@@ -145,6 +151,7 @@ class SecurityHeaderTargetScanView(APIView):
         try:
             target = SecurityHeadersService.get_target(target_id, org_id)
             from .tasks import scan_security_headers
+
             task = enqueue_scan(target, scan_security_headers)
             return queued_scan_response(task, target.id)
         except ScanLimited as exc:
@@ -165,9 +172,7 @@ class SecurityHeaderResultListView(APIView):
         org_id = request.user.organization_id
         limit = int(request.query_params.get("limit", 50))
         try:
-            results = SecurityHeadersService.list_results(
-                target_id, org_id, limit=limit
-            )
+            results = SecurityHeadersService.list_results(target_id, org_id, limit=limit)
             serializer = SecurityHeaderResultSerializer(results, many=True)
             return success_response(serializer.data)
         except ObjectDoesNotExist:
@@ -203,7 +208,14 @@ class SecurityHeaderBulkScanView(APIView):
         try:
             from .tasks import scan_security_headers
             from .models import SecurityHeaderTarget
-            return success_response(enqueue_many(SecurityHeaderTarget.objects.filter(organization_id=request.user.organization_id), scan_security_headers))
+
+            return success_response(
+                enqueue_many(
+                    SecurityHeaderTarget.objects.filter(organization_id=request.user.organization_id),
+                    scan_security_headers,
+                    report=True,
+                )
+            )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -225,6 +237,7 @@ class SecurityHeaderTestView(ConfigurationDiagnosticAPIView):
             )
 
         from common.security import validate_safe_public_url, SSRFSecurityException
+
         try:
             validate_safe_public_url(url)
         except SSRFSecurityException as s_exc:

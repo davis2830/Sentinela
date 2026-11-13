@@ -1,16 +1,17 @@
-import AdminButton from '../common/AdminButton';
-import React from 'react';
-import type { SSLCertificate } from '../../types/ssl';
-import StatusBadge from '../common/StatusBadge';
+import ResourceActionButtons from "../common/ResourceActionButtons";
+import SelectionCheckbox from "../common/SelectionCheckbox";
 import {
-  Pencil,
-  Trash2,
-  ExternalLink,
-  CheckSquare,
-  Square,
-  Lock,
-  Layers,
-} from 'lucide-react';
+  healthPalette,
+  hasMeasurement,
+  sslExpiryTone,
+  sslGradeTone,
+  sslStatus,
+} from "../../utils/healthPresentation";
+
+import React from "react";
+import type { SSLCertificate } from "../../types/ssl";
+import StatusBadge from "../common/StatusBadge";
+import { Pencil, Trash2, ExternalLink, Lock, Layers } from "lucide-react";
 
 export interface SSLCertificateTableViewProps {
   certificates: SSLCertificate[];
@@ -25,12 +26,12 @@ export interface SSLCertificateTableViewProps {
 }
 
 function parseIssuerClean(issuerStr: string | null): string {
-  if (!issuerStr) return 'Desconocido';
+  if (!issuerStr) return "Desconocido";
   const orgMatch = issuerStr.match(/organizationName=([^,]+)/i);
   if (orgMatch && orgMatch[1]) return orgMatch[1].trim();
   const cnMatch = issuerStr.match(/commonName=([^,]+)/i);
   if (cnMatch && cnMatch[1]) return cnMatch[1].trim();
-  return issuerStr.split(',')[0].replace('CN=', '');
+  return issuerStr.split(",")[0].replace("CN=", "");
 }
 
 export default function SSLCertificateTableView({
@@ -45,63 +46,53 @@ export default function SSLCertificateTableView({
   const allSelected =
     certificates.length > 0 && selectedIds.length === certificates.length;
 
-  const getStatusType = (cert: SSLCertificate) => {
-    if (!cert.last_scanned_at) return 'desconocido';
-    if (!cert.is_valid) return 'fallo';
-    const days = cert.days_remaining;
-    if (days !== null && days <= 0) return 'expirado';
-    if (days !== null && days <= 15) return 'por_expirar';
-    return 'valido';
-  };
-
-  const getGradeStyle = (grade?: string) => {
-    switch (grade) {
-      case 'A+':
-      case 'A':
-        return 'bg-accent-green/10 text-accent-green border-accent-green/30';
-      case 'B':
-        return 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/30';
-      case 'C':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-      default:
-        return 'bg-accent-red/10 text-accent-red border-accent-red/30';
-    }
-  };
-
   return (
-    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div
+      data-testid="connectivity-table"
+      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans"
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
+            <tr className="border-b border-border-base text-text-muted text-xs bg-bg-dark/80">
               <th scope="col" className="py-3 px-3.5 w-10">
-                <button
-                  type="button"
-                  onClick={onSelectAll}
-                  className="text-text-dim hover:text-accent-green transition-colors"
-                  title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                >
-                  {allSelected ? (
-                    <CheckSquare size={16} className="text-accent-green" />
-                  ) : (
-                    <Square size={16} />
-                  )}
-                </button>
+                <SelectionCheckbox
+                  checked={allSelected}
+                  label="Seleccionar todos los recursos de esta página"
+                  onChange={onSelectAll}
+                />
               </th>
-              <th scope="col" className="py-3 px-4">Dominio Certificado</th>
-              <th scope="col" className="py-3 px-3">Autoridad Emisora (CA)</th>
-              <th scope="col" className="py-3 px-3">Seguridad</th>
-              <th scope="col" className="py-3 px-3">Estado</th>
-              <th scope="col" className="py-3 px-3">Vigencia & Timeline</th>
-              <th scope="col" className="py-3 px-3">Expiración</th>
-              <th scope="col" className="py-3 px-3">SANs</th>
-              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-4">
+                Dominio Certificado
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Autoridad Emisora (CA)
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Seguridad
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Estado
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Vigencia & Timeline
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Expiración
+              </th>
+              <th scope="col" className="py-3 px-3">
+                SANs
+              </th>
+              <th scope="col" className="py-3 px-4 text-right">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40 font-sans">
             {certificates.map((cert) => {
               const isSelected = selectedIds.includes(cert.id);
-              const statusType = getStatusType(cert);
+              const statusType = sslStatus(cert);
+              const expiryTone = sslExpiryTone(cert);
               const days = cert.days_remaining;
 
               // Calculate lifetime progress percentage
@@ -111,7 +102,13 @@ export default function SSLCertificateTableView({
                 const end = new Date(cert.expiration_date).getTime();
                 const now = Date.now();
                 if (end > start) {
-                  percentUsed = Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
+                  percentUsed = Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Math.round(((now - start) / (end - start)) * 100),
+                    ),
+                  );
                 }
               }
 
@@ -121,9 +118,17 @@ export default function SSLCertificateTableView({
                   onClick={() => onSelectCert(cert)}
                   tabIndex={0}
                   aria-label={cert.domain}
-                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectCert(cert); } }}
+                  onKeyDown={(e) => {
+                    if (
+                      e.target === e.currentTarget &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      onSelectCert(cert);
+                    }
+                  }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                    isSelected ? 'bg-accent-green/[0.03]' : ''
+                    isSelected ? "bg-accent-green/[0.03]" : ""
                   }`}
                 >
                   {/* Row Checkbox */}
@@ -134,16 +139,11 @@ export default function SSLCertificateTableView({
                       onToggleSelect(cert);
                     }}
                   >
-                    <button
-                      type="button"
-                      className="text-text-dim hover:text-accent-green transition-colors"
-                    >
-                      {isSelected ? (
-                        <CheckSquare size={16} className="text-accent-green" />
-                      ) : (
-                        <Square size={16} />
-                      )}
-                    </button>
+                    <SelectionCheckbox
+                      checked={isSelected}
+                      label={`Seleccionar ${cert.domain}`}
+                      onChange={() => onToggleSelect(cert)}
+                    />
                   </td>
 
                   {/* Domain & Port */}
@@ -159,7 +159,7 @@ export default function SSLCertificateTableView({
                         </span>
                       )}
                       <a
-                        href={`https://${cert.domain}${cert.port && cert.port !== 443 ? `:${cert.port}` : ''}`}
+                        href={`https://${cert.domain}${cert.port && cert.port !== 443 ? `:${cert.port}` : ""}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -180,15 +180,13 @@ export default function SSLCertificateTableView({
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`font-mono font-bold text-xs px-2 py-0.5 rounded-full border ${getGradeStyle(
-                          cert.security_grade
-                        )}`}
-                        title={`Grado de seguridad SSL: ${cert.security_grade || '—'}`}
+                        className={`font-mono font-bold text-xs px-2 py-0.5 rounded-full border ${healthPalette[sslGradeTone(cert.security_grade, hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid)].badge}`}
+                        title={`Grado de seguridad SSL: ${cert.security_grade || "—"}`}
                       >
-                        {cert.security_grade || '—'}
+                        {cert.security_grade || "—"}
                       </span>
                       <span className="font-mono text-xs text-text-dim">
-                        {cert.tls_version || 'TLS 1.3'}
+                        {cert.tls_version || "—"}
                       </span>
                     </div>
                   </td>
@@ -204,15 +202,9 @@ export default function SSLCertificateTableView({
                       {days !== null ? (
                         <div className="flex items-center gap-2">
                           <span
-                            className={`font-bold px-2 py-0.5 rounded-full ${
-                              days <= 0
-                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                : days <= 15
-                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            }`}
+                            className={`font-bold px-2 py-0.5 rounded-full border ${healthPalette[expiryTone].badge}`}
                           >
-                            {days <= 0 ? 'Expirado' : `${days} días`}
+                            {days <= 0 ? "Expirado" : `${days} días`}
                           </span>
                         </div>
                       ) : (
@@ -220,16 +212,13 @@ export default function SSLCertificateTableView({
                       )}
 
                       {/* Timeline Bar */}
-                      {percentUsed !== null && (
-                        <div className="w-24 bg-bg-dark border border-border-base rounded-full h-1.5 overflow-hidden" title={`Vida del certificado: ${percentUsed}% transcurrido`}>
+                      {percentUsed !== null && expiryTone !== "muted" && (
+                        <div
+                          className="w-24 bg-bg-dark border border-border-base rounded-full h-1.5 overflow-hidden"
+                          title={`Vida del certificado: ${percentUsed}% transcurrido`}
+                        >
                           <div
-                            className={`h-full rounded-full transition-all ${
-                              (days || 0) <= 0
-                                ? 'bg-accent-red'
-                                : (days || 0) <= 15
-                                ? 'bg-accent-yellow'
-                                : 'bg-accent-green'
-                            }`}
+                            className={`h-full rounded-full transition-all ${healthPalette[expiryTone].fill}`}
                             style={{ width: `${percentUsed}%` }}
                           />
                         </div>
@@ -240,8 +229,10 @@ export default function SSLCertificateTableView({
                   {/* Expiration Date */}
                   <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
                     {cert.expiration_date
-                      ? new Date(cert.expiration_date).toLocaleDateString('es-ES')
-                      : 'N/A'}
+                      ? new Date(cert.expiration_date).toLocaleDateString(
+                          "es-ES",
+                        )
+                      : "N/A"}
                   </td>
 
                   {/* SANs Count */}
@@ -249,13 +240,15 @@ export default function SSLCertificateTableView({
                     {cert.san_domains && cert.san_domains.length > 0 ? (
                       <span
                         className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 rounded-md bg-bg-dark border border-border-base text-text-muted"
-                        title={cert.san_domains.join(', ')}
+                        title={cert.san_domains.join(", ")}
                       >
                         <Layers size={11} className="text-accent-blue" />
                         <span>{cert.san_domains.length} SANs</span>
                       </span>
                     ) : (
-                      <span className="text-text-dim font-mono text-xs">1 SAN</span>
+                      <span className="text-text-dim font-mono text-xs">
+                        1 SAN
+                      </span>
                     )}
                   </td>
 
@@ -265,23 +258,32 @@ export default function SSLCertificateTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-
-                      <AdminButton capability="ssl_monitor.update"
-                        type="button"
-                        onClick={(e) => onEdit(cert, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
-                        title="Editar dominio"
-                      >
-                        <Pencil size={14} />
-                      </AdminButton>
-                      <AdminButton capability="ssl_monitor.delete"
-                        type="button"
-                        onClick={(e) => onDelete(cert, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
-                        title="Eliminar certificado"
-                      >
-                        <Trash2 size={14} />
-                      </AdminButton>
+                      <ResourceActionButtons
+                        label={`Acciones de ${cert.domain}`}
+                        actions={[
+                          {
+                            label: "Editar dominio",
+                            onClick: (e) => onEdit(cert, e),
+                            capability: "ssl_monitor.update",
+                            icon: (
+                              <>
+                                <Pencil size={14} />
+                              </>
+                            ),
+                          },
+                          {
+                            label: "Eliminar certificado",
+                            onClick: (e) => onDelete(cert, e),
+                            capability: "ssl_monitor.delete",
+                            danger: true,
+                            icon: (
+                              <>
+                                <Trash2 size={14} />
+                              </>
+                            ),
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>

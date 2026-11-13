@@ -1,0 +1,31 @@
+{
+  "version": "1.8.0",
+  "architecture": "x86_64",
+  "uid": 10001,
+  "root_filesystem": "read_only",
+  "runtime_source_sha256": {
+    "agent.py": "f2707418cd904798520820d9bdf0a223afc2c4730b089faa6db8845ff02d87b2",
+    "common/__init__.py": "9b48b897e7969ed607281842f57ce8f4db647f86ca98c27d4e0567a85a37a6ee",
+    "common/network.py": "bf25e0279f841824aa36bc5a180cd4a39e7dc2ea41db5b89fe82e53967a843a2",
+    "common/resolver_worker.py": "89db4cb048f19bb02dbf26fd0747fae47cb9781dd152b017b8f3514c4fc0ffd4",
+    "common/safe_http.py": "c56e5038765c3de73fd8eb7dec75ab36da1ea7a3812e14769c3290dc03659dde",
+    "delivery.py": "10bbf3260044dab4525510fd79fb5994fe9d672ad514cb631947baaca7a693b0",
+    "diagnostics.py": "7e3aa3b5547fc8354a41a7537a83c328eb10a2c1ea30b3cd64c316e41b522870",
+    "install.py": "9baa44f5f55bf7353fa84054a1235ef4179fbf53d933fb4a9fbe057c7a0af856",
+    "security.py": "7dcdc5523a4e37ee9312fe818999aba58901d952adec52735cf932ab308e37e8"
+  },
+  "only_expected_sources": true,
+  "no_embedded_runtime_credentials": true,
+  "no_pip_setuptools_wheel": true,
+  "sqlite_command_line_absent": true,
+  "sqlite_library": "3.53.4",
+  "empty_initial_journal": true,
+  "public_cas_available": true,
+  "os_packages": {
+    "krb5-libs": "1.22.3-r0",
+    "musl": "1.2.6-r3",
+    "musl-utils": "1.2.6-r3",
+    "sqlite-libs": "3.53.4-r0",
+    "zlib": "1.4-r0"
+  }
+}

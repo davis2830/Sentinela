@@ -1,9 +1,11 @@
+import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
+import { bulkOutcome } from "../../utils/bulkOutcome";
 import { apiFailure } from "../../services/errors";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
 import { useLinkedResource } from "../../hooks/useLinkedResource";
 import { useUrlFilter } from "../../hooks/useUrlFilter";
 import { useAuthStore } from "../../store/authStore";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../services/api";
 import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
@@ -12,7 +14,6 @@ import type {
   DNSRecordType,
   CreateDNSRecordData,
   DNSChangeHistory,
-  DNSStats,
   DNSTestResolutionResult,
 } from "../../types/dns";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
@@ -27,6 +28,7 @@ export function useDNSRecordsWorkspace() {
   // State
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
+  const [expectedInput, setExpectedInput] = useState("");
   const [domainInput, setDomainInput] = useState("");
   const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>("A");
   const [typeFilter, setTypeFilter] = useUrlFilter("type", [
@@ -40,6 +42,7 @@ export function useDNSRecordsWorkspace() {
     "SOA",
     "SRV",
     "CAA",
+    "PTR",
   ] as const);
   const [searchTerm, setSearchTerm] = useState("");
   // Persistent viewMode: remembers table or grid across refreshes and updates
@@ -63,25 +66,16 @@ export function useDNSRecordsWorkspace() {
   // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
 
-  // Stats query
-  const { data: stats } = useQuery<DNSStats>({
-    queryKey: ["dns-stats", organizationId],
-    queryFn: async () => {
-      const response = await api.get("dns-records/stats/");
-      return (response.data?.data || {}) as DNSStats;
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
   // Main DNS records query
-  const { data: records, isLoading } = useQuery<DNSRecord[]>({
-    queryKey: ["dns-records", organizationId],
-    queryFn: async () => {
-      const response = await api.get("dns-records/");
-      return (response.data?.data || []) as DNSRecord[];
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
+  const directory = useConnectivityDirectory<DNSRecord>(
+    "dns-records/",
+    "dns-records",
+    { search: searchTerm, type: typeFilter },
+    autoRefresh.refetchInterval,
+  );
+  const { data: records, isLoading, isError, refetch } = directory;
+  const selectionScope = JSON.stringify(directory.params);
+  useEffect(() => setSelectedIds([]), [selectionScope]);
 
   // Selected record change history query
   const { data: history, isLoading: isLoadingHistory } = useQuery<
@@ -209,27 +203,28 @@ export function useDNSRecordsWorkspace() {
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     if (
-      !window.confirm(
+      !(await directory.confirmDelete(
         `¿Deseas eliminar permanentemente los ${selectedIds.length} registros DNS seleccionados?`,
-      )
-    ) {
+      ))
+    )
       return;
-    }
     setBulkDeleting(true);
     try {
-      await api.post("dns-records/bulk-action/", {
+      const response = await api.post("dns-records/bulk-action/", {
         action: "delete",
         record_ids: selectedIds,
       });
-    } catch (error) {
-      window.alert(
-        apiFailure(error).response?.data.message ||
-          "No se pudo eliminar la selección. Puedes volver a intentarlo.",
+      const outcome = bulkOutcome(response.data.data, selectedIds);
+      setSelectedIds(outcome.pending);
+      directory.setMessage(outcome.message);
+    } catch {
+      directory.setMessage(
+        "No se pudo eliminar la selección. Puedes volver a intentarlo.",
       );
       setBulkDeleting(false);
       return;
     }
-    setSelectedIds([]);
+
     setBulkDeleting(false);
     queryClient.invalidateQueries({
       queryKey: ["dns-records", organizationId],
@@ -255,6 +250,10 @@ export function useDNSRecordsWorkspace() {
       const response = await diagnostic.run("dns-records/test-resolution/", {
         domain: cleanDomain,
         record_type: recordTypeInput,
+        expected_values: expectedInput
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean),
       });
       setTestResult(response.data?.data as DNSTestResolutionResult);
     } catch (caughtError: unknown) {
@@ -274,47 +273,12 @@ export function useDNSRecordsWorkspace() {
   };
 
   // Export CSV Report
-  const handleExportCSV = () => {
-    if (!records || records.length === 0) return;
-    const headers = [
-      "Dominio / Host",
-      "Tipo de Registro",
-      "Valor Resuelto",
-      "TTL",
-      "Latencia Consulta (ms)",
-      "Último Cambio Detectado",
-      "Última Comprobación",
-    ];
-    const rows = records.map((r) => [
-      r.domain,
-      r.record_type,
-      `"${(r.value || "").replace(/"/g, '""').replace(/\n/g, " ; ")}"`,
-      r.ttl ?? "N/A",
-      r.response_time_ms ? `${r.response_time_ms}ms` : "N/A",
-      r.last_change_at
-        ? new Date(r.last_change_at).toISOString()
-        : "Sin cambios",
-      r.last_scanned_at ? new Date(r.last_scanned_at).toISOString() : "N/A",
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8,\uFEFF" +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `sentinel_registros_dns_${new Date().toISOString().split("T")[0]}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const handleExportCSV = () => void directory.exportCSV();
 
   // Modal Handlers
   const handleOpenCreate = () => {
     setEditingRecord(null);
+    setExpectedInput("");
     setDomainInput("");
     setRecordTypeInput("A");
     setTestResult(null);
@@ -325,6 +289,7 @@ export function useDNSRecordsWorkspace() {
     if (e) e.stopPropagation();
     setEditingRecord(record);
     setDomainInput(record.domain);
+    setExpectedInput((record.expected_values || []).join("\n"));
     setRecordTypeInput(record.record_type);
     setTestResult(null);
     setShowModal(true);
@@ -333,6 +298,7 @@ export function useDNSRecordsWorkspace() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingRecord(null);
+    setExpectedInput("");
     setDomainInput("");
     setRecordTypeInput("A");
     setTestResult(null);
@@ -352,12 +318,23 @@ export function useDNSRecordsWorkspace() {
     if (editingRecord) {
       updateMutation.mutate({
         id: editingRecord.id,
-        data: { domain: cleanDomain, record_type: recordTypeInput },
+        data: {
+          domain: cleanDomain,
+          record_type: recordTypeInput,
+          expected_values: expectedInput
+            .split("\n")
+            .map((x) => x.trim())
+            .filter(Boolean),
+        },
       });
     } else {
       createMutation.mutate({
         domain: cleanDomain,
         record_type: recordTypeInput,
+        expected_values: expectedInput
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean),
       });
     }
   };
@@ -396,29 +373,17 @@ export function useDNSRecordsWorkspace() {
 
   // KPI Calculations
   const allRecords = records || [];
-  const totalCount = stats?.total || allRecords.length;
-  const resolvedCount = allRecords.filter((r: DNSRecord) =>
-    Boolean(r.value),
-  ).length;
-  const changedCount =
-    stats?.changes_24h ||
-    allRecords.filter((r: DNSRecord) => isRecentMutation(r.last_change_at))
-      .length;
 
   // Filtered & Searched Records
-  const filteredRecords = allRecords.filter((record: DNSRecord) => {
-    const matchesSearch =
-      record.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (record.value &&
-        record.value.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    if (!matchesSearch) return false;
-    if (typeFilter !== "all" && record.record_type !== typeFilter) return false;
-    return true;
-  });
+  const filteredRecords = allRecords;
 
   useLinkedResource(records, selectedRecord, setSelectedRecord);
   return {
+    directory,
+    expectedInput,
+    setExpectedInput,
+    isError,
+    refetch,
     showModal,
     editingRecord,
     domainInput,
@@ -464,9 +429,6 @@ export function useDNSRecordsWorkspace() {
     handleSubmit,
     getTypeBadgeClass,
     isRecentMutation,
-    totalCount,
-    resolvedCount,
-    changedCount,
     filteredRecords,
   };
 }

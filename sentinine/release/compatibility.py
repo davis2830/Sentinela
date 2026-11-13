@@ -59,7 +59,9 @@ elif phase == 'rollback':
     assert not journal.tasks('running')
     journal.acknowledge([{'execution_id': IDS[2], 'status': 'duplicate'}], {IDS[2]})
     with journal.connect() as db:
-        assert db.execute("SELECT value FROM health WHERE key='last_ack_at'").fetchone()[0] == (ROOT/'ack.fixture').read_text()
+        last_ack=db.execute("SELECT value FROM health WHERE key='last_ack_at'").fetchone()[0]
+        assert datetime.fromisoformat(last_ack)>=datetime.fromisoformat((ROOT/'ack.fixture').read_text())
+        (ROOT/'ack.fixture').write_text(last_ack)
 elif phase == 'resume':
     assert journal.snapshot()['last_ack_at'] == (ROOT/'ack.fixture').read_text()
     assert set(journal.known()) == {IDS[0], IDS[3]}

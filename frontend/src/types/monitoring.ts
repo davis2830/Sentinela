@@ -1,9 +1,17 @@
 export interface MonitoringTarget {
-  scan_availability?: import('./scan').ScanAvailability;
+  coverage_status?: {
+    state?: string;
+    requested?: string[];
+    created?: string[];
+    existing?: string[];
+    failed?: Record<string, string>;
+    code?: string;
+  };
+  scan_availability?: import("./scan").ScanAvailability;
   id: string;
   organization: string;
   name: string;
-  target_type: 'http' | 'https' | 'tcp' | 'dns' | 'api' | 'ssl';
+  target_type: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
   endpoint: string;
   interval: number;
   enabled: boolean;
@@ -19,10 +27,10 @@ export interface MonitoringTarget {
   owner_team?: string | null;
   owner_team_name?: string | null;
   owner_team_color?: string | null;
-  runner_type?: 'cloud' | 'agent';
+  runner_type?: "cloud" | "agent";
   agent_probe?: string | null;
   agent_probe_name?: string | null;
-  agent_probe_status?: 'online' | 'offline' | null;
+  agent_probe_status?: "online" | "offline" | null;
   agent_probe_online?: boolean | null;
   recent_checks?: RecentCheckItem[];
   created_at: string;
@@ -30,17 +38,19 @@ export interface MonitoringTarget {
 }
 
 export interface RecentCheckItem {
-  diagnostic?:string|null; applied_max_latency_ms?:number|null;
-  status: 'up' | 'down' | 'slow' | 'error';
+  diagnostic?: string | null;
+  applied_max_latency_ms?: number | null;
+  status: "up" | "down" | "slow" | "error";
   latency: number | null;
   checked_at: string;
 }
 
 export interface MonitoringCheck {
-  diagnostic?:string|null; applied_max_latency_ms?:number|null;
+  diagnostic?: string | null;
+  applied_max_latency_ms?: number | null;
   id: string;
   target: string;
-  status: 'up' | 'down' | 'slow' | 'error';
+  status: "up" | "down" | "slow" | "error";
   latency: number | null;
   checked_at: string;
   details: Record<string, unknown>;
@@ -59,7 +69,7 @@ export interface CreateTargetData {
   auto_coverage?: boolean;
   related_modules?: string[];
   name: string;
-  target_type: 'http' | 'https' | 'tcp' | 'dns' | 'api' | 'ssl';
+  target_type: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
   endpoint: string;
   interval: number;
   enabled: boolean;
@@ -70,13 +80,13 @@ export interface CreateTargetData {
   max_latency_ms?: number;
   tags?: string[];
   owner_team?: string | null;
-  runner_type?: 'cloud' | 'agent';
+  runner_type?: "cloud" | "agent";
   agent_probe?: string | null;
 }
 
 export interface UpdateTargetData {
   name?: string;
-  target_type?: 'http' | 'https' | 'tcp' | 'dns' | 'api' | 'ssl';
+  target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
   endpoint?: string;
   interval?: number;
   enabled?: boolean;
@@ -87,7 +97,7 @@ export interface UpdateTargetData {
   max_latency_ms?: number;
   tags?: string[];
   owner_team?: string | null;
-  runner_type?: 'cloud' | 'agent';
+  runner_type?: "cloud" | "agent";
   agent_probe?: string | null;
 }
 
@@ -96,7 +106,7 @@ export interface TimeseriesPoint {
   label: string;
   latency: number | null;
   max_latency: number | null;
-  status: 'up' | 'down' | 'slow' | 'no_data';
+  status: "up" | "down" | "slow" | "no_data";
   is_down: boolean;
   down_count: number;
   total_count: number;
@@ -108,7 +118,7 @@ export interface DailyAvailabilityItem {
   uptime_percentage: number | null;
   total_checks: number;
   down_checks: number;
-  status: 'operational' | 'degraded' | 'down' | 'no_data';
+  status: "operational" | "degraded" | "down" | "no_data";
   avg_latency: number | null;
 }
 
@@ -139,7 +149,7 @@ export interface TimeseriesSummary {
 }
 
 export interface TimeseriesData {
-  period: '24h' | '7d' | '30d';
+  period: "24h" | "7d" | "30d";
   target_id: string;
   summary: TimeseriesSummary;
   timeseries: TimeseriesPoint[];

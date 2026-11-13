@@ -1,5 +1,6 @@
-import { createPortal } from 'react-dom';
-import { Trash2, Loader2 } from 'lucide-react';
+import { createPortal } from "react-dom";
+import { Trash2, Loader2 } from "lucide-react";
+import ModalSurface from "./ModalSurface";
 
 interface ConfirmDeleteProps {
   title?: string;
@@ -11,7 +12,7 @@ interface ConfirmDeleteProps {
 }
 
 export default function ConfirmDelete({
-  title = 'Confirmar Eliminación',
+  title = "Confirmar Eliminación",
   itemName,
   isOpen,
   isDeleting = false,
@@ -25,9 +26,12 @@ export default function ConfirmDelete({
       className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <div
+      <ModalSurface
+        label={title}
+        onClose={() => {
+          if (!isDeleting) onClose();
+        }}
         className="bg-bg-card border border-border-base rounded-xl p-6 w-full max-w-sm shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-lg bg-accent-red/10 border border-accent-red/20 flex items-center justify-center">
@@ -36,7 +40,9 @@ export default function ConfirmDelete({
           <h2 className="text-lg font-bold text-text-main">{title}</h2>
         </div>
         <p className="text-text-muted text-sm mb-6 leading-relaxed">
-          ¿Seguro que deseas eliminar <strong className="text-text-main font-semibold">{itemName}</strong>? Esta acción no se puede deshacer.
+          ¿Seguro que deseas eliminar{" "}
+          <strong className="text-text-main font-semibold">{itemName}</strong>?
+          Esta acción no se puede deshacer.
         </p>
         <div className="flex gap-3">
           <button
@@ -56,12 +62,12 @@ export default function ConfirmDelete({
             {isDeleting ? (
               <Loader2 className="animate-spin" size={18} />
             ) : (
-              'Eliminar'
+              "Eliminar"
             )}
           </button>
         </div>
-      </div>
+      </ModalSurface>
     </div>,
-    document.body
+    document.body,
   );
 }

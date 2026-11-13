@@ -46,16 +46,12 @@ class APICheckService:
     @staticmethod
     def list_targets(organization_id):
         """Return all API check targets for an organization."""
-        return APICheckTarget.objects.filter(
-            organization_id=organization_id
-        ).order_by("-created_at")
+        return APICheckTarget.objects.filter(organization_id=organization_id).order_by("-created_at")
 
     @staticmethod
     def get_target(target_id, organization_id):
         """Return a single API check target by ID within an organization."""
-        return APICheckTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        return APICheckTarget.objects.get(id=target_id, organization_id=organization_id)
 
     @staticmethod
     @transaction.atomic
@@ -89,16 +85,15 @@ class APICheckService:
             check_interval=check_interval or 60,
             enabled=enabled,
         )
-        try:
-            from .tasks import run_api_check
-            run_api_check.delay(str(target.id))
-        except Exception:
-            pass
+        from .tasks import run_api_check
+        from common.executions import initial_scan
+
+        initial_scan(target, run_api_check)
         return target
 
     @staticmethod
     @transaction.atomic
-    @beta_creation('api_checks')
+    @beta_creation("api_checks")
     def get_or_create_api_target(organization_id, name, url, method="GET"):
         """Get or auto-create API check target for monitoring targets."""
         if not url or url in ("http://localhost", "http://127.0.0.1"):
@@ -109,31 +104,27 @@ class APICheckService:
             defaults={"name": name, "method": method.upper()},
         )
         if created:
-            try:
-                from .tasks import run_api_check
-                run_api_check.delay(str(target.id))
-            except Exception:
-                pass
+            from .tasks import run_api_check
+            from common.executions import initial_scan
+
+            initial_scan(target, run_api_check)
         return target
 
     @staticmethod
     @transaction.atomic
     def update_target(target_id, organization_id, **fields):
         """Update an existing API check target."""
-        target = APICheckTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = APICheckTarget.objects.get(id=target_id, organization_id=organization_id)
         for field, value in fields.items():
             if value is not None:
                 if field == "method":
                     value = str(value).upper()
                 setattr(target, field, value)
         target.save()
-        try:
-            from .tasks import run_api_check
-            run_api_check.delay(str(target.id))
-        except Exception:
-            pass
+        from .tasks import run_api_check
+        from common.executions import initial_scan
+
+        initial_scan(target, run_api_check)
         return target
 
     @staticmethod
@@ -208,10 +199,8 @@ class APICheckService:
             response_time_ms__isnull=False,
         ).order_by("-checked_at")[:100]
 
-        avg_latency = 0
-        if recent_results.exists():
-            times = [r.response_time_ms for r in recent_results if r.response_time_ms]
-            avg_latency = round(sum(times) / len(times), 1) if times else 0
+        times = list(recent_results.values_list("response_time_ms", flat=True))
+        avg_latency = round(sum(times) / len(times), 1) if times else None
 
         return {
             "total": total,
@@ -226,17 +215,13 @@ class APICheckService:
     @transaction.atomic
     def delete_target(target_id, organization_id):
         """Delete an API check target."""
-        target = APICheckTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = APICheckTarget.objects.get(id=target_id, organization_id=organization_id)
         target.delete()
 
     @staticmethod
     def list_results(target_id, organization_id, limit=50):
         """Return recent check results for a target."""
-        target = APICheckTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = APICheckTarget.objects.get(id=target_id, organization_id=organization_id)
         return target.results.all()[:limit]
 
     @staticmethod
@@ -251,9 +236,13 @@ class APICheckService:
         headers_valid,
         response_headers,
         error_message="",
+        schema_failures=None,
     ):
         """Record an API check result and update target state."""
         target = APICheckTarget.objects.get(id=target_id)
+        from common.execution_context import matches
+
+        changed = not matches(target)
         now = timezone.now()
 
         result = APICheckResult.objects.create(
@@ -263,11 +252,19 @@ class APICheckService:
             response_time_ms=response_time_ms,
             json_valid=json_valid,
             schema_valid=schema_valid,
+            schema_failures=schema_failures or [],
             headers_valid=headers_valid,
-            response_headers=response_headers or {},
+            response_headers={
+                k: v
+                for k, v in (response_headers or {}).items()
+                if k.lower() not in {"set-cookie", "authorization", "proxy-authorization", "x-api-key"}
+            },
             error_message=error_message,
             checked_at=now,
         )
+
+        if changed:
+            return result
 
         target.last_checked_at = now
         target.last_status = status
@@ -286,31 +283,7 @@ class APICheckService:
 
     @staticmethod
     def bulk_action(organization_id, action, target_ids):
-        """Execute bulk actions (scan, pause, resume, delete) on selected targets."""
-        targets = APICheckTarget.objects.filter(
-            organization_id=organization_id, id__in=target_ids
-        )
-        count = targets.count()
+        from common.bulk import operate
+        from .tasks import run_api_check
 
-        if action == "scan":
-            from .tasks import run_api_check
-            from common.scan_limits import enqueue_many
-            return enqueue_many(targets, run_api_check)
-
-        elif action == "pause":
-            targets.update(enabled=False)
-            return {"action": "pause", "processed": count, "message": f"{count} endpoints pausados."}
-
-        elif action == "resume":
-            targets.update(enabled=True)
-            from .tasks import run_api_check
-            for t in targets:
-                run_api_check.delay(str(t.id))
-            return {"action": "resume", "processed": count, "message": f"{count} endpoints reanudados."}
-
-        elif action == "delete":
-            deleted_count = targets.delete()[0]
-            return {"action": "delete", "processed": deleted_count, "message": f"{deleted_count} endpoints eliminados."}
-
-        else:
-            raise ValueError(f"Acción no soportada: {action}")
+        return operate(APICheckTarget, organization_id, action, target_ids, run_api_check)

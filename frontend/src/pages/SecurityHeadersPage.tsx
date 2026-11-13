@@ -1,22 +1,35 @@
-import { useSecurityHeadersWorkspace } from './workspaces/useSecurityHeadersWorkspace';
-import CompactModuleSummary from '../components/common/CompactModuleSummary';
-import AdminButton from '../components/common/AdminButton';
-import ScanAction from '../components/common/ScanAction';
+import ResourceActionButtons from "../components/common/ResourceActionButtons";
+import SelectionCheckbox from "../components/common/SelectionCheckbox";
+import {
+  hasMeasurement,
+  healthPalette,
+  securityResponseTone,
+} from "../utils/healthPresentation";
+import MeasurementStatus from "../components/common/MeasurementStatus";
+import { useCompactViewport } from "../hooks/useCompactViewport";
+import {
+  ReadFailure,
+  DirectoryPagination,
+  ActionFeedback,
+} from "../components/common/DirectoryState";
+import { useSecurityHeadersWorkspace } from "./workspaces/useSecurityHeadersWorkspace";
+import AdminButton from "../components/common/AdminButton";
+import ScanAction from "../components/common/ScanAction";
 import type {
   SecurityHeaderTarget,
   SecurityHeaderResult,
-} from '../types/security_headers';
-import GradeBadge from '../components/common/GradeBadge';
-import EmptyState from '../components/common/EmptyState';
-import ConfirmDelete from '../components/common/ConfirmDelete';
-import SecurityHeaderForm from '../components/security_headers/SecurityHeaderForm';
-import SecurityHeaderTableView from '../components/security_headers/SecurityHeaderTableView';
+} from "../types/security_headers";
+import GradeBadge from "../components/common/GradeBadge";
+import EmptyState from "../components/common/EmptyState";
+import ConfirmDelete from "../components/common/ConfirmDelete";
+import SecurityHeaderForm from "../components/security_headers/SecurityHeaderForm";
+import SecurityHeaderTableView from "../components/security_headers/SecurityHeaderTableView";
 import {
   NOCPageHeader,
   NOCToolbar,
   NOCBulkActionBar,
   NOCDrawer,
-} from '../components/common/noc';
+} from "../components/common/noc";
 import {
   ShieldCheck,
   Plus,
@@ -30,85 +43,152 @@ import {
   Shield,
   FileCode2,
   ShieldAlert,
-  CheckSquare,
-  Square,
   Download,
-  Copy,
-  Check,
   Lock,
   Layers,
   Server,
-  Code2,
-  Eye,
   Pause,
   Play,
   Search,
-} from 'lucide-react';
+} from "lucide-react";
 
-type GradeFilterType = 'all' | 'grade_a' | 'grade_bc' | 'grade_df' | 'healthy' | 'warning' | 'critical' | 'unmeasured';
-type DrawerTabType = 'audit' | 'remediation' | 'leaks_raw' | 'history';
-type ServerSnippetType = 'nginx' | 'apache' | 'caddy' | 'cloudflare' | 'iis';
+type GradeFilterType =
+  | "all"
+  | "grade_a"
+  | "grade_bc"
+  | "grade_df"
+  | "healthy"
+  | "warning"
+  | "critical"
+  | "unmeasured";
+type DrawerTabType = "audit" | "leaks_raw" | "history";
 
 const STANDARD_SECURITY_HEADERS = [
   {
-    key: 'content-security-policy',
-    name: 'Content-Security-Policy',
+    key: "content-security-policy",
+    name: "Content-Security-Policy",
     weight: 25,
-    description: 'Previene XSS, inyección de datos y clickjacking restringiendo los orígenes de contenido.',
+    description:
+      "Previene XSS, inyección de datos y clickjacking restringiendo los orígenes de contenido.",
   },
   {
-    key: 'strict-transport-security',
-    name: 'Strict-Transport-Security (HSTS)',
+    key: "strict-transport-security",
+    name: "Strict-Transport-Security (HSTS)",
     weight: 20,
-    description: 'Fuerza conexiones HTTPS seguras y protege contra ataques de degradación SSL/TLS.',
+    description:
+      "Fuerza conexiones HTTPS seguras y protege contra ataques de degradación SSL/TLS.",
   },
   {
-    key: 'x-frame-options',
-    name: 'X-Frame-Options',
+    key: "x-frame-options",
+    name: "X-Frame-Options",
     weight: 15,
-    description: 'Protege contra Clickjacking evitando que el sitio sea embebido en iframes no autorizados.',
+    description:
+      "Protege contra Clickjacking evitando que el sitio sea embebido en iframes no autorizados.",
   },
   {
-    key: 'x-content-type-options',
-    name: 'X-Content-Type-Options',
+    key: "x-content-type-options",
+    name: "X-Content-Type-Options",
     weight: 10,
-    description: 'Previene el MIME-sniffing obligando al navegador a respetar el Content-Type declarado.',
+    description:
+      "Previene el MIME-sniffing obligando al navegador a respetar el Content-Type declarado.",
   },
   {
-    key: 'referrer-policy',
-    name: 'Referrer-Policy',
+    key: "referrer-policy",
+    name: "Referrer-Policy",
     weight: 10,
-    description: 'Controla cuánta información de referencia (URL previa) se transmite en peticiones salientes.',
+    description:
+      "Controla cuánta información de referencia (URL previa) se transmite en peticiones salientes.",
   },
   {
-    key: 'permissions-policy',
-    name: 'Permissions-Policy',
+    key: "permissions-policy",
+    name: "Permissions-Policy",
     weight: 10,
-    description: 'Restringe el acceso del navegador a características de hardware (cámara, micrófono, geolocalización).',
+    description:
+      "Restringe el acceso del navegador a características de hardware (cámara, micrófono, geolocalización).",
   },
   {
-    key: 'cross-origin-opener-policy',
-    name: 'Cross-Origin-Opener-Policy (COOP)',
+    key: "cross-origin-opener-policy",
+    name: "Cross-Origin-Opener-Policy (COOP)",
     weight: 5,
-    description: 'Aísla el contexto de navegación impidiendo accesos maliciosos entre orígenes.',
+    description:
+      "Aísla el contexto de navegación impidiendo accesos maliciosos entre orígenes.",
   },
   {
-    key: 'cross-origin-resource-policy',
-    name: 'Cross-Origin-Resource-Policy (CORP)',
+    key: "cross-origin-resource-policy",
+    name: "Cross-Origin-Resource-Policy (CORP)",
     weight: 5,
-    description: 'Bloquea lectura no autorizada de recursos estáticos desde otros dominios.',
+    description:
+      "Bloquea lectura no autorizada de recursos estáticos desde otros dominios.",
   },
 ];
 
 export default function SecurityHeadersPage() {
- const {selectedTarget, setSelectedTarget, showForm, setShowForm, editingTarget, setEditingTarget, deleteTarget, setDeleteTarget, gradeFilter, setGradeFilter, searchTerm, setSearchTerm, viewMode, setViewMode, selectedIds, setSelectedIds, scanningId, drawerTab, setDrawerTab, serverSnippetType, setServerSnippetType, copiedSnippet, rawHeadersFilter, setRawHeadersFilter, bulkActionRunning, autoRefresh, targets, isLoading, results, isLoadingResults, scanMutation, deleteMutation, handleToggleSelect, handleSelectAllToggle, handleExecuteBulkAction, handleExportCSV, handleFormSubmit, handleOpenCreate, handleOpenEdit, calculateGrade, totalCount, healthTone, gradeACount, gradeBCCount, gradeDFCount, unmeasuredCount, infoLeaksCount, filteredTargets, foundHeadersDict, missingList, foundList, directivesAnalysis, infoLeaks, rawHeaders, generateServerSnippet, handleCopySnippet} = useSecurityHeadersWorkspace();
+  const compact = useCompactViewport();
+  const {
+    directory,
+    isError,
+    refetch,
+    selectedTarget,
+    setSelectedTarget,
+    showForm,
+    setShowForm,
+    editingTarget,
+    setEditingTarget,
+    deleteTarget,
+    setDeleteTarget,
+    gradeFilter,
+    setGradeFilter,
+    searchTerm,
+    setSearchTerm,
+    viewMode,
+    setViewMode,
+    selectedIds,
+    setSelectedIds,
+    scanningId,
+    drawerTab,
+    setDrawerTab,
+    rawHeadersFilter,
+    setRawHeadersFilter,
+    bulkActionRunning,
+    autoRefresh,
+    targets,
+    isLoading,
+    results,
+    isLoadingResults,
+    scanMutation,
+    deleteMutation,
+    handleToggleSelect,
+    handleSelectAllToggle,
+    handleExecuteBulkAction,
+    handleExportCSV,
+    handleFormSubmit,
+    handleOpenCreate,
+    handleOpenEdit,
+    calculateGrade,
+    totalCount,
+    healthTone,
+    gradeACount,
+    gradeBCCount,
+    gradeDFCount,
+    unmeasuredCount,
+    filteredTargets,
+    foundHeadersDict,
+    missingList,
+    foundList,
+    directivesAnalysis,
+    infoLeaks,
+    rawHeaders,
+  } = useSecurityHeadersWorkspace();
 
-
-
+  if (isError && !targets) return <ReadFailure retry={refetch} />;
   return (
-    <div className="compact-workspace space-y-6 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-4 animate-in fade-in duration-300 font-sans">
+      {isError && targets && <ReadFailure stale retry={refetch} />}
+      <ActionFeedback>{directory.message}</ActionFeedback>
+      {directory.confirmation}
+
       {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader queryKeys={["security-header-targets","security-header-stats","security-header-results"]}
+      <NOCPageHeader
         title="Cabeceras de Seguridad"
         badgeText="HEADER AUDIT"
         description="Auditoría de cabeceras HTTP recomendadas (HSTS, CSP, X-Frame-Options) y análisis de mitigación contra ataques web."
@@ -123,18 +203,8 @@ export default function SecurityHeadersPage() {
         }}
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-bg-card border border-border-base text-text-muted hover:text-text-main hover:border-accent-green/40 font-medium px-4 py-2 rounded-full text-sm transition-all shadow-sm"
-              title="Descargar reporte de auditoría en formato CSV"
-            >
-              <Download size={15} />
-              Exportar CSV
-            </button>
-
-
-            <AdminButton capability="security_headers.create"
+            <AdminButton
+              capability="security_headers.create"
               type="button"
               onClick={handleOpenCreate}
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20"
@@ -146,27 +216,52 @@ export default function SecurityHeadersPage() {
         }
       />
 
-      {/* 2. NOC COMMAND CENTER: KPI STRIP */}
-      <CompactModuleSummary variant="status" items={[
-        {label:'Sitios',value:targets ? totalCount : null,icon:Shield,tone:'neutral'},
-        {label:'Score ≥70 sin fugas',value:targets ? gradeACount : null,icon:ShieldCheck,tone:'success'},
-        {label:'Score <50',value:targets ? gradeDFCount : null,icon:ShieldAlert,tone:'danger'},
-        {label:'Fugas',value:targets ? infoLeaksCount : null,icon:Eye,tone:'warning'}
-      ]} />
-
       {/* 3. TOOLBAR: Omnibar Search + Grade Status Pills + Grid/Table Switcher */}
       <NOCToolbar
+        layout="inline"
+        countsScope="total de la organización"
+        utilities={[
+          {
+            label: "Exportar resultados filtrados",
+            icon: <Download size={16} />,
+            onClick: () => void handleExportCSV(),
+            disabled: !targets?.length,
+          },
+        ]}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         searchPlaceholder="Buscar por nombre de servicio, URL analizada o software de servidor..."
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         statusPills={[
-          { id: 'all', label: 'Todos', count: totalCount, variant: 'all' },
-          { id: 'unmeasured', label: 'Sin medición', count: unmeasuredCount, variant: 'all' },
-          { id: 'healthy', label: 'Score ≥70 sin fugas', count: gradeACount, variant: 'success' },
-          { id: 'warning', label: 'Score 50–69 o fugas', count: gradeBCCount, variant: 'warning' },
-          { id: 'critical', label: 'Score <50', count: gradeDFCount, variant: 'danger' },
+          { id: "all", label: "Todos", count: totalCount, variant: "all" },
+          {
+            id: "unmeasured",
+            label: "Sin medición",
+            count: unmeasuredCount,
+            variant: "all",
+          },
+          {
+            id: "healthy",
+            label: "Saludables",
+            description: "Score ≥70 sin fugas",
+            count: gradeACount,
+            variant: "success",
+          },
+          {
+            id: "warning",
+            label: "Advertencias",
+            description: "Score 50–69 o fugas",
+            count: gradeBCCount,
+            variant: "warning",
+          },
+          {
+            id: "critical",
+            label: "Críticos",
+            description: "Score <50",
+            count: gradeDFCount,
+            variant: "danger",
+          },
         ]}
         selectedStatus={gradeFilter}
         onStatusChange={(st) => setGradeFilter(st as GradeFilterType)}
@@ -179,28 +274,30 @@ export default function SecurityHeadersPage() {
         itemLabel="endpoints"
         actions={
           <>
-
-            <AdminButton capability="security_headers.update"
+            <AdminButton
+              capability="security_headers.update"
               type="button"
-              onClick={() => handleExecuteBulkAction('pause')}
+              onClick={() => handleExecuteBulkAction("pause")}
               disabled={bulkActionRunning}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-bg-card border border-border-base text-text-muted hover:text-text-main font-semibold rounded-full text-xs transition-all disabled:opacity-50"
             >
               <Pause size={13} />
               Pausar
             </AdminButton>
-            <AdminButton capability="security_headers.update"
+            <AdminButton
+              capability="security_headers.update"
               type="button"
-              onClick={() => handleExecuteBulkAction('resume')}
+              onClick={() => handleExecuteBulkAction("resume")}
               disabled={bulkActionRunning}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-bg-card border border-border-base text-accent-green hover:bg-accent-green/10 font-semibold rounded-full text-xs transition-all disabled:opacity-50"
             >
               <Play size={13} />
               Reanudar
             </AdminButton>
-            <AdminButton capability="security_headers.delete"
+            <AdminButton
+              capability="security_headers.delete"
               type="button"
-              onClick={() => handleExecuteBulkAction('delete')}
+              onClick={() => handleExecuteBulkAction("delete")}
               disabled={bulkActionRunning}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50"
             >
@@ -217,43 +314,29 @@ export default function SecurityHeadersPage() {
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
       ) : filteredTargets && filteredTargets.length > 0 ? (
-        viewMode === 'grid' ? (
+        viewMode === "grid" || compact ? (
           /* Grid View (Cards) */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="connectivity-card-grid">
             {filteredTargets.map((target: SecurityHeaderTarget) => {
-              const grade = target.last_grade || calculateGrade(target.last_score);
+              const grade =
+                target.last_grade || calculateGrade(target.last_score);
               const isSelected = selectedIds.includes(target.id);
 
               return (
                 <div
+                  data-testid="connectivity-card"
                   key={target.id}
                   onClick={() => setSelectedTarget(target)}
                   className={`bg-bg-card border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
                     isSelected
-                      ? 'border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40'
-                      : 'border-border-base/70'
+                      ? "border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40"
+                      : "border-border-base/70"
                   }`}
                 >
                   <div>
                     {/* Top row: Checkbox, Icon, Name, GradeBadge */}
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="flex items-center gap-2.5 overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleSelect(target);
-                          }}
-                          className="text-text-dim hover:text-accent-green transition-colors shrink-0"
-                          title={isSelected ? 'Deseleccionar' : 'Seleccionar'}
-                        >
-                          {isSelected ? (
-                            <CheckSquare size={16} className="text-accent-green" />
-                          ) : (
-                            <Square size={16} />
-                          )}
-                        </button>
-
                         <div className="w-9 h-9 rounded-xl bg-bg-dark border border-border-base flex items-center justify-center shrink-0 text-accent-green group-hover:border-accent-green/40 transition-colors">
                           <Shield size={16} />
                         </div>
@@ -265,10 +348,17 @@ export default function SecurityHeadersPage() {
                         </h3>
                       </div>
 
-                      <GradeBadge grade={grade} score={target.last_score} />
+                      <GradeBadge
+                        grade={grade}
+                        score={target.last_score}
+                        tone={healthTone(target)}
+                      />
                     </div>
 
-                    <p className="text-xs font-mono text-text-dim truncate mb-3" title={target.url}>
+                    <p
+                      className="text-xs font-mono text-text-dim truncate mb-3"
+                      title={target.url}
+                    >
                       {target.url}
                     </p>
 
@@ -276,9 +366,10 @@ export default function SecurityHeadersPage() {
                     <div className="flex items-center gap-1.5 mb-3 font-mono text-xs">
                       <span
                         className={`px-2 py-0.5 rounded flex items-center gap-1 ${
+                          hasMeasurement(target.last_checked_at) &&
                           target.has_hsts
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
-                            : 'bg-bg-dark/70 border border-border-base/40 text-text-dim'
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold"
+                            : "bg-bg-dark/70 border border-border-base/40 text-text-dim"
                         }`}
                       >
                         <Lock size={10} />
@@ -286,9 +377,10 @@ export default function SecurityHeadersPage() {
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded flex items-center gap-1 ${
+                          hasMeasurement(target.last_checked_at) &&
                           target.has_csp
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
-                            : 'bg-bg-dark/70 border border-border-base/40 text-text-dim'
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold"
+                            : "bg-bg-dark/70 border border-border-base/40 text-text-dim"
                         }`}
                       >
                         <FileCode2 size={10} />
@@ -296,9 +388,10 @@ export default function SecurityHeadersPage() {
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded flex items-center gap-1 ${
+                          hasMeasurement(target.last_checked_at) &&
                           target.has_xfo
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
-                            : 'bg-bg-dark/70 border border-border-base/40 text-text-dim'
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold"
+                            : "bg-bg-dark/70 border border-border-base/40 text-text-dim"
                         }`}
                       >
                         <Layers size={10} />
@@ -307,7 +400,11 @@ export default function SecurityHeadersPage() {
                       {target.info_leak_detected && (
                         <span
                           className="px-2 py-0.5 rounded flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 text-amber-400 font-semibold animate-pulse"
-                          title={target.server_header || target.powered_by_header || 'Versión expuesta'}
+                          title={
+                            target.server_header ||
+                            target.powered_by_header ||
+                            "Versión expuesta"
+                          }
                         >
                           <ShieldAlert size={10} />
                           Fuga
@@ -318,57 +415,93 @@ export default function SecurityHeadersPage() {
                     {/* Quick Metric Box */}
                     <div className="space-y-2 text-xs font-mono text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40">
                       <div className="flex justify-between border-b border-border-base/40 pb-1.5 font-sans">
-                        <span className="text-text-dim font-medium">Puntuación:</span>
+                        <span className="text-text-dim font-medium">
+                          Puntuación:
+                        </span>
                         <span
-                          className="font-mono font-bold ui-tone" data-tone={healthTone(target)}
+                          className="font-mono font-bold ui-tone"
+                          data-tone={healthTone(target)}
                         >
-                          {target.last_score !== null ? `${target.last_score} / 100` : 'Sin evaluar'}
+                          {target.last_score !== null
+                            ? `${target.last_score} / 100`
+                            : "Sin evaluar"}
                         </span>
                       </div>
                       <div className="flex justify-between font-sans">
-                        <span className="text-text-dim font-medium">Latencia:</span>
-                        <span className="font-mono font-semibold text-text-muted">
-                          {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined
+                        <span className="text-text-dim font-medium">
+                          Latencia:
+                        </span>
+                        <span
+                          className={`font-mono font-semibold ${healthPalette[securityResponseTone(target)].text}`}
+                        >
+                          {target.last_response_time_ms !== null &&
+                          target.last_response_time_ms !== undefined
                             ? `${target.last_response_time_ms} ms`
-                            : '-'}
+                            : "-"}
                         </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Footer */}
-                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim">
+                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim relative pl-11">
+                    <div
+                      data-card-selection
+                      className="absolute bottom-0 left-0"
+                    >
+                      <SelectionCheckbox
+                        checked={isSelected}
+                        label={`Seleccionar ${target.name}`}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelect(target);
+                        }}
+                      />
+                    </div>
+
                     <span className="flex items-center gap-1 font-mono text-xs">
                       <Clock size={12} />
                       {target.last_checked_at
-                        ? new Date(target.last_checked_at).toLocaleTimeString('es-ES', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Nunca'}
+                        ? new Date(target.last_checked_at).toLocaleTimeString(
+                            "es-ES",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )
+                        : "Nunca"}
                     </span>
 
                     <div className="flex items-center gap-1">
-
-                      <AdminButton capability="security_headers.update"
-                        type="button"
-                        onClick={(e) => handleOpenEdit(target, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
-                        title="Editar endpoint"
-                      >
-                        <Pencil size={14} />
-                      </AdminButton>
-                      <AdminButton capability="security_headers.delete"
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(target);
-                        }}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
-                        title="Eliminar endpoint"
-                      >
-                        <Trash2 size={14} />
-                      </AdminButton>
+                      <ResourceActionButtons
+                        label={`Acciones de ${target.name}`}
+                        actions={[
+                          {
+                            label: "Editar endpoint",
+                            onClick: (e) => handleOpenEdit(target, e),
+                            capability: "security_headers.update",
+                            icon: (
+                              <>
+                                <Pencil size={14} />
+                              </>
+                            ),
+                          },
+                          {
+                            label: "Eliminar endpoint",
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(target);
+                            },
+                            capability: "security_headers.delete",
+                            danger: true,
+                            icon: (
+                              <>
+                                <Trash2 size={14} />
+                              </>
+                            ),
+                          },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -396,23 +529,28 @@ export default function SecurityHeadersPage() {
           />
         )
       ) : (
-        <EmptyState capability="security_headers.create"
+        <EmptyState
+          capability="security_headers.create"
           icon={ShieldCheck}
           title={
-            searchTerm || gradeFilter !== 'all'
-              ? 'No se encontraron endpoints con los filtros aplicados'
-              : 'No hay endpoints de Security Headers monitoreados'
+            searchTerm || gradeFilter !== "all"
+              ? "No se encontraron endpoints con los filtros aplicados"
+              : "No hay endpoints de Security Headers monitoreados"
           }
           description={
-            searchTerm || gradeFilter !== 'all'
-              ? 'Prueba a cambiar el término de búsqueda o restablecer los filtros de calificación.'
-              : 'Supervisa las cabeceras HTTP de seguridad de tus portales y endpoints REST.'
+            searchTerm || gradeFilter !== "all"
+              ? "Prueba a cambiar el término de búsqueda o restablecer los filtros de calificación."
+              : "Supervisa las cabeceras HTTP de seguridad de tus portales y endpoints REST."
           }
-          actionLabel={searchTerm || gradeFilter !== 'all' ? 'Limpiar Filtros' : 'Nuevo Endpoint'}
+          actionLabel={
+            searchTerm || gradeFilter !== "all"
+              ? "Limpiar Filtros"
+              : "Nuevo Endpoint"
+          }
           onAction={() => {
-            if (searchTerm || gradeFilter !== 'all') {
-              setSearchTerm('');
-              setGradeFilter('all');
+            if (searchTerm || gradeFilter !== "all") {
+              setSearchTerm("");
+              setGradeFilter("all");
             } else {
               handleOpenCreate();
             }
@@ -424,11 +562,13 @@ export default function SecurityHeadersPage() {
       <NOCDrawer
         isOpen={!!selectedTarget}
         onClose={() => setSelectedTarget(null)}
-        title={selectedTarget?.name || ''}
+        title={selectedTarget?.name || ""}
         subtitle={
           selectedTarget && (
             <div className="flex items-center gap-2">
-              <span className="truncate font-mono text-xs">{selectedTarget.url}</span>
+              <span className="truncate font-mono text-xs">
+                {selectedTarget.url}
+              </span>
               <a
                 href={selectedTarget.url}
                 target="_blank"
@@ -443,14 +583,23 @@ export default function SecurityHeadersPage() {
         statusBadge={
           selectedTarget && (
             <GradeBadge
-              grade={selectedTarget.last_grade || calculateGrade(selectedTarget.last_score)}
+              grade={
+                selectedTarget.last_grade ||
+                calculateGrade(selectedTarget.last_score)
+              }
               score={selectedTarget.last_score}
+              tone={healthTone(selectedTarget)}
             />
           )
         }
         headerActions={
           selectedTarget && (
-            <ScanAction resource={selectedTarget} route="security-headers" pending={scanMutation.isPending} onScan={()=>scanMutation.mutateAsync(selectedTarget.id)} />
+            <ScanAction
+              resource={selectedTarget}
+              route="security-headers"
+              pending={scanMutation.isPending}
+              onScan={() => scanMutation.mutateAsync(selectedTarget.id)}
+            />
           )
         }
         quickKpis={
@@ -458,8 +607,13 @@ export default function SecurityHeadersPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-sans">
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
                 <div className="text-xs text-text-dim">Puntuación</div>
-                <div className="text-base font-bold font-mono text-accent-green mt-0.5">
-                  {selectedTarget.last_score !== null ? `${selectedTarget.last_score} / 100` : 'N/A'}
+                <div
+                  className="text-base font-bold font-mono ui-tone mt-0.5"
+                  data-tone={healthTone(selectedTarget)}
+                >
+                  {selectedTarget.last_score !== null
+                    ? `${selectedTarget.last_score} / 100`
+                    : "N/A"}
                 </div>
               </div>
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
@@ -472,7 +626,9 @@ export default function SecurityHeadersPage() {
                 <div className="text-xs text-text-dim">Faltantes</div>
                 <div
                   className={`text-base font-bold font-mono mt-0.5 ${
-                    missingList.length > 0 ? 'text-amber-400' : 'text-accent-green'
+                    missingList.length > 0
+                      ? "text-amber-400"
+                      : "text-accent-green"
                   }`}
                 >
                   {missingList.length}
@@ -481,30 +637,38 @@ export default function SecurityHeadersPage() {
               <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
                 <div className="text-xs text-text-dim">Latencia HTTP</div>
                 <div className="text-sm font-semibold font-mono text-text-muted mt-0.5 truncate">
-                  {selectedTarget.last_response_time_ms !== null && selectedTarget.last_response_time_ms !== undefined
+                  {selectedTarget.last_response_time_ms !== null &&
+                  selectedTarget.last_response_time_ms !== undefined
                     ? `${selectedTarget.last_response_time_ms} ms`
-                    : 'N/A'}
+                    : "N/A"}
                 </div>
               </div>
             </div>
           )
         }
         tabs={[
-          { id: 'audit', label: 'Auditoría', icon: <ShieldCheck size={13} /> },
-          { id: 'remediation', label: 'Remediación & Snippets', icon: <Code2 size={13} /> },
+          { id: "audit", label: "Auditoría", icon: <ShieldCheck size={13} /> },
+
           {
-            id: 'leaks_raw',
-            label: selectedTarget?.info_leak_detected ? 'Fugas & Raw (Alerta)' : 'Fugas & Raw',
-            icon: selectedTarget?.info_leak_detected ? <ShieldAlert size={13} className="text-amber-400" /> : <Server size={13} />,
+            id: "leaks_raw",
+            label: selectedTarget?.info_leak_detected
+              ? "Fugas & Raw (Alerta)"
+              : "Fugas & Raw",
+            icon: selectedTarget?.info_leak_detected ? (
+              <ShieldAlert size={13} className="text-amber-400" />
+            ) : (
+              <Server size={13} />
+            ),
           },
-          { id: 'history', label: 'Historial', icon: <Clock size={13} /> },
+          { id: "history", label: "Historial", icon: <Clock size={13} /> },
         ]}
         activeTab={drawerTab}
         onTabChange={(t) => setDrawerTab(t as DrawerTabType)}
         footerActions={
           selectedTarget && (
             <>
-              <AdminButton capability="security_headers.update"
+              <AdminButton
+                capability="security_headers.update"
                 type="button"
                 onClick={() => handleOpenEdit(selectedTarget)}
                 className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors"
@@ -512,7 +676,8 @@ export default function SecurityHeadersPage() {
                 <Pencil size={14} />
                 Editar Configuración
               </AdminButton>
-              <AdminButton capability="security_headers.delete"
+              <AdminButton
+                capability="security_headers.delete"
                 type="button"
                 onClick={() => setDeleteTarget(selectedTarget)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors"
@@ -526,14 +691,18 @@ export default function SecurityHeadersPage() {
         maxWidthClass="max-w-2xl"
       >
         {/* TAB 1: AUDITORÍA DE CABECERAS */}
-        {selectedTarget && drawerTab === 'audit' && (
+        {selectedTarget && (
+          <MeasurementStatus snapshot={selectedTarget.scan_availability} />
+        )}
+        {selectedTarget && drawerTab === "audit" && (
           <div className="space-y-4 font-sans">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold text-text-muted">
                 Evaluación Estándar de Cabeceras HTTP
               </h4>
               <span className="text-xs font-mono text-text-dim">
-                {foundList.length} de {STANDARD_SECURITY_HEADERS.length} implementadas
+                {foundList.length} de {STANDARD_SECURITY_HEADERS.length}{" "}
+                implementadas
               </span>
             </div>
 
@@ -548,16 +717,22 @@ export default function SecurityHeadersPage() {
                     key={hdr.key}
                     className={`p-3.5 rounded-xl border transition-all ${
                       isFound
-                        ? 'bg-emerald-500/[0.04] border-emerald-500/30'
-                        : 'bg-bg-dark/60 border-border-base/70'
+                        ? "bg-emerald-500/[0.04] border-emerald-500/30"
+                        : "bg-bg-dark/60 border-border-base/70"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {isFound ? (
-                          <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                          <CheckCircle2
+                            size={16}
+                            className="text-emerald-400 shrink-0"
+                          />
                         ) : (
-                          <XCircle size={16} className="text-rose-400 shrink-0" />
+                          <XCircle
+                            size={16}
+                            className="text-rose-400 shrink-0"
+                          />
                         )}
                         <span className="font-mono text-xs font-bold text-text-main">
                           {hdr.name}
@@ -570,11 +745,11 @@ export default function SecurityHeadersPage() {
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             isFound
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                              : "bg-rose-500/15 text-rose-400 border border-rose-500/25"
                           }`}
                         >
-                          {isFound ? 'Presente' : 'Ausente'}
+                          {isFound ? "Presente" : "Ausente"}
                         </span>
                       </div>
                     </div>
@@ -593,7 +768,8 @@ export default function SecurityHeadersPage() {
                     {/* If directives analysis notes exist */}
                     {directiveInfo?.notes && (
                       <div className="mt-2 text-xs text-text-muted flex items-center gap-1 font-mono">
-                        <span className="text-accent-green">&bull;</span> {directiveInfo.notes}
+                        <span className="text-accent-green">&bull;</span>{" "}
+                        {directiveInfo.notes}
                       </div>
                     )}
                   </div>
@@ -603,88 +779,23 @@ export default function SecurityHeadersPage() {
           </div>
         )}
 
-        {/* TAB 2: REMEDIACIÓN & SNIPPETS PARA SERVIDORES WEB */}
-        {selectedTarget && drawerTab === 'remediation' && (
-          <div className="space-y-4 font-sans">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-semibold text-text-main">
-                  Generador de Configuración de Servidor Web
-                </h4>
-                <p className="text-xs text-text-dim mt-0.5">
-                  Aplica estas directivas en tu infraestructura para elevar la calificación a Grado A+.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCopySnippet}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all shadow-sm shrink-0"
-              >
-                {copiedSnippet ? <Check size={13} /> : <Copy size={13} />}
-                {copiedSnippet ? '¡Copiado!' : 'Copiar Snippet'}
-              </button>
-            </div>
-
-            {/* Server Selector Pills */}
-            <div className="flex flex-wrap gap-1.5 bg-bg-dark/60 p-1.5 rounded-xl border border-border-base/70">
-              {(['nginx', 'apache', 'caddy', 'cloudflare', 'iis'] as ServerSnippetType[]).map((srv) => (
-                <button
-                  key={srv}
-                  type="button"
-                  onClick={() => setServerSnippetType(srv)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    serverSnippetType === srv
-                      ? 'bg-accent-green text-black shadow-sm'
-                      : 'text-text-muted hover:text-text-main hover:bg-bg-card'
-                  }`}
-                >
-                  {srv === 'nginx' && 'Nginx'}
-                  {srv === 'apache' && 'Apache (.htaccess)'}
-                  {srv === 'caddy' && 'Caddy'}
-                  {srv === 'cloudflare' && 'Cloudflare'}
-                  {srv === 'iis' && 'IIS (web.config)'}
-                </button>
-              ))}
-            </div>
-
-            {/* Code Box */}
-            <div className="relative">
-              <pre className="bg-bg-dark border border-border-base rounded-xl p-4 text-xs font-mono text-text-muted overflow-x-auto leading-relaxed max-h-[360px]">
-                {generateServerSnippet(serverSnippetType, selectedTarget)}
-              </pre>
-            </div>
-
-            {/* Missing Headers List Tip */}
-            {missingList.length > 0 && (
-              <div className="bg-bg-card border border-border-base rounded-xl p-3 text-xs space-y-1">
-                <span className="font-semibold text-text-main">Cabeceras prioritarias a incorporar:</span>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {missingList.map((m) => (
-                    <span
-                      key={m}
-                      className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/25 text-rose-400 rounded-md text-xs font-mono"
-                    >
-                      {m}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* TAB 3: FUGAS DE INFORMACIÓN & RAW HEADERS */}
-        {selectedTarget && drawerTab === 'leaks_raw' && (
+        {selectedTarget && drawerTab === "leaks_raw" && (
           <div className="space-y-4 font-sans">
             {/* Server Leak Alert Card */}
-            {selectedTarget.info_leak_detected || Object.keys(infoLeaks).length > 0 ? (
+            {selectedTarget.info_leak_detected ||
+            Object.keys(infoLeaks).length > 0 ? (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
                   <ShieldAlert size={16} />
-                  <span>Vulnerabilidad de Divulgación de Tecnología (CWE-200)</span>
+                  <span>
+                    Vulnerabilidad de Divulgación de Tecnología (CWE-200)
+                  </span>
                 </div>
                 <p className="text-xs text-amber-200/90 leading-relaxed">
-                  El servidor web expone en sus cabeceras HTTP información exacta de software, versiones o runtimes, lo cual facilita el reconocimiento malicioso por atacantes.
+                  El servidor web expone en sus cabeceras HTTP información
+                  exacta de software, versiones o runtimes, lo cual facilita el
+                  reconocimiento malicioso por atacantes.
                 </p>
 
                 <div className="space-y-2 pt-1">
@@ -696,8 +807,12 @@ export default function SecurityHeadersPage() {
                         className="bg-bg-dark/80 border border-amber-500/20 rounded-xl p-2.5 text-xs font-mono space-y-1"
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-bold text-amber-300">{leak.header}:</span>
-                          <span className="text-text-main font-semibold">{leak.value}</span>
+                          <span className="font-bold text-amber-300">
+                            {leak.header}:
+                          </span>
+                          <span className="text-text-main font-semibold">
+                            {leak.value}
+                          </span>
                         </div>
                         <div className="text-xs text-text-dim font-sans">
                           Mitigación sugerida: {leak.recommendation}
@@ -711,9 +826,12 @@ export default function SecurityHeadersPage() {
               <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4 flex items-center gap-3 text-xs text-emerald-400">
                 <CheckCircle2 size={18} className="shrink-0" />
                 <div>
-                  <span className="font-bold">Servidor Protegido contra Fugas de Información</span>
+                  <span className="font-bold">
+                    Servidor Protegido contra Fugas de Información
+                  </span>
                   <p className="text-xs text-emerald-300/80 mt-0.5">
-                    No se detectaron cabeceras que divulguen versiones de software (Server o X-Powered-By).
+                    No se detectaron cabeceras que divulguen versiones de
+                    software (Server o X-Powered-By).
                   </p>
                 </div>
               </div>
@@ -723,10 +841,14 @@ export default function SecurityHeadersPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold text-text-muted">
-                  Cabeceras HTTP de Respuesta Recibidas ({Object.keys(rawHeaders).length})
+                  Cabeceras HTTP de Respuesta Recibidas (
+                  {Object.keys(rawHeaders).length})
                 </h4>
                 <div className="relative w-48">
-                  <Search size={12} className="absolute left-2.5 top-2.5 text-text-dim" />
+                  <Search
+                    size={12}
+                    className="absolute left-2.5 top-2.5 text-text-dim"
+                  />
                   <input
                     type="text"
                     placeholder="Filtrar cabecera..."
@@ -743,14 +865,19 @@ export default function SecurityHeadersPage() {
                     .filter(([key, val]) => {
                       if (!rawHeadersFilter.trim()) return true;
                       const q = rawHeadersFilter.toLowerCase();
-                      return key.toLowerCase().includes(q) || String(val).toLowerCase().includes(q);
+                      return (
+                        key.toLowerCase().includes(q) ||
+                        String(val).toLowerCase().includes(q)
+                      );
                     })
                     .map(([key, val]) => (
                       <div
                         key={key}
                         className="p-2.5 bg-bg-dark/80 border border-border-base/50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-1 break-all"
                       >
-                        <span className="text-text-muted font-bold">{key}:</span>
+                        <span className="text-text-muted font-bold">
+                          {key}:
+                        </span>
                         <span className="text-text-main">{String(val)}</span>
                       </div>
                     ))}
@@ -765,7 +892,7 @@ export default function SecurityHeadersPage() {
         )}
 
         {/* TAB 4: HISTORIAL */}
-        {selectedTarget && drawerTab === 'history' && (
+        {selectedTarget && drawerTab === "history" && (
           <div className="space-y-4 font-sans">
             <h4 className="text-xs font-semibold text-text-muted">
               Historial de Auditorías Realizadas
@@ -784,16 +911,19 @@ export default function SecurityHeadersPage() {
                     <div className="flex items-center gap-2">
                       <Clock size={13} className="text-text-dim" />
                       <span className="font-mono text-text-muted">
-                        {new Date(res.checked_at).toLocaleString('es-ES')}
+                        {new Date(res.checked_at).toLocaleString("es-ES")}
                       </span>
-                      {res.response_time_ms !== null && res.response_time_ms !== undefined && (
-                        <span className="text-xs font-mono text-text-dim">
-                          ({res.response_time_ms} ms)
-                        </span>
-                      )}
+                      {res.response_time_ms !== null &&
+                        res.response_time_ms !== undefined && (
+                          <span className="text-xs font-mono text-text-dim">
+                            ({res.response_time_ms} ms)
+                          </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-3 font-mono">
-                      <span className="font-bold text-text-main">{res.score} pts</span>
+                      <span className="font-bold text-text-main">
+                        {res.score} pts
+                      </span>
                       <GradeBadge grade={res.grade} score={res.score} />
                     </div>
                   </div>
@@ -825,11 +955,12 @@ export default function SecurityHeadersPage() {
       {/* 8. DELETE CONFIRMATION MODAL */}
       <ConfirmDelete
         isOpen={!!deleteTarget}
-        itemName={deleteTarget?.name || 'este endpoint'}
+        itemName={deleteTarget?.name || "este endpoint"}
         isDeleting={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}
       />
+      <DirectoryPagination directory={directory} />
     </div>
   );
 }

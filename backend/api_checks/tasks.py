@@ -9,13 +9,14 @@ from django.utils import timezone
 
 from .models import APICheckTarget
 from .services import APICheckService
+from .schema import differences
 from common import safe_http
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, name="api_checks.run_check", soft_time_limit=510, time_limit=540)
-@guarded_scan('api_checks.APICheckTarget')
+@guarded_scan("api_checks.APICheckTarget")
 def run_api_check(self, target_id):
     """Execute an API check for a specific target.
 
@@ -28,6 +29,7 @@ def run_api_check(self, target_id):
     try:
         target = APICheckTarget.objects.select_related("organization").get(id=target_id)
         from common.subscriptions import monitoring_allowed
+
         if not monitoring_allowed(target.organization):
             return {"status": "skipped", "reason": "subscription_required"}
     except APICheckTarget.DoesNotExist:
@@ -38,7 +40,7 @@ def run_api_check(self, target_id):
         logger.info("API check target %s is disabled, skipping.", target.name)
         return
 
-    logger.info("Running API check: %s %s", target.method, target.url)
+    logger.info("Running API check method=%s target=%s", target.method, target.pk)
 
     try:
         target_url = target.url
@@ -67,8 +69,9 @@ def run_api_check(self, target_id):
         except (json.JSONDecodeError, ValueError):
             json_valid = False
 
-        if json_valid and target.expected_schema:
-            schema_valid = _validate_schema(response_body, target.expected_schema)
+        schema_failures = differences(response_body, target.expected_schema) if target.expected_schema else []
+        if target.expected_schema:
+            schema_valid = json_valid and not schema_failures
 
         headers_valid = _validate_headers(response_headers, target.expected_headers)
 
@@ -93,6 +96,7 @@ def run_api_check(self, target_id):
             headers_valid=headers_valid,
             response_headers=response_headers,
             error_message="",
+            schema_failures=schema_failures,
         )
 
         logger.info(
@@ -115,7 +119,7 @@ def run_api_check(self, target_id):
             response_headers={},
             error_message="Request timeout",
         )
-    except requests.exceptions.ConnectionError as exc:
+    except requests.exceptions.ConnectionError:
         APICheckService.record_result(
             target_id=target.id,
             status="error",
@@ -125,10 +129,10 @@ def run_api_check(self, target_id):
             schema_valid=None,
             headers_valid=None,
             response_headers={},
-            error_message=f"Connection error: {exc}",
+            error_message="No se pudo conectar con el endpoint.",
         )
     except Exception as exc:
-        logger.exception("Error checking API %s: %s", target.name, exc)
+        logger.error("Error checking API target=%s category=%s", target.pk, type(exc).__name__)
         APICheckService.record_result(
             target_id=target.id,
             status="error",
@@ -138,7 +142,7 @@ def run_api_check(self, target_id):
             schema_valid=None,
             headers_valid=None,
             response_headers={},
-            error_message=str(exc),
+            error_message="No se pudo completar la medición del endpoint.",
         )
 
 
@@ -155,26 +159,7 @@ def _validate_schema(body, expected_schema):
     Returns:
         bool: True if all fields match, False otherwise.
     """
-    if not isinstance(body, dict):
-        return False
-
-    type_map = {
-        "string": str,
-        "integer": int,
-        "float": (int, float),
-        "boolean": bool,
-        "list": list,
-        "dict": dict,
-    }
-
-    for field, expected_type in expected_schema.items():
-        if field not in body:
-            return False
-        python_type = type_map.get(expected_type)
-        if python_type and not isinstance(body[field], python_type):
-            return False
-
-    return True
+    return not differences(body, expected_schema)
 
 
 def _validate_headers(response_headers, expected_headers):
@@ -217,11 +202,13 @@ def run_all_api_checks():
     count = 0
     for target in targets:
         if not target.last_checked_at:
-            count += enqueue_many([target], run_api_check)['queued_count']
+            count += enqueue_many([target], run_api_check)["queued_count"]
         else:
             elapsed_sec = (now - target.last_checked_at).total_seconds()
-            interval = max(target.check_interval or 300, target.organization.get_plan_limits()["min_check_interval_seconds"])
+            interval = max(
+                target.check_interval or 300, target.organization.get_plan_limits()["min_check_interval_seconds"]
+            )
             if elapsed_sec >= interval:
-                count += enqueue_many([target], run_api_check)['queued_count']
+                count += enqueue_many([target], run_api_check)["queued_count"]
 
     logger.info("Scheduled periodic API checks for %d targets (total active: %d).", count, targets.count())

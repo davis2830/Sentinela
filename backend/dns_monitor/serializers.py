@@ -21,6 +21,13 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "response_time_ms",
             "last_scanned_at",
             "last_change_at",
+            "last_attempt_status",
+            "last_error_code",
+            "last_error_message",
+            "last_successful_at",
+            "resolver",
+            "expected_values",
+            "matches_expected",
             "created_at",
             "updated_at",
         )
@@ -32,6 +39,13 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "response_time_ms",
             "last_scanned_at",
             "last_change_at",
+            "last_attempt_status",
+            "last_error_code",
+            "last_error_message",
+            "last_successful_at",
+            "resolver",
+            "expected_values",
+            "matches_expected",
             "created_at",
             "updated_at",
         )
@@ -40,10 +54,11 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
 class DNSRecordCreateSerializer(serializers.Serializer):
     """Serializer for DNS record creation."""
 
-    domain = serializers.CharField(max_length=500)
-    record_type = serializers.ChoiceField(
-        choices=["A", "AAAA", "MX", "TXT", "NS", "CNAME", "SOA", "PTR", "CAA"]
+    expected_values = serializers.ListField(
+        child=serializers.CharField(max_length=2048), max_length=100, required=False
     )
+    domain = serializers.CharField(max_length=500)
+    record_type = serializers.ChoiceField(choices=DNSRecord.RecordType.choices)
 
 
 class DNSChangeHistorySerializer(serializers.ModelSerializer):

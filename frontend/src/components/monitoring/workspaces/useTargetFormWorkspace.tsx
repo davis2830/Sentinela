@@ -1,7 +1,7 @@
 import { apiFailure } from "../../../services/errors";
 import { useConfigurationDiagnostic } from "../../../hooks/useConfigurationDiagnostic";
 import { tcpParts, tcpEndpoint } from "../../../utils/networkEndpoint";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../services/api";
 import type {
@@ -10,6 +10,8 @@ import type {
 } from "../../../types/monitoring";
 import { useAuthStore } from "../../../store/authStore";
 import { hasCapability } from "../../../hooks/useCapability";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
+import { useSearchParams } from "react-router-dom";
 import type { Team } from "../../../types/users";
 import type { AgentProbe } from "../../../types/agent_probe";
 
@@ -25,6 +27,9 @@ export function useTargetFormWorkspace({
   onSubmit,
   onClose,
 }: TargetFormProps) {
+  const [navigationParams] = useSearchParams();
+  const initialProbe =
+    target?.agent_probe || navigationParams.get("agent") || "";
   const [activeTab, setActiveTab] = useState<"general" | "http" | "diagnostic">(
     "general",
   );
@@ -48,11 +53,9 @@ export function useTargetFormWorkspace({
 
   const [ownerTeam, setOwnerTeam] = useState<string>(target?.owner_team || "");
   const [runnerType, setRunnerType] = useState<"cloud" | "agent">(
-    target?.runner_type || "cloud",
+    target?.runner_type || (initialProbe ? "agent" : "cloud"),
   );
-  const [agentProbeId, setAgentProbeId] = useState<string>(
-    target?.agent_probe || "",
-  );
+  const [agentProbeId, setAgentProbeId] = useState<string>(initialProbe);
 
   // Fetch squads/teams for ownership assignment
   const { data: teams = [] } = useQuery<Team[]>({
@@ -68,20 +71,47 @@ export function useTargetFormWorkspace({
     staleTime: 60000,
   });
 
+  const [probeSearch, setProbeSearch] = useState("");
+  const debouncedProbeSearch = useDebouncedValue(probeSearch, 300);
   // Fetch private satellite agents
-  const { data: probes = [] } = useQuery<AgentProbe[]>({
-    queryKey: ["agent-probes-select"],
+  const { data: probeRows = [] } = useQuery<AgentProbe[]>({
+    queryKey: [
+      "agent-probes-select",
+      user?.organization?.id,
+      debouncedProbeSearch,
+    ],
     queryFn: async () => {
       try {
-        const response = await api.get("agent-probes/");
+        const response = await api.get("agent-probes/", {
+          params: { page: 1, search: debouncedProbeSearch },
+        });
         return (response.data?.data || []) as AgentProbe[];
       } catch {
         return [];
       }
     },
     staleTime: 30000,
+    enabled: runnerType === "agent",
   });
 
+  const selectedProbe = useQuery<AgentProbe>({
+    queryKey: ["selected-probe", user?.organization?.id, agentProbeId],
+    queryFn: async ({ signal }) =>
+      (await api.get(`agent-probes/${agentProbeId}/detail/`, { signal })).data
+        .data,
+    enabled:
+      runnerType === "agent" &&
+      !!agentProbeId &&
+      !probeRows.some((p) => p.id === agentProbeId),
+  });
+  const probes = useMemo(
+    () =>
+      selectedProbe.data &&
+      !probeRows.some((p) => p.id === selectedProbe.data?.id)
+        ? [selectedProbe.data, ...probeRows]
+        : probeRows,
+    [selectedProbe.data, probeRows],
+  );
   // Fetch organization subscription for plan quota & min_interval enforcement
   const { data: subData } = useQuery<
     import("../../../types/organization").SubscriptionSummary
@@ -427,6 +457,8 @@ export function useTargetFormWorkspace({
     setAgentProbeId,
     teams,
     probes,
+    probeSearch,
+    setProbeSearch,
     subData,
     minAllowedInterval,
     tcpHost,

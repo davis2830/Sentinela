@@ -20,7 +20,13 @@ def _parse_date(date_value):
         return None
 
     if isinstance(date_value, list):
-        date_value = date_value[0]
+        parsed = [value for item in date_value if (value := _parse_date(item)) is not None]
+        return max(parsed) if parsed else None
+    if isinstance(date_value, str):
+        try:
+            date_value = datetime.fromisoformat(date_value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
 
     if isinstance(date_value, datetime):
         if date_value.tzinfo is None:
@@ -45,7 +51,14 @@ class DomainService:
 
         try:
             from common.security import validate_safe_target_endpoint
+
             validate_safe_target_endpoint(f"https://{clean_domain}", allow_private=False)
+            from .rdap import query
+
+            try:
+                return query(clean_domain)
+            except Exception:
+                logger.info("RDAP unavailable; using WHOIS fallback for %s", clean_domain)
             import whois
 
             w = whois.whois(clean_domain)
@@ -64,10 +77,14 @@ class DomainService:
             # Determine if domain has Transfer Lock / EPP protection
             status_lower = " ".join(status_list).lower()
             is_locked = (
-                "transferprohibited" in status_lower
-                or "locked" in status_lower
-                or "clienttransferprohibited" in status_lower
-                or "servertransferprohibited" in status_lower
+                None
+                if not status_list
+                else (
+                    "transferprohibited" in status_lower
+                    or "locked" in status_lower
+                    or "clienttransferprohibited" in status_lower
+                    or "servertransferprohibited" in status_lower
+                )
             )
 
             # Normalize nameservers
@@ -100,6 +117,8 @@ class DomainService:
             dnssec = str(getattr(w, "dnssec", "") or "")
 
             return {
+                "data_source": "whois",
+                "source_url": "",
                 "success": True,
                 "domain": clean_domain,
                 "registrar": str(registrar),
@@ -145,16 +164,12 @@ class DomainService:
     @staticmethod
     def list_domains(organization_id):
         """Return all domain info records for an organization."""
-        return DomainInfo.objects.filter(
-            organization_id=organization_id
-        ).order_by("-created_at")
+        return DomainInfo.objects.filter(organization_id=organization_id).order_by("-created_at")
 
     @staticmethod
     def get_domain(domain_id, organization_id):
         """Return a single domain info by ID within an organization."""
-        return DomainInfo.objects.get(
-            id=domain_id, organization_id=organization_id
-        )
+        return DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
 
     @staticmethod
     @transaction.atomic
@@ -168,11 +183,10 @@ class DomainService:
         )
         if not created:
             return domain_info
-        try:
-            from .tasks import scan_whois
-            scan_whois.delay(str(domain_info.id))
-        except Exception:
-            pass
+        from .tasks import scan_whois
+        from common.executions import initial_scan
+
+        initial_scan(domain_info, scan_whois)
         return domain_info
 
     @staticmethod
@@ -196,13 +210,26 @@ class DomainService:
         name_servers,
         registrant_country,
         days_until_expiration,
-        is_locked=True,
+        is_locked=None,
         whois_server="",
         dnssec="",
         error_message="",
+        data_source="",
+        source_url="",
     ):
         """Update a domain info record with WHOIS scan results and security attributes."""
         domain_info = DomainInfo.objects.get(id=domain_id)
+        from common.execution_context import assert_current
+
+        assert_current(domain_info)
+        if error_message:
+            domain_info.error_message = error_message[:500]
+            domain_info.last_scanned_at = timezone.now()
+            domain_info.save(update_fields=["error_message", "last_scanned_at", "updated_at"])
+            return domain_info
+        domain_info.data_source = data_source
+        domain_info.source_url = source_url
+        domain_info.last_successful_at = timezone.now()
         domain_info.registrar = registrar
         domain_info.creation_date = creation_date
         domain_info.expiration_date = expiration_date
@@ -225,8 +252,12 @@ class DomainService:
         domains = DomainInfo.objects.filter(organization_id=organization_id)
         total = domains.count()
         active = domains.filter(error_message="", days_until_expiration__gt=30).count()
-        expiring_30d = domains.filter(error_message="", days_until_expiration__gte=0, days_until_expiration__lte=30).count()
-        expiring_15d = domains.filter(error_message="", days_until_expiration__gte=0, days_until_expiration__lte=15).count()
+        expiring_30d = domains.filter(
+            error_message="", days_until_expiration__gte=0, days_until_expiration__lte=30
+        ).count()
+        expiring_15d = domains.filter(
+            error_message="", days_until_expiration__gte=0, days_until_expiration__lte=15
+        ).count()
         expired = domains.filter(error_message="", days_until_expiration__lt=0).count()
         error = domains.exclude(error_message="").count()
 
@@ -248,9 +279,7 @@ class DomainService:
     @transaction.atomic
     def delete_domain(domain_id, organization_id):
         """Delete a domain info record."""
-        domain_info = DomainInfo.objects.get(
-            id=domain_id, organization_id=organization_id
-        )
+        domain_info = DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
         domain_info.delete()
 
     @staticmethod
@@ -258,16 +287,13 @@ class DomainService:
     def update_domain_record(domain_id, organization_id, domain):
         """Update domain name for an existing WHOIS domain record."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
-        domain_info = DomainInfo.objects.get(
-            id=domain_id, organization_id=organization_id
-        )
+        domain_info = DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
         domain_info.domain = clean_domain
         domain_info.save()
-        try:
-            from .tasks import scan_whois
-            scan_whois.delay(str(domain_info.id))
-        except Exception:
-            pass
+        from .tasks import scan_whois
+        from common.executions import initial_scan
+
+        initial_scan(domain_info, scan_whois)
         return domain_info
 
     @staticmethod
@@ -289,18 +315,7 @@ class DomainService:
 
     @staticmethod
     def bulk_action(organization_id, action, domain_ids):
-        """Execute bulk actions (scan, delete) on selected domains."""
-        domains = DomainInfo.objects.filter(
-            organization_id=organization_id, id__in=domain_ids
-        )
-        count = domains.count()
-        if action == "scan":
-            from .tasks import scan_whois
-            for d in domains:
-                scan_whois.delay(str(d.id))
-            return {"action": "scan", "processed": count, "message": f"{count} dominios encolados para consulta WHOIS."}
-        elif action == "delete":
-            deleted_count = domains.delete()[0]
-            return {"action": "delete", "processed": deleted_count, "message": f"{deleted_count} dominios eliminados."}
-        else:
-            raise ValueError(f"Acción no soportada: {action}")
+        from common.bulk import operate
+        from .tasks import scan_whois
+
+        return operate(DomainInfo, organization_id, action, domain_ids, scan_whois)

@@ -39,6 +39,7 @@ class SSLMonitorService:
 
         try:
             from common.security import resolve_safe_target_endpoint
+
             _, tls_hostname, port, resolved_ips = resolve_safe_target_endpoint(
                 f"https://{clean_domain}:{port}",
                 allow_private=False,
@@ -126,6 +127,15 @@ class SSLMonitorService:
                 "error_message": "",
             }
 
+        except ssl_mod.SSLCertVerificationError:
+            return {
+                "domain": clean_domain,
+                "port": port,
+                "is_valid": False,
+                "security_grade": "",
+                "error_code": "INVALID_CERTIFICATE",
+                "error_message": "El certificado no superó la validación TLS.",
+            }
         except ssl_mod.SSLError as exc:
             logger.warning("SSL Error connecting to %s:%d: %s", clean_domain, port, exc)
             return {
@@ -133,7 +143,8 @@ class SSLMonitorService:
                 "port": port,
                 "is_valid": False,
                 "security_grade": "F",
-                "error_message": f"Error SSL/TLS: {exc}",
+                "error_code": "TLS_HANDSHAKE_FAILED",
+                "error_message": "No se completó la negociación TLS.",
             }
         except socket.gaierror as exc:
             logger.warning("DNS resolution error for %s:%d: %s", clean_domain, port, exc)
@@ -142,7 +153,8 @@ class SSLMonitorService:
                 "port": port,
                 "is_valid": False,
                 "security_grade": "F",
-                "error_message": f"Error resolución DNS: {exc}",
+                "error_code": "DNS_FAILED",
+                "error_message": "No se pudo resolver el destino.",
             }
         except Exception as exc:
             logger.warning("Connection error for %s:%d: %s", clean_domain, port, exc)
@@ -151,7 +163,8 @@ class SSLMonitorService:
                 "port": port,
                 "is_valid": False,
                 "security_grade": "F",
-                "error_message": f"Error de conexión: {exc}",
+                "error_code": "CONNECTION_FAILED",
+                "error_message": "No se pudo establecer la conexión TLS.",
             }
 
     @staticmethod
@@ -162,24 +175,18 @@ class SSLMonitorService:
     @staticmethod
     def list_certificates(organization_id):
         """Return all SSL certificates for an organization."""
-        return SSLCertificate.objects.filter(
-            organization_id=organization_id
-        ).order_by("-created_at")
+        return SSLCertificate.objects.filter(organization_id=organization_id).order_by("-created_at")
 
     @staticmethod
     def get_certificate(certificate_id, organization_id):
         """Return a single certificate by ID within an organization."""
-        return SSLCertificate.objects.get(
-            id=certificate_id, organization_id=organization_id
-        )
+        return SSLCertificate.objects.get(id=certificate_id, organization_id=organization_id)
 
     @staticmethod
     def get_by_domain(domain, organization_id):
         """Return a certificate by domain within an organization."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
-        return SSLCertificate.objects.get(
-            domain=clean_domain, organization_id=organization_id
-        )
+        return SSLCertificate.objects.get(domain=clean_domain, organization_id=organization_id)
 
     @staticmethod
     @transaction.atomic
@@ -208,11 +215,10 @@ class SSLMonitorService:
 
         if not created:
             return cert
-        try:
-            from .tasks import scan_ssl_certificate
-            scan_ssl_certificate.delay(str(cert.id))
-        except Exception:
-            pass
+        from .tasks import scan_ssl_certificate
+        from common.executions import initial_scan
+
+        initial_scan(cert, scan_ssl_certificate)
         return cert
 
     @staticmethod
@@ -241,9 +247,20 @@ class SSLMonitorService:
         issued_at=None,
         security_grade="A",
         port=443,
+        error_code="",
     ):
         """Update a certificate with scan results."""
         cert = SSLCertificate.objects.get(id=certificate_id)
+        from common.execution_context import assert_current
+
+        assert_current(cert)
+        cert.last_error_code = error_code
+        if error_message:
+            cert.error_message = error_message[:500]
+            cert.last_scanned_at = timezone.now()
+            cert.save(update_fields=["last_error_code", "error_message", "last_scanned_at", "updated_at"])
+            return cert
+        cert.last_successful_at = timezone.now()
         cert.issuer = issuer
         cert.subject = subject
         cert.expiration_date = expiration_date
@@ -266,15 +283,16 @@ class SSLMonitorService:
         """Returns KPI summary statistics for SSL certificates."""
         certs = SSLCertificate.objects.filter(organization_id=organization_id)
         total = certs.count()
-        valid = certs.filter(is_valid=True, days_remaining__gt=15).count()
+        valid = certs.filter(is_valid=True, error_message="", days_remaining__gt=30).count()
         expiring_15d = certs.filter(is_valid=True, days_remaining__gte=0, days_remaining__lte=15).count()
         expiring_30d = certs.filter(is_valid=True, days_remaining__gte=0, days_remaining__lte=30).count()
         expired = certs.filter(is_valid=True, days_remaining__lt=0).count()
-        invalid = certs.filter(is_valid=False).count()
+        invalid = certs.filter(last_error_code="INVALID_CERTIFICATE").count()
 
-        valid_certs = certs.filter(is_valid=True, days_remaining__isnull=False)
-        total_days = sum(c.days_remaining for c in valid_certs if c.days_remaining is not None)
-        avg_days = round(total_days / valid_certs.count(), 1) if valid_certs.exists() else 0
+        from django.db.models import Avg
+
+        average = certs.filter(is_valid=True, error_message="").aggregate(value=Avg("days_remaining"))["value"]
+        avg_days = round(average, 1) if average is not None else None
 
         return {
             "total": total,
@@ -290,9 +308,7 @@ class SSLMonitorService:
     @transaction.atomic
     def delete_certificate(certificate_id, organization_id):
         """Delete an SSL certificate record."""
-        cert = SSLCertificate.objects.get(
-            id=certificate_id, organization_id=organization_id
-        )
+        cert = SSLCertificate.objects.get(id=certificate_id, organization_id=organization_id)
         cert.delete()
 
     @staticmethod
@@ -308,17 +324,14 @@ class SSLMonitorService:
             except ValueError:
                 port = port or 443
 
-        cert = SSLCertificate.objects.get(
-            id=certificate_id, organization_id=organization_id
-        )
+        cert = SSLCertificate.objects.get(id=certificate_id, organization_id=organization_id)
         cert.domain = clean_domain
         cert.port = port
         cert.save()
-        try:
-            from .tasks import scan_ssl_certificate
-            scan_ssl_certificate.delay(str(cert.id))
-        except Exception:
-            pass
+        from .tasks import scan_ssl_certificate
+        from common.executions import initial_scan
+
+        initial_scan(cert, scan_ssl_certificate)
         return cert
 
     @staticmethod
@@ -342,18 +355,7 @@ class SSLMonitorService:
 
     @staticmethod
     def bulk_action(organization_id, action, certificate_ids):
-        """Perform bulk actions (scan, delete) on selected certificates."""
-        certs = SSLCertificate.objects.filter(
-            organization_id=organization_id, id__in=certificate_ids
-        )
-        count = certs.count()
-        if action == "scan":
-            from .tasks import scan_ssl_certificate
-            for cert in certs:
-                scan_ssl_certificate.delay(str(cert.id))
-            return {"action": "scan", "processed": count, "message": f"{count} certificados encolados para re-escaneo."}
-        elif action == "delete":
-            deleted_count = certs.delete()[0]
-            return {"action": "delete", "processed": deleted_count, "message": f"{deleted_count} certificados eliminados."}
-        else:
-            raise ValueError(f"Acción no soportada: {action}")
+        from common.bulk import operate
+        from .tasks import scan_ssl_certificate
+
+        return operate(SSLCertificate, organization_id, action, certificate_ids, scan_ssl_certificate)

@@ -1,0 +1,153 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "fullName": "Docker Scout",
+          "informationUri": "https://docker.com/products/docker-scout",
+          "name": "docker scout",
+          "rules": [
+            {
+              "id": "CVE-2026-107891",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-107891"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-107891?s=alpine&n=musl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C1.2.6-r6",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                                                                             |\n|Package         pkg:apk/alpine/musl@1.2.6-r3?os_name=alpine&os_version=3.24  |\n|Affected range  <1.2.6-r6                                                    |\n|Fixed version   1.2.6-r6                                                     |\n"
+              },
+              "properties": {
+                "affected_version": "<1.2.6-r6",
+                "cvssV3_severity": "HIGH",
+                "fixed_version": "1.2.6-r6",
+                "purls": [
+                  "pkg:apk/alpine/musl@1.2.6-r3?os_name=alpine&os_version=3.24"
+                ],
+                "security-severity": "8.1",
+                "tags": [
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-119586",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-119586"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-119586?s=alpine&n=sqlite&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C%3D3.53.4-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                                                                                |\n|Package         pkg:apk/alpine/sqlite@3.53.4-r0?os_name=alpine&os_version=3.24  |\n|Affected range  <=3.53.4-r0                                                     |\n|Fixed version   not fixed                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<=3.53.4-r0",
+                "cvssV3_severity": "HIGH",
+                "fixed_version": "not fixed",
+                "purls": [
+                  "pkg:apk/alpine/sqlite@3.53.4-r0?os_name=alpine&os_version=3.24"
+                ],
+                "security-severity": "8.5",
+                "tags": [
+                  "HIGH"
+                ]
+              }
+            }
+          ],
+          "version": "1.25.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CVE-2026-107891",
+          "ruleIndex": 0,
+          "kind": "fail",
+          "level": "error",
+          "message": {
+            "text": "Vulnerability    :CVE-2026-107891                                              \nSeverity         :HIGH                                                         \nPackage          :pkg:apk/alpine/musl@1.2.6-r3?os_name=alpine&os_version=3.24  \nAffected range   :<1.2.6-r6                                                    \nFixed version    :1.2.6-r6                                                     \nEPSS Score       :0.005490                                                     \nEPSS Percentile  :0.462790                                                     \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/ld-musl-x86_64.so.1"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/sbin/ldconfig"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/bin/getconf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/bin/getent"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/bin/iconv"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/bin/ldd"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-119586",
+          "ruleIndex": 1,
+          "kind": "fail",
+          "level": "error",
+          "message": {
+            "text": "Vulnerability    :CVE-2026-119586                                                 \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/sqlite@3.53.4-r0?os_name=alpine&os_version=3.24  \nAffected range   :<=3.53.4-r0                                                     \nFixed version    :not fixed                                                       \nEPSS Score       :0.015450                                                        \nEPSS Percentile  :0.751970                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libsqlite3.so.3.53.4"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "observed_at": "2026-11-11T05:26:17.656311+00:00",
+  "scope": "isolated_connectivity_fixture_only",
+  "runtime": "Linux amd64 on Windows Docker Desktop",
+  "reported_version": "1.8.0",
+  "last_heartbeat": "2026-11-11T05:25:54.535006+00:00",
+  "monitors": [
+    {
+      "id": "22b3e2f0-ff7e-4ca0-a890-8f538d4a3747",
+      "measured_status": "up",
+      "checks_preserved": 66,
+      "last_measurement": "2026-11-11T05:25:19.674843+00:00"
+    }
+  ],
+  "retirement": {
+    "token_rejected": true,
+    "monitors_paused": true,
+    "assignments_and_history_preserved": true,
+    "revoked_at": "2026-11-11T05:26:17.661786+00:00"
+  }
+}

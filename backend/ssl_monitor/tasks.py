@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, name="ssl_monitor.scan_certificate", soft_time_limit=510, time_limit=540)
-@guarded_scan('ssl_monitor.SSLCertificate')
+@guarded_scan("ssl_monitor.SSLCertificate")
 def scan_ssl_certificate(self, certificate_id):
     """Scan an SSL certificate for a given certificate record.
 
@@ -23,6 +23,7 @@ def scan_ssl_certificate(self, certificate_id):
     try:
         cert = SSLCertificate.objects.select_related("organization").get(id=certificate_id)
         from common.subscriptions import monitoring_allowed
+
         if not monitoring_allowed(cert.organization):
             return {"status": "skipped", "reason": "subscription_required"}
     except SSLCertificate.DoesNotExist:
@@ -70,6 +71,7 @@ def scan_ssl_certificate(self, certificate_id):
             days_remaining=None,
             is_valid=False,
             error_message=res.get("error_message", "Fallo de conexión SSL"),
+            error_code=res.get("error_code", "CONNECTION_FAILED"),
             san_domains=[],
             tls_version="",
             issued_at=None,

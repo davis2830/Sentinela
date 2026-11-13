@@ -40,6 +40,16 @@ El estado de la última comprobación y el agregado histórico son conceptos dis
 
 En móvil: indicadores en dos columnas, vínculos en filas compactas, acciones que envuelven, URL y valores largos con salto. Mantener accesible la gráfica después de los vínculos. El documento no debe tener scroll horizontal. El scroll propio de pestañas debe permitir llegar a todas las secciones con teclado. Conservar foco visible, nombres accesibles para iconos y preferencia de movimiento reducido.
 
+## Directorios de Conectividad — 2026-11-12
+
+- Uptime, SSL, DNS, Dominios, API Endpoints y Security Headers comparten `ConnectivityToolbar` mediante la variante `inline` de `NOCToolbar`. Búsqueda a la izquierda, selector de tipo/método cuando corresponda, estados, filtros adicionales y presentación. Los estados pasan a un selector en móvil.
+- Los filtros reemplazan la franja duplicada de indicadores. Los conteos conservan su alcance real, identificado en el nombre accesible y ayuda del grupo. No reconstruir totales globales con la página visible.
+- La cabecera conserva creación y control de consulta automática. Exportar queda bajo **Más opciones del directorio**. La edad de consulta y el refresco manual no se repiten en estas cabeceras; los errores conservan su reintento y el reloj existente conserva su cadencia.
+- `SelectionCheckbox` es la única presentación de selección de estos directorios: marca de 20×20 px dentro de un objetivo transparente de 44×44 px, con nombre accesible y estado `aria-checked`. Se usa en cabeceras, filas, tarjetas y móvil.
+- `ResourceActionButtons` muestra editar, eliminar y vincular alertas como iconos directos, con nombre accesible, tooltip y sus capacidades existentes. Cada control tiene un objetivo transparente de 44 px y superficie de 32 px; el resaltado pertenece al botón señalado. El interruptor de Uptime permanece visible. `ResourceActions` se conserva para utilidades del directorio como exportar.
+- En tarjetas, la selección queda en el pie, fuera del encabezado, con una posición independiente y un espacio reservado para evitar superponer metadatos. Marcar o desmarcar no desplaza el nombre ni su destino. La cuadrícula se adapta al ancho del contenido y evita comprimir las tarjetas por debajo de 380 px cuando hay espacio disponible.
+- `DirectoryPagination` aparece sólo cuando existen varias páginas o se está en una página posterior. Con páginas de 25, 0–25 resultados no muestran navegación; desde 26 se indica el rango y se agrupan Anterior, página actual/total y Siguiente. Cada filtro reinicia la página y la selección continúa limitada a la página visible.
+
 ## Semántica de datos y color
 
 - **Verde saludable:** resultado positivo medido. El turquesa de marca identifica acciones y selección.

@@ -1,16 +1,15 @@
-import AdminButton from '../common/AdminButton';
-import React from 'react';
-import type { APICheckTarget } from '../../types/api_checks';
-import StatusBadge from '../common/StatusBadge';
+import ResourceActionButtons from "../common/ResourceActionButtons";
+import SelectionCheckbox from "../common/SelectionCheckbox";
 import {
-  Clock,
-  Pencil,
-  Trash2,
-  ExternalLink,
-  CheckSquare,
-  Square,
-  Code2,
-} from 'lucide-react';
+  apiResponseTone,
+  hasMeasurement,
+  healthPalette,
+} from "../../utils/healthPresentation";
+
+import React from "react";
+import type { APICheckTarget } from "../../types/api_checks";
+import StatusBadge from "../common/StatusBadge";
+import { Clock, Pencil, Trash2, ExternalLink, Code2 } from "lucide-react";
 
 export interface APICheckTableViewProps {
   targets: APICheckTarget[];
@@ -38,51 +37,63 @@ export default function APICheckTableView({
 
   const getMethodBadgeClass = (method: string) => {
     switch (method.toUpperCase()) {
-      case 'GET':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-      case 'POST':
-        return 'bg-sky-500/10 text-sky-400 border-sky-500/30';
-      case 'PUT':
-      case 'PATCH':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-      case 'DELETE':
-        return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
-      case 'HEAD':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+      case "GET":
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      case "POST":
+        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+      case "PUT":
+      case "PATCH":
+        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+      case "DELETE":
+        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+      case "HEAD":
+        return "bg-purple-500/10 text-purple-400 border-purple-500/30";
       default:
-        return 'bg-zinc-800 text-zinc-300 border-zinc-700';
+        return "bg-zinc-800 text-zinc-300 border-zinc-700";
     }
   };
 
   return (
-    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm">
+    <div
+      data-testid="connectivity-table"
+      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm"
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
+            <tr className="border-b border-border-base text-text-muted text-xs bg-bg-dark/80">
               {/* Checkbox select all */}
               <th scope="col" className="py-3 px-3.5 w-10">
-                <button
-                  type="button"
-                  onClick={onSelectAll}
-                  className="text-text-dim hover:text-accent-green transition-colors cursor-pointer"
-                  title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                >
-                  {allSelected ? (
-                    <CheckSquare size={16} className="text-accent-green" />
-                  ) : (
-                    <Square size={16} />
-                  )}
-                </button>
+                <SelectionCheckbox
+                  checked={allSelected}
+                  label="Seleccionar todos los recursos de esta página"
+                  onChange={onSelectAll}
+                />
               </th>
-              <th scope="col" className="py-3 px-3">Método</th>
-              <th scope="col" className="py-3 px-4">Servicio & Endpoint URL</th>
-              <th scope="col" className="py-3 px-3">Estado HTTP</th>
-              <th scope="col" className="py-3 px-3">Latencia Real vs Max</th>
-              <th scope="col" className="py-3 px-3">Schema & Validación</th>
-              <th scope="col" className="py-3 px-3">Frecuencia</th>
-              <th scope="col" className="py-3 px-3">Último Check</th>
-              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-3">
+                Método
+              </th>
+              <th scope="col" className="py-3 px-4">
+                Servicio & Endpoint URL
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Estado HTTP
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Latencia Real vs Max
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Schema & Validación
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Frecuencia
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Último Check
+              </th>
+              <th scope="col" className="py-3 px-4 text-right">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40 font-sans">
@@ -90,12 +101,11 @@ export default function APICheckTableView({
               const isSelected = selectedIds.includes(target.id);
               const hasSchema =
                 target.expected_schema &&
-                typeof target.expected_schema === 'object' &&
+                typeof target.expected_schema === "object" &&
                 Object.keys(target.expected_schema).length > 0;
 
               const latency = target.last_response_time_ms;
               const maxLatency = target.expected_response_time_ms;
-              const isSlow = latency !== null && latency !== undefined && latency > maxLatency;
 
               return (
                 <tr
@@ -103,9 +113,17 @@ export default function APICheckTableView({
                   onClick={() => onSelectTarget(target)}
                   tabIndex={0}
                   aria-label={target.name}
-                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectTarget(target); } }}
+                  onKeyDown={(e) => {
+                    if (
+                      e.target === e.currentTarget &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      onSelectTarget(target);
+                    }
+                  }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                    isSelected ? 'bg-accent-green/[0.03]' : ''
+                    isSelected ? "bg-accent-green/[0.03]" : ""
                   }`}
                 >
                   {/* Row checkbox */}
@@ -116,23 +134,18 @@ export default function APICheckTableView({
                       onToggleSelect(target);
                     }}
                   >
-                    <button
-                      type="button"
-                      className="text-text-dim hover:text-accent-green transition-colors cursor-pointer"
-                    >
-                      {isSelected ? (
-                        <CheckSquare size={16} className="text-accent-green" />
-                      ) : (
-                        <Square size={16} />
-                      )}
-                    </button>
+                    <SelectionCheckbox
+                      checked={isSelected}
+                      label={`Seleccionar ${target.name}`}
+                      onChange={() => onToggleSelect(target)}
+                    />
                   </td>
 
                   {/* HTTP Method */}
                   <td className="py-3 px-3">
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getMethodBadgeClass(
-                        target.method
+                        target.method,
                       )}`}
                     >
                       {target.method}
@@ -162,7 +175,13 @@ export default function APICheckTableView({
                   {/* Status Badge & HTTP Code */}
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-1.5">
-                      <StatusBadge status={target.last_status || 'desconocido'} />
+                      <StatusBadge
+                        status={
+                          hasMeasurement(target.last_checked_at)
+                            ? target.last_status || "desconocido"
+                            : "desconocido"
+                        }
+                      />
                       {target.last_http_status && (
                         <span className="font-mono text-xs text-text-muted font-bold">
                           {target.last_http_status}
@@ -177,7 +196,7 @@ export default function APICheckTableView({
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`font-bold text-xs ${
-                            isSlow ? 'text-accent-yellow' : 'text-accent-green'
+                            healthPalette[apiResponseTone(target)].text
                           }`}
                         >
                           {Math.round(latency)}ms
@@ -198,10 +217,13 @@ export default function APICheckTableView({
                     {hasSchema ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-accent-purple/10 text-accent-purple border border-accent-purple/30 font-mono">
                         <Code2 size={10} />
-                        {Object.keys(target.expected_schema || {}).length} Campos
+                        {Object.keys(target.expected_schema || {}).length}{" "}
+                        Campos
                       </span>
                     ) : (
-                      <span className="text-text-dim text-xs font-mono">Sin Schema</span>
+                      <span className="text-text-dim text-xs font-mono">
+                        Sin Schema
+                      </span>
                     )}
                   </td>
 
@@ -215,13 +237,16 @@ export default function APICheckTableView({
                     {target.last_checked_at ? (
                       <span className="flex items-center gap-1">
                         <Clock size={12} />
-                        {new Date(target.last_checked_at).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {new Date(target.last_checked_at).toLocaleTimeString(
+                          "es-ES",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
                       </span>
                     ) : (
-                      'Nunca'
+                      "Nunca"
                     )}
                   </td>
 
@@ -231,23 +256,32 @@ export default function APICheckTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-
-                      <AdminButton capability="api_checks.update"
-                        type="button"
-                        onClick={(e) => onEdit(target, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
-                        title="Editar target"
-                      >
-                        <Pencil size={14} />
-                      </AdminButton>
-                      <AdminButton capability="api_checks.delete"
-                        type="button"
-                        onClick={(e) => onDelete(target, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
-                        title="Eliminar target"
-                      >
-                        <Trash2 size={14} />
-                      </AdminButton>
+                      <ResourceActionButtons
+                        label={`Acciones de ${target.name}`}
+                        actions={[
+                          {
+                            label: "Editar target",
+                            onClick: (e) => onEdit(target, e),
+                            capability: "api_checks.update",
+                            icon: (
+                              <>
+                                <Pencil size={14} />
+                              </>
+                            ),
+                          },
+                          {
+                            label: "Eliminar target",
+                            onClick: (e) => onDelete(target, e),
+                            capability: "api_checks.delete",
+                            danger: true,
+                            icon: (
+                              <>
+                                <Trash2 size={14} />
+                              </>
+                            ),
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>

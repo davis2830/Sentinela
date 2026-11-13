@@ -20,6 +20,17 @@ Entorno local actualizado: [aplicación de accounts.0011 y corrección del error
 
 ## Guías vigentes
 
+Conectividad: [análisis funcional, UX, reproducciones y prioridades — 2026-11-10](CONNECTIVITY_REVIEW_2026-11-10.md).
+Implementación: [correcciones C01–C14, Senti9 1.8.0, contratos, matriz y evidencia local](CONNECTIVITY_IMPLEMENTATION_2026-11-10.md).
+Colores operativos: [revisión y unificación de la paleta en los seis módulos — 2026-11-12](CONNECTIVITY_HEALTH_COLORS_2026-11-12.md).
+Directorio Uptime: [cabecera compacta, filtros unificados y validación local — 2026-11-12](MONITORING_DIRECTORY_UI_2026-11-12.md).
+Homologación de Conectividad: [selección, acciones, filtros y paginación en los seis módulos — 2026-11-12](CONNECTIVITY_DIRECTORY_CONSISTENCY_2026-11-12.md).
+Ajuste visual posterior: [acciones directas y selección independiente en el pie de las tarjetas — 2026-11-12](CONNECTIVITY_DIRECT_ACTIONS_2026-11-12.md).
+Distribución Senti9: [revisión de imagen pública, vulnerabilidades, arquitecturas y publicación — 2026-11-11](SENTI9_PUBLIC_IMAGE_2026-11-11.md).
+Experiencia Senti9: [directorio, guía de instalación Windows/Linux y evidencia local — 2026-11-11](SENTI9_UI_INSTALLATION_2026-11-11.md).
+Detalle Senti9: [tarjetas operativas, estados y capacidad de la cola — 2026-11-11](SENTI9_DETAIL_UI_2026-11-11.md).
+Directorio Senti9: [composición final de cabecera y columna izquierda, con panel derecho conservado — 2026-11-11](SENTI9_DIRECTORY_COMPOSITION_2026-11-11.md).
+
 | Para trabajar en | Leer |
 | --- | --- |
 | Instalar, configurar o probar en local | [Flujo de desarrollo](DEV_WORKFLOW.md) · [Laboratorio Sentinel y Senti9](SENTI9_PERSONAL_LAB.md) |

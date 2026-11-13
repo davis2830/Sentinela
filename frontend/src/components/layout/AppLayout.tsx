@@ -1,10 +1,10 @@
-import PortalAccess from './PortalAccess';
-import { ReactNode, useEffect, useRef, Suspense } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import Navbar from './Navbar';
-import Sidebar from './Sidebar';
-import { useAuthStore } from '../../store/authStore';
-import ModuleLoadingSkeleton from '../common/ModuleLoadingSkeleton';
+import PortalAccess from "./PortalAccess";
+import { ReactNode, useEffect, useRef, Suspense } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import Navbar from "./Navbar";
+import Sidebar from "./Sidebar";
+import { useAuthStore } from "../../store/authStore";
+import ModuleLoadingSkeleton from "../common/ModuleLoadingSkeleton";
 
 interface AppLayoutProps {
   children?: ReactNode;
@@ -14,6 +14,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const fetchCurrentUser = useAuthStore((state) => state.fetchCurrentUser);
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
+  useEffect(
+    () => () => {
+      window.dispatchEvent(new Event("sentinel:screen-left"));
+    },
+    [location.pathname],
+  );
 
   // Fetch current user once on initial mount of the layout, not on every page transition
   useEffect(() => {
@@ -32,7 +38,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Navbar />
       <div className="flex flex-1 overflow-hidden min-h-0">
         <Sidebar />
-        <main ref={mainRef} className="flex-1 min-w-0 p-4 lg:px-6 lg:py-5 overflow-y-auto h-full">
+        <main
+          ref={mainRef}
+          className="flex-1 min-w-0 p-4 lg:px-6 lg:py-5 overflow-y-auto h-full"
+        >
           <Suspense fallback={<ModuleLoadingSkeleton />}>
             <PortalAccess>{children || <Outlet />}</PortalAccess>
           </Suspense>

@@ -6,12 +6,13 @@ import re
 import shutil
 import subprocess
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '1.7.0'
-BASELINE_VERSION = '1.6.0'
+VERSION = '1.8.0'
+BASELINE_VERSION = '1.7.0'
 IMAGE = f'davis1924/senti9:{VERSION}'
 
 
@@ -119,7 +120,7 @@ def prepare(image, baseline, report_path, output):
         raise ValueError(f'El destino aprobado de esta versión es {IMAGE}.')
     check_version(new['image_id'], VERSION)
     directory.mkdir(parents=True)
-    runtime = [ROOT/'agent.py', ROOT/'delivery.py', ROOT/'security.py', ROOT/'Dockerfile', *sorted((ROOT/'common').glob('*.py'))]
+    runtime = [ROOT/'agent.py', ROOT/'delivery.py', ROOT/'security.py', ROOT/'diagnostics.py', ROOT/'install.py', ROOT/'Dockerfile', *sorted((ROOT/'common').glob('*.py'))]
     source_hashes = {str(path.relative_to(ROOT)).replace('\\', '/'): sha256(path) for path in runtime}
     code_paths = [name for name in source_hashes if name != 'Dockerfile']
     image_hashes = json.loads(run('docker', 'run', '--rm', '-i', '--pull', 'never', '--network', 'none',
@@ -131,14 +132,31 @@ def prepare(image, baseline, report_path, output):
         raise ValueError('La imagen no corresponde a los fuentes actuales; reconstruir candidato.')
     manifest = {'schema_version': 1, 'version': VERSION, 'status': 'local_candidate_not_published',
         'built_at': datetime.now(timezone.utc).isoformat(), 'candidate': new, 'baseline': old,
-        'runtime_source_sha256': source_hashes, 'required_backend_migration': 'monitoring.0008_agent_probe_telemetry',
+        'runtime_source_sha256': source_hashes, 'required_backend_migration': 'monitoring.0009_agentprobe_revocation_reason_agentprobe_revoked_at',
         'signature': 'requires_external_trusted_key', 'ci': 'not_attested_by_this_command'}
     (directory/'release.json').write_text(json.dumps(manifest, indent=2)+'\n', encoding='utf-8')
     shutil.copyfile(report_path, directory/'compatibility.json')
-    for name in ('README.md', 'install.ps1', 'install.sh', 'docker-compose.yml'):
+    (directory/'README.md').write_text(
+        '# Senti9 1.8.0 — candidato local\n\n'
+        'Este paquete no acredita publicación ni una firma de distribución.\n\n'
+        '- [Instalación, diagnóstico, actualización y retorno](RELEASE_1_8_0.md).\n'
+        '- [Operación y entrega persistente](OPERATIONS.md).\n'
+        '- `release.json`: identidad exacta de las imágenes y alcance local.\n'
+        '- `compatibility.json`: prueba de diario 1.7.0 → 1.8.0 → 1.7.0.\n'
+        '- `SHA256SUMS`: integridad de todos los archivos; validar antes de cargar imágenes.\n\n'
+        'Utiliza el perfil descargado desde Sentinel y el archivo privado de token. '
+        'Docker Desktop debe ejecutar contenedores Linux. '
+        'El Compose incluido conserva la instalación Linux anterior y su volumen; '
+        'para agentes nuevos utiliza los comandos únicos por agente del perfil.\n', encoding='utf-8')
+    for name in ('install.ps1', 'install.sh', 'docker-compose.yml'):
         shutil.copyfile(ROOT/name, directory/name)
+    with zipfile.ZipFile(directory/'senti9-installer.pyz','w',compression=zipfile.ZIP_DEFLATED) as installer:
+        installer.write(ROOT/'install.py','__main__.py')
+        installer.write(ROOT/'security.py','security.py')
+        for path in sorted((ROOT/'common').glob('*.py')):installer.write(path,'common/'+path.name)
     shutil.copyfile(ROOT/'release'/'RELEASE_NOTES.md', directory/'RELEASE_NOTES.md')
     shutil.copyfile(ROOT/'release'/'OPERATIONS.md', directory/'OPERATIONS.md')
+    shutil.copyfile(ROOT/'release'/'RELEASE_1_8_0.md', directory/'RELEASE_1_8_0.md')
     for version, metadata in ((VERSION, new), (BASELINE_VERSION, old)):
         archive = directory/f'senti9-{version}-{metadata["os"]}-{metadata["architecture"]}.docker.tar'
         run('docker', 'image', 'save', '--output', str(archive), metadata['reference'])

@@ -110,6 +110,33 @@ def explicit_output(view, action):
         schema = serializer_schema(declared())
         return {"type": "array", "items": schema} if getattr(view, "output_many", False) else schema
     name = view.__name__
+    connectivity = {
+        "MonitoringTargetListView": ("monitoring.serializers", "MonitoringTargetSerializer"),
+        "SSLCertificateListView": ("ssl_monitor.serializers", "SSLCertificateSerializer"),
+        "DNSRecordListView": ("dns_monitor.serializers", "DNSRecordSerializer"),
+        "DomainListView": ("domain.serializers", "DomainInfoSerializer"),
+        "APICheckTargetListView": ("api_checks.serializers", "APICheckTargetSerializer"),
+        "SecurityHeaderTargetListView": ("security_headers.serializers", "SecurityHeaderTargetSerializer"),
+        "AgentProbeListView": ("monitoring.serializers", "AgentProbeSerializer"),
+    }
+    if name in connectivity and action == "get":
+        from importlib import import_module
+
+        module, serializer = connectivity[name]
+        return {"type": "array", "items": serializer_schema(getattr(import_module(module), serializer)())}
+    if name == "ScanExecutionView":
+        return {
+            "type": "object",
+            "properties": {
+                "id": STRING,
+                "state": {"type": "string", "enum": ["queued", "running", "completed", "failed", "expired"]},
+                "origin": {"type": "string", "enum": ["cloud", "agent"]},
+                "submitted_at": STRING,
+                "started_at": {"type": "string", "nullable": True},
+                "finished_at": {"type": "string", "nullable": True},
+                "error_code": STRING,
+            },
+        }
     if name == "AuthorizationCatalogView":
         return {"type": "array", "items": PERMISSION}
     if name == "UserAuthorizationView":
@@ -295,6 +322,42 @@ def describe(view, action):
     }
     if getattr(view, "meta_serializer", None):
         envelope["properties"]["meta"] = serializer_schema(view.meta_serializer())
+    connectivity_directories = {
+        "MonitoringTargetListView",
+        "SSLCertificateListView",
+        "DNSRecordListView",
+        "DomainListView",
+        "APICheckTargetListView",
+        "SecurityHeaderTargetListView",
+        "AgentProbeListView",
+    }
+    if view.__name__ in connectivity_directories and action == "get":
+        envelope["properties"]["meta"] = DIRECTORY_META
+        operation["parameters"] += [
+            {
+                "name": name,
+                "in": "query",
+                "schema": {"type": "integer", "minimum": 1} if name == "page" else STRING,
+                "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            }
+            for name in (
+                "page",
+                "search",
+                "status",
+                "method",
+                "type",
+                "grade",
+                "lifecycle",
+                "ordering",
+                "tag",
+                "export",
+            )
+            if name not in parameters
+        ]
+        operation["responses"]["200"] = {
+            "description": "Datos compatibles o CSV filtrado",
+            "content": {"text/csv": {"schema": STRING}},
+        }
     if view.__name__ in ("UserListView", "OrganizationMembersView") and action == "get":
         envelope["properties"]["meta"] = DIRECTORY_META
     if view.__name__ == "OrganizationInvoicesView":
@@ -307,6 +370,8 @@ def describe(view, action):
         "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación).",
         "content": {"application/json": {"schema": envelope}},
     }
+    if view.__name__ in connectivity_directories and action == "get":
+        operation["responses"]["200"]["content"]["text/csv"] = {"schema": STRING}
     if action == "post":
         operation["responses"]["201"] = operation["responses"]["200"]
         operation["requestBody"] = {

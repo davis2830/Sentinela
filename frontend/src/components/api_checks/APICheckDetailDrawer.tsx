@@ -1,12 +1,14 @@
-import ScanAction from '../common/ScanAction';
-import AdminButton from '../common/AdminButton';
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../services/api';
-import { useConnectivityRefresh } from '../../hooks/useConnectivityRefresh';
-import type { APICheckTarget, APICheckResult } from '../../types/api_checks';
-import StatusBadge from '../common/StatusBadge';
-import { NOCDrawer } from '../common/noc';
+import { healthPalette } from "../../utils/healthPresentation";
+import MeasurementStatus from "../common/MeasurementStatus";
+import ScanAction from "../common/ScanAction";
+import AdminButton from "../common/AdminButton";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../services/api";
+import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
+import type { APICheckTarget, APICheckResult } from "../../types/api_checks";
+import StatusBadge from "../common/StatusBadge";
+import { NOCDrawer } from "../common/noc";
 import {
   Pencil,
   Trash2,
@@ -21,7 +23,7 @@ import {
   Copy,
   Check,
   Terminal,
-} from 'lucide-react';
+} from "lucide-react";
 
 export interface APICheckDetailDrawerProps {
   target: APICheckTarget | null;
@@ -42,12 +44,14 @@ export default function APICheckDetailDrawer({
   onEdit,
   onDelete,
 }: APICheckDetailDrawerProps) {
-  const [activeTab, setActiveTab] = useState<'results' | 'schema' | 'config'>('results');
+  const [activeTab, setActiveTab] = useState<"results" | "schema" | "config">(
+    "results",
+  );
   const [copiedCurl, setCopiedCurl] = useState(false);
   const autoRefresh = useConnectivityRefresh();
 
   const { data: results, isLoading: isLoadingResults } = useQuery({
-    queryKey: ['api-check-results', target?.id],
+    queryKey: ["api-check-results", target?.id],
     queryFn: async () => {
       if (!target) return [];
       const response = await api.get(`api-checks/${target.id}/results/`);
@@ -59,23 +63,32 @@ export default function APICheckDetailDrawer({
 
   if (!target) return null;
 
-  const handleCopyCurl = () => {
+  const handleCopyCurl = async () => {
     let curl = `curl -X ${target.method} "${target.url}"`;
     if (target.request_headers) {
       Object.entries(target.request_headers).forEach(([k, v]) => {
-        curl += ` \\\n  -H "${k}: ${v}"`;
+        curl += ` \\\n  -H "${k}: ${/authorization|cookie|token|api.?key|secret/i.test(k) ? "<CREDENCIAL>" : v}"`;
       });
     }
     if (
-      target.method !== 'GET' &&
-      target.method !== 'HEAD' &&
+      target.method !== "GET" &&
+      target.method !== "HEAD" &&
       target.request_body &&
       Object.keys(target.request_body).length > 0
     ) {
       curl += ` \\\n  -d '${JSON.stringify(target.request_body)}'`;
     }
-    navigator.clipboard.writeText(curl);
-    setCopiedCurl(true);
+    try {
+      await navigator.clipboard.writeText(curl);
+      setCopiedCurl(true);
+    } catch {
+      setCopiedCurl(false);
+      window.dispatchEvent(
+        new CustomEvent("sentinel:scan-feedback", {
+          detail: "No se pudo copiar el ejemplo. Selecciona el texto.",
+        }),
+      );
+    }
     setTimeout(() => setCopiedCurl(false), 2000);
   };
 
@@ -83,16 +96,17 @@ export default function APICheckDetailDrawer({
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
         <div className="text-xs text-text-dim">Status Esperado</div>
-        <div className="text-base font-bold font-mono text-accent-green mt-0.5">
+        <div className="text-base font-bold font-mono text-text-main mt-0.5">
           {target.expected_status}
         </div>
       </div>
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
         <div className="text-xs text-text-dim">Última Latencia</div>
         <div className="text-base font-bold font-mono text-text-main mt-0.5">
-          {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined
+          {target.last_response_time_ms !== null &&
+          target.last_response_time_ms !== undefined
             ? `${Math.round(target.last_response_time_ms)} ms`
-            : `${target.expected_response_time_ms} ms`}
+            : "Sin medición"}
         </div>
       </div>
       <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
@@ -115,12 +129,18 @@ export default function APICheckDetailDrawer({
   );
 
   const headerActions = (
-    <ScanAction resource={target} route="api-checks" pending={isScanning} onScan={()=>onScan(target.id)} />
+    <ScanAction
+      resource={target}
+      route="api-checks"
+      pending={isScanning}
+      onScan={() => onScan(target.id)}
+    />
   );
 
   const footerActions = (
     <>
-      <AdminButton capability="api_checks.update"
+      <AdminButton
+        capability="api_checks.update"
         type="button"
         onClick={() => onEdit(target)}
         className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
@@ -128,7 +148,8 @@ export default function APICheckDetailDrawer({
         <Pencil size={14} />
         Editar Configuración
       </AdminButton>
-      <AdminButton capability="api_checks.delete"
+      <AdminButton
+        capability="api_checks.delete"
         type="button"
         onClick={() => onDelete(target)}
         className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
@@ -140,9 +161,13 @@ export default function APICheckDetailDrawer({
   );
 
   const tabs = [
-    { id: 'results', label: 'Historial & Métricas', icon: <Activity size={13} /> },
-    { id: 'schema', label: 'Validación Schema', icon: <Code2 size={13} /> },
-    { id: 'config', label: 'Configuración HTTP', icon: <Settings size={13} /> },
+    {
+      id: "results",
+      label: "Historial & Métricas",
+      icon: <Activity size={13} />,
+    },
+    { id: "schema", label: "Validación Schema", icon: <Code2 size={13} /> },
+    { id: "config", label: "Configuración HTTP", icon: <Settings size={13} /> },
   ];
 
   return (
@@ -167,7 +192,7 @@ export default function APICheckDetailDrawer({
           </a>
         </div>
       }
-      statusBadge={<StatusBadge status={target.last_status || 'desconocido'} />}
+      statusBadge={<StatusBadge status={target.last_status || "desconocido"} />}
       headerActions={headerActions}
       quickKpis={quickKpis}
       tabs={tabs}
@@ -176,8 +201,9 @@ export default function APICheckDetailDrawer({
       footerActions={footerActions}
       maxWidthClass="max-w-2xl"
     >
+      <MeasurementStatus snapshot={target.scan_availability} />
       {/* TAB 1: RESULTS HISTORY */}
-      {activeTab === 'results' && (
+      {activeTab === "results" && (
         <div className="space-y-4 font-sans">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-text-muted">
@@ -209,49 +235,75 @@ export default function APICheckDetailDrawer({
                   </thead>
                   <tbody className="divide-y divide-border-base/40 font-mono">
                     {results.map((res: APICheckResult) => (
-                      <tr key={res.id} className="hover:bg-bg-card-hover transition-colors">
+                      <tr
+                        key={res.id}
+                        className="hover:bg-bg-card-hover transition-colors"
+                      >
                         <td className="py-2.5 px-3.5 text-text-muted text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1.5">
                             <Clock size={12} className="text-text-dim" />
-                            {new Date(res.checked_at).toLocaleTimeString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            })}
+                            {new Date(res.checked_at).toLocaleTimeString(
+                              "es-ES",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              },
+                            )}
                           </span>
                         </td>
                         <td className="py-2.5 px-3">
                           <StatusBadge status={res.status} />
                         </td>
                         <td className="py-2.5 px-3 font-bold text-text-main">
-                          {res.http_status ?? 'N/A'}
+                          {res.http_status ?? "N/A"}
                         </td>
                         <td className="py-2.5 px-3 font-bold text-sky-400">
-                          {res.response_time_ms !== null ? `${Math.round(res.response_time_ms)} ms` : 'N/A'}
+                          {res.response_time_ms !== null
+                            ? `${Math.round(res.response_time_ms)} ms`
+                            : "N/A"}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {res.json_valid === true ? (
-                            <CheckCircle2 size={15} className="text-accent-green mx-auto" />
+                            <CheckCircle2
+                              size={15}
+                              className={`${healthPalette.success.text} mx-auto`}
+                            />
                           ) : res.json_valid === false ? (
-                            <XCircle size={15} className="text-accent-red mx-auto" />
+                            <XCircle
+                              size={15}
+                              className={`${healthPalette.danger.text} mx-auto`}
+                            />
                           ) : (
                             <span className="text-text-dim text-xs">-</span>
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {res.schema_valid === true ? (
-                            <CheckCircle2 size={15} className="text-accent-green mx-auto" />
+                            <CheckCircle2
+                              size={15}
+                              className={`${healthPalette.success.text} mx-auto`}
+                            />
                           ) : res.schema_valid === false ? (
-                            <XCircle size={15} className="text-accent-red mx-auto" />
+                            <XCircle
+                              size={15}
+                              className={`${healthPalette.danger.text} mx-auto`}
+                            />
                           ) : (
                             <span className="text-text-dim text-xs">-</span>
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {res.headers_valid === true ? (
-                            <CheckCircle2 size={15} className="text-accent-green mx-auto" />
+                            <CheckCircle2
+                              size={15}
+                              className={`${healthPalette.success.text} mx-auto`}
+                            />
                           ) : res.headers_valid === false ? (
-                            <XCircle size={15} className="text-accent-red mx-auto" />
+                            <XCircle
+                              size={15}
+                              className={`${healthPalette.danger.text} mx-auto`}
+                            />
                           ) : (
                             <span className="text-text-dim text-xs">-</span>
                           )}
@@ -273,20 +325,43 @@ export default function APICheckDetailDrawer({
       )}
 
       {/* TAB 3: SCHEMA VALIDATION */}
-      {activeTab === 'schema' && (
+      {activeTab === "schema" && (
         <div className="space-y-4 font-sans">
+          {!!results?.[0]?.schema_failures?.length && (
+            <section className="border border-accent-red/30 rounded-xl p-4 text-sm space-y-2">
+              <h4 className="font-semibold">
+                Diferencias en la última respuesta
+              </h4>
+              {results[0].schema_failures.map((item) => (
+                <p key={item.field}>
+                  <code>{item.field}</code>: esperado {item.expected}; recibido{" "}
+                  {item.received}.{" "}
+                  {item.code === "INVALID_JSON_OBJECT"
+                    ? "Se requiere un objeto JSON válido."
+                    : ""}
+                </p>
+              ))}
+              <p className="text-text-muted">
+                Se muestran tipos; no valores de la respuesta.
+              </p>
+            </section>
+          )}
+
           <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3">
             <h4 className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
               <Code2 size={14} className="text-accent-green" />
               Campos y Tipos Requeridos en Respuesta JSON
             </h4>
-            {target.expected_schema && Object.keys(target.expected_schema).length > 0 ? (
+            {target.expected_schema &&
+            Object.keys(target.expected_schema).length > 0 ? (
               <pre className="p-3.5 bg-bg-card border border-border-base rounded-xl text-xs font-mono text-accent-green overflow-x-auto leading-relaxed">
                 {JSON.stringify(target.expected_schema, null, 2)}
               </pre>
             ) : (
               <p className="text-xs text-text-dim">
-                No se ha configurado validación estricta de JSON Schema para este endpoint.
+                Sin contrato de campos configurado. Se admiten seis tipos y
+                campos de primer nivel; no es una validación completa de JSON
+                Schema.
               </p>
             )}
           </div>
@@ -294,31 +369,45 @@ export default function APICheckDetailDrawer({
       )}
 
       {/* TAB 4: HTTP CONFIG & CURL REPRODUCTION */}
-      {activeTab === 'config' && (
+      {activeTab === "config" && (
         <div className="space-y-4 font-sans">
           <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs font-mono">
             <div className="flex justify-between border-b border-border-base/40 pb-2">
-              <span className="text-text-dim font-sans font-medium">Método HTTP:</span>
-              <span className="font-bold text-accent-blue">{target.method}</span>
+              <span className="text-text-dim font-sans font-medium">
+                Método HTTP:
+              </span>
+              <span className="font-bold text-accent-blue">
+                {target.method}
+              </span>
             </div>
             <div className="flex justify-between border-b border-border-base/40 pb-2">
-              <span className="text-text-dim font-sans font-medium">URL Completa:</span>
+              <span className="text-text-dim font-sans font-medium">
+                URL Completa:
+              </span>
               <span className="font-bold text-text-main truncate max-w-[280px]">
                 {target.url}
               </span>
             </div>
             <div className="flex justify-between border-b border-border-base/40 pb-2">
-              <span className="text-text-dim font-sans font-medium">Código Esperado:</span>
-              <span className="font-bold text-accent-green">{target.expected_status}</span>
+              <span className="text-text-dim font-sans font-medium">
+                Código Esperado:
+              </span>
+              <span className="font-bold text-accent-green">
+                {target.expected_status}
+              </span>
             </div>
             <div className="flex justify-between border-b border-border-base/40 pb-2">
-              <span className="text-text-dim font-sans font-medium">Latencia Máxima:</span>
+              <span className="text-text-dim font-sans font-medium">
+                Latencia Máxima:
+              </span>
               <span className="font-bold text-text-main">
                 {target.expected_response_time_ms} ms
               </span>
             </div>
             <div className="flex justify-between border-b border-border-base/40 pb-2">
-              <span className="text-text-dim font-sans font-medium">Frecuencia Chequeo:</span>
+              <span className="text-text-dim font-sans font-medium">
+                Frecuencia Chequeo:
+              </span>
               <span className="font-bold text-text-main">
                 Cada {target.check_interval || 60} segundos
               </span>
@@ -354,7 +443,8 @@ export default function APICheckDetailDrawer({
               curl -X {target.method} "{target.url}"
               {target.request_headers &&
                 Object.entries(target.request_headers).map(
-                  ([k, v]) => ` \\\n  -H "${k}: ${v}"`
+                  ([k, v]) =>
+                    ` \\\n  -H "${k}: ${/authorization|cookie|token|api.?key|secret/i.test(k) ? "<CREDENCIAL>" : v}"`,
                 )}
             </pre>
           </div>

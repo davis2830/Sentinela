@@ -39,8 +39,22 @@ class OrganizationOwnedModel(BaseModel):
 
 class ScanLease(OrganizationOwnedModel):
     """Durable per-resource reservation shared by API, Beat and workers."""
+
     resource_key = models.CharField(max_length=255, unique=True)
     token = models.UUIDField(null=True)
     started = models.BooleanField(default=False)
     pending_until = models.DateTimeField(null=True)
     next_allowed_at = models.DateTimeField(null=True)
+
+
+class ScanExecution(OrganizationOwnedModel):
+    configuration_hash = models.CharField(max_length=64, blank=True)
+    """Bounded cloud execution receipt; never stores task arguments or credentials."""
+    resource_key = models.CharField(max_length=255, db_index=True)
+    module = models.CharField(max_length=40)
+    task_id = models.CharField(max_length=255, blank=True)
+    state = models.CharField(max_length=20, default="queued")
+    error_code = models.CharField(max_length=40, blank=True)
+    started_at = models.DateTimeField(null=True)
+    finished_at = models.DateTimeField(null=True)
+    expires_at = models.DateTimeField()

@@ -28,6 +28,9 @@ class DomainInfoSerializer(ScanAvailabilitySerializer):
             "dnssec",
             "last_scanned_at",
             "error_message",
+            "data_source",
+            "source_url",
+            "last_successful_at",
             "created_at",
             "updated_at",
         )
@@ -47,6 +50,9 @@ class DomainInfoSerializer(ScanAvailabilitySerializer):
             "dnssec",
             "last_scanned_at",
             "error_message",
+            "data_source",
+            "source_url",
+            "last_successful_at",
             "created_at",
             "updated_at",
         )

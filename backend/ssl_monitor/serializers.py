@@ -7,6 +7,12 @@ from .models import SSLCertificate
 class SSLCertificateSerializer(ScanAvailabilitySerializer):
     """Serializer for SSLCertificate model."""
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not instance.last_scanned_at or instance.error_message:
+            data["security_grade"] = ""
+        return data
+
     class Meta:
         list_serializer_class = AvailabilityListSerializer
         model = SSLCertificate
@@ -26,6 +32,8 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "days_remaining",
             "is_valid",
             "last_scanned_at",
+            "last_successful_at",
+            "last_error_code",
             "error_message",
             "san_domains",
             "tls_version",
@@ -45,6 +53,8 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "days_remaining",
             "is_valid",
             "last_scanned_at",
+            "last_successful_at",
+            "last_error_code",
             "error_message",
             "san_domains",
             "tls_version",
@@ -64,5 +74,6 @@ class SSLCertificateCreateSerializer(serializers.Serializer):
         port = attrs.get("port", 443)
         if domain:
             from common.security import validate_safe_public_url
+
             validate_safe_public_url(f"https://{domain}:{port}")
         return attrs

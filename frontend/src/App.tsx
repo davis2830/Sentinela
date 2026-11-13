@@ -1,42 +1,49 @@
-import NotFoundPage from './pages/NotFoundPage';
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import AppLayout from './components/layout/AppLayout';
-import PortalQueryBoundary from './components/layout/PortalQueryBoundary';
-import PlatformConsole from './components/platform_admin/PlatformConsole';
-import { useAuthStore } from './store/authStore';
-import PageLoadingSpinner from './components/common/PageLoadingSpinner';
-import ScanFeedback from './components/common/ScanFeedback';
+import NotFoundPage from "./pages/NotFoundPage";
+import React, { Suspense, lazy } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import AppLayout from "./components/layout/AppLayout";
+import PortalQueryBoundary from "./components/layout/PortalQueryBoundary";
+import PlatformConsole from "./components/platform_admin/PlatformConsole";
+import { useAuthStore } from "./store/authStore";
+import PageLoadingSpinner from "./components/common/PageLoadingSpinner";
+import ScanFeedback from "./components/common/ScanFeedback";
 
 // Lazy-loaded pages for optimal route-level code splitting
-const PasswordRecoveryPage = lazy(() => import('./pages/auth/PasswordRecoveryPage'));
-const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
-const VerifyEmailPage = lazy(() => import('./pages/auth/VerifyEmailPage'));
-const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const ManagementDashboardPage = lazy(() => import('./pages/ManagementDashboardPage'));
-const MonitoringPage = lazy(() => import('./pages/MonitoringPage'));
-const EndpointDetailPage = lazy(() => import('./pages/EndpointDetailPage'));
-const SSLCertificatesPage = lazy(() => import('./pages/SSLCertificatesPage'));
-const DNSRecordsPage = lazy(() => import('./pages/DNSRecordsPage'));
-const DomainsPage = lazy(() => import('./pages/DomainsPage'));
-const APIChecksPage = lazy(() => import('./pages/APIChecksPage'));
-const SecurityHeadersPage = lazy(() => import('./pages/SecurityHeadersPage'));
-const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
-const StatusPageAdmin = lazy(() => import('./pages/StatusPageAdmin'));
-const PublicStatusPage = lazy(() => import('./pages/PublicStatusPage'));
-const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
-const AlertsPage = lazy(() => import('./pages/AlertsPage'));
-const IncidentsPage = lazy(() => import('./pages/IncidentsPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
-const OrganizationSettingsPage = lazy(() => import('./pages/OrganizationSettingsPage'));
-const UsersPage = lazy(() => import('./pages/UsersPage'));
-const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
-const PlatformLoginPage = lazy(() => import('./pages/auth/PlatformLoginPage'));
+const PasswordRecoveryPage = lazy(
+  () => import("./pages/auth/PasswordRecoveryPage"),
+);
+const LoginPage = lazy(() => import("./pages/auth/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/auth/RegisterPage"));
+const VerifyEmailPage = lazy(() => import("./pages/auth/VerifyEmailPage"));
+const AcceptInvitationPage = lazy(() => import("./pages/AcceptInvitationPage"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const ManagementDashboardPage = lazy(
+  () => import("./pages/ManagementDashboardPage"),
+);
+const Senti9Page = lazy(() => import("./pages/Senti9Page"));
+const MonitoringPage = lazy(() => import("./pages/MonitoringPage"));
+const EndpointDetailPage = lazy(() => import("./pages/EndpointDetailPage"));
+const SSLCertificatesPage = lazy(() => import("./pages/SSLCertificatesPage"));
+const DNSRecordsPage = lazy(() => import("./pages/DNSRecordsPage"));
+const DomainsPage = lazy(() => import("./pages/DomainsPage"));
+const APIChecksPage = lazy(() => import("./pages/APIChecksPage"));
+const SecurityHeadersPage = lazy(() => import("./pages/SecurityHeadersPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const StatusPageAdmin = lazy(() => import("./pages/StatusPageAdmin"));
+const PublicStatusPage = lazy(() => import("./pages/PublicStatusPage"));
+const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
+const AlertsPage = lazy(() => import("./pages/AlertsPage"));
+const IncidentsPage = lazy(() => import("./pages/IncidentsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const AuditLogsPage = lazy(() => import("./pages/AuditLogsPage"));
+const OrganizationSettingsPage = lazy(
+  () => import("./pages/OrganizationSettingsPage"),
+);
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage"));
+const PlatformLoginPage = lazy(() => import("./pages/auth/PlatformLoginPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,14 +81,14 @@ export default function App() {
     const idleCallback =
       window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1000));
     const handle = idleCallback(() => {
-      import('./pages/MonitoringPage');
-      import('./pages/AlertsPage');
-      import('./pages/IncidentsPage');
-      import('./pages/SSLCertificatesPage');
-      import('./pages/DNSRecordsPage');
-      import('./pages/DomainsPage');
-      import('./pages/APIChecksPage');
-      import('./pages/SecurityHeadersPage');
+      import("./pages/MonitoringPage");
+      import("./pages/AlertsPage");
+      import("./pages/IncidentsPage");
+      import("./pages/SSLCertificatesPage");
+      import("./pages/DNSRecordsPage");
+      import("./pages/DomainsPage");
+      import("./pages/APIChecksPage");
+      import("./pages/SecurityHeadersPage");
     });
     return () => {
       if (window.cancelIdleCallback) {
@@ -114,9 +121,18 @@ export default function App() {
                 </PublicRoute>
               }
             />
-            <Route path="/forgot-password" element={<PasswordRecoveryPage key="password-recovery" />} />
-            <Route path="/reset-password" element={<PasswordRecoveryPage key="password-reset" reset />} />
-            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+            <Route
+              path="/forgot-password"
+              element={<PasswordRecoveryPage key="password-recovery" />}
+            />
+            <Route
+              path="/reset-password"
+              element={<PasswordRecoveryPage key="password-reset" reset />}
+            />
+            <Route
+              path="/accept-invitation"
+              element={<AcceptInvitationPage />}
+            />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<VerifyEmailPage />} />
             <Route path="/status/:slug" element={<PublicStatusPage />} />
@@ -125,19 +141,28 @@ export default function App() {
             <Route
               element={
                 <ProtectedRoute>
-                  <PortalQueryBoundary><AppLayout /></PortalQueryBoundary>
+                  <PortalQueryBoundary>
+                    <AppLayout />
+                  </PortalQueryBoundary>
                 </ProtectedRoute>
               }
             >
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/gestion" element={<ManagementDashboardPage />} />
+              <Route path="/senti9" element={<Senti9Page />} />
               <Route path="/monitoring" element={<MonitoringPage />} />
-              <Route path="/monitoring/:targetId" element={<EndpointDetailPage />} />
+              <Route
+                path="/monitoring/:targetId"
+                element={<EndpointDetailPage />}
+              />
               <Route path="/ssl" element={<SSLCertificatesPage />} />
               <Route path="/dns" element={<DNSRecordsPage />} />
               <Route path="/domains" element={<DomainsPage />} />
               <Route path="/api-checks" element={<APIChecksPage />} />
-              <Route path="/security-headers" element={<SecurityHeadersPage />} />
+              <Route
+                path="/security-headers"
+                element={<SecurityHeadersPage />}
+              />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/status-page" element={<StatusPageAdmin />} />
               <Route path="/maintenance" element={<MaintenancePage />} />
@@ -146,11 +171,21 @@ export default function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/audit-logs" element={<AuditLogsPage />} />
-              <Route path="/organization" element={<OrganizationSettingsPage />} />
+              <Route
+                path="/organization"
+                element={<OrganizationSettingsPage />}
+              />
               <Route path="/users" element={<UsersPage />} />
             </Route>
             <Route path="/admin/login" element={<PlatformLoginPage />} />
-            <Route path="/admin/platform" element={<PlatformConsole><PlatformAdminPage /></PlatformConsole>} />
+            <Route
+              path="/admin/platform"
+              element={
+                <PlatformConsole>
+                  <PlatformAdminPage />
+                </PlatformConsole>
+              }
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

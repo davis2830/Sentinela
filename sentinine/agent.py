@@ -36,7 +36,7 @@ INSECURE_SKIP_VERIFY = os.environ.get(
     os.environ.get("INSECURE_SKIP_VERIFY", "false")
 ).lower() in ("true", "1", "yes")
 
-AGENT_VERSION = "1.7.0"
+AGENT_VERSION = "1.8.0"
 CHECK_TIMEOUT_SECONDS = float(os.environ.get('SENTININE_CHECK_TIMEOUT_SECONDS', '15'))
 if not 0 < CHECK_TIMEOUT_SECONDS <= 120:
     raise ValueError('SENTININE_CHECK_TIMEOUT_SECONDS debe estar entre 0 y 120.')

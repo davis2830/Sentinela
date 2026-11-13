@@ -29,8 +29,9 @@ class DNSRecordListView(APIView):
         org_id = request.user.organization_id
         domain = request.query_params.get("domain")
         records = DNSMonitorService.list_records(org_id, domain=domain)
-        serializer = DNSRecordSerializer(records, many=True, context={"request": request})
-        return success_response(serializer.data)
+        from common.connectivity_directory import directory
+
+        return directory(records, request, DNSRecordSerializer, "dns_monitor")
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -50,7 +51,12 @@ class DNSRecordListView(APIView):
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -59,9 +65,8 @@ class DNSRecordListView(APIView):
                 organization_id=org_id,
                 domain=serializer.validated_data["domain"],
                 record_type=serializer.validated_data["record_type"],
+                expected_values=serializer.validated_data.get("expected_values"),
             )
-            from .tasks import scan_dns_records
-            scan_dns_records.delay(str(record.id))
 
             response_serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(
@@ -69,9 +74,7 @@ class DNSRecordListView(APIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class DNSRecordDetailView(APIView):
@@ -90,26 +93,29 @@ class DNSRecordDetailView(APIView):
             serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
         except ObjectDoesNotExist:
-            return error_response(
-                "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("DNS record not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, record_id):
         org_id = request.user.organization_id
-        domain = request.data.get("domain")
-        record_type = request.data.get("record_type")
+        current = DNSMonitorService.get_record(record_id, org_id)
+        input_serializer = DNSRecordCreateSerializer(
+            data={**{"domain": current.domain, "record_type": current.record_type}, **request.data}
+        )
+        input_serializer.is_valid(raise_exception=True)
+        domain = input_serializer.validated_data["domain"]
+        record_type = input_serializer.validated_data["record_type"]
         try:
             record = DNSMonitorService.update_record(
-                record_id, org_id, domain=domain, record_type=record_type
+                record_id,
+                org_id,
+                domain=domain,
+                record_type=record_type,
+                expected_values=input_serializer.validated_data.get("expected_values"),
             )
-            from .tasks import scan_dns_records
-            scan_dns_records.delay(str(record.id))
             serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, record_id):
         org_id = request.user.organization_id
@@ -117,9 +123,7 @@ class DNSRecordDetailView(APIView):
             DNSMonitorService.delete_record(record_id, org_id)
             return success_response({"detail": "DNS record deleted."})
         except ObjectDoesNotExist:
-            return error_response(
-                "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("DNS record not found.", status_code=status.HTTP_404_NOT_FOUND)
 
 
 class DNSRecordScanView(APIView):
@@ -135,6 +139,7 @@ class DNSRecordScanView(APIView):
         try:
             record = DNSMonitorService.get_record(record_id, org_id)
             from .tasks import scan_dns_records
+
             task = enqueue_scan(record, scan_dns_records)
             return queued_scan_response(task, record.id)
         except ScanLimited as exc:
@@ -155,15 +160,11 @@ class DNSChangeHistoryView(APIView):
         org_id = request.user.organization_id
         limit = int(request.query_params.get("limit", 50))
         try:
-            history = DNSMonitorService.get_change_history(
-                record_id, org_id, limit=limit
-            )
+            history = DNSMonitorService.get_change_history(record_id, org_id, limit=limit)
             serializer = DNSChangeHistorySerializer(history, many=True)
             return success_response(serializer.data)
         except ObjectDoesNotExist:
-            return error_response(
-                "DNS record not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("DNS record not found.", status_code=status.HTTP_404_NOT_FOUND)
 
 
 class DNSDomainsView(APIView):
@@ -206,7 +207,14 @@ class DNSBulkScanView(APIView):
         try:
             from .tasks import scan_dns_records
             from .models import DNSRecord
-            return success_response(enqueue_many(DNSRecord.objects.filter(organization_id=request.user.organization_id), scan_dns_records))
+
+            return success_response(
+                enqueue_many(
+                    DNSRecord.objects.filter(organization_id=request.user.organization_id),
+                    scan_dns_records,
+                    report=True,
+                )
+            )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -220,13 +228,12 @@ class DNSTestResolutionView(ConfigurationDiagnosticAPIView):
     permission_classes = (IsAuthenticated,)
 
     def perform_diagnostic(self, request):
-        domain = request.data.get("domain", "").strip()
-        record_type = request.data.get("record_type", "A").strip().upper()
-        if not domain:
-            return error_response(
-                "El dominio es requerido para la consulta DNS.",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+        incoming = DNSRecordCreateSerializer(
+            data={"domain": request.data.get("domain", ""), "record_type": request.data.get("record_type", "A")}
+        )
+        incoming.is_valid(raise_exception=True)
+        domain = incoming.validated_data["domain"]
+        record_type = incoming.validated_data["record_type"]
         result = DNSMonitorService.test_resolution(domain, record_type=record_type)
         return success_response(result)
 

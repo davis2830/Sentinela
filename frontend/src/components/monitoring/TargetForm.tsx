@@ -1,8 +1,8 @@
-import AdminButton from '../common/AdminButton';
-import { useTargetFormWorkspace } from './workspaces/useTargetFormWorkspace';
-import ModalSurface from '../common/ModalSurface';
-import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
-import { createPortal } from 'react-dom';
+import AdminButton from "../common/AdminButton";
+import { useTargetFormWorkspace } from "./workspaces/useTargetFormWorkspace";
+import ModalSurface from "../common/ModalSurface";
+import ConfigurationDiagnosticNotice from "../../components/common/ConfigurationDiagnosticNotice";
+import { createPortal } from "react-dom";
 import {
   X,
   Loader2,
@@ -24,9 +24,12 @@ import {
   ChevronDown,
   Database,
   Layers,
-} from 'lucide-react';
-import RedirectNotice from './RedirectNotice';
-import type { MonitoringTarget, CreateTargetData } from '../../types/monitoring';
+} from "lucide-react";
+import RedirectNotice from "./RedirectNotice";
+import type {
+  MonitoringTarget,
+  CreateTargetData,
+} from "../../types/monitoring";
 
 interface TargetFormProps {
   target: MonitoringTarget | null;
@@ -36,108 +39,192 @@ interface TargetFormProps {
 
 const protocols = [
   {
-    type: 'https' as const,
-    label: 'HTTPS',
-    desc: 'Web seguro con TLS',
+    type: "https" as const,
+    label: "HTTPS",
+    desc: "Web seguro con TLS",
     icon: Globe,
-    color: 'text-sky-400',
-    border: 'border-sky-500/30',
-    bg: 'bg-sky-500/10',
-    activeBg: 'bg-sky-500/15 border-sky-400 text-sky-300 ring-2 ring-sky-400/40 shadow-lg shadow-sky-950/40',
-    defaultEndpoint: 'https://',
-    placeholder: 'https://mi-servicio.com',
+    color: "text-sky-400",
+    border: "border-sky-500/30",
+    bg: "bg-sky-500/10",
+    activeBg:
+      "bg-sky-500/15 border-sky-400 text-sky-300 ring-2 ring-sky-400/40 shadow-lg shadow-sky-950/40",
+    defaultEndpoint: "https://",
+    placeholder: "https://mi-servicio.com",
   },
   {
-    type: 'http' as const,
-    label: 'HTTP',
-    desc: 'Web sin cifrado o interno',
+    type: "http" as const,
+    label: "HTTP",
+    desc: "Web sin cifrado o interno",
     icon: Globe,
-    color: 'text-blue-400',
-    border: 'border-blue-500/30',
-    bg: 'bg-blue-500/10',
-    activeBg: 'bg-blue-500/15 border-blue-400 text-blue-300 ring-2 ring-blue-400/40 shadow-lg shadow-blue-950/40',
-    defaultEndpoint: 'http://',
-    placeholder: 'http://192.168.1.50:8080',
+    color: "text-blue-400",
+    border: "border-blue-500/30",
+    bg: "bg-blue-500/10",
+    activeBg:
+      "bg-blue-500/15 border-blue-400 text-blue-300 ring-2 ring-blue-400/40 shadow-lg shadow-blue-950/40",
+    defaultEndpoint: "http://",
+    placeholder: "http://192.168.1.50:8080",
   },
   {
-    type: 'tcp' as const,
-    label: 'TCP Port',
-    desc: 'Puertos de BD, AD, SSH',
+    type: "tcp" as const,
+    label: "TCP Port",
+    desc: "Puertos de BD, AD, SSH",
     icon: Server,
-    color: 'text-purple-400',
-    border: 'border-purple-500/30',
-    bg: 'bg-purple-500/10',
-    activeBg: 'bg-purple-500/15 border-purple-400 text-purple-300 ring-2 ring-purple-400/40 shadow-lg shadow-purple-950/40',
-    defaultEndpoint: '',
-    placeholder: '10.138.15.10:389',
+    color: "text-purple-400",
+    border: "border-purple-500/30",
+    bg: "bg-purple-500/10",
+    activeBg:
+      "bg-purple-500/15 border-purple-400 text-purple-300 ring-2 ring-purple-400/40 shadow-lg shadow-purple-950/40",
+    defaultEndpoint: "",
+    placeholder: "10.138.15.10:389",
   },
   {
-    type: 'dns' as const,
-    label: 'DNS',
-    desc: 'Resolución de nombres',
+    type: "dns" as const,
+    label: "DNS",
+    desc: "Resolución de nombres",
     icon: Globe,
-    color: 'text-emerald-400',
-    border: 'border-emerald-500/30',
-    bg: 'bg-emerald-500/10',
-    activeBg: 'bg-emerald-500/15 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40 shadow-lg shadow-emerald-950/40',
-    defaultEndpoint: '',
-    placeholder: 'micoope.com.gt',
+    color: "text-emerald-400",
+    border: "border-emerald-500/30",
+    bg: "bg-emerald-500/10",
+    activeBg:
+      "bg-emerald-500/15 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40 shadow-lg shadow-emerald-950/40",
+    defaultEndpoint: "",
+    placeholder: "micoope.com.gt",
   },
   {
-    type: 'api' as const,
-    label: 'API REST',
-    desc: 'Microservicios con JSON/Auth',
+    type: "api" as const,
+    label: "API REST",
+    desc: "HTTP con método y cuerpo",
     icon: Plug,
-    color: 'text-amber-400',
-    border: 'border-amber-500/30',
-    bg: 'bg-amber-500/10',
-    activeBg: 'bg-amber-500/15 border-amber-400 text-amber-300 ring-2 ring-amber-400/40 shadow-lg shadow-amber-950/40',
-    defaultEndpoint: 'https://',
-    placeholder: 'https://api.empresa.com/v1/health',
+    color: "text-amber-400",
+    border: "border-amber-500/30",
+    bg: "bg-amber-500/10",
+    activeBg:
+      "bg-amber-500/15 border-amber-400 text-amber-300 ring-2 ring-amber-400/40 shadow-lg shadow-amber-950/40",
+    defaultEndpoint: "https://",
+    placeholder: "https://api.empresa.com/v1/health",
   },
   {
-    type: 'ssl' as const,
-    label: 'SSL',
-    desc: 'Vencimiento de certificado',
+    type: "ssl" as const,
+    label: "SSL",
+    desc: "Vencimiento de certificado",
     icon: Lock,
-    color: 'text-rose-400',
-    border: 'border-rose-500/30',
-    bg: 'bg-rose-500/10',
-    activeBg: 'bg-rose-500/15 border-rose-400 text-rose-300 ring-2 ring-rose-400/40 shadow-lg shadow-rose-950/40',
-    defaultEndpoint: '',
-    placeholder: 'dominio.com.gt',
+    color: "text-rose-400",
+    border: "border-rose-500/30",
+    bg: "bg-rose-500/10",
+    activeBg:
+      "bg-rose-500/15 border-rose-400 text-rose-300 ring-2 ring-rose-400/40 shadow-lg shadow-rose-950/40",
+    defaultEndpoint: "",
+    placeholder: "dominio.com.gt",
   },
 ];
 
 const commonPorts = [
-  { label: '389 LDAP / AD', port: '389' },
-  { label: '5432 PostgreSQL', port: '5432' },
-  { label: '3306 MySQL', port: '3306' },
-  { label: '6379 Redis', port: '6379' },
-  { label: '8080 Web App', port: '8080' },
-  { label: '22 SSH', port: '22' },
+  { label: "389 LDAP / AD", port: "389" },
+  { label: "5432 PostgreSQL", port: "5432" },
+  { label: "3306 MySQL", port: "3306" },
+  { label: "6379 Redis", port: "6379" },
+  { label: "8080 Web App", port: "8080" },
+  { label: "22 SSH", port: "22" },
 ];
 
 const intervalPresets = [
-  { label: '15s (Crítico)', value: 15 },
-  { label: '30s (Alta)', value: 30 },
-  { label: '60s (Estándar)', value: 60 },
-  { label: '300s (5 min)', value: 300 },
+  { label: "15s (Crítico)", value: 15 },
+  { label: "30s (Alta)", value: 30 },
+  { label: "60s (Estándar)", value: 60 },
+  { label: "300s (5 min)", value: 300 },
 ];
 
-const tagSuggestions = ['produccion', 'core', 'interno', 'db', 'dns', 'infra', 'api'];
+const tagSuggestions = [
+  "produccion",
+  "core",
+  "interno",
+  "db",
+  "dns",
+  "infra",
+  "api",
+];
 
-export default function TargetForm({ target, onSubmit, onClose }: TargetFormProps) {
- const {activeTab, setActiveTab, showTemplates, setShowTemplates, templatesRef, name, setName, targetType, setTargetType, endpoint, setEndpoint, interval, setInterval, enabled, setEnabled, autoCoverage, canAutoProvision, setAutoCoverage, ownerTeam, setOwnerTeam, runnerType, setRunnerType, agentProbeId, setAgentProbeId, teams, probes, subData, minAllowedInterval, tcpHost, setTcpHost, tcpPort, setTcpPort, tags, tagInputText, setTagInputText, httpMethod, setHttpMethod, expectedStatus, setExpectedStatus, maxLatencyMs, setMaxLatencyMs, headersJson, setHeadersJson, requestBody, setRequestBody, diagnostic, testingConnection, testResult, setTestResult, loading, error, getActualEndpoint, handleProtocolChange, applyTemplate, addTag, removeTag, handleTestConnection, handleSubmit, isHttpType} = useTargetFormWorkspace({target, onSubmit, onClose});
-
-
+export default function TargetForm({
+  target,
+  onSubmit,
+  onClose,
+}: TargetFormProps) {
+  const {
+    activeTab,
+    setActiveTab,
+    showTemplates,
+    setShowTemplates,
+    templatesRef,
+    name,
+    setName,
+    targetType,
+    setTargetType,
+    endpoint,
+    setEndpoint,
+    interval,
+    setInterval,
+    enabled,
+    setEnabled,
+    autoCoverage,
+    canAutoProvision,
+    setAutoCoverage,
+    ownerTeam,
+    setOwnerTeam,
+    runnerType,
+    setRunnerType,
+    agentProbeId,
+    setAgentProbeId,
+    teams,
+    probes,
+    probeSearch,
+    setProbeSearch,
+    subData,
+    minAllowedInterval,
+    tcpHost,
+    setTcpHost,
+    tcpPort,
+    setTcpPort,
+    tags,
+    tagInputText,
+    setTagInputText,
+    httpMethod,
+    setHttpMethod,
+    expectedStatus,
+    setExpectedStatus,
+    maxLatencyMs,
+    setMaxLatencyMs,
+    headersJson,
+    setHeadersJson,
+    requestBody,
+    setRequestBody,
+    diagnostic,
+    testingConnection,
+    testResult,
+    setTestResult,
+    loading,
+    error,
+    getActualEndpoint,
+    handleProtocolChange,
+    applyTemplate,
+    addTag,
+    removeTag,
+    handleTestConnection,
+    handleSubmit,
+    isHttpType,
+  } = useTargetFormWorkspace({ target, onSubmit, onClose });
 
   return createPortal(
     <div
       className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <ModalSurface label={target ? "Editar Objetivo de Monitoreo" : "Nuevo Objetivo de Monitoreo"} onClose={onClose}
+      <ModalSurface
+        label={
+          target
+            ? "Editar Objetivo de Monitoreo"
+            : "Nuevo Objetivo de Monitoreo"
+        }
+        onClose={onClose}
         className="readable-form bg-bg-card border border-border-base/70 rounded-3xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl font-sans"
       >
         {/* Modal Header */}
@@ -148,10 +235,13 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             </div>
             <div>
               <h2 className="font-bold text-lg text-text-main tracking-tight">
-                {target ? 'Editar Objetivo de Monitoreo' : 'Nuevo Objetivo de Monitoreo'}
+                {target
+                  ? "Editar Objetivo de Monitoreo"
+                  : "Nuevo Objetivo de Monitoreo"}
               </h2>
               <p className="text-xs text-text-muted">
-                Configura protocolo, frecuencia de sondeo y parámetros de alerta.
+                Configura protocolo, frecuencia de sondeo y parámetros de
+                alerta.
               </p>
             </div>
           </div>
@@ -171,7 +261,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <ChevronDown
                     size={12}
                     className={`transition-transform duration-200 ${
-                      showTemplates ? 'rotate-180 text-accent-green' : ''
+                      showTemplates ? "rotate-180 text-accent-green" : ""
                     }`}
                   />
                 </button>
@@ -184,7 +274,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     <button
                       type="button"
                       onClick={() => {
-                        applyTemplate('ad');
+                        applyTemplate("ad");
                         setShowTemplates(false);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs text-text-muted hover:text-text-main hover:bg-bg-dark/80 transition-all"
@@ -193,14 +283,18 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         <Server size={14} className="text-purple-400" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-text-main truncate">Active Directory (389)</div>
-                        <div className="text-xs text-text-dim">TCP · Frecuencia 30s</div>
+                        <div className="font-semibold text-text-main truncate">
+                          Active Directory (389)
+                        </div>
+                        <div className="text-xs text-text-dim">
+                          TCP · Frecuencia 30s
+                        </div>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        applyTemplate('db');
+                        applyTemplate("db");
                         setShowTemplates(false);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs text-text-muted hover:text-text-main hover:bg-bg-dark/80 transition-all"
@@ -209,14 +303,18 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         <Database size={14} className="text-blue-400" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-text-main truncate">PostgreSQL (5432)</div>
-                        <div className="text-xs text-text-dim">TCP · Frecuencia 30s</div>
+                        <div className="font-semibold text-text-main truncate">
+                          PostgreSQL (5432)
+                        </div>
+                        <div className="text-xs text-text-dim">
+                          TCP · Frecuencia 30s
+                        </div>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        applyTemplate('web');
+                        applyTemplate("web");
                         setShowTemplates(false);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs text-text-muted hover:text-text-main hover:bg-bg-dark/80 transition-all"
@@ -225,14 +323,18 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         <Globe size={14} className="text-sky-400" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-text-main truncate">Portal Web HTTPS</div>
-                        <div className="text-xs text-text-dim">HTTPS · Código 200 · 60s</div>
+                        <div className="font-semibold text-text-main truncate">
+                          Portal Web HTTPS
+                        </div>
+                        <div className="text-xs text-text-dim">
+                          HTTPS · Código 200 · 60s
+                        </div>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        applyTemplate('api');
+                        applyTemplate("api");
                         setShowTemplates(false);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs text-text-muted hover:text-text-main hover:bg-bg-dark/80 transition-all"
@@ -241,8 +343,12 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         <Plug size={14} className="text-amber-400" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-text-main truncate">API REST Microservicio</div>
-                        <div className="text-xs text-text-dim">API · Headers Auth · 30s</div>
+                        <div className="font-semibold text-text-main truncate">
+                          API REST Microservicio
+                        </div>
+                        <div className="text-xs text-text-dim">
+                          API · Headers Auth · 30s
+                        </div>
                       </div>
                     </button>
                   </div>
@@ -250,7 +356,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               </div>
             )}
 
-            <button aria-label="Cerrar formulario"
+            <button
+              aria-label="Cerrar formulario"
               onClick={onClose}
               className="p-2 text-text-muted hover:text-text-main hover:bg-bg-dark/80 rounded-full transition-colors"
             >
@@ -264,11 +371,11 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
           <div className="flex items-center gap-1.5 p-1 bg-bg-dark/60 border border-border-base/60 rounded-2xl text-xs font-medium">
             <button
               type="button"
-              onClick={() => setActiveTab('general')}
+              onClick={() => setActiveTab("general")}
               className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all duration-150 ${
-                activeTab === 'general'
-                  ? 'bg-accent-green text-black font-semibold shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
+                activeTab === "general"
+                  ? "bg-accent-green text-black font-semibold shadow-sm"
+                  : "text-text-muted hover:text-text-main"
               }`}
             >
               <Sliders size={14} />
@@ -277,11 +384,11 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             {isHttpType && (
               <button
                 type="button"
-                onClick={() => setActiveTab('http')}
+                onClick={() => setActiveTab("http")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all duration-150 ${
-                  activeTab === 'http'
-                    ? 'bg-accent-green text-black font-semibold shadow-sm'
-                    : 'text-text-muted hover:text-text-main'
+                  activeTab === "http"
+                    ? "bg-accent-green text-black font-semibold shadow-sm"
+                    : "text-text-muted hover:text-text-main"
                 }`}
               >
                 <Code2 size={14} />
@@ -290,21 +397,24 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             )}
             <button
               type="button"
-              onClick={() => setActiveTab('diagnostic')}
+              onClick={() => setActiveTab("diagnostic")}
               className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all duration-150 ${
-                activeTab === 'diagnostic'
-                  ? 'bg-accent-green text-black font-semibold shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
+                activeTab === "diagnostic"
+                  ? "bg-accent-green text-black font-semibold shadow-sm"
+                  : "text-text-muted hover:text-text-main"
               }`}
             >
               <Activity size={14} />
-              {isHttpType ? '3. Prueba' : '2. Prueba'}
+              {isHttpType ? "3. Prueba" : "2. Prueba"}
             </button>
           </div>
         </div>
 
         {/* Form Body with Smooth Scroll */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-7 py-5 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto px-7 py-5 space-y-5"
+        >
           {error && (
             <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-400 text-xs font-medium flex items-center gap-2.5 animate-in fade-in">
               <AlertCircle size={16} className="shrink-0" />
@@ -313,7 +423,7 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
           )}
 
           {/* TAB 1: GENERAL & RED */}
-          {activeTab === 'general' && (
+          {activeTab === "general" && (
             <div className="space-y-5">
               {/* Protocol Selector Cards */}
               <div>
@@ -332,14 +442,18 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                         className={`p-3.5 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between ${
                           isSelected
                             ? proto.activeBg
-                            : 'bg-bg-dark/50 border-border-base/60 hover:border-border-base hover:bg-bg-dark/80'
+                            : "bg-bg-dark/50 border-border-base/60 hover:border-border-base hover:bg-bg-dark/80"
                         }`}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
-                          <span className="font-semibold text-sm">{proto.label}</span>
+                          <span className="font-semibold text-sm">
+                            {proto.label}
+                          </span>
                           <ProtoIcon size={16} className={proto.color} />
                         </div>
-                        <span className="text-xs text-text-dim leading-snug">{proto.desc}</span>
+                        <span className="text-xs text-text-dim leading-snug">
+                          {proto.desc}
+                        </span>
                       </button>
                     );
                   })}
@@ -352,7 +466,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Nombre Descriptivo *
                   </label>
-                  <input aria-label="Nombre descriptivo"
+                  <input
+                    aria-label="Nombre descriptivo"
                     type="text"
                     required
                     placeholder="ej: DNS Corporativo LDAP / Portal Clientes"
@@ -367,7 +482,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     <Layers size={13} className="text-accent-purple" />
                     Equipo Propietario (Squad)
                   </label>
-                  <select aria-label="Equipo propietario"
+                  <select
+                    aria-label="Equipo propietario"
                     value={ownerTeam}
                     onChange={(e) => setOwnerTeam(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all cursor-pointer"
@@ -390,12 +506,14 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     onClick={() => setEnabled(!enabled)}
                     className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-2 ${
                       enabled
-                        ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
-                        : 'bg-zinc-800/80 border-zinc-700/80 text-zinc-400'
+                        ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-400"
+                        : "bg-zinc-800/80 border-zinc-700/80 text-zinc-400"
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-400 animate-ping' : 'bg-zinc-500'}`} />
-                    {enabled ? 'Activo (Sondeando)' : 'Pausado'}
+                    <span
+                      className={`w-2 h-2 rounded-full ${enabled ? "bg-emerald-400 animate-ping" : "bg-zinc-500"}`}
+                    />
+                    {enabled ? "Activo (Sondeando)" : "Pausado"}
                   </button>
                 </div>
               </div>
@@ -408,7 +526,9 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     <span>Ejecutor del Sondeo</span>
                   </label>
                   <span className="text-xs text-text-dim">
-                    {runnerType === 'agent' ? 'Auditoría en red privada / LAN' : 'Sondeo desde la nube / Internet'}
+                    {runnerType === "agent"
+                      ? "Auditoría en red privada / LAN"
+                      : "Sondeo desde la nube / Internet"}
                   </span>
                 </div>
 
@@ -416,67 +536,110 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <button
                     type="button"
                     onClick={() => {
-                      setRunnerType('cloud');
-                      setAgentProbeId('');
+                      setRunnerType("cloud");
+                      setAgentProbeId("");
                     }}
                     className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
-                      runnerType === 'cloud'
-                        ? 'bg-accent-green/10 border-accent-green/40 text-accent-green ring-1 ring-accent-green/30'
-                        : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:border-border-base'
+                      runnerType === "cloud"
+                        ? "bg-accent-green/10 border-accent-green/40 text-accent-green ring-1 ring-accent-green/30"
+                        : "bg-bg-dark/60 border-border-base/70 text-text-muted hover:border-border-base"
                     }`}
                   >
-                    <Globe size={18} className={runnerType === 'cloud' ? 'text-accent-green' : 'text-text-dim'} />
+                    <Globe
+                      size={18}
+                      className={
+                        runnerType === "cloud"
+                          ? "text-accent-green"
+                          : "text-text-dim"
+                      }
+                    />
                     <div>
-                      <div className="font-semibold text-sm text-text-main">Nube Sentinel (Público)</div>
-                      <div className="text-xs text-text-muted mt-0.5">Sondeo desde Internet</div>
+                      <div className="font-semibold text-sm text-text-main">
+                        Nube Sentinel (Público)
+                      </div>
+                      <div className="text-xs text-text-muted mt-0.5">
+                        Sondeo desde Internet
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
-                      setRunnerType('agent');
+                      setRunnerType("agent");
                       if (probes.length > 0 && !agentProbeId) {
                         setAgentProbeId(probes[0].id);
                       }
                     }}
                     className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
-                      runnerType === 'agent'
-                        ? 'bg-accent-purple/10 border-accent-purple/40 text-accent-purple ring-1 ring-accent-purple/30'
-                        : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:border-border-base'
+                      runnerType === "agent"
+                        ? "bg-accent-purple/10 border-accent-purple/40 text-accent-purple ring-1 ring-accent-purple/30"
+                        : "bg-bg-dark/60 border-border-base/70 text-text-muted hover:border-border-base"
                     }`}
                   >
-                    <Server size={18} className={runnerType === 'agent' ? 'text-accent-purple' : 'text-text-dim'} />
+                    <Server
+                      size={18}
+                      className={
+                        runnerType === "agent"
+                          ? "text-accent-purple"
+                          : "text-text-dim"
+                      }
+                    />
                     <div>
-                      <div className="font-semibold text-sm text-text-main">Guardián Senti9 (Privado)</div>
-                      <div className="text-xs text-text-muted mt-0.5">Sondeo dentro de tu red LAN o VPC</div>
+                      <div className="font-semibold text-sm text-text-main">
+                        Guardián Senti9 (Privado)
+                      </div>
+                      <div className="text-xs text-text-muted mt-0.5">
+                        Sondeo dentro de tu red LAN o VPC
+                      </div>
                     </div>
                   </button>
                 </div>
 
-                {runnerType === 'agent' && (
+                {runnerType === "agent" && (
                   <div className="pt-2 animate-in fade-in space-y-2">
                     <label className="block text-xs font-medium text-accent-purple flex items-center justify-between">
                       <span>Selecciona el Guardián Senti9 Responsable *</span>
                       <span className="text-xs text-text-dim">
-                        {probes.filter((p) => p.is_online).length} online de {probes.length}
+                        {probes.filter((p) => p.is_online).length} online de{" "}
+                        {probes.length}
                       </span>
                     </label>
+                    <label className="block text-sm">
+                      Buscar Senti9
+                      <input
+                        value={probeSearch}
+                        onChange={(e) => setProbeSearch(e.target.value)}
+                        className="w-full min-h-11 bg-bg-main border border-border-base rounded-xl p-3"
+                        placeholder="Nombre u host del agente"
+                      />
+                    </label>
+                    <p className="text-text-muted text-sm">
+                      Hasta 25 coincidencias. Acota la búsqueda para encontrar
+                      un agente.
+                    </p>
                     {probes.length === 0 ? (
                       <div className="p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-xl text-accent-yellow text-xs flex items-center justify-between">
-                        <span>No tienes guardianes Senti9 registrados en tu organización.</span>
+                        <span>
+                          No tienes guardianes Senti9 registrados en tu
+                          organización.
+                        </span>
                       </div>
                     ) : (
-                      <select aria-label="Agente Senti9 asignado"
+                      <select
+                        aria-label="Agente Senti9 asignado"
                         value={agentProbeId}
                         onChange={(e) => setAgentProbeId(e.target.value)}
-                        required={runnerType === 'agent'}
+                        required={runnerType === "agent"}
                         className="w-full bg-bg-dark/90 border border-accent-purple/40 rounded-xl px-3 py-2 text-xs text-text-main font-mono focus:outline-none focus:ring-1 focus:ring-accent-purple"
                       >
-                        <option value="">-- Seleccionar Guardián Senti9 --</option>
+                        <option value="">
+                          -- Seleccionar Guardián Senti9 --
+                        </option>
                         {probes.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name} ({p.is_online ? '● Online' : '○ Offline'}) — {p.hostname || p.ip_address || 'LAN'}
+                            {p.name} ({p.is_online ? "● Online" : "○ Offline"})
+                            — {p.hostname || p.ip_address || "LAN"}
                           </option>
                         ))}
                       </select>
@@ -486,15 +649,18 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               </div>
 
               {/* Dynamic Target Endpoint Input */}
-              {targetType === 'tcp' ? (
+              {targetType === "tcp" ? (
                 <div className="bg-bg-dark/40 border border-purple-500/25 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-purple-400">
                     <Server size={14} /> Configuración de Conexión TCP
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-medium text-text-muted mb-1">Host o Dirección IP</label>
-                      <input aria-label="Host TCP"
+                      <label className="block text-xs font-medium text-text-muted mb-1">
+                        Host o Dirección IP
+                      </label>
+                      <input
+                        aria-label="Host TCP"
                         type="text"
                         required
                         placeholder="10.138.15.10 o db.midominio.com"
@@ -504,8 +670,11 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-text-muted mb-1">Puerto</label>
-                      <input aria-label="Puerto TCP"
+                      <label className="block text-xs font-medium text-text-muted mb-1">
+                        Puerto
+                      </label>
+                      <input
+                        aria-label="Puerto TCP"
                         type="number"
                         required
                         placeholder="389"
@@ -518,7 +687,9 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
 
                   {/* Common Port Quick Pills */}
                   <div>
-                    <span className="text-xs font-medium text-text-dim block mb-2">Puertos Comunes de Infraestructura:</span>
+                    <span className="text-xs font-medium text-text-dim block mb-2">
+                      Puertos Comunes de Infraestructura:
+                    </span>
                     <div className="flex flex-wrap gap-2">
                       {commonPorts.map((cp) => (
                         <button
@@ -527,8 +698,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                           onClick={() => setTcpPort(cp.port)}
                           className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
                             tcpPort === cp.port
-                              ? 'bg-purple-500/20 border-purple-400 text-purple-300 font-semibold shadow-sm'
-                              : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-purple-400/50'
+                              ? "bg-purple-500/20 border-purple-400 text-purple-300 font-semibold shadow-sm"
+                              : "bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-purple-400/50"
                           }`}
                         >
                           {cp.label}
@@ -540,161 +711,201 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
               ) : (
                 <div>
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                    {targetType === 'dns'
-                      ? 'Nombre de Dominio a Resolver *'
-                      : targetType === 'ssl'
-                      ? 'Dominio del Certificado SSL *'
-                      : 'Dirección URL o Endpoint *'}
+                    {targetType === "dns"
+                      ? "Nombre de Dominio a Resolver *"
+                      : targetType === "ssl"
+                        ? "Dominio del Certificado SSL *"
+                        : "Dirección URL o Endpoint *"}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder={protocols.find((p) => p.type === targetType)?.placeholder}
+                    placeholder={
+                      protocols.find((p) => p.type === targetType)?.placeholder
+                    }
                     value={endpoint}
                     onChange={(e) => setEndpoint(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-4 py-2.5 text-sm text-text-main font-mono placeholder:text-text-dim focus:outline-none focus:border-accent-green focus:ring-2 focus:ring-accent-green/20 transition-all"
                   />
                   <p className="text-xs text-text-dim mt-1.5">
-                    {targetType === 'dns'
-                      ? 'Introduce el dominio sin https:// (ej. micoope.local o google.com)'
-                      : targetType === 'ssl'
-                      ? 'Se verificará la cadena criptográfica y días restantes de expiración.'
-                      : 'Asegúrate de incluir http:// o https:// para peticiones web.'}
+                    {targetType === "dns"
+                      ? "Introduce el dominio sin https:// (ej. micoope.local o google.com)"
+                      : targetType === "ssl"
+                        ? "Se verificará la cadena criptográfica y días restantes de expiración."
+                        : "Asegúrate de incluir http:// o https:// para peticiones web."}
                   </p>
                 </div>
               )}
 
-              {/* Interval & Presets */}
-              {!target && <div className="rounded-xl border border-border-base p-3 text-xs text-text-muted">
-                <label className="flex items-center gap-2"><input type="checkbox" checked={autoCoverage} disabled={!canAutoProvision} onChange={(event) => setAutoCoverage(event.target.checked)} />Añadir cobertura compatible con el protocolo</label>
-                <p className="mt-2 text-text-dim">{runnerType === 'agent' ? 'Senti9: sin recursos cloud adicionales.' : targetType === 'https' ? 'HTTPS: SSL, DNS (si es un dominio) y cabeceras.' : targetType === 'http' ? 'HTTP: DNS (si es un dominio) y cabeceras; sin SSL.' : targetType === 'dns' ? 'DNS: registro A; sin SSL ni WHOIS.' : targetType === 'ssl' ? 'SSL: certificado en el puerto indicado.' : 'TCP y API: solo este monitor, sin recursos adicionales.'} WHOIS y API Checks avanzados se configuran por separado. Puedes desactivar esta cobertura.</p>
-              </div>}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-text-muted">
-                    Intervalo de Chequeo (Frecuencia)
-                  </label>
-                  <span className="text-xs font-semibold text-accent-green">Cada {interval} segundos</span>
-                </div>
-
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {intervalPresets.map((preset) => {
-                    const isRestricted = preset.value < minAllowedInterval;
-                    return (
-                      <button
-                        key={preset.value}
-                        type="button"
-                        disabled={isRestricted}
-                        onClick={() => setInterval(preset.value)}
-                        title={
-                          isRestricted
-                            ? `Tu plan actual (${subData?.plan_name || 'Free'}) requiere un intervalo mínimo de ${minAllowedInterval}s. Actualiza a un plan superior para monitoreo de alta frecuencia.`
-                            : undefined
+              <details className="border border-border-base rounded-xl p-3">
+                <summary className="min-h-11 cursor-pointer font-medium">
+                  Parámetros avanzados
+                </summary>
+                {/* Interval & Presets */}
+                {!target && (
+                  <div className="rounded-xl border border-border-base p-3 text-xs text-text-muted">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={autoCoverage}
+                        disabled={!canAutoProvision}
+                        onChange={(event) =>
+                          setAutoCoverage(event.target.checked)
                         }
-                        className={`py-1.5 px-3.5 rounded-full border text-center transition-all font-medium flex items-center gap-1.5 ${
-                          isRestricted
-                            ? 'opacity-40 cursor-not-allowed bg-bg-dark/30 border-border-base/40 text-text-dim'
-                            : interval === preset.value
-                            ? 'bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm cursor-pointer'
-                            : 'bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-accent-green/40 cursor-pointer'
-                        }`}
-                      >
-                        {preset.label}
-                        {isRestricted && (
-                          <span className="text-xs px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                            Upgrade
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {minAllowedInterval > 60 && (
-                  <p className="text-xs text-amber-400/90 flex items-center gap-1 mt-1">
-                    <span>Tu plan actual limita chequeos de alta frecuencia a un mínimo de {minAllowedInterval}s ({Math.round(minAllowedInterval / 60)}m).</span>
-                  </p>
+                      />
+                      Añadir cobertura compatible con el protocolo
+                    </label>
+                    <p className="mt-2 text-text-dim">
+                      {runnerType === "agent"
+                        ? "Senti9: sin recursos cloud adicionales."
+                        : targetType === "https"
+                          ? "HTTPS: SSL, DNS (si es un dominio) y cabeceras."
+                          : targetType === "http"
+                            ? "HTTP: DNS (si es un dominio) y cabeceras; sin SSL."
+                            : targetType === "dns"
+                              ? "DNS: registro A; sin SSL ni WHOIS."
+                              : targetType === "ssl"
+                                ? "SSL: certificado en el puerto indicado."
+                                : "TCP y API: solo este monitor, sin recursos adicionales."}{" "}
+                      WHOIS y API Checks avanzados se configuran por separado.
+                      Puedes desactivar esta cobertura.
+                    </p>
+                  </div>
                 )}
-              </div>
-
-              {/* Tag Chips Management */}
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold text-text-muted">
-                  Etiquetas & Agrupación (Tags)
-                </label>
-                <div className="flex flex-wrap items-center gap-2 p-2.5 bg-bg-dark/60 border border-border-base/80 rounded-2xl min-h-[46px]">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-border-base rounded-full text-xs font-medium text-accent-green"
-                    >
-                      #{tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="text-text-dim hover:text-rose-400 transition-colors"
-                      >
-                        <X size={12} />
-                      </button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-text-muted">
+                      Intervalo de Chequeo (Frecuencia)
+                    </label>
+                    <span className="text-xs font-semibold text-accent-green">
+                      Cada {interval} segundos
                     </span>
-                  ))}
-                  <div className="flex items-center gap-1 flex-1 min-w-[140px]">
-                    <input aria-label="Añadir etiqueta"
-                      type="text"
-                      placeholder="Escribe un tag y pulsa Enter..."
-                      value={tagInputText}
-                      onChange={(e) => setTagInputText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault();
-                          addTag(tagInputText);
-                        }
-                      }}
-                      className="bg-transparent text-xs text-text-main placeholder:text-text-dim focus:outline-none w-full px-2"
-                    />
-                    {tagInputText.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => addTag(tagInputText)}
-                        className="p-1 text-accent-green hover:bg-accent-green/10 rounded-full"
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {intervalPresets.map((preset) => {
+                      const isRestricted = preset.value < minAllowedInterval;
+                      return (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          disabled={isRestricted}
+                          onClick={() => setInterval(preset.value)}
+                          title={
+                            isRestricted
+                              ? `Tu plan actual (${subData?.plan_name || "Free"}) requiere un intervalo mínimo de ${minAllowedInterval}s. Actualiza a un plan superior para monitoreo de alta frecuencia.`
+                              : undefined
+                          }
+                          className={`py-1.5 px-3.5 rounded-full border text-center transition-all font-medium flex items-center gap-1.5 ${
+                            isRestricted
+                              ? "opacity-40 cursor-not-allowed bg-bg-dark/30 border-border-base/40 text-text-dim"
+                              : interval === preset.value
+                                ? "bg-accent-green/20 border-accent-green text-accent-green font-semibold shadow-sm cursor-pointer"
+                                : "bg-bg-dark/60 border-border-base/70 text-text-muted hover:text-text-main hover:border-accent-green/40 cursor-pointer"
+                          }`}
+                        >
+                          {preset.label}
+                          {isRestricted && (
+                            <span className="text-xs px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                              Upgrade
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {minAllowedInterval > 60 && (
+                    <p className="text-xs text-amber-400/90 flex items-center gap-1 mt-1">
+                      <span>
+                        Tu plan actual limita chequeos de alta frecuencia a un
+                        mínimo de {minAllowedInterval}s (
+                        {Math.round(minAllowedInterval / 60)}m).
+                      </span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Tag Chips Management */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-text-muted">
+                    Etiquetas & Agrupación (Tags)
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2 p-2.5 bg-bg-dark/60 border border-border-base/80 rounded-2xl min-h-[46px]">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-bg-card border border-border-base rounded-full text-xs font-medium text-accent-green"
                       >
-                        <Plus size={14} />
-                      </button>
-                    )}
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag)}
+                          className="text-text-dim hover:text-rose-400 transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                    <div className="flex items-center gap-1 flex-1 min-w-[140px]">
+                      <input
+                        aria-label="Añadir etiqueta"
+                        type="text"
+                        placeholder="Escribe un tag y pulsa Enter..."
+                        value={tagInputText}
+                        onChange={(e) => setTagInputText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === ",") {
+                            e.preventDefault();
+                            addTag(tagInputText);
+                          }
+                        }}
+                        className="bg-transparent text-xs text-text-main placeholder:text-text-dim focus:outline-none w-full px-2"
+                      />
+                      {tagInputText.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => addTag(tagInputText)}
+                          className="p-1 text-accent-green hover:bg-accent-green/10 rounded-full"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-text-dim pt-0.5">
+                    <span className="flex items-center gap-1">
+                      <TagIcon size={12} /> Sugerencias:
+                    </span>
+                    {tagSuggestions
+                      .filter((s) => !tags.includes(s))
+                      .map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => addTag(s)}
+                          className="hover:text-accent-green transition-colors underline decoration-dotted"
+                        >
+                          #{s}
+                        </button>
+                      ))}
                   </div>
                 </div>
-
-                {/* Suggestions */}
-                <div className="flex items-center gap-2 flex-wrap text-xs text-text-dim pt-0.5">
-                  <span className="flex items-center gap-1">
-                    <TagIcon size={12} /> Sugerencias:
-                  </span>
-                  {tagSuggestions
-                    .filter((s) => !tags.includes(s))
-                    .map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => addTag(s)}
-                        className="hover:text-accent-green transition-colors underline decoration-dotted"
-                      >
-                        #{s}
-                      </button>
-                    ))}
-                </div>
-              </div>
-
+              </details>
             </div>
           )}
 
           {/* TAB 2: OPCIONES HTTP & HEADERS */}
-          {activeTab === 'http' && isHttpType && (
+          {activeTab === "http" && isHttpType && (
             <div className="space-y-5 animate-in fade-in">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Método HTTP
                   </label>
-                  <select aria-label="Método HTTP"
+                  <select
+                    aria-label="Método HTTP"
                     value={httpMethod}
                     onChange={(e) => setHttpMethod(e.target.value)}
                     className="w-full bg-bg-dark/80 border border-border-base/80 rounded-xl px-4 py-2.5 text-sm text-text-main font-mono focus:border-accent-green focus:outline-none focus:ring-2 focus:ring-accent-green/20"
@@ -702,7 +913,9 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                     <option value="GET">GET (Lectura estándar)</option>
                     <option value="POST">POST (Envío de payload)</option>
                     <option value="PUT">PUT (Actualización)</option>
-                    <option value="HEAD">HEAD (Solo headers - ultra ligero)</option>
+                    <option value="HEAD">
+                      HEAD (Solo headers - ultra ligero)
+                    </option>
                     <option value="DELETE">DELETE (Borrado)</option>
                   </select>
                 </div>
@@ -711,7 +924,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Código de Estado Esperado
                   </label>
-                  <input aria-label="Código HTTP esperado"
+                  <input
+                    aria-label="Código HTTP esperado"
                     type="number"
                     value={expectedStatus}
                     onChange={(e) => setExpectedStatus(Number(e.target.value))}
@@ -738,7 +952,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   Latencia Máxima Permitida (Umbral de Alerta)
                 </label>
                 <div className="flex items-center gap-3">
-                  <input aria-label="Latencia máxima en milisegundos"
+                  <input
+                    aria-label="Latencia máxima en milisegundos"
                     type="range"
                     min="100"
                     max="5000"
@@ -752,7 +967,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                   </span>
                 </div>
                 <p className="text-xs text-text-dim mt-1.5">
-                  Si la respuesta supera este tiempo, el target cambiará a estado LENTO (Warning).
+                  Si la respuesta supera este tiempo, el target cambiará a
+                  estado LENTO (Warning).
                 </p>
               </div>
 
@@ -760,7 +976,8 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Encabezados Personalizados (JSON)
                 </label>
-                <textarea aria-label="Cabeceras HTTP en JSON"
+                <textarea
+                  aria-label="Cabeceras HTTP en JSON"
                   rows={3}
                   placeholder={`{\n  "Authorization": "Bearer token_secreto",\n  "X-Custom-Header": "Sentinel"\n}`}
                   value={headersJson}
@@ -769,12 +986,13 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 />
               </div>
 
-              {httpMethod !== 'GET' && httpMethod !== 'HEAD' && (
+              {httpMethod !== "GET" && httpMethod !== "HEAD" && (
                 <div>
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
                     Cuerpo de la Petición (Request Body)
                   </label>
-                  <textarea aria-label="Cuerpo de la solicitud"
+                  <textarea
+                    aria-label="Cuerpo de la solicitud"
                     rows={3}
                     placeholder='{"action": "ping", "client": "sentinel"}'
                     value={requestBody}
@@ -787,34 +1005,46 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
           )}
 
           {/* TAB 3: DIAGNÓSTICO & TEST EN VIVO */}
-          {activeTab === 'diagnostic' && (
+          {activeTab === "diagnostic" && (
             <div className="space-y-4 animate-in fade-in">
               <div className="bg-bg-dark/40 border border-border-base/70 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-text-main flex items-center gap-2">
-                      <Play size={14} className="text-accent-green" /> Prueba de configuración
+                      <Play size={14} className="text-accent-green" /> Prueba de
+                      configuración
                     </h3>
                     <p className="text-xs text-text-muted mt-0.5">
-                      Verifica que el endpoint responda adecuadamente antes de darlo de alta en el sistema.
+                      Verifica que el endpoint responda adecuadamente antes de
+                      darlo de alta en el sistema.
                     </p>
                   </div>
-                  <AdminButton capability="monitoring.test"
+                  <AdminButton
+                    capability="monitoring.test"
                     type="button"
                     onClick={handleTestConnection}
                     disabled={testingConnection}
                     className="px-4 py-2 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all flex items-center gap-2 disabled:opacity-50 shadow-md shadow-accent-green/10"
                   >
-                    {testingConnection ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} />}
-                    {testingConnection ? 'Probando...' : 'Probar configuración'}
+                    {testingConnection ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <Play size={14} />
+                    )}
+                    {testingConnection ? "Probando..." : "Probar configuración"}
                   </AdminButton>
                 </div>
-                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
+                <ConfigurationDiagnosticNotice
+                  notice={diagnostic.notice}
+                  remaining={diagnostic.remaining}
+                />
 
                 <div className="text-xs bg-bg-dark/80 p-3.5 rounded-xl border border-border-base/60 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Target evaluado:</span>
-                    <span className="text-text-main font-mono font-medium">{getActualEndpoint() || 'Sin especificar'}</span>
+                    <span className="text-text-main font-mono font-medium">
+                      {getActualEndpoint() || "Sin especificar"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-text-muted">Protocolo:</span>
@@ -827,37 +1057,68 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 {testResult && (
                   <div
                     className={`p-4 rounded-2xl border text-xs space-y-3 animate-in fade-in ${
-                      testResult.redirect_location ? 'bg-amber-500/10 border-amber-500/35 text-amber-300' : testResult.status === 'up'
-                        ? 'bg-emerald-500/10 border-emerald-500/35 text-emerald-400'
-                        : testResult.status === 'slow'
-                        ? 'bg-amber-500/10 border-amber-500/35 text-amber-400'
-                        : 'bg-rose-500/10 border-rose-500/35 text-rose-400'
+                      testResult.redirect_location
+                        ? "bg-amber-500/10 border-amber-500/35 text-amber-300"
+                        : testResult.status === "up"
+                          ? "bg-emerald-500/10 border-emerald-500/35 text-emerald-400"
+                          : testResult.status === "slow"
+                            ? "bg-amber-500/10 border-amber-500/35 text-amber-400"
+                            : "bg-rose-500/10 border-rose-500/35 text-rose-400"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold flex items-center gap-2">
-                        {testResult.status === 'up' && <CheckCircle2 size={16} />}
-                        {testResult.status === 'slow' && <AlertTriangle size={16} />}
-                        {testResult.status === 'down' && <AlertCircle size={16} />}
-                        {testResult.redirect_location ? 'Esta página te envía a otra dirección' : testResult.status === 'up'
-                          ? 'Conexión Exitosa'
-                          : testResult.status === 'slow'
-                          ? 'Conexión con Retardo'
-                          : 'Fallo de Conexión'}
+                        {testResult.status === "up" && (
+                          <CheckCircle2 size={16} />
+                        )}
+                        {testResult.status === "slow" && (
+                          <AlertTriangle size={16} />
+                        )}
+                        {testResult.status === "down" && (
+                          <AlertCircle size={16} />
+                        )}
+                        {testResult.redirect_location
+                          ? "Esta página te envía a otra dirección"
+                          : testResult.status === "up"
+                            ? "Conexión Exitosa"
+                            : testResult.status === "slow"
+                              ? "Conexión con Retardo"
+                              : "Fallo de Conexión"}
                       </span>
-                      {!testResult.redirect_location && testResult.latency_ms !== undefined && (
-                        <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-black/30">
-                          {testResult.latency_ms} ms
-                        </span>
-                      )}
+                      {!testResult.redirect_location &&
+                        testResult.latency_ms !== undefined && (
+                          <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-black/30">
+                            {testResult.latency_ms} ms
+                          </span>
+                        )}
                     </div>
 
-                    {!testResult.redirect_location && <div className="text-xs opacity-90">{testResult.message}</div>}
-                    {testResult.redirect_location && <RedirectNotice location={testResult.redirect_location} endpoint={getActualEndpoint()} statusCode={testResult.status_code} onUseAddress={(address) => { setEndpoint(address); if (targetType !== 'api') setTargetType(address.startsWith('https:') ? 'https' : 'http'); setTestResult(null); }} />}
+                    {!testResult.redirect_location && (
+                      <div className="text-xs opacity-90">
+                        {testResult.message}
+                      </div>
+                    )}
+                    {testResult.redirect_location && (
+                      <RedirectNotice
+                        location={testResult.redirect_location}
+                        endpoint={getActualEndpoint()}
+                        statusCode={testResult.status_code}
+                        onUseAddress={(address) => {
+                          setEndpoint(address);
+                          if (targetType !== "api")
+                            setTargetType(
+                              address.startsWith("https:") ? "https" : "http",
+                            );
+                          setTestResult(null);
+                        }}
+                      />
+                    )}
 
                     {!testResult.redirect_location && testResult.headers && (
                       <div className="pt-2 border-t border-current/20">
-                        <span className="block text-xs font-semibold mb-1 opacity-80">Encabezados Recibidos:</span>
+                        <span className="block text-xs font-semibold mb-1 opacity-80">
+                          Encabezados Recibidos:
+                        </span>
                         <pre className="text-xs font-mono bg-black/40 p-2.5 rounded-xl max-h-32 overflow-y-auto">
                           {JSON.stringify(testResult.headers, null, 2)}
                         </pre>
@@ -874,11 +1135,15 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setActiveTab('diagnostic')}
+                onClick={() => setActiveTab("diagnostic")}
                 disabled={testingConnection}
                 className="px-4 py-2 border border-accent-green/40 bg-accent-green/10 text-accent-green text-xs font-semibold rounded-full hover:bg-accent-green/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
               >
-                {testingConnection ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} />}
+                {testingConnection ? (
+                  <Loader2 className="animate-spin" size={14} />
+                ) : (
+                  <Play size={14} />
+                )}
                 Probar configuración
               </button>
             </div>
@@ -896,14 +1161,18 @@ export default function TargetForm({ target, onSubmit, onClose }: TargetFormProp
                 disabled={loading}
                 className="px-6 py-2 bg-accent-green text-black font-semibold rounded-full text-xs hover:bg-accent-green/90 transition-all flex items-center gap-2 shadow-md shadow-accent-green/20"
               >
-                {loading ? <Loader2 className="animate-spin" size={14} /> : <Check size={16} />}
-                {target ? 'Actualizar Target' : 'Crear Target'}
+                {loading ? (
+                  <Loader2 className="animate-spin" size={14} />
+                ) : (
+                  <Check size={16} />
+                )}
+                {target ? "Actualizar Target" : "Crear Target"}
               </button>
             </div>
           </div>
         </form>
       </ModalSurface>
     </div>,
-    document.body
+    document.body,
   );
 }

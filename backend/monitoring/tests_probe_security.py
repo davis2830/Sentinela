@@ -70,7 +70,10 @@ class ProbeSecurityTests(TestCase):
 
     def test_install_template_never_embeds_secret_or_uses_latest(self):
         self.client.force_authenticate(self.admin)
-        with patch("organizations.services.QuotaService.check_quota"):
+        with (
+            patch("organizations.services.QuotaService.check_quota"),
+            patch.dict("os.environ", {"SENTI9_CONTROL_URL": "https://control.example.test"}),
+        ):
             response = self.client.post("/api/v1/agent-probes/", {"name": "Install fixture"}, format="json")
         self.assertEqual(response.status_code, 201)
         data = response.data["data"]

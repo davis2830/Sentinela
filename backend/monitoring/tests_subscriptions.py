@@ -27,8 +27,12 @@ from security_headers.tasks import scan_security_headers
 
 class EntitlementTests(TestCase):
     def setUp(self):
-        self.org = Organization.objects.create(name="Entitlements", slug="entitlements", plan_tier="pro", subscription_status="trialing")
-        self.user = User.objects.create_user(email="entitlement@example.test", password="test-pass", organization=self.org, is_staff=True)
+        self.org = Organization.objects.create(
+            name="Entitlements", slug="entitlements", plan_tier="pro", subscription_status="trialing"
+        )
+        self.user = User.objects.create_user(
+            email="entitlement@example.test", password="test-pass", organization=self.org, is_staff=True
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -52,7 +56,16 @@ class EntitlementTests(TestCase):
 
     def test_all_operational_apis_block_creation_and_scans_but_allow_reads(self):
         self.expire()
-        for endpoint in ("monitoring", "monitoring-targets", "api-checks", "ssl-certificates", "dns-records", "domains", "security-headers", "agent-probes"):
+        for endpoint in (
+            "monitoring",
+            "monitoring-targets",
+            "api-checks",
+            "ssl-certificates",
+            "dns-records",
+            "domains",
+            "security-headers",
+            "agent-probes",
+        ):
             with self.subTest(endpoint=endpoint):
                 self.assertEqual(self.client.get(f"/api/v1/{endpoint}/").status_code, 200)
                 self.assertEqual(self.client.post(f"/api/v1/{endpoint}/", {}, format="json").status_code, 403)
@@ -61,20 +74,34 @@ class EntitlementTests(TestCase):
         target = MonitoringTarget.objects.create(organization=self.org, name="Existing", endpoint="https://example.com")
         for endpoint in ("monitoring", "monitoring-targets"):
             self.assertEqual(self.client.post(f"/api/v1/{endpoint}/{target.id}/scan/").status_code, 403)
-        self.assertEqual(self.client.patch(f"/api/v1/monitoring/{target.id}/", {"enabled": True}, format="json").status_code, 403)
+        self.assertEqual(
+            self.client.patch(f"/api/v1/monitoring/{target.id}/", {"enabled": True}, format="json").status_code, 403
+        )
         self.assertEqual(self.client.delete(f"/api/v1/monitoring/{target.id}/").status_code, 200)
 
     def test_previously_queued_scans_cannot_run_for_expired_org(self):
         self.expire()
         resources = [
-            (MonitoringTarget.objects.create(organization=self.org, name="Web", endpoint="https://example.com"), run_monitoring_check),
+            (
+                MonitoringTarget.objects.create(organization=self.org, name="Web", endpoint="https://example.com"),
+                run_monitoring_check,
+            ),
             (SSLCertificate.objects.create(organization=self.org, domain="example.com"), scan_ssl_certificate),
             (DNSRecord.objects.create(organization=self.org, domain="example.com", record_type="A"), scan_dns_records),
             (DomainInfo.objects.create(organization=self.org, domain="example.com"), scan_whois),
-            (APICheckTarget.objects.create(organization=self.org, name="API", url="https://example.com"), run_api_check),
-            (SecurityHeaderTarget.objects.create(organization=self.org, name="Headers", url="https://example.com"), scan_security_headers),
+            (
+                APICheckTarget.objects.create(organization=self.org, name="API", url="https://example.com"),
+                run_api_check,
+            ),
+            (
+                SecurityHeaderTarget.objects.create(organization=self.org, name="Headers", url="https://example.com"),
+                scan_security_headers,
+            ),
         ]
-        with patch("socket.create_connection", side_effect=AssertionError("Unexpected network")), patch("requests.sessions.Session.request", side_effect=AssertionError("Unexpected HTTP")):
+        with (
+            patch("socket.create_connection", side_effect=AssertionError("Unexpected network")),
+            patch("requests.sessions.Session.request", side_effect=AssertionError("Unexpected HTTP")),
+        ):
             for resource, task in resources:
                 self.assertEqual(task.run(str(resource.id))["reason"], "subscription_required")
         self.assertEqual(register_target_in_submonitors.run(str(resources[0][0].id))["reason"], "subscription_required")
@@ -123,14 +150,26 @@ class EntitlementTests(TestCase):
     def test_creation_forwards_opt_out_and_http_configuration(self):
         with patch("monitoring.tasks.register_target_in_submonitors.delay") as provision:
             with self.captureOnCommitCallbacks(execute=True):
-                response = self.client.post("/api/v1/monitoring/", {
-                    "name": "Configured API", "target_type": "api", "endpoint": "https://8.8.8.8/health",
-                    "related_modules": [], "http_method": "POST", "expected_status": 201,
-                    "custom_headers": {"X-Test": "fixture"}, "request_body": "{}", "max_latency_ms": 3000,
-                }, format="json")
+                response = self.client.post(
+                    "/api/v1/monitoring/",
+                    {
+                        "name": "Configured API",
+                        "target_type": "api",
+                        "endpoint": "https://8.8.8.8/health",
+                        "related_modules": [],
+                        "http_method": "POST",
+                        "expected_status": 201,
+                        "custom_headers": {"X-Test": "fixture"},
+                        "request_body": "{}",
+                        "max_latency_ms": 3000,
+                    },
+                    format="json",
+                )
         self.assertEqual(response.status_code, 201)
         target = MonitoringTarget.objects.get(id=response.data["data"]["id"])
-        provision.assert_called_once_with(str(target.id), [])
+        provision.assert_not_called()
+        target.refresh_from_db()
+        self.assertEqual(target.coverage_status, {"state": "completed", "created": [], "existing": [], "failed": {}})
         self.assertEqual(target.http_method, "POST")
         self.assertEqual(target.expected_status, 201)
         self.assertEqual(target.custom_headers, {"X-Test": "fixture"})
@@ -142,9 +181,27 @@ class CoverageTests(TestCase):
         now = timezone.now()
         free = Organization.objects.create(name="Free timing", slug="free-timing")
         pro = Organization.objects.create(name="Pro timing", slug="pro-timing", plan_tier="pro")
-        free_target = MonitoringTarget.objects.create(organization=free, name="Legacy fast", endpoint="https://example.com", interval=60, last_checked_at=now - timedelta(seconds=100))
-        pro_target = MonitoringTarget.objects.create(organization=pro, name="Pro", endpoint="https://example.com", interval=60, last_checked_at=now - timedelta(seconds=100))
-        MonitoringTarget.objects.create(organization=pro, name="Slow", endpoint="https://example.com", interval=600, last_checked_at=now - timedelta(seconds=100))
+        free_target = MonitoringTarget.objects.create(
+            organization=free,
+            name="Legacy fast",
+            endpoint="https://example.com",
+            interval=60,
+            last_checked_at=now - timedelta(seconds=100),
+        )
+        pro_target = MonitoringTarget.objects.create(
+            organization=pro,
+            name="Pro",
+            endpoint="https://example.com",
+            interval=60,
+            last_checked_at=now - timedelta(seconds=100),
+        )
+        MonitoringTarget.objects.create(
+            organization=pro,
+            name="Slow",
+            endpoint="https://example.com",
+            interval=600,
+            last_checked_at=now - timedelta(seconds=100),
+        )
         with patch("monitoring.tasks.run_monitoring_check.delay") as enqueue:
             schedule_all_checks.run()
             enqueue.assert_called_once_with(str(pro_target.id), scan_token=ANY)
@@ -158,7 +215,13 @@ class CoverageTests(TestCase):
 
     def test_api_scheduler_clamps_legacy_fast_free_resources(self):
         org = Organization.objects.create(name="API timing", slug="api-timing")
-        target = APICheckTarget.objects.create(organization=org, name="API", url="https://example.com", check_interval=60, last_checked_at=timezone.now() - timedelta(seconds=100))
+        target = APICheckTarget.objects.create(
+            organization=org,
+            name="API",
+            url="https://example.com",
+            check_interval=60,
+            last_checked_at=timezone.now() - timedelta(seconds=100),
+        )
         with patch("api_checks.tasks.run_api_check.delay") as enqueue:
             run_all_api_checks.run()
             enqueue.assert_not_called()
@@ -168,7 +231,14 @@ class CoverageTests(TestCase):
             enqueue.assert_called_once_with(str(target.id), scan_token=ANY)
 
     def test_protocol_matrix(self):
-        for protocol, expected in {"https": {"ssl", "dns", "security"}, "http": {"dns", "security"}, "tcp": set(), "dns": {"dns"}, "ssl": {"ssl"}, "api": set()}.items():
+        for protocol, expected in {
+            "https": {"ssl", "dns", "security"},
+            "http": {"dns", "security"},
+            "tcp": set(),
+            "dns": {"dns"},
+            "ssl": {"ssl"},
+            "api": set(),
+        }.items():
             with self.subTest(protocol=protocol):
                 endpoint = f"{protocol}://example.com" if protocol in ("http", "https") else "example.com:443"
                 self.assertEqual(coverage(protocol, endpoint)[0], expected)
@@ -183,8 +253,14 @@ class CoverageTests(TestCase):
 
     def test_provisioning_is_idempotent_and_respects_quotas(self):
         org = Organization.objects.create(name="Coverage", slug="coverage", plan_tier="free")
-        target = MonitoringTarget.objects.create(organization=org, name="Web", target_type="https", endpoint="https://example.com:8443/path")
-        with patch("ssl_monitor.tasks.scan_ssl_certificate.delay"), patch("dns_monitor.tasks.scan_dns_records.delay"), patch("security_headers.tasks.scan_security_headers.delay"):
+        target = MonitoringTarget.objects.create(
+            organization=org, name="Web", target_type="https", endpoint="https://example.com:8443/path"
+        )
+        with (
+            patch("ssl_monitor.tasks.scan_ssl_certificate.delay"),
+            patch("dns_monitor.tasks.scan_dns_records.delay"),
+            patch("security_headers.tasks.scan_security_headers.delay"),
+        ):
             first = register_target_in_submonitors.run(str(target.id))
             second = register_target_in_submonitors.run(str(target.id))
         self.assertEqual(set(first["created"]), {"ssl", "dns", "security"})
