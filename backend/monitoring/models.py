@@ -24,6 +24,8 @@ class AgentProbe(OrganizationOwnedModel):
         help_text="Human-readable probe identifier (e.g. Datacenter Santiago)",
     )
     token_hash = models.CharField(max_length=128, unique=True, db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revocation_reason = models.CharField(max_length=500, blank=True)
     status = models.CharField(
         max_length=20,
         choices=ProbeStatus.choices,
@@ -46,7 +48,7 @@ class AgentProbe(OrganizationOwnedModel):
 
     @property
     def is_online(self):
-        if not self.last_heartbeat:
+        if self.revoked_at or not self.last_heartbeat:
             return False
         return timezone.now() - self.last_heartbeat <= timedelta(seconds=45)
 
@@ -59,8 +61,9 @@ class AgentProbe(OrganizationOwnedModel):
 
 class AgentExecution(OrganizationOwnedModel):
     """Protocol v2 receipt ledger; IDs are also the originating scan lease token."""
+
     probe = models.ForeignKey(AgentProbe, on_delete=models.CASCADE)
-    target = models.ForeignKey('MonitoringTarget', on_delete=models.CASCADE)
+    target = models.ForeignKey("MonitoringTarget", on_delete=models.CASCADE)
     payload = models.JSONField(default=dict)
     expires_at = models.DateTimeField(db_index=True)
     accepted_at = models.DateTimeField(null=True)
@@ -81,6 +84,7 @@ class MonitoringTarget(OrganizationOwnedModel):
         API = "api", "API"
         SSL = "ssl", "SSL"
 
+    coverage_status = models.JSONField(default=dict, blank=True)
     name = models.CharField(max_length=255)
     target_type = models.CharField(
         max_length=20,
@@ -138,7 +142,9 @@ class TargetCoverage(BaseModel):
     target = models.OneToOneField(MonitoringTarget, on_delete=models.CASCADE, related_name="coverage")
     ssl = models.ForeignKey("ssl_monitor.SSLCertificate", null=True, blank=True, on_delete=models.SET_NULL)
     domain = models.ForeignKey("domain.DomainInfo", null=True, blank=True, on_delete=models.SET_NULL)
-    security = models.ForeignKey("security_headers.SecurityHeaderTarget", null=True, blank=True, on_delete=models.SET_NULL)
+    security = models.ForeignKey(
+        "security_headers.SecurityHeaderTarget", null=True, blank=True, on_delete=models.SET_NULL
+    )
     dns = models.ManyToManyField("dns_monitor.DNSRecord", blank=True)
 
 

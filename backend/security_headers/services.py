@@ -68,16 +68,12 @@ class SecurityHeadersService:
     @staticmethod
     def list_targets(organization_id):
         """Return all security header targets for an organization."""
-        return SecurityHeaderTarget.objects.filter(
-            organization_id=organization_id
-        ).order_by("-created_at")
+        return SecurityHeaderTarget.objects.filter(organization_id=organization_id).order_by("-created_at")
 
     @staticmethod
     def get_target(target_id, organization_id):
         """Return a single target by ID within an organization."""
-        return SecurityHeaderTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        return SecurityHeaderTarget.objects.get(id=target_id, organization_id=organization_id)
 
     @staticmethod
     @transaction.atomic
@@ -100,34 +96,30 @@ class SecurityHeadersService:
             url=url,
             enabled=enabled,
         )
-        try:
-            from .tasks import scan_security_headers
-            scan_security_headers.delay(str(target.id))
-        except Exception:
-            pass
+        from .tasks import scan_security_headers
+        from common.executions import initial_scan
+
+        initial_scan(target, scan_security_headers)
         return target
 
     @staticmethod
     @transaction.atomic
     def update_target(target_id, organization_id, **fields):
         """Update an existing security header target."""
-        target = SecurityHeaderTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = SecurityHeaderTarget.objects.get(id=target_id, organization_id=organization_id)
         for field, value in fields.items():
             if value is not None:
                 setattr(target, field, value)
         target.save()
-        try:
-            from .tasks import scan_security_headers
-            scan_security_headers.delay(str(target.id))
-        except Exception:
-            pass
+        from .tasks import scan_security_headers
+        from common.executions import initial_scan
+
+        initial_scan(target, scan_security_headers)
         return target
 
     @staticmethod
     @transaction.atomic
-    @beta_creation('security_headers')
+    @beta_creation("security_headers")
     def get_or_create_target(organization_id, name, url):
         """Get or auto-create security header target for monitoring targets."""
         if not url or url in ("http://localhost", "http://127.0.0.1"):
@@ -139,11 +131,10 @@ class SecurityHeadersService:
             defaults={"name": name},
         )
         if created:
-            try:
-                from .tasks import scan_security_headers
-                scan_security_headers.delay(str(target.id))
-            except Exception:
-                pass
+            from .tasks import scan_security_headers
+            from common.executions import initial_scan
+
+            initial_scan(target, scan_security_headers)
         return target
 
     @staticmethod
@@ -168,8 +159,9 @@ class SecurityHeadersService:
         # Operational score bands are independent from the preserved letter grades.
         measured = targets.filter(last_checked_at__isnull=False, last_score__gte=0, last_score__lte=100)
         healthy = measured.filter(last_score__gte=70, info_leak_detected=False).count()
-        warning = measured.filter(models.Q(last_score__gte=50, last_score__lt=70) |
-                                  models.Q(last_score__gte=70, info_leak_detected=True)).count()
+        warning = measured.filter(
+            models.Q(last_score__gte=50, last_score__lt=70) | models.Q(last_score__gte=70, info_leak_detected=True)
+        ).count()
         critical = measured.filter(last_score__lt=50).count()
 
         return {
@@ -189,17 +181,13 @@ class SecurityHeadersService:
     @transaction.atomic
     def delete_target(target_id, organization_id):
         """Delete a security header target."""
-        target = SecurityHeaderTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = SecurityHeaderTarget.objects.get(id=target_id, organization_id=organization_id)
         target.delete()
 
     @staticmethod
     def list_results(target_id, organization_id, limit=50):
         """Return recent scan results for a target."""
-        target = SecurityHeaderTarget.objects.get(
-            id=target_id, organization_id=organization_id
-        )
+        target = SecurityHeaderTarget.objects.get(id=target_id, organization_id=organization_id)
         return target.results.all()[:limit]
 
     @staticmethod
@@ -218,6 +206,9 @@ class SecurityHeadersService:
     ):
         """Record a security headers scan result and update target state."""
         target = SecurityHeaderTarget.objects.get(id=target_id)
+        from common.execution_context import matches
+
+        changed = not matches(target)
         now = timezone.now()
 
         directives_analysis = directives_analysis or {}
@@ -244,6 +235,9 @@ class SecurityHeadersService:
 
         server_header = str(raw_headers.get("server") or raw_headers.get("Server") or "")[:255]
         powered_by = str(raw_headers.get("x-powered-by") or raw_headers.get("X-Powered-By") or "")[:255]
+
+        if changed:
+            return result
 
         target.last_checked_at = now
         target.last_score = score
@@ -348,7 +342,7 @@ class SecurityHeadersService:
                     status = "danger"
                     score = 0
                     notes.append("HSTS está deshabilitado explícitamente (max-age=0).")
-                elif max_age < 10886400:  # < 126 days
+                elif max_age < 31536000:
                     status = "warning"
                     score = int(weight * 0.6)
                     notes.append(f"max-age={max_age}s es inferior al mínimo recomendado de 1 año (31536000s).")
@@ -379,6 +373,76 @@ class SecurityHeadersService:
             }
 
         elif header_name == "content-security-policy":
+            directives = {
+                part.strip().split()[0]: part.strip().split()[1:] for part in val_lower.split(";") if part.strip()
+            }
+            known = {
+                "default-src",
+                "script-src",
+                "style-src",
+                "img-src",
+                "connect-src",
+                "font-src",
+                "object-src",
+                "base-uri",
+                "frame-ancestors",
+                "form-action",
+                "upgrade-insecure-requests",
+                "block-all-mixed-content",
+                "report-uri",
+                "report-to",
+                "media-src",
+                "worker-src",
+                "manifest-src",
+                "frame-src",
+                "child-src",
+                "script-src-elem",
+                "script-src-attr",
+                "style-src-elem",
+                "style-src-attr",
+                "sandbox",
+                "navigate-to",
+                "require-trusted-types-for",
+                "trusted-types",
+            }
+            protective = {"default-src", "script-src", "frame-ancestors", "object-src"}
+            source_pattern = re.compile(
+                r"^(?:'(?:self|none|unsafe-inline|unsafe-eval|strict-dynamic|unsafe-hashes|report-sample|wasm-unsafe-eval)'|'(?:nonce-|sha256-|sha384-|sha512-)[a-z0-9+/_=-]+'|[a-z][a-z0-9+.-]*:|(?:[a-z][a-z0-9+.-]*://)?[a-z0-9*.\[\]:_-]+(?:/[a-z0-9._~%/:@!$&()*+=-]*)?)$"
+            )
+            source_directives = {
+                k: v
+                for k, v in directives.items()
+                if k.endswith("-src")
+                or k
+                in {
+                    "base-uri",
+                    "frame-ancestors",
+                    "form-action",
+                    "script-src-elem",
+                    "script-src-attr",
+                    "style-src-elem",
+                    "style-src-attr",
+                }
+            }
+            invalid_sources = any(
+                not values
+                or any(not source_pattern.fullmatch(token) for token in values)
+                or ("'none'" in values and len(values) > 1)
+                for values in source_directives.values()
+            )
+            if (
+                not directives
+                or invalid_sources
+                or not protective.intersection(directives)
+                or any(k not in known for k in directives)
+                or any(not directives[k] for k in protective.intersection(directives))
+            ):
+                return 0, {
+                    "present": True,
+                    "status": "invalid",
+                    "value": value,
+                    "notes": "CSP no interpretable o sin directivas de protección evaluables. Revisa su sintaxis; no se acredita protección.",
+                }
             has_unsafe_inline = "'unsafe-inline'" in val_lower
             has_unsafe_eval = "'unsafe-eval'" in val_lower
             has_wildcard = " * " in f" {val_lower} " or val_lower.startswith("* ") or val_lower.endswith(" *")
@@ -395,7 +459,13 @@ class SecurityHeadersService:
                 score = int(weight * 0.8)
                 notes.append("Contiene comodín '*' que permite orígenes universales.")
             else:
-                notes.append("CSP configurada con directivas seguras.")
+                notes.append(
+                    "Directivas reconocidas sin los patrones de riesgo evaluados. No acredita seguridad completa de la aplicación."
+                )
+            if "default-src" not in directives:
+                score = min(score, int(weight * 0.7))
+                status = "warning"
+                notes.append("Cobertura parcial: sin default-src para directivas no declaradas.")
 
             return score, {
                 "present": True,
@@ -490,7 +560,9 @@ class SecurityHeadersService:
         if server_val:
             # Check if version numbers or detailed vendor strings are included
             has_version = bool(re.search(r"\d+\.\d+", server_val))
-            if has_version or any(v in server_val.lower() for v in ("apache", "nginx", "iis", "ubuntu", "debian", "centos", "gunicorn")):
+            if has_version or any(
+                v in server_val.lower() for v in ("apache", "nginx", "iis", "ubuntu", "debian", "centos", "gunicorn")
+            ):
                 leaks["server"] = {
                     "header": "Server",
                     "value": server_val,
@@ -640,52 +712,7 @@ class SecurityHeadersService:
 
     @staticmethod
     def bulk_action(organization_id, action, target_ids):
-        """Execute a bulk action on a list of security header targets.
+        from common.bulk import operate
+        from .tasks import scan_security_headers
 
-        Supported actions: 'scan', 'pause', 'resume', 'delete'.
-        """
-        targets = SecurityHeaderTarget.objects.filter(
-            id__in=target_ids,
-            organization_id=organization_id,
-        )
-        count = targets.count()
-        if count == 0:
-            return {"count": 0, "message": "No se encontraron endpoints válidos."}
-
-        if action == "scan":
-            from .tasks import scan_security_headers
-            for target in targets:
-                scan_security_headers.delay(str(target.id))
-            return {
-                "count": count,
-                "action": "scan",
-                "message": f"Escaneo en lote iniciado para {count} endpoints.",
-            }
-
-        elif action == "pause":
-            targets.update(enabled=False)
-            return {
-                "count": count,
-                "action": "pause",
-                "message": f"Monitoreo pausado para {count} endpoints.",
-            }
-
-        elif action == "resume":
-            targets.update(enabled=True)
-            return {
-                "count": count,
-                "action": "resume",
-                "message": f"Monitoreo reanudado para {count} endpoints.",
-            }
-
-        elif action == "delete":
-            with transaction.atomic():
-                targets.delete()
-            return {
-                "count": count,
-                "action": "delete",
-                "message": f"{count} endpoints eliminados correctamente.",
-            }
-
-        else:
-            raise ValueError(f"Acción desconocida: {action}")
+        return operate(SecurityHeaderTarget, organization_id, action, target_ids, scan_security_headers)

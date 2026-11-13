@@ -1,5 +1,5 @@
 export interface DomainInfo {
-  scan_availability?: import('./scan').ScanAvailability;
+  scan_availability?: import("./scan").ScanAvailability;
   id: string;
   organization: string;
   domain: string;
@@ -11,7 +11,10 @@ export interface DomainInfo {
   name_servers: string[] | string | null;
   registrant_country: string | null;
   days_until_expiration: number | null;
-  is_locked?: boolean;
+  is_locked?: boolean | null;
+  data_source?: string;
+  source_url?: string;
+  last_successful_at?: string | null;
   whois_server?: string | null;
   dnssec?: string | null;
   last_scanned_at: string | null;
@@ -44,7 +47,10 @@ export interface DomainTestWhoisResult {
   last_updated?: string | null;
   days_until_expiration?: number | null;
   life_percentage?: number;
-  is_locked?: boolean;
+  is_locked?: boolean | null;
+  data_source?: string;
+  source_url?: string;
+  last_successful_at?: string | null;
   status?: string[];
   name_servers?: string[];
   registrant_country?: string;

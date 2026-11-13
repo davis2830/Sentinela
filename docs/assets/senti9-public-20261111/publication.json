@@ -1,0 +1,29 @@
+{
+  "observed_at": "2026-11-11T19:36:00.4299477-06:00",
+  "repository": "davis1924/senti9",
+  "tag": "1.8.0",
+  "digest": "sha256:ea7b703fab4e855bfa9b3f4f91458c4bfd3123c0beb3ad9f3f68da30e68ba954",
+  "visibility": "public",
+  "anonymous_metadata_verified": true,
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "latest_published": false,
+  "agents_updated": false,
+  "cryptographic_signature": "not_created",
+  "anonymous_pull_verified": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "validation": {
+    "build": "passed",
+    "agent_amd64": 61,
+    "scout_reported_high": 2,
+    "lint": "passed",
+    "django": 399,
+    "agent_arm64_emulated": 61,
+    "scout_reported_critical": 0,
+    "chromium": 7
+  }
+}

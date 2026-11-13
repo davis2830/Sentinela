@@ -1,0 +1,23 @@
+.resource-action-button:hover:not(:disabled) > span,
+.resource-action-button:focus-visible > span {
+  background: rgb(var(--sentinel-bg-card-hover));
+  color: rgb(var(--sentinel-accent-green));
+}
+.resource-action-button[data-danger="true"]:hover:not(:disabled) > span,
+.resource-action-button[data-danger="true"]:focus-visible > span {
+  background: rgb(var(--sentinel-accent-red) / 0.1);
+  color: rgb(var(--sentinel-accent-red));
+}
+.sentinel-selection:hover > span {
+  border-color: rgb(var(--sentinel-accent-green) / 0.5);
+}
+.connectivity-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+}
+@media (min-width: 1536px) {
+  .connectivity-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

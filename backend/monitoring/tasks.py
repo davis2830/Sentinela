@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, name="monitoring.run_check", soft_time_limit=510, time_limit=540)
-@guarded_scan('monitoring.MonitoringTarget')
+@guarded_scan("monitoring.MonitoringTarget")
 def run_monitoring_check(self, target_id):
     """Execute a monitoring check for a specific target.
 
@@ -29,6 +29,7 @@ def run_monitoring_check(self, target_id):
     try:
         target = MonitoringTarget.objects.select_related("organization").get(id=target_id)
         from common.subscriptions import monitoring_allowed
+
         if not monitoring_allowed(target.organization):
             return {"status": "skipped", "reason": "subscription_required"}
     except MonitoringTarget.DoesNotExist:
@@ -62,11 +63,14 @@ def run_monitoring_check(self, target_id):
             target_id=target.id,
             status=status,
             latency=latency,
-            details={**details, "evaluation_policy": {
-                "max_latency_ms": target.max_latency_ms,
-                "expected_status": target.expected_status,
-                "source": "cloud_execution",
-            }},
+            details={
+                **details,
+                "evaluation_policy": {
+                    "max_latency_ms": target.max_latency_ms,
+                    "expected_status": target.expected_status,
+                    "source": "cloud_execution",
+                },
+            },
         )
     except Exception as exc:
         logger.exception("Error checking target %s: %s", target.name, exc)
@@ -74,11 +78,14 @@ def run_monitoring_check(self, target_id):
             target_id=target.id,
             status="error",
             latency=None,
-            details={"error": type(exc).__name__, "evaluation_policy": {
-                "max_latency_ms": target.max_latency_ms,
-                "expected_status": target.expected_status,
-                "source": "cloud_execution",
-            }},
+            details={
+                "error": type(exc).__name__,
+                "evaluation_policy": {
+                    "max_latency_ms": target.max_latency_ms,
+                    "expected_status": target.expected_status,
+                    "source": "cloud_execution",
+                },
+            },
         )
 
 
@@ -92,19 +99,26 @@ def _run_http_check(target):
     try:
         # Only status/headers are needed: do not download an unbounded body.
         with safe_http.request(
-            method=method, url=url, headers=dict(target.custom_headers or {}),
-            data=target.request_body.encode('utf-8') if target.request_body else None,
-            timeout=(5, 10), stream=True,
+            method=method,
+            url=url,
+            headers=dict(target.custom_headers or {}),
+            data=target.request_body.encode("utf-8") if target.request_body else None,
+            timeout=(5, 10),
+            stream=True,
         ) as response:
             latency_ms = (perf_counter() - start) * 1000
             code = response.status_code
-        status = 'down' if code != target.expected_status else (
-            'slow' if latency_ms > target.max_latency_ms else 'up'
+        status = "down" if code != target.expected_status else ("slow" if latency_ms > target.max_latency_ms else "up")
+        return (
+            status,
+            round(latency_ms, 2),
+            {
+                "status_code": code,
+                "expected_status": target.expected_status,
+                "method": method,
+                "url": url,
+            },
         )
-        return status, round(latency_ms, 2), {
-            "status_code": code, "expected_status": target.expected_status,
-            "method": method, "url": url,
-        }
     except Exception as exc:
         # Requests exceptions can include headers/URLs; persist only the category.
         return "down", None, {"error": type(exc).__name__, "method": method, "url": url}
@@ -117,9 +131,13 @@ def _run_tcp_check(target):
     try:
         with socket.create_connection((resolved_ips[0], port), timeout=10):
             latency_ms = (perf_counter() - start) * 1000
-        return ('slow' if latency_ms > target.max_latency_ms else 'up'), round(latency_ms, 2), {
-            "endpoint": target.endpoint,
-        }
+        return (
+            ("slow" if latency_ms > target.max_latency_ms else "up"),
+            round(latency_ms, 2),
+            {
+                "endpoint": target.endpoint,
+            },
+        )
     except Exception as exc:
         return "down", None, {"error": type(exc).__name__, "endpoint": target.endpoint}
 
@@ -135,6 +153,7 @@ def _run_dns_check(target):
     start = timezone.now()
     try:
         from common.security import resolve_safe_target_endpoint
+
         _, _, _, resolved_ips = resolve_safe_target_endpoint(
             f"http://{host}",
             allow_private=False,
@@ -160,6 +179,7 @@ def _run_ssl_check(target):
     start = timezone.now()
     try:
         from common.security import resolve_safe_target_endpoint
+
         _, tls_hostname, port, resolved_ips = resolve_safe_target_endpoint(
             f"https://{host}",
             allow_private=False,
@@ -179,9 +199,7 @@ def _run_ssl_check(target):
         days_remaining = None
         if not_after:
             try:
-                expiration_date = datetime.strptime(
-                    not_after, "%b %d %H:%M:%S %Y %Z"
-                ).replace(tzinfo=dt_timezone.utc)
+                expiration_date = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=dt_timezone.utc)
                 now = datetime.now(dt_timezone.utc)
                 days_remaining = (expiration_date - now).days
             except ValueError:
@@ -191,12 +209,16 @@ def _run_ssl_check(target):
         if elapsed > (target.max_latency_ms or 2000):
             status = "slow"
 
-        return status, round(elapsed, 2), {
-            "host": host,
-            "days_remaining": days_remaining,
-            "issuer": issuer_name,
-            "expiration_date": expiration_date.isoformat() if expiration_date else None,
-        }
+        return (
+            status,
+            round(elapsed, 2),
+            {
+                "host": host,
+                "days_remaining": days_remaining,
+                "issuer": issuer_name,
+                "expiration_date": expiration_date.isoformat() if expiration_date else None,
+            },
+        )
     except ssl_module.SSLError as exc:
         return "down", None, {"error": f"SSL error: {exc}", "host": host}
     except (socket.timeout, socket.gaierror, ConnectionRefusedError, OSError) as exc:
@@ -215,9 +237,11 @@ def schedule_all_checks():
             enabled=True,
             organization__status="active",
             organization_id__in=eligible_organization_ids(),
-        ).exclude(
+        )
+        .exclude(
             runner_type="agent",
-        ).select_related("organization")
+        )
+        .select_related("organization")
     )
     count = 0
     now = timezone.now()
@@ -225,7 +249,7 @@ def schedule_all_checks():
         interval = max(target.interval, target.organization.get_plan_limits()["min_check_interval_seconds"])
         if target.last_checked_at and (now - target.last_checked_at).total_seconds() < interval:
             continue
-        count += enqueue_many([target], run_monitoring_check)['queued_count']
+        count += enqueue_many([target], run_monitoring_check)["queued_count"]
     logger.info("Scheduled checks for %d targets.", count)
 
 
@@ -258,27 +282,46 @@ def register_target_in_submonitors(target_id, related_modules=None, actor_id=Non
     from api_checks.services import APICheckService
     from security_headers.models import SecurityHeaderTarget
     from security_headers.services import SecurityHeadersService
+
     if not monitoring_allowed(target.organization):
         return {"status": "skipped", "reason": "subscription_required"}
     modules, host, port, url = coverage(
-        target.target_type, target.endpoint,
-        "agent" if target.agent_probe_id else target.runner_type, related_modules,
+        target.target_type,
+        target.endpoint,
+        "agent" if target.agent_probe_id else target.runner_type,
+        related_modules,
     )
     org_id = target.organization_id
     handlers = {
-        "ssl": (SSLCertificate, {"domain": host}, "ssl_certificates",
-                lambda: SSLMonitorService.create_certificate(org_id, host, port)),
-        "dns": (DNSRecord, {"domain": host, "record_type": "A"}, "dns_records",
-                lambda: DNSMonitorService.get_or_create_dns_record(org_id, host)),
-        "domain": (DomainInfo, {"domain": host}, "domains",
-                   lambda: DomainService.get_or_create_domain(org_id, host)),
-        "api": (APICheckTarget, {"url": url}, "api_checks",
-                lambda: APICheckService.get_or_create_api_target(org_id, target.name, url, target.http_method)),
-        "security": (SecurityHeaderTarget, {"url": url}, "security_headers",
-                     lambda: SecurityHeadersService.get_or_create_target(org_id, target.name, url)),
+        "ssl": (
+            SSLCertificate,
+            {"domain": host},
+            "ssl_certificates",
+            lambda: SSLMonitorService.create_certificate(org_id, host, port),
+        ),
+        "dns": (
+            DNSRecord,
+            {"domain": host, "record_type": "A"},
+            "dns_records",
+            lambda: DNSMonitorService.get_or_create_dns_record(org_id, host),
+        ),
+        "domain": (DomainInfo, {"domain": host}, "domains", lambda: DomainService.get_or_create_domain(org_id, host)),
+        "api": (
+            APICheckTarget,
+            {"url": url},
+            "api_checks",
+            lambda: APICheckService.get_or_create_api_target(org_id, target.name, url, target.http_method),
+        ),
+        "security": (
+            SecurityHeaderTarget,
+            {"url": url},
+            "security_headers",
+            lambda: SecurityHeadersService.get_or_create_target(org_id, target.name, url),
+        ),
     }
     result = {"created": [], "existing": [], "failed": {}}
     from django.db import transaction
+
     for module in sorted(modules):
         model, lookup, quota, create = handlers[module]
         try:
@@ -291,7 +334,12 @@ def register_target_in_submonitors(target_id, related_modules=None, actor_id=Non
                     from accounts.models import User
                     from accounts.eligibility import require_identity
                     from common.authorization import RELATED_MODULES, effective_permissions
-                    actor = User.objects.select_related("organization").filter(pk=actor_id, organization_id=org_id, is_active=True).first()
+
+                    actor = (
+                        User.objects.select_related("organization")
+                        .filter(pk=actor_id, organization_id=org_id, is_active=True)
+                        .first()
+                    )
                     try:
                         if actor is None:
                             raise ValueError("Operador no disponible.")
@@ -304,26 +352,29 @@ def register_target_in_submonitors(target_id, related_modules=None, actor_id=Non
                 existing = model.objects.filter(organization_id=org_id, **lookup).first()
                 if existing:
                     from .coverage import link_provisioned
+
                     link_provisioned(target, module, existing)
                     result["existing"].append(module)
                     continue
                 QuotaService.check_quota(org, quota)
                 resource = create()
                 from .coverage import link_provisioned
+
                 link_provisioned(target, module, resource)
                 result["created"].append(module)
         except Exception as exc:
-            result["failed"][module] = str(exc)
+            result["failed"][module] = "provisioning_failed"
             logger.warning("Submonitor %s provisioning failed for target %s: %s", module, target_id, exc)
+    MonitoringTarget.objects.filter(pk=target.pk, organization_id=org_id).update(
+        coverage_status={"state": "completed", **result}
+    )
     return result
 
 
 @shared_task(name="monitoring.purge_old_checks_by_retention")
 def purge_old_checks_by_retention():
     """Deprecated task alias retained for one release."""
-    logger.warning(
-        "monitoring.purge_old_checks_by_retention is deprecated; use monitoring.purge_telemetry."
-    )
+    logger.warning("monitoring.purge_old_checks_by_retention is deprecated; use monitoring.purge_telemetry.")
     return purge_telemetry()
 
 
@@ -358,6 +409,7 @@ def check_sentinine_heartbeats():
 
         try:
             from alerts.services import AlertService
+
             AlertService.create_alert(
                 organization_id=probe.organization_id,
                 rule_id=None,
@@ -385,6 +437,7 @@ def check_sentinine_heartbeats():
 def purge_telemetry():
     """Enforce tenant-aware telemetry retention in PostgreSQL."""
     from django.core.management import call_command
+
     logger.info("Executing tenant-aware telemetry purge task.")
     try:
         call_command("purge_telemetry")
@@ -399,4 +452,3 @@ def purge_old_telemetry(days=None):
     """Deprecated Celery alias retained for one release."""
     logger.warning("monitoring.purge_old_telemetry is deprecated; use monitoring.purge_telemetry.")
     return purge_telemetry()
-

@@ -1,5 +1,7 @@
 export interface SSLCertificate {
-  scan_availability?: import('./scan').ScanAvailability;
+  last_error_code?: string;
+  last_successful_at?: string | null;
+  scan_availability?: import("./scan").ScanAvailability;
   id: string;
   organization: string;
   domain: string;
@@ -34,7 +36,7 @@ export interface SSLStats {
   expiring_30d: number;
   expired: number;
   invalid: number;
-  avg_days_remaining: number;
+  avg_days_remaining: number | null;
 }
 
 export interface SSLTestConnectionResult {

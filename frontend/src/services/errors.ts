@@ -22,7 +22,7 @@ export function apiFailure(error: unknown) {
         }
       : undefined;
   const body = record(response?.data);
-  const errors = record(body.errors);
+  const errors = record(body.errors ?? body);
   const messages = (value: unknown) =>
     Array.isArray(value)
       ? value.filter((item): item is string => typeof item === "string")
@@ -45,6 +45,7 @@ export function apiFailure(error: unknown) {
               retry_after_seconds: number(errors.retry_after_seconds),
               password: messages(errors.password),
               email: messages(errors.email),
+              page: messages(errors.page),
             },
             password: messages(body.password),
             email: messages(body.email),

@@ -29,8 +29,9 @@ class APICheckTargetListView(APIView):
     def get(self, request):
         org_id = request.user.organization_id
         targets = APICheckService.list_targets(org_id)
-        serializer = APICheckTargetSerializer(targets, many=True, context={"request": request})
-        return success_response(serializer.data)
+        from common.connectivity_directory import directory
+
+        return directory(targets, request, APICheckTargetSerializer, "api_checks")
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -48,11 +49,18 @@ class APICheckTargetListView(APIView):
                 from organizations.services import QuotaService, QuotaExceededException
 
                 if "check_interval" in serializer.validated_data:
-                    QuotaService.check_min_interval(request.user.organization, serializer.validated_data["check_interval"])
+                    QuotaService.check_min_interval(
+                        request.user.organization, serializer.validated_data["check_interval"]
+                    )
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -68,9 +76,7 @@ class APICheckTargetListView(APIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class APICheckTargetDetailView(APIView):
@@ -108,18 +114,22 @@ class APICheckTargetDetailView(APIView):
         if "check_interval" in serializer.validated_data and getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
+
                 QuotaService.check_min_interval(request.user.organization, serializer.validated_data["check_interval"])
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
         try:
-            target = APICheckService.update_target(
-                target_id, org_id, **serializer.validated_data
-            )
+            target = APICheckService.update_target(target_id, org_id, **serializer.validated_data)
             response_serializer = APICheckTargetSerializer(target, context={"request": request})
             return success_response(response_serializer.data)
         except ObjectDoesNotExist:
@@ -153,6 +163,7 @@ class APICheckTargetScanView(APIView):
         try:
             target = APICheckService.get_target(target_id, org_id)
             from .tasks import run_api_check
+
             task = enqueue_scan(target, run_api_check)
             return queued_scan_response(task, target.id)
         except ScanLimited as exc:
@@ -209,7 +220,14 @@ class APICheckBulkScanView(APIView):
         try:
             from .tasks import run_api_check
             from .models import APICheckTarget
-            return success_response(enqueue_many(APICheckTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_api_check))
+
+            return success_response(
+                enqueue_many(
+                    APICheckTarget.objects.filter(organization_id=request.user.organization_id, enabled=True),
+                    run_api_check,
+                    report=True,
+                )
+            )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -231,6 +249,7 @@ class APICheckTestRequestView(ConfigurationDiagnosticAPIView):
             )
 
         from common.security import validate_safe_public_url, SSRFSecurityException
+
         try:
             validate_safe_public_url(url)
         except SSRFSecurityException as s_exc:

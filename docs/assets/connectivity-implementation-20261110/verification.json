@@ -1,0 +1,42 @@
+{
+  "date_local": "2026-11-10",
+  "timezone": "America/Guatemala",
+  "scope": "local validation, isolated functional fixtures",
+  "django": {
+    "failed": 0,
+    "passed": 399,
+    "seconds": 115.245
+  },
+  "agent": {
+    "failed": 0,
+    "passed": 61,
+    "seconds": 5.101
+  },
+  "chromium": {
+    "minutes": 6.4,
+    "skipped": 8,
+    "passed": 246,
+    "skipped_reason": "Existing PLATFORM_ISOLATED and QUALITY_ISOLATED suites require separate seeds",
+    "failed": 0
+  },
+  "typescript_build": "passed",
+  "eslint": "passed",
+  "ruff": "passed",
+  "format": "passed",
+  "openapi": "official reference current and generated types reproducible",
+  "local_migrations": {
+    "pending": 0,
+    "environment": "development only",
+    "applied": 8
+  },
+  "candidate": {
+    "published": false,
+    "package": "dist/senti9-1.8.0-rc.1",
+    "rollback": "1.7.0 journal compatibility passed",
+    "version": "1.8.0",
+    "integrity": "verified",
+    "signature": "pending"
+  },
+  "remote_ci": "not run",
+  "production_deployment": false
+}

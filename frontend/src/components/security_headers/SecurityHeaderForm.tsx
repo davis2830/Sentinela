@@ -1,15 +1,16 @@
-import AdminButton from '../common/AdminButton';
-import { apiFailure } from '../../services/errors';
-import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
-import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import ModalSurface from "../common/ModalSurface";
+import AdminButton from "../common/AdminButton";
+import { apiFailure } from "../../services/errors";
+import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
+import ConfigurationDiagnosticNotice from "../../components/common/ConfigurationDiagnosticNotice";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type {
   SecurityHeaderTarget,
   CreateSecurityHeaderTargetData,
   TestHeaderResponse,
-} from '../../types/security_headers';
-import GradeBadge from '../common/GradeBadge';
+} from "../../types/security_headers";
+import GradeBadge from "../common/GradeBadge";
 import {
   X,
   Loader2,
@@ -19,7 +20,7 @@ import {
   AlertTriangle,
   Clock,
   ShieldAlert,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface SecurityHeaderFormProps {
   target?: SecurityHeaderTarget | null;
@@ -32,8 +33,8 @@ export default function SecurityHeaderForm({
   onSubmit,
   onClose,
 }: SecurityHeaderFormProps) {
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
   const [enabled, setEnabled] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,8 +50,8 @@ export default function SecurityHeaderForm({
       setUrl(target.url);
       setEnabled(target.enabled);
     } else {
-      setName('');
-      setUrl('');
+      setName("");
+      setUrl("");
       setEnabled(true);
     }
     setTestResult(null);
@@ -64,19 +65,25 @@ export default function SecurityHeaderForm({
     setTestError(null);
 
     try {
-      const response = await diagnostic.run('security-headers/test-headers/', {
+      const response = await diagnostic.run("security-headers/test-headers/", {
         url: url.trim(),
       });
       const data = response.data?.data;
       if (data?.success) {
         setTestResult(data);
       } else {
-        setTestError(data?.error || 'Error al conectar con la URL para auditar cabeceras.');
+        setTestError(
+          data?.error || "Error al conectar con la URL para auditar cabeceras.",
+        );
       }
     } catch (caughtError: unknown) {
- const err = apiFailure(caughtError);
+      const err = apiFailure(caughtError);
       if (diagnostic.isLimit(err)) return;
-      setTestError(err?.response?.data?.message || err?.message || 'Error al ejecutar prueba de auditoría.');
+      setTestError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Error al ejecutar prueba de auditoría.",
+      );
     } finally {
       setTesting(false);
     }
@@ -99,21 +106,30 @@ export default function SecurityHeaderForm({
     }
   };
 
-  const leakKeys = testResult?.info_leaks ? Object.keys(testResult.info_leaks) : [];
+  const leakKeys = testResult?.info_leaks
+    ? Object.keys(testResult.info_leaks)
+    : [];
 
   const content = (
     <div
       className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <div
+      <ModalSurface
+        label={
+          target
+            ? "Editar Security Header Target"
+            : "Nuevo Security Header Scan"
+        }
+        onClose={onClose}
         className="bg-bg-card border border-border-base rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
             <ShieldCheck size={20} className="text-accent-green" />
-            {target ? 'Editar Security Header Target' : 'Nuevo Security Header Scan'}
+            {target
+              ? "Editar Security Header Target"
+              : "Nuevo Security Header Scan"}
           </h2>
           <button
             type="button"
@@ -144,7 +160,8 @@ export default function SecurityHeaderForm({
               <label className="text-xs font-semibold text-text-muted">
                 URL del Endpoint / Sitio Web
               </label>
-              <AdminButton capability="security_headers.test"
+              <AdminButton
+                capability="security_headers.test"
                 type="button"
                 onClick={handleTestAudit}
                 disabled={testing || !url.trim()}
@@ -156,10 +173,13 @@ export default function SecurityHeaderForm({
                 ) : (
                   <Zap size={12} />
                 )}
-                {testing ? 'Auditando...' : 'Probar configuración'}
+                {testing ? "Auditando..." : "Probar configuración"}
               </AdminButton>
             </div>
-                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
+            <ConfigurationDiagnosticNotice
+              notice={diagnostic.notice}
+              remaining={diagnostic.remaining}
+            />
             <div className="relative">
               <input
                 type="text"
@@ -175,7 +195,8 @@ export default function SecurityHeaderForm({
               />
             </div>
             <p className="text-xs text-text-dim mt-1.5">
-              Se analizarán cabeceras como HSTS, CSP, X-Frame-Options, X-Content-Type-Options y posibles fugas de servidor.
+              Se analizarán cabeceras como HSTS, CSP, X-Frame-Options,
+              X-Content-Type-Options y posibles fugas de servidor.
             </p>
           </div>
 
@@ -183,7 +204,9 @@ export default function SecurityHeaderForm({
           {testing && (
             <div className="bg-bg-dark/80 border border-border-base rounded-xl p-4 flex items-center justify-center gap-2 text-xs text-text-muted animate-pulse">
               <Loader2 size={16} className="animate-spin text-accent-green" />
-              <span>Conectando y analizando cabeceras HTTP de respuesta...</span>
+              <span>
+                Conectando y analizando cabeceras HTTP de respuesta...
+              </span>
             </div>
           )}
 
@@ -191,7 +214,9 @@ export default function SecurityHeaderForm({
             <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-400 flex items-start gap-2">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">Fallo en la prueba de auditoría:</p>
+                <p className="font-semibold">
+                  Fallo en la prueba de auditoría:
+                </p>
                 <p className="mt-0.5 text-rose-300/90">{testError}</p>
               </div>
             </div>
@@ -201,7 +226,9 @@ export default function SecurityHeaderForm({
             <div className="bg-bg-dark/90 border border-border-base rounded-xl p-3.5 space-y-3 animate-in fade-in duration-200">
               <div className="flex items-center justify-between border-b border-border-base/60 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-text-muted">Auditoría Previa:</span>
+                  <span className="text-xs font-semibold text-text-muted">
+                    Auditoría Previa:
+                  </span>
                   <span className="text-xs font-mono font-bold text-accent-green">
                     Status {testResult.http_status}
                   </span>
@@ -228,9 +255,13 @@ export default function SecurityHeaderForm({
                 </div>
                 <div className="bg-bg-card border border-border-base/50 rounded-lg p-2">
                   <div className="text-xs text-text-dim">Faltantes</div>
-                  <div className={`text-sm font-bold font-mono mt-0.5 ${
-                    testResult.headers_missing.length > 0 ? 'text-amber-400' : 'text-emerald-400'
-                  }`}>
+                  <div
+                    className={`text-sm font-bold font-mono mt-0.5 ${
+                      testResult.headers_missing.length > 0
+                        ? "text-amber-400"
+                        : "text-emerald-400"
+                    }`}
+                  >
                     {testResult.headers_missing.length}
                   </div>
                 </div>
@@ -241,9 +272,16 @@ export default function SecurityHeaderForm({
                 <div className="bg-amber-500/10 border border-amber-500/25 rounded-lg p-2.5 text-xs text-amber-400 flex items-start gap-2">
                   <ShieldAlert size={14} className="shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <span className="font-semibold">Fuga de información de stack detectada:</span>
+                    <span className="font-semibold">
+                      Fuga de información de stack detectada:
+                    </span>
                     <p className="text-xs text-amber-300/80">
-                      {leakKeys.map((k) => `${testResult.info_leaks[k].header}: ${testResult.info_leaks[k].value}`).join(' | ')}
+                      {leakKeys
+                        .map(
+                          (k) =>
+                            `${testResult.info_leaks[k].header}: ${testResult.info_leaks[k].value}`,
+                        )
+                        .join(" | ")}
                     </p>
                   </div>
                 </div>
@@ -304,17 +342,17 @@ export default function SecurityHeaderForm({
               {submitting ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : target ? (
-                'Actualizar Endpoint'
+                "Actualizar Endpoint"
               ) : (
-                'Guardar y Escanear'
+                "Guardar y Escanear"
               )}
             </button>
           </div>
         </form>
-      </div>
+      </ModalSurface>
     </div>
   );
 
-  if (typeof document === 'undefined') return null;
+  if (typeof document === "undefined") return null;
   return createPortal(content, document.body);
 }

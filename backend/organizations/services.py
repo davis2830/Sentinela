@@ -43,21 +43,17 @@ class QuotaService:
         MonitoringTarget = apps.get_model("monitoring", "MonitoringTarget")
         targets_count = MonitoringTarget.objects.filter(organization=organization).count()
 
-
         # 2. SSL Certificates
         SSLCertificate = apps.get_model("ssl_monitor", "SSLCertificate")
         ssl_count = SSLCertificate.objects.filter(organization=organization).count()
-
 
         # 3. API Checks
         APICheck = apps.get_model("api_checks", "APICheckTarget")
         api_count = APICheck.objects.filter(organization=organization).count()
 
-
         # 4. Status Pages
         StatusPage = apps.get_model("status_page", "StatusPageConfig")
         status_pages_count = StatusPage.objects.filter(organization=organization).count()
-
 
         # 5. Team Members (active users + pending invitations)
         User = apps.get_model("accounts", "User")
@@ -68,31 +64,25 @@ class QuotaService:
         ).count()
         members_count = active_users + pending_invites
 
-
         # 6. Private Agents (Probes)
         AgentProbe = apps.get_model("monitoring", "AgentProbe")
-        agents_count = AgentProbe.objects.filter(organization=organization).count()
-
+        agents_count = AgentProbe.objects.filter(organization=organization, revoked_at__isnull=True).count()
 
         # 7. DNS Records
         DNSRecord = apps.get_model("dns_monitor", "DNSRecord")
         dns_count = DNSRecord.objects.filter(organization=organization).count()
 
-
         # 8. Monitored Domains (WHOIS)
         DomainInfo = apps.get_model("domain", "DomainInfo")
         domains_count = DomainInfo.objects.filter(organization=organization).count()
-
 
         # 9. Security Headers Targets
         SecurityHeaderTarget = apps.get_model("security_headers", "SecurityHeaderTarget")
         sec_headers_count = SecurityHeaderTarget.objects.filter(organization=organization).count()
 
-
         # 10. Notification Channels
         NotificationChannel = apps.get_model("notifications", "NotificationChannel")
         channels_count = NotificationChannel.objects.filter(organization=organization).count()
-
 
         def build_metric(current, limit):
             limit_val = limit if limit is not None else 9999
@@ -136,6 +126,7 @@ class QuotaService:
                     plan.update(price_monthly_usd=None, name="Business / Cotización")
 
         from common.retention_policy import retention_policy
+
         return {
             "retention_policy": retention_policy(organization),
             "plan_tier": organization.plan_tier,
@@ -163,7 +154,7 @@ class QuotaService:
         metric = summary["usage"].get(resource_type)
 
         if not metric:
-            raise ValueError('Tipo de cuota desconocido; alta rechazada.')
+            raise ValueError("Tipo de cuota desconocido; alta rechazada.")
 
         if metric["is_exceeded"]:
             resource_labels = {
@@ -275,7 +266,9 @@ class OrganizationService:
             timezone=timezone,
             locale=locale,
             plan_tier=plan_tier,
-            subscription_status=OrganizationSubscriptionStatus.ACTIVE if plan_tier == "free" else OrganizationSubscriptionStatus.TRIALING,
+            subscription_status=OrganizationSubscriptionStatus.ACTIVE
+            if plan_tier == "free"
+            else OrganizationSubscriptionStatus.TRIALING,
             default_scan_interval_seconds=PLAN_LIMITS[plan_tier]["min_check_interval_seconds"],
             metrics_retention_days=PLAN_LIMITS[plan_tier]["metrics_retention_days"],
         )

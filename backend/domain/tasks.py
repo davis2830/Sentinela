@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, name="domain.scan_whois", soft_time_limit=510, time_limit=540)
-@guarded_scan('domain.DomainInfo')
+@guarded_scan("domain.DomainInfo")
 def scan_whois(self, domain_id):
     """Scan WHOIS information for a given domain.
 
@@ -23,6 +23,7 @@ def scan_whois(self, domain_id):
     try:
         domain_info = DomainInfo.objects.select_related("organization").get(id=domain_id)
         from common.subscriptions import monitoring_allowed
+
         if not monitoring_allowed(domain_info.organization):
             return {"status": "skipped", "reason": "subscription_required"}
     except DomainInfo.DoesNotExist:
@@ -45,10 +46,12 @@ def scan_whois(self, domain_id):
             name_servers="\n".join(res.get("name_servers", [])),
             registrant_country=res.get("registrant_country", ""),
             days_until_expiration=res.get("days_until_expiration"),
-            is_locked=res.get("is_locked", True),
+            is_locked=res.get("is_locked"),
             whois_server=res.get("whois_server", ""),
             dnssec=res.get("dnssec", ""),
             error_message="",
+            data_source=res.get("data_source", "whois"),
+            source_url=res.get("source_url", ""),
         )
         logger.info(
             "WHOIS scan complete for %s: expires in %s days (locked: %s)",

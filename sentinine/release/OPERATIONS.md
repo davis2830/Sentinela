@@ -1,4 +1,6 @@
-# Verificar, instalar y retornar Senti9 1.7.0
+# Operaciones históricas de Senti9 1.7.0
+
+Para instalaciones nuevas usa la [guía vigente de 1.8.0](RELEASE_1_8_0.md), con perfiles y nombres propios por agente. Conserva este documento para instalaciones anteriores; no sustituyas su volumen al migrar.
 
 Ejecutar instalaciones reales únicamente en infraestructura autorizada. La prueba
 de compatibilidad del paquete usa datos ficticios y contenedores sin red; no inicia

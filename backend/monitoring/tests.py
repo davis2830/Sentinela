@@ -23,35 +23,36 @@ class MonitoringAccessTests(TestCase):
         self.user = User.objects.create_user(
             email="alpha@example.test", password="test-pass", organization=self.org, is_staff=True
         )
-        self.viewer = User.objects.create_user(
-            email="viewer@example.test", password="test-pass", organization=self.org
-        )
+        self.viewer = User.objects.create_user(email="viewer@example.test", password="test-pass", organization=self.org)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    @patch('common.security.validate_safe_public_url')
-    @patch('common.safe_http.request')
+    @patch("common.security.validate_safe_public_url")
+    @patch("common.safe_http.request")
     def test_diagnostic_reports_redirect_without_visiting_location(self, request_mock, validate_mock):
         request_mock.return_value.status_code = 308
         request_mock.return_value.is_redirect = True
-        request_mock.return_value.headers = {'Location': 'http://127.0.0.1/private'}
-        response = self.client.post('/api/v1/monitoring/test-connection/', {
-            'endpoint': 'https://example.com', 'target_type': 'https',
-        }, format='json')
+        request_mock.return_value.headers = {"Location": "http://127.0.0.1/private"}
+        response = self.client.post(
+            "/api/v1/monitoring/test-connection/",
+            {
+                "endpoint": "https://example.com",
+                "target_type": "https",
+            },
+            format="json",
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['data']['status_code'], 308)
-        self.assertEqual(response.data['data']['redirect_location'], 'http://127.0.0.1/private')
-        self.assertEqual(response.data['data']['status'], 'down')
+        self.assertEqual(response.data["data"]["status_code"], 308)
+        self.assertEqual(response.data["data"]["redirect_location"], "http://127.0.0.1/private")
+        self.assertEqual(response.data["data"]["status"], "down")
         request_mock.assert_called_once()
-        self.assertEqual(request_mock.call_args.kwargs['url'], 'https://example.com')
+        self.assertEqual(request_mock.call_args.kwargs["url"], "https://example.com")
 
     def test_other_organization_target_is_hidden_and_cannot_be_changed(self):
         foreign = MonitoringTarget.objects.create(
             organization=self.other_org, name="Foreign", endpoint="https://beta.example.test"
         )
-        own = MonitoringTarget.objects.create(
-            organization=self.org, name="Own", endpoint="https://alpha.example.test"
-        )
+        own = MonitoringTarget.objects.create(organization=self.org, name="Own", endpoint="https://alpha.example.test")
 
         listing = self.client.get("/api/v1/monitoring-targets/")
         self.assertEqual(listing.status_code, 200)
@@ -124,7 +125,7 @@ class MonitoringAccessTests(TestCase):
         self.assertEqual(response.status_code, 202)
         self.assertEqual(
             set(response.data["data"]),
-            {"task_id", "resource_id", "status", "submitted_at"},
+            {"task_id", "resource_id", "status", "submitted_at", "execution_id"},
         )
         self.assertEqual(response.data["data"]["task_id"], "task-123")
         self.assertEqual(response.data["data"]["resource_id"], str(target.id))
@@ -145,8 +146,12 @@ class GlobalPerformanceTests(TestCase):
         self.assertTrue(all(point["requests"] == 0 for point in result["points"]))
 
     def test_check_metrics_are_scoped_to_organization(self):
-        target = MonitoringTarget.objects.create(organization=self.org, name="Web", endpoint="https://alpha.example.test")
-        foreign = MonitoringTarget.objects.create(organization=self.other_org, name="Other", endpoint="https://beta.example.test")
+        target = MonitoringTarget.objects.create(
+            organization=self.org, name="Web", endpoint="https://alpha.example.test"
+        )
+        foreign = MonitoringTarget.objects.create(
+            organization=self.other_org, name="Other", endpoint="https://beta.example.test"
+        )
         checked_at = timezone.now().replace(second=0, microsecond=0)
         MonitoringCheck.objects.create(target=target, status="up", latency=100, checked_at=checked_at)
         MonitoringCheck.objects.create(target=target, status="down", latency=300, checked_at=checked_at)
@@ -160,9 +165,13 @@ class GlobalPerformanceTests(TestCase):
         self.assertEqual(sum(point["requests"] for point in result["points"]), 2)
 
     def test_period_changes_historical_metrics(self):
-        target = MonitoringTarget.objects.create(organization=self.org, name="Web", endpoint="https://alpha.example.test")
+        target = MonitoringTarget.objects.create(
+            organization=self.org, name="Web", endpoint="https://alpha.example.test"
+        )
         MonitoringCheck.objects.create(
-            target=target, status="up", latency=120,
+            target=target,
+            status="up",
+            latency=120,
             checked_at=timezone.now() - timedelta(hours=2),
         )
 

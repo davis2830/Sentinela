@@ -1,6 +1,8 @@
+# Compatibilidad con instalaciones Linux anteriores: conserva nombre y volumen.
+# Para nuevos agentes (incluido Docker Desktop), usa el perfil descargado de Sentinel.
 services:
   sentinine:
-    image: ${SENTININE_IMAGE:-davis1924/senti9:1.7.0}
+    image: ${SENTININE_IMAGE:-davis1924/senti9:1.8.0}
     container_name: sentinine_agent
     restart: unless-stopped
     user: "10001:10001"

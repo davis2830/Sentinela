@@ -24,6 +24,7 @@ from django.http import HttpResponse
 import socket
 import time
 
+
 class MonitoringTargetListView(APIView):
     """Endpoint for listing and creating monitoring targets.
 
@@ -39,8 +40,9 @@ class MonitoringTargetListView(APIView):
         team_id = request.query_params.get("team_id")
         if team_id:
             targets = targets.filter(owner_team_id=team_id)
-        serializer = MonitoringTargetSerializer(targets, many=True, context={"request": request})
-        return success_response(serializer.data)
+        from common.connectivity_directory import directory
+
+        return directory(targets, request, MonitoringTargetSerializer, "monitoring")
 
     def post(self, request):
         org_id = request.user.organization_id
@@ -56,13 +58,19 @@ class MonitoringTargetListView(APIView):
         if getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
+
                 QuotaService.check_quota(request.user.organization, "targets")
                 if "interval" in serializer.validated_data:
                     QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval"])
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -87,6 +95,7 @@ class MonitoringTargetListView(APIView):
                 max_latency_ms=serializer.validated_data.get("max_latency_ms", 2000),
             )
             from audit.services import AuditService
+
             AuditService.log_from_request(
                 request,
                 action="create",
@@ -100,9 +109,7 @@ class MonitoringTargetListView(APIView):
                 status_code=status.HTTP_201_CREATED,
             )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class MonitoringTargetDetailView(APIView):
@@ -122,17 +129,17 @@ class MonitoringTargetDetailView(APIView):
             serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(serializer.data)
         except ObjectDoesNotExist:
-            return error_response(
-                "Target not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Target not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, target_id):
         org_id = request.user.organization_id
         try:
             current = MonitoringService.get_target(target_id, org_id)
         except MonitoringTarget.DoesNotExist:
-            return error_response('Target not found.',status_code=404)
-        serializer = MonitoringTargetUpdateSerializer(data=request.data, context={'target':current,'request':request})
+            return error_response("Target not found.", status_code=404)
+        serializer = MonitoringTargetUpdateSerializer(
+            data=request.data, context={"target": current, "request": request}
+        )
         if not serializer.is_valid():
             return error_response(
                 "Invalid input.",
@@ -143,19 +150,24 @@ class MonitoringTargetDetailView(APIView):
         if "interval" in serializer.validated_data and getattr(request.user, "organization", None):
             try:
                 from organizations.services import QuotaService, QuotaExceededException
+
                 QuotaService.check_min_interval(request.user.organization, serializer.validated_data["interval"])
             except QuotaExceededException as qe:
                 return error_response(
                     str(qe),
-                    errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                    errors={
+                        "code": "QUOTA_EXCEEDED",
+                        "resource": qe.resource_type,
+                        "limit": qe.limit,
+                        "plan": qe.plan_tier,
+                    },
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
         try:
-            target = MonitoringService.update_target(
-                target_id, org_id, **serializer.validated_data
-            )
+            target = MonitoringService.update_target(target_id, org_id, **serializer.validated_data)
             from audit.services import AuditService
+
             AuditService.log_from_request(
                 request,
                 action="update",
@@ -166,9 +178,7 @@ class MonitoringTargetDetailView(APIView):
             response_serializer = MonitoringTargetSerializer(target, context={"request": request})
             return success_response(response_serializer.data)
         except ObjectDoesNotExist:
-            return error_response(
-                "Target not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Target not found.", status_code=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, target_id):
         org_id = request.user.organization_id
@@ -178,6 +188,7 @@ class MonitoringTargetDetailView(APIView):
             target_endpoint = target.endpoint
             MonitoringService.delete_target(target_id, org_id)
             from audit.services import AuditService
+
             AuditService.log_from_request(
                 request,
                 action="delete",
@@ -186,9 +197,7 @@ class MonitoringTargetDetailView(APIView):
             )
             return success_response({"detail": "Target deleted."})
         except ObjectDoesNotExist:
-            return error_response(
-                "Target not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Target not found.", status_code=status.HTTP_404_NOT_FOUND)
 
 
 class MonitoringCheckListView(APIView):
@@ -207,9 +216,7 @@ class MonitoringCheckListView(APIView):
             serializer = MonitoringCheckSerializer(checks, many=True)
             return success_response(serializer.data)
         except ObjectDoesNotExist:
-            return error_response(
-                "Target not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Target not found.", status_code=status.HTTP_404_NOT_FOUND)
 
 
 class MonitoringUptimeView(APIView):
@@ -224,14 +231,10 @@ class MonitoringUptimeView(APIView):
         org_id = request.user.organization_id
         hours = int(request.query_params.get("hours", 24))
         try:
-            stats = MonitoringService.get_uptime_stats(
-                target_id, org_id, hours=hours
-            )
+            stats = MonitoringService.get_uptime_stats(target_id, org_id, hours=hours)
             return success_response(stats)
         except ObjectDoesNotExist:
-            return error_response(
-                "Target not found.", status_code=status.HTTP_404_NOT_FOUND
-            )
+            return error_response("Target not found.", status_code=status.HTTP_404_NOT_FOUND)
 
 
 class MonitoringTimeseriesView(APIView):
@@ -248,9 +251,7 @@ class MonitoringTimeseriesView(APIView):
         if period not in ("24h", "7d", "30d"):
             period = "24h"
         try:
-            data = MonitoringService.get_timeseries_metrics(
-                target_id, org_id, period=period
-            )
+            data = MonitoringService.get_timeseries_metrics(target_id, org_id, period=period)
             return success_response(data)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
@@ -273,9 +274,7 @@ class MonitoringGlobalPerformanceView(APIView):
         if period not in ("1h", "6h", "24h", "7d", "30d"):
             period = "24h"
         try:
-            data = MonitoringService.get_organization_global_performance(
-                org_id, period=period
-            )
+            data = MonitoringService.get_organization_global_performance(org_id, period=period)
             return success_response(data)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
@@ -297,14 +296,13 @@ class MonitoringTargetScanView(APIView):
         try:
             target = MonitoringService.get_target(target_id, org_id)
             from .tasks import run_monitoring_check
+
             task = enqueue_scan(target, run_monitoring_check)
             return queued_scan_response(task, target.id)
         except ScanLimited as exc:
             return limited_response(exc)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
-            return error_response(
-                exc, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class GlobalSearchView(APIView):
@@ -325,87 +323,93 @@ class GlobalSearchView(APIView):
 
         # 1. Monitoring Targets
         from .models import MonitoringTarget
-        targets = MonitoringTarget.objects.filter(
-            organization_id=org_id, name__icontains=query
-        )[:5]
+
+        targets = MonitoringTarget.objects.filter(organization_id=org_id, name__icontains=query)[:5]
         for t in targets:
-            results.append({
-                "id": str(t.id),
-                "title": t.name,
-                "subtitle": t.endpoint,
-                "category": "Uptime & Servidores",
-                "url": "/monitoring",
-            })
+            results.append(
+                {
+                    "id": str(t.id),
+                    "title": t.name,
+                    "subtitle": t.endpoint,
+                    "category": "Uptime & Servidores",
+                    "url": "/monitoring",
+                }
+            )
 
         # 2. SSL Certificates
         from ssl_monitor.models import SSLCertificate
-        certs = SSLCertificate.objects.filter(
-            organization_id=org_id, domain__icontains=query
-        )[:5]
+
+        certs = SSLCertificate.objects.filter(organization_id=org_id, domain__icontains=query)[:5]
         for c in certs:
-            results.append({
-                "id": str(c.id),
-                "title": c.domain,
-                "subtitle": f"Emisor: {c.issuer or 'Desconocido'}",
-                "category": "Certificados SSL",
-                "url": "/ssl",
-            })
+            results.append(
+                {
+                    "id": str(c.id),
+                    "title": c.domain,
+                    "subtitle": f"Emisor: {c.issuer or 'Desconocido'}",
+                    "category": "Certificados SSL",
+                    "url": "/ssl",
+                }
+            )
 
         # 3. DNS Records
         from dns_monitor.models import DNSRecord
-        dns_recs = DNSRecord.objects.filter(
-            organization_id=org_id, domain__icontains=query
-        )[:5]
+
+        dns_recs = DNSRecord.objects.filter(organization_id=org_id, domain__icontains=query)[:5]
         for d in dns_recs:
-            results.append({
-                "id": str(d.id),
-                "title": f"{d.domain} ({d.record_type})",
-                "subtitle": d.value or "",
-                "category": "Registros DNS",
-                "url": "/dns",
-            })
+            results.append(
+                {
+                    "id": str(d.id),
+                    "title": f"{d.domain} ({d.record_type})",
+                    "subtitle": d.value or "",
+                    "category": "Registros DNS",
+                    "url": "/dns",
+                }
+            )
 
         # 4. API Endpoints
         from api_checks.models import APICheckTarget
-        api_t = APICheckTarget.objects.filter(
-            organization_id=org_id, name__icontains=query
-        )[:5]
+
+        api_t = APICheckTarget.objects.filter(organization_id=org_id, name__icontains=query)[:5]
         for a in api_t:
-            results.append({
-                "id": str(a.id),
-                "title": a.name,
-                "subtitle": a.url,
-                "category": "API Endpoints",
-                "url": "/api-checks",
-            })
+            results.append(
+                {
+                    "id": str(a.id),
+                    "title": a.name,
+                    "subtitle": a.url,
+                    "category": "API Endpoints",
+                    "url": "/api-checks",
+                }
+            )
 
         # 5. Alerts
         from alerts.models import Alert
-        alerts = Alert.objects.filter(
-            organization_id=org_id, title__icontains=query
-        )[:5]
+
+        alerts = Alert.objects.filter(organization_id=org_id, title__icontains=query)[:5]
         for al in alerts:
-            results.append({
-                "id": str(al.id),
-                "title": al.title,
-                "subtitle": f"Severidad: {al.severity.upper()}",
-                "category": "Smart Alerts",
-                "url": "/alerts",
-            })
+            results.append(
+                {
+                    "id": str(al.id),
+                    "title": al.title,
+                    "subtitle": f"Severidad: {al.severity.upper()}",
+                    "category": "Smart Alerts",
+                    "url": "/alerts",
+                }
+            )
 
         # 6. Incidents
         from incidents.models import Incident
-        incidents = Incident.objects.filter(
-            organization_id=org_id, title__icontains=query
-        )[:5]
+
+        incidents = Incident.objects.filter(organization_id=org_id, title__icontains=query)[:5]
         for inc in incidents:
-            results.append({
-                "id": str(inc.id),
-                "title": inc.title,
-                "subtitle": f"Estado: {inc.status.upper()}",
-                "category": "Incidentes",
-                "url": "/incidents",
-            })
+            results.append(
+                {
+                    "id": str(inc.id),
+                    "title": inc.title,
+                    "subtitle": f"Estado: {inc.status.upper()}",
+                    "category": "Incidentes",
+                    "url": "/incidents",
+                }
+            )
 
         return success_response(results)
 
@@ -422,10 +426,16 @@ class MonitoringTargetBulkScanView(APIView):
         try:
             from .tasks import run_monitoring_check
             from .models import MonitoringTarget
-            return success_response(enqueue_many(MonitoringTarget.objects.filter(organization_id=request.user.organization_id, enabled=True), run_monitoring_check))
+
+            return success_response(
+                enqueue_many(
+                    MonitoringTarget.objects.filter(organization_id=request.user.organization_id, enabled=True),
+                    run_monitoring_check,
+                    report=True,
+                )
+            )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
-
 
 
 class MonitoringTargetExportView(APIView):
@@ -443,19 +453,23 @@ class MonitoringTargetExportView(APIView):
             checks = target.checks.all().order_by("-checked_at")
 
             response = HttpResponse(content_type="text/csv")
-            response["Content-Disposition"] = f'attachment; filename="monitoring_history_{target.name.replace(" ", "_")}.csv"'
+            response["Content-Disposition"] = (
+                f'attachment; filename="monitoring_history_{target.name.replace(" ", "_")}.csv"'
+            )
 
             writer = csv.writer(response)
             writer.writerow(["ID", "Fecha (UTC)", "Estado", "Latencia (ms)", "Detalles"])
 
             for check in checks:
-                writer.writerow([
-                    str(check.id),
-                    check.checked_at.isoformat(),
-                    check.status.upper(),
-                    check.latency if check.latency is not None else "",
-                    str(check.details),
-                ])
+                writer.writerow(
+                    [
+                        str(check.id),
+                        check.checked_at.isoformat(),
+                        check.status.upper(),
+                        check.latency if check.latency is not None else "",
+                        str(check.details),
+                    ]
+                )
 
             return response
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
@@ -513,9 +527,7 @@ class MaintenanceWindowDetailView(APIView):
 
     def patch(self, request, window_id):
         try:
-            window = MaintenanceWindow.objects.get(
-                id=window_id, target__organization_id=request.user.organization_id
-            )
+            window = MaintenanceWindow.objects.get(id=window_id, target__organization_id=request.user.organization_id)
 
             serializer = MaintenanceWindowSerializer(window, data=request.data, partial=True)
             if not serializer.is_valid():
@@ -534,9 +546,7 @@ class MaintenanceWindowDetailView(APIView):
 
     def delete(self, request, window_id):
         try:
-            window = MaintenanceWindow.objects.get(
-                id=window_id, target__organization_id=request.user.organization_id
-            )
+            window = MaintenanceWindow.objects.get(id=window_id, target__organization_id=request.user.organization_id)
 
             window.delete()
             return success_response({"detail": "Maintenance window deleted."})
@@ -546,10 +556,9 @@ class MaintenanceWindowDetailView(APIView):
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 class TestConnectionView(ConfigurationDiagnosticAPIView):
     """Diagnose and test target connection on the fly without persistence."""
+
     permission_classes = (IsAuthenticated,)
 
     def perform_diagnostic(self, request):
@@ -565,6 +574,7 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
             return error_response("Endpoint es requerido.", status_code=status.HTTP_400_BAD_REQUEST)
 
         from common.security import validate_safe_public_url, SSRFSecurityException
+
         try:
             validate_safe_public_url(endpoint)
         except SSRFSecurityException as s_exc:
@@ -579,6 +589,7 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
                     headers.update(custom_headers)
 
                 from common import safe_http
+
                 resp = safe_http.request(
                     method=http_method,
                     url=url,
@@ -590,17 +601,22 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
                 code_match = resp.status_code == expected_status
                 is_slow = latency > max_latency_ms
                 check_status = "up" if code_match and not is_slow else ("slow" if code_match and is_slow else "down")
-                return success_response({
-                    "status": check_status,
-                    "latency_ms": latency,
-                    "status_code": resp.status_code,
-                    "expected_status": expected_status,
-                    "message": f"Respondió HTTP {resp.status_code} en {latency}ms." if code_match else f"Código inesperado: HTTP {resp.status_code} (esperaba {expected_status}).",
-                    "headers": dict(resp.headers),
-                    "redirect_location": resp.headers.get("Location") if resp.is_redirect else None,
-                })
+                return success_response(
+                    {
+                        "status": check_status,
+                        "latency_ms": latency,
+                        "status_code": resp.status_code,
+                        "expected_status": expected_status,
+                        "message": f"Respondió HTTP {resp.status_code} en {latency}ms."
+                        if code_match
+                        else f"Código inesperado: HTTP {resp.status_code} (esperaba {expected_status}).",
+                        "headers": dict(resp.headers),
+                        "redirect_location": resp.headers.get("Location") if resp.is_redirect else None,
+                    }
+                )
             elif target_type == "tcp":
                 from common.security import resolve_safe_target_endpoint
+
                 _, host, port, resolved_ips = resolve_safe_target_endpoint(
                     endpoint,
                     allow_private=False,
@@ -608,41 +624,51 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
                 sock = socket.create_connection((resolved_ips[0], port), timeout=5)
                 sock.close()
                 latency = round((time.perf_counter() - start) * 1000, 2)
-                return success_response({
-                    "status": "slow" if latency > max_latency_ms else "up",
-                    "latency_ms": latency,
-                    "status_code": 0,
-                    "message": f"Conexión TCP establecida con {host}:{port} en {latency}ms.",
-                })
+                return success_response(
+                    {
+                        "status": "slow" if latency > max_latency_ms else "up",
+                        "latency_ms": latency,
+                        "status_code": 0,
+                        "message": f"Conexión TCP establecida con {host}:{port} en {latency}ms.",
+                    }
+                )
             elif target_type == "dns":
                 from common.security import resolve_safe_target_endpoint
+
                 _, _, _, resolved_ips = resolve_safe_target_endpoint(
                     endpoint,
                     allow_private=False,
                 )
                 latency = round((time.perf_counter() - start) * 1000, 2)
                 ips = list(resolved_ips)
-                return success_response({
-                    "status": "up",
-                    "latency_ms": latency,
-                    "status_code": 0,
-                    "message": f"DNS resuelto ({len(ips)} IPs encontradas) en {latency}ms.",
-                    "ips": ips,
-                })
+                return success_response(
+                    {
+                        "status": "up",
+                        "latency_ms": latency,
+                        "status_code": 0,
+                        "message": f"DNS resuelto ({len(ips)} IPs encontradas) en {latency}ms.",
+                        "ips": ips,
+                    }
+                )
             else:
-                return error_response(f"Tipo {target_type} no soportado para test rápido.", status_code=status.HTTP_400_BAD_REQUEST)
+                return error_response(
+                    f"Tipo {target_type} no soportado para test rápido.", status_code=status.HTTP_400_BAD_REQUEST
+                )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             latency = round((time.perf_counter() - start) * 1000, 2)
-            return success_response({
-                "status": "down",
-                "latency_ms": latency,
-                "status_code": 0,
-                "message": f"Fallo de conexión: {str(exc)}",
-            })
+            return success_response(
+                {
+                    "status": "down",
+                    "latency_ms": latency,
+                    "status_code": 0,
+                    "message": f"Fallo de conexión: {str(exc)}",
+                }
+            )
 
 
 class BulkActionView(APIView):
     """Execute bulk operations on multiple targets."""
+
     permission_classes = (IsAdminOrReadOnly,)
 
     def post(self, request):
@@ -653,25 +679,10 @@ class BulkActionView(APIView):
         if not target_ids or not action:
             return error_response("Acción y target_ids son requeridos.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        targets = MonitoringTarget.objects.filter(id__in=target_ids, organization_id=org_id)
-        count = targets.count()
+        from common.bulk import operate
+        from .tasks import run_monitoring_check
 
-        if action == "pause":
-            targets.update(enabled=False)
-            msg = f"{count} targets pausados."
-        elif action == "resume":
-            targets.update(enabled=True)
-            msg = f"{count} targets reanudados."
-        elif action == "delete":
-            targets.delete()
-            msg = f"{count} targets eliminados."
-        elif action == "scan":
-            from .tasks import run_monitoring_check
-            return success_response(enqueue_many(targets, run_monitoring_check))
-        else:
-            return error_response(f"Acción '{action}' inválida.", status_code=status.HTTP_400_BAD_REQUEST)
-
-        return success_response({"message": msg, "affected_count": count})
+        return success_response(operate(MonitoringTarget, org_id, action, target_ids, run_monitoring_check))
 
 
 class AgentProbeListView(APIView):
@@ -683,11 +694,15 @@ class AgentProbeListView(APIView):
 
     permission_classes = (IsAuthenticated,)
 
+    def get_permissions(self):
+        return [IsAuthenticated(), IsOrgAdmin()] if self.request.method == "POST" else super().get_permissions()
+
     def get(self, request):
         org_id = request.user.organization_id
         probes = AgentProbeService.list_probes(org_id)
-        serializer = AgentProbeSerializer(probes, many=True)
-        return success_response(serializer.data)
+        from common.connectivity_directory import directory
+
+        return directory(probes, request, AgentProbeSerializer, "probe")
 
     def post(self, request):
         org = getattr(request.user, "organization", None)
@@ -700,56 +715,50 @@ class AgentProbeListView(APIView):
         # Enforce quota limits for private probes
         try:
             from organizations.services import QuotaService, QuotaExceededException
+
             QuotaService.check_quota(org, "private_agents")
         except QuotaExceededException as qe:
             return error_response(
                 str(qe),
-                errors={"code": "QUOTA_EXCEEDED", "resource": qe.resource_type, "limit": qe.limit, "plan": qe.plan_tier},
+                errors={
+                    "code": "QUOTA_EXCEEDED",
+                    "resource": qe.resource_type,
+                    "limit": qe.limit,
+                    "plan": qe.plan_tier,
+                },
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
         serializer = AgentProbeCreateSerializer(data=request.data)
         if not serializer.is_valid():
-            return error_response("Nombre de agente inválido.", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(
+                "Nombre de agente inválido.", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         name = serializer.validated_data["name"]
+        from .probe_installation import profile
+        from .models import AgentProbe
+
+        profile(
+            AgentProbe(),
+            serializer.validated_data.get("platform", "linux"),
+            serializer.validated_data.get("distribution", "registry"),
+        )
         probe, raw_token = AgentProbeService.create_probe(org.id, name)
 
-        # Template uses a read-only token file; never embed the token in shell text.
-        host = request.get_host()
-        base_url = f"https://{host}"
-
-        # In local development (localhost / 127.0.0.1), connect to Docker Compose network
-        from urllib.parse import urlsplit
-        if urlsplit(f'http://{host}').hostname in ('localhost','127.0.0.1','::1'):
-            docker_cmd = (
-                "docker run -d --name sentinine --network gc_ops_obs_default --restart unless-stopped --mount source=sentinine_state,target=/data "
-                "--user 10001:10001 --read-only --cap-drop ALL --security-opt no-new-privileges:true "
-                "--pids-limit 128 --memory 256m --cpus 1 "
-                "--mount type=bind,source=REEMPLAZAR_RUTA_TOKEN,target=/run/secrets/sentinine_token,readonly "
-                "-e SENTININE_TOKEN_FILE=/run/secrets/sentinine_token "
-                "-e SENTININE_ENV=development -e SENTININE_ALLOW_HTTP=true "
-                "-e SENTININE_SERVER=\"http://backend:8000\" "
-                "davis1924/senti9:1.7.0"
-            )
-        else:
-            docker_cmd = (
-                f"docker run -d --name sentinine --restart unless-stopped --mount source=sentinine_state,target=/data "
-                f"--user 10001:10001 --read-only --cap-drop ALL --security-opt no-new-privileges:true "
-                f"--pids-limit 128 --memory 256m --cpus 1 "
-                f"--mount type=bind,source=REEMPLAZAR_RUTA_TOKEN,target=/run/secrets/sentinine_token,readonly "
-                f"-e SENTININE_TOKEN_FILE=/run/secrets/sentinine_token "
-                f"-e SENTININE_SERVER=\"{base_url}\" "
-                f"davis1924/senti9:1.7.0"
-            )
+        from .probe_installation import profile
 
         probe_data = AgentProbeSerializer(probe).data
         probe_data["raw_token"] = raw_token
-        probe_data["docker_command"] = docker_cmd
+        probe_data["installation"] = profile(
+            probe, serializer.validated_data["platform"], serializer.validated_data["distribution"]
+        )
+        probe_data["docker_command"] = probe_data["installation"]["command"]
 
         # Audit log
         try:
             from audit.services import AuditService
+
             AuditService.log_from_request(
                 request,
                 action="create",
@@ -760,7 +769,7 @@ class AgentProbeListView(APIView):
             pass
 
         response = success_response(probe_data, status_code=status.HTTP_201_CREATED)
-        response['Cache-Control'] = 'no-store'
+        response["Cache-Control"] = "no-store"
         return response
 
 
@@ -775,7 +784,15 @@ class AgentProbeDetailView(APIView):
     def delete(self, request, probe_id):
         org_id = request.user.organization_id
         try:
-            AgentProbeService.delete_probe(probe_id, org_id)
+            from common.permissions import IsOrgAdmin
+
+            if not IsOrgAdmin().has_permission(request, self):
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied()
+            from .probe_management import revoke
+
+            revoke(probe_id, org_id, request.data.get("reason"), request.user)
             return success_response({"message": "Agente satélite eliminado exitosamente."})
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_404_NOT_FOUND)
@@ -787,12 +804,13 @@ class AgentProbeRotateTokenView(APIView):
     def post(self, request, probe_id):
         from .probe_security import rotate_probe_token
         from .models import AgentProbe
+
         try:
             raw = rotate_probe_token(request.user.organization_id, probe_id, request.user)
         except AgentProbe.DoesNotExist:
-            return error_response('Agente no encontrado.', status_code=404)
-        response = success_response({'raw_token':raw, 'message':'Token rotado; el anterior quedó revocado.'})
-        response['Cache-Control'] = 'no-store'
+            return error_response("Agente no encontrado.", status_code=404)
+        response = success_response({"raw_token": raw, "message": "Token rotado; el anterior quedó revocado."})
+        response["Cache-Control"] = "no-store"
         return response
 
 
@@ -818,31 +836,40 @@ class AgentProbeHeartbeatView(APIView):
         hostname = request.data.get("hostname", "")
         ip_address = get_client_ip(request)
         os_info = request.data.get("os_info", "")
-        version = request.data.get("version", "1.0.0")
+        version = request.data.get("version", "")
 
-        protocol = request.data.get('delivery_protocol', 1)
-        capacity = request.data.get('capacity', 10)
-        known = request.data.get('known_executions', [])
+        protocol = request.data.get("delivery_protocol", 1)
+        capacity = request.data.get("capacity", 10)
+        known = request.data.get("known_executions", [])
         from uuid import UUID
+
         try:
-            if protocol not in (1, 2) or isinstance(capacity, bool) or not isinstance(capacity, int) or not 0 <= capacity <= 10:
+            if (
+                protocol not in (1, 2)
+                or isinstance(capacity, bool)
+                or not isinstance(capacity, int)
+                or not 0 <= capacity <= 10
+            ):
                 raise ValueError()
             if not isinstance(known, list) or len(known) > 1000:
                 raise ValueError()
             known = [UUID(str(value)) for value in known]
         except (ValueError, TypeError, AttributeError):
-            return error_response('Capacidad o protocolo de entrega no válido.', status_code=400)
+            return error_response("Capacidad o protocolo de entrega no válido.", status_code=400)
 
-        telemetry = request.data.get('telemetry')
+        telemetry = request.data.get("telemetry")
         if telemetry is not None:
             if protocol != 2:
-                return error_response('La telemetría interna requiere protocolo de entrega v2.', status_code=400)
+                return error_response("La telemetría interna requiere protocolo de entrega v2.", status_code=400)
             from .probe_telemetry import ProbeTelemetrySerializer
+
             telemetry_serializer = ProbeTelemetrySerializer(data=telemetry)
             telemetry_serializer.is_valid(raise_exception=True)
             telemetry = telemetry_serializer.validated_data
-            if telemetry['draining'] or telemetry['queue'] is None or any(
-                error['component'] == 'storage' for error in telemetry['errors']
+            if (
+                telemetry["draining"]
+                or telemetry["queue"] is None
+                or any(error["component"] == "storage" for error in telemetry["errors"])
             ):
                 capacity = 0
         tasks = AgentProbeService.process_heartbeat(
@@ -851,17 +878,21 @@ class AgentProbeHeartbeatView(APIView):
             ip_address=ip_address,
             os_info=os_info,
             version=version,
-            delivery_protocol=protocol, capacity=capacity, known_executions=known,
+            delivery_protocol=protocol,
+            capacity=capacity,
+            known_executions=known,
             telemetry=telemetry,
         )
 
-        return success_response({
-            "probe_id": str(probe.id),
-            "probe_name": probe.name,
-            "tasks": tasks,
-            "poll_interval_seconds": 10,
-            "delivery_protocol": protocol,
-        })
+        return success_response(
+            {
+                "probe_id": str(probe.id),
+                "probe_name": probe.name,
+                "tasks": tasks,
+                "poll_interval_seconds": 10,
+                "delivery_protocol": protocol,
+            }
+        )
 
 
 class AgentProbeSubmitResultsView(APIView):
@@ -885,17 +916,26 @@ class AgentProbeSubmitResultsView(APIView):
 
         results = request.data.get("results", [])
         if not isinstance(results, list):
-            return error_response("El payload de resultados debe ser una lista.", status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(
+                "El payload de resultados debe ser una lista.", status_code=status.HTTP_400_BAD_REQUEST
+            )
 
-        if request.data.get('delivery_protocol') == 2:
+        if request.data.get("delivery_protocol") == 2:
             if len(results) > 100:
-                return error_response('Máximo 100 resultados por lote v2.', status_code=400)
+                return error_response("Máximo 100 resultados por lote v2.", status_code=400)
             from .agent_delivery import ingest_batch
+
             acknowledgements = ingest_batch(probe, results)
-            return success_response({'acknowledgements': acknowledgements,
-                'ingested_count': sum(a['status'] == 'accepted' for a in acknowledgements)})
+            return success_response(
+                {
+                    "acknowledgements": acknowledgements,
+                    "ingested_count": sum(a["status"] == "accepted" for a in acknowledgements),
+                }
+            )
         ingested_count = AgentProbeService.ingest_results(probe, results)
-        return success_response({
-            "ingested_count": ingested_count,
-            "message": f"Se procesaron {ingested_count} chequeos exitosamente.",
-        })
+        return success_response(
+            {
+                "ingested_count": ingested_count,
+                "message": f"Se procesaron {ingested_count} chequeos exitosamente.",
+            }
+        )

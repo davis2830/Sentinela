@@ -4,6 +4,8 @@ from common.models import OrganizationOwnedModel
 
 
 class SSLCertificate(OrganizationOwnedModel):
+    last_error_code = models.CharField(max_length=40, blank=True)
+    last_successful_at = models.DateTimeField(null=True, blank=True)
     """Stores SSL certificate information for a monitored domain.
 
     Updated by the scan_ssl_certificate Celery task.

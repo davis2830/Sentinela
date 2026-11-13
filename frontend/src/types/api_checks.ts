@@ -1,7 +1,7 @@
-export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+export type HTTPMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
 
 export interface APICheckTarget {
-  scan_availability?: import('./scan').ScanAvailability;
+  scan_availability?: import("./scan").ScanAvailability;
   id: string;
   organization: string;
   name: string;
@@ -40,12 +40,18 @@ export interface CreateAPICheckTargetData {
 export interface APICheckResult {
   id: string;
   target: string;
-  status: 'pass' | 'fail' | 'slow' | 'error' | string;
+  status: "pass" | "fail" | "slow" | "error" | string;
   http_status: number | null;
   response_time_ms: number | null;
-  json_valid: boolean;
-  schema_valid: boolean;
-  headers_valid: boolean;
+  schema_failures?: {
+    field: string;
+    expected: string;
+    received: string;
+    code: string;
+  }[];
+  json_valid: boolean | null;
+  schema_valid: boolean | null;
+  headers_valid: boolean | null;
   response_headers?: Record<string, string>;
   error_message: string | null;
   checked_at: string;
@@ -58,7 +64,7 @@ export interface APICheckStats {
   slow_count: number;
   fail_count: number;
   paused_count?: number;
-  avg_latency: number;
+  avg_latency: number | null;
 }
 
 export interface APITestRequestResult {

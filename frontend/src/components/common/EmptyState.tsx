@@ -1,7 +1,7 @@
 import { hasCapability, type Capability } from "../../hooks/useCapability";
-import React from 'react';
-import { Plus } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
+import React from "react";
+import { Plus } from "lucide-react";
+import { useAuthStore } from "../../store/authStore";
 
 interface EmptyStateProps {
   icon?: React.ElementType;
@@ -11,6 +11,7 @@ interface EmptyStateProps {
   onAction?: () => void;
   requiresAdmin?: boolean;
   capability?: Capability;
+  showAddIcon?: boolean;
 }
 
 export default function EmptyState({
@@ -21,8 +22,9 @@ export default function EmptyState({
   onAction,
   requiresAdmin = false,
   capability,
+  showAddIcon = true,
 }: EmptyStateProps) {
-  const user = useAuthStore(s=>s.user);
+  const user = useAuthStore((s) => s.user);
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-bg-card border border-border-base rounded-xl">
       {Icon && (
@@ -31,16 +33,22 @@ export default function EmptyState({
         </div>
       )}
       <h3 className="text-lg font-semibold text-text-main mb-1">{title}</h3>
-      {description && <p className="text-text-muted text-sm max-w-md mb-6">{description}</p>}
-      {actionLabel && onAction && (capability ? hasCapability(user, capability) : !requiresAdmin || user?.is_staff || user?.is_superuser) && (
-        <button
-          onClick={onAction}
-          className="inline-flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
-        >
-          <Plus size={18} />
-          {actionLabel}
-        </button>
+      {description && (
+        <p className="text-text-muted text-sm max-w-md mb-6">{description}</p>
       )}
+      {actionLabel &&
+        onAction &&
+        (capability
+          ? hasCapability(user, capability)
+          : !requiresAdmin || user?.is_staff || user?.is_superuser) && (
+          <button
+            onClick={onAction}
+            className="inline-flex min-h-11 items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-md text-sm hover:opacity-90 transition-opacity"
+          >
+            {showAddIcon && <Plus size={18} />}
+            {actionLabel}
+          </button>
+        )}
     </div>
   );
 }

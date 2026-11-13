@@ -1,0 +1,86 @@
+[
+  {
+    "width": 1920,
+    "height": 900,
+    "checkboxHit": {
+      "x": 297,
+      "y": 522,
+      "width": 44,
+      "height": 44
+    },
+    "checkboxVisual": {
+      "x": 309,
+      "y": 534,
+      "width": 20,
+      "height": 20
+    },
+    "toggleHit": {
+      "x": 1835,
+      "y": 522,
+      "width": 44,
+      "height": 44
+    },
+    "toggleVisual": {
+      "x": 1839,
+      "y": 534,
+      "width": 36,
+      "height": 20
+    }
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "checkboxHit": {
+      "x": 297,
+      "y": 522,
+      "width": 44,
+      "height": 44
+    },
+    "checkboxVisual": {
+      "x": 309,
+      "y": 534,
+      "width": 20,
+      "height": 20
+    },
+    "toggleHit": {
+      "x": 1525.0625,
+      "y": 522,
+      "width": 44,
+      "height": 44
+    },
+    "toggleVisual": {
+      "x": 1529.0625,
+      "y": 534,
+      "width": 36,
+      "height": 20
+    }
+  },
+  {
+    "width": 1366,
+    "height": 768,
+    "checkboxHit": {
+      "x": 297,
+      "y": 558,
+      "width": 44,
+      "height": 44
+    },
+    "checkboxVisual": {
+      "x": 309,
+      "y": 570,
+      "width": 20,
+      "height": 20
+    },
+    "toggleHit": {
+      "x": 1525.0625,
+      "y": 558,
+      "width": 44,
+      "height": 44
+    },
+    "toggleVisual": {
+      "x": 1529.0625,
+      "y": 570,
+      "width": 36,
+      "height": 20
+    }
+  }
+]

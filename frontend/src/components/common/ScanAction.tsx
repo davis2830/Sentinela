@@ -1,47 +1,160 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useClock } from "../../hooks/useClock";
+import { useQuery } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { hasCapability } from "../../hooks/useCapability";
-import { api } from '../../services/api';
-import { useAuthStore } from '../../store/authStore';
-import type { ScannableResource, ScanAvailability } from '../../types/scan';
+import { api } from "../../services/api";
+import { useAuthStore } from "../../store/authStore";
+import type { ScannableResource, ScanAvailability } from "../../types/scan";
 
 const messages = {
-  pending: 'Comprobación pendiente', subscription_required: 'Suscripción no vigente',
-  disabled: 'Monitoreo pausado', agent_managed: 'Gestionado por Senti9', read_only: 'Solo lectura',
+  pending: "Comprobación pendiente",
+  subscription_required: "Suscripción no vigente",
+  disabled: "Monitoreo pausado",
+  agent_managed: "Gestionado por Senti9",
+  read_only: "Solo lectura",
 };
-const statuses = ['ready','cooldown','pending','subscription_required','disabled','agent_managed','read_only'];
-export default function ScanAction({ resource, route, onScan, pending = false, primary = false }: {
-  resource: ScannableResource & { id: string }; route: string; onScan: () => void | Promise<unknown>; pending?: boolean; primary?: boolean;
+const statuses = [
+  "ready",
+  "cooldown",
+  "pending",
+  "subscription_required",
+  "disabled",
+  "agent_managed",
+  "read_only",
+];
+export default function ScanAction({
+  resource,
+  route,
+  onScan,
+  pending = false,
+  primary = false,
+}: {
+  resource: ScannableResource & { id: string };
+  route: string;
+  onScan: () => void | Promise<unknown>;
+  pending?: boolean;
+  primary?: boolean;
 }) {
-  const user = useAuthStore(s => s.user);
-  const modules: Record<string,string> = {"monitoring":"monitoring","ssl-certificates":"ssl_monitor","dns-records":"dns_monitor","domains":"domain","api-checks":"api_checks","security-headers":"security_headers"};
+  const user = useAuthStore((s) => s.user);
+  const modules: Record<string, string> = {
+    monitoring: "monitoring",
+    "ssl-certificates": "ssl_monitor",
+    "dns-records": "dns_monitor",
+    domains: "domain",
+    "api-checks": "api_checks",
+    "security-headers": "security_headers",
+  };
   const canManage = hasCapability(user, `${modules[route] ?? "unknown"}.scan`);
-  const [now, setNow] = useState(Date.now());
+  const now = useClock();
   const [submitting, setSubmitting] = useState(false);
   const query = useQuery<ScanAvailability>({
-    queryKey:['scan-detail',user?.organization?.id,route,resource.id],
-    queryFn:async()=> {
+    queryKey: ["scan-detail", user?.organization?.id, route, resource.id],
+    queryFn: async () => {
       const response = await api.get(`${route}/${resource.id}/`);
       const snapshot = response.data?.data?.scan_availability;
-      if (!snapshot || !statuses.includes(snapshot.status) || snapshot.status==='cooldown' && (!Number.isFinite(Date.parse(snapshot.next_allowed_at)) || !Number.isFinite(snapshot.retry_after_seconds))) throw new Error('Disponibilidad no disponible');
+      if (
+        !snapshot ||
+        !statuses.includes(snapshot.status) ||
+        (snapshot.status === "cooldown" &&
+          (!Number.isFinite(Date.parse(snapshot.next_allowed_at)) ||
+            !Number.isFinite(snapshot.retry_after_seconds)))
+      )
+        throw new Error("Disponibilidad no disponible");
       return snapshot;
     },
-    enabled:canManage, staleTime:0, refetchInterval:30000,
+    enabled: canManage,
+    staleTime: 0,
+    refetchInterval: false,
   });
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  const pendingTick = Math.floor(now / 10000);
+  const state = query.data?.status;
+  const recheck = query.refetch;
+  useEffect(() => {
+    if (state === "pending" && !document.hidden) void recheck();
+  }, [pendingTick, state, recheck]);
   if (!canManage) return null;
   const snapshot = query.isError ? undefined : query.data;
-  const seconds = snapshot?.next_allowed_at ? Math.max(0, Math.ceil((Date.parse(snapshot.next_allowed_at) - now) / 1000)) : null;
+  const seconds = snapshot?.next_allowed_at
+    ? Math.max(
+        0,
+        Math.ceil((Date.parse(snapshot.next_allowed_at) - now) / 1000),
+      )
+    : null;
   const busy = pending || submitting;
-  const available = snapshot?.status === 'ready' && !busy && !query.isFetching;
-  const text = busy ? messages.pending : !snapshot ? query.isLoading ? 'Consultando disponibilidad…' : 'Disponibilidad no disponible. Recarga los datos.' : snapshot.status === 'cooldown' ? seconds ? `Disponible en ${Math.floor(seconds / 60)} min ${seconds % 60} s` : 'Recarga para verificar disponibilidad' : snapshot.status === 'ready' ? 'Comprobar ahora' : messages[snapshot.status];
-  return <div className={`flex flex-wrap items-center gap-2 text-xs ${primary ? 'shrink-0' : ''}`} data-testid="scan-action">
-    <button type="button" aria-label="Comprobar ahora" disabled={!available} onClick={async () => {
-      setSubmitting(true);
-      try { await onScan(); } catch { /* API feedback reports admission failures. */ } finally { await query.refetch(); setSubmitting(false); }
-    }} className={primary ? 'ui-button ui-button-primary shrink-0 whitespace-nowrap' : 'inline-flex items-center gap-2 rounded-lg border border-accent-green/40 px-3 py-2 text-accent-green disabled:opacity-50'}><RefreshCw size={primary ? 18 : 14} className={busy ? 'animate-spin' : ''} />{primary ? <><span className="sm:hidden">{busy ? 'Comprobando…' : 'Comprobar'}</span><span className="hidden sm:inline">{busy ? 'Comprobando…' : 'Comprobar ahora'}</span></> : 'Comprobar ahora'}</button>
-    {!available && <span className="text-text-muted" role="status">{text}</span>}
-    {(!snapshot || snapshot.status === 'cooldown' && seconds === 0) && <button type="button" onClick={()=>query.refetch()} disabled={query.isFetching} aria-label="Recargar disponibilidad" className="p-2 text-text-muted"><RefreshCw size={14} /></button>}
-  </div>;
+  const available = snapshot?.status === "ready" && !busy && !query.isFetching;
+  const text = busy
+    ? messages.pending
+    : !snapshot
+      ? query.isLoading
+        ? "Consultando disponibilidad…"
+        : "Disponibilidad no disponible. Recarga los datos."
+      : snapshot.status === "cooldown"
+        ? seconds
+          ? `Disponible en ${Math.floor(seconds / 60)} min ${seconds % 60} s`
+          : "Recarga para verificar disponibilidad"
+        : snapshot.status === "ready"
+          ? "Comprobar ahora"
+          : messages[snapshot.status];
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-2 text-xs ${primary ? "shrink-0" : ""}`}
+      data-testid="scan-action"
+    >
+      <button
+        type="button"
+        aria-label="Comprobar ahora"
+        disabled={!available}
+        onClick={async () => {
+          setSubmitting(true);
+          try {
+            await onScan();
+          } catch {
+            /* API feedback reports admission failures. */
+          } finally {
+            await query.refetch();
+            setSubmitting(false);
+          }
+        }}
+        className={
+          primary
+            ? "ui-button ui-button-primary shrink-0 whitespace-nowrap"
+            : "inline-flex items-center gap-2 rounded-lg border border-accent-green/40 px-3 py-2 text-accent-green disabled:opacity-50"
+        }
+      >
+        <RefreshCw
+          size={primary ? 18 : 14}
+          className={busy ? "animate-spin" : ""}
+        />
+        {primary ? (
+          <>
+            <span className="sm:hidden">
+              {busy ? "Comprobando…" : "Comprobar"}
+            </span>
+            <span className="hidden sm:inline">
+              {busy ? "Comprobando…" : "Comprobar ahora"}
+            </span>
+          </>
+        ) : (
+          "Comprobar ahora"
+        )}
+      </button>
+      {!available && (
+        <span className="text-text-muted" role="status">
+          {text}
+        </span>
+      )}
+      {(!snapshot || (snapshot.status === "cooldown" && seconds === 0)) && (
+        <button
+          type="button"
+          onClick={() => query.refetch()}
+          disabled={query.isFetching}
+          aria-label="Recargar disponibilidad"
+          className="p-2 text-text-muted"
+        >
+          <RefreshCw size={14} />
+        </button>
+      )}
+    </div>
+  );
 }

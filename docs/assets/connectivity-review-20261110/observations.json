@@ -1,0 +1,161 @@
+{
+  "normal": [
+    {
+      "route": "monitoring",
+      "width": 1440,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 0
+    },
+    {
+      "route": "monitoring",
+      "width": 390,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 0
+    },
+    {
+      "route": "ssl",
+      "width": 1440,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "ssl",
+      "width": 390,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "dns",
+      "width": 1440,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "dns",
+      "width": 390,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "domains",
+      "width": 1440,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "domains",
+      "width": 390,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "api-checks",
+      "width": 1440,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 2
+    },
+    {
+      "route": "api-checks",
+      "width": 390,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 2
+    },
+    {
+      "route": "security-headers",
+      "width": 1440,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    },
+    {
+      "route": "security-headers",
+      "width": 390,
+      "documentOverflow": false,
+      "mainOverflow": false,
+      "unnamedButtons": 1
+    }
+  ],
+  "readFailures": [
+    {
+      "route": "monitoring",
+      "attempts": 2,
+      "emptyClaim": false,
+      "errorAlertCount": 0,
+      "headings": [
+        "No se encontraron objetivos de monitoreo"
+      ],
+      "errors": []
+    },
+    {
+      "route": "dns",
+      "attempts": 2,
+      "emptyClaim": true,
+      "errorAlertCount": 0,
+      "headings": [
+        "No hay registros DNS monitorizados"
+      ],
+      "errors": []
+    },
+    {
+      "route": "domains",
+      "attempts": 2,
+      "emptyClaim": true,
+      "errorAlertCount": 0,
+      "headings": [
+        "No hay dominios registrados"
+      ],
+      "errors": []
+    },
+    {
+      "route": "security-headers",
+      "attempts": 2,
+      "emptyClaim": true,
+      "errorAlertCount": 0,
+      "headings": [
+        "No hay endpoints de Security Headers monitoreados"
+      ],
+      "errors": []
+    },
+    {
+      "route": "api-checks",
+      "attempts": 2,
+      "emptyClaim": true,
+      "errorAlertCount": 0,
+      "headings": [
+        "No hay API Check targets configurados"
+      ],
+      "errors": []
+    }
+  ],
+  "api": {
+    "methodAfterGetClick": "all",
+    "rowsAfterGetClick": 2,
+    "unmeasuredLatencyShowsConfiguredValue": true,
+    "failedBulkFollowedByDeletes": 2,
+    "bulkRequests": [
+      {
+        "path": "api-checks/bulk-action/",
+        "method": "POST"
+      },
+      {
+        "path": "api-checks/api-one/",
+        "method": "DELETE"
+      },
+      {
+        "path": "api-checks/api-two/",
+        "method": "DELETE"
+      }
+    ]
+  },
+  "pageErrors": []
+}

@@ -1,17 +1,18 @@
-import AdminButton from '../common/AdminButton';
-import { apiFailure } from '../../services/errors';
-import { useConfigurationDiagnostic } from '../../hooks/useConfigurationDiagnostic';
-import ConfigurationDiagnosticNotice from '../../components/common/ConfigurationDiagnosticNotice';
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../services/api';
+import ModalSurface from "../common/ModalSurface";
+import AdminButton from "../common/AdminButton";
+import { apiFailure } from "../../services/errors";
+import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
+import ConfigurationDiagnosticNotice from "../../components/common/ConfigurationDiagnosticNotice";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../services/api";
 import type {
   APICheckTarget,
   CreateAPICheckTargetData,
   HTTPMethod,
   APITestRequestResult,
-} from '../../types/api_checks';
+} from "../../types/api_checks";
 import {
   X,
   Loader2,
@@ -25,7 +26,7 @@ import {
   Zap,
   Sparkles,
   Clock,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface APICheckFormProps {
   target?: APICheckTarget | null;
@@ -33,66 +34,95 @@ interface APICheckFormProps {
   onClose: () => void;
 }
 
-type AuthType = 'none' | 'basic' | 'bearer' | 'apikey';
-type BodyMode = 'kv' | 'raw';
-type SchemaMode = 'builder' | 'raw';
+type AuthType = "none" | "basic" | "bearer" | "apikey";
+type BodyMode = "kv" | "raw";
+type SchemaMode = "builder" | "raw";
 
-const HTTP_METHODS: HTTPMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
+const HTTP_METHODS: HTTPMethod[] = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+];
 
 interface KeyValuePair {
   key: string;
   value: string;
 }
 
-const schemaType = (value: unknown): SchemaFieldPair['type'] =>
-  ['string','integer','float','boolean','list','dict'].includes(String(value)) ? value as SchemaFieldPair['type'] : 'string';
+const schemaType = (value: unknown): SchemaFieldPair["type"] =>
+  ["string", "integer", "float", "boolean", "list", "dict"].includes(
+    String(value),
+  )
+    ? (value as SchemaFieldPair["type"])
+    : "string";
 interface SchemaFieldPair {
   field: string;
-  type: 'string' | 'integer' | 'float' | 'boolean' | 'list' | 'dict';
+  type: "string" | "integer" | "float" | "boolean" | "list" | "dict";
 }
 
-export default function APICheckForm({ target, onSubmit, onClose }: APICheckFormProps) {
-  const [activeTab, setActiveTab] = useState<'auth' | 'body' | 'schema'>('auth');
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [method, setMethod] = useState<HTTPMethod>('GET');
+export default function APICheckForm({
+  target,
+  onSubmit,
+  onClose,
+}: APICheckFormProps) {
+  const [activeTab, setActiveTab] = useState<"auth" | "body" | "schema">(
+    "auth",
+  );
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [method, setMethod] = useState<HTTPMethod>("GET");
   const [expectedStatus, setExpectedStatus] = useState<number>(200);
   const [expectedTimeMs, setExpectedTimeMs] = useState<number>(2000);
   const [checkInterval, setCheckInterval] = useState<number>(300);
-  const { data: subscription } = useQuery<import('../../types/organization').SubscriptionSummary>({
-    queryKey: ['subscription-summary'],
-    queryFn: async () => (await api.get('organizations/current/subscription/')).data?.data,
+  const { data: subscription } = useQuery<
+    import("../../types/organization").SubscriptionSummary
+  >({
+    queryKey: ["subscription-summary"],
+    queryFn: async () =>
+      (await api.get("organizations/current/subscription/")).data?.data,
   });
   const minInterval = subscription?.limits?.min_check_interval_seconds ?? 300;
   useEffect(() => {
-    if (subscription) setCheckInterval(target ? Math.max(target.check_interval || minInterval, minInterval) : minInterval);
+    if (subscription)
+      setCheckInterval(
+        target
+          ? Math.max(target.check_interval || minInterval, minInterval)
+          : minInterval,
+      );
   }, [minInterval, target, subscription]);
   const [enabled, setEnabled] = useState<boolean>(true);
 
   // Authentication states
-  const [authType, setAuthType] = useState<AuthType>('none');
-  const [authUser, setAuthUser] = useState('');
-  const [authPass, setAuthPass] = useState('');
-  const [authToken, setAuthToken] = useState('');
-  const [apiKeyHeader, setApiKeyHeader] = useState('X-API-Key');
-  const [apiKeyValue, setApiKeyValue] = useState('');
+  const [authType, setAuthType] = useState<AuthType>("none");
+  const [authUser, setAuthUser] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [authToken, setAuthToken] = useState("");
+  const [apiKeyHeader, setApiKeyHeader] = useState("X-API-Key");
+  const [apiKeyValue, setApiKeyValue] = useState("");
 
   // Body states
-  const [bodyMode, setBodyMode] = useState<BodyMode>('kv');
-  const [bodyPairs, setBodyPairs] = useState<KeyValuePair[]>([{ key: '', value: '' }]);
-  const [requestBodyJson, setRequestBodyJson] = useState('');
+  const [bodyMode, setBodyMode] = useState<BodyMode>("kv");
+  const [bodyPairs, setBodyPairs] = useState<KeyValuePair[]>([
+    { key: "", value: "" },
+  ]);
+  const [requestBodyJson, setRequestBodyJson] = useState("");
 
   // Schema states
-  const [schemaMode, setSchemaMode] = useState<SchemaMode>('builder');
+  const [schemaMode, setSchemaMode] = useState<SchemaMode>("builder");
   const [schemaFields, setSchemaFields] = useState<SchemaFieldPair[]>([
-    { field: '', type: 'string' },
+    { field: "", type: "string" },
   ]);
-  const [expectedSchemaJson, setExpectedSchemaJson] = useState('');
+  const [expectedSchemaJson, setExpectedSchemaJson] = useState("");
 
   // Live Test states
   const diagnostic = useConfigurationDiagnostic();
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<APITestRequestResult | null>(null);
+  const [testResult, setTestResult] = useState<APITestRequestResult | null>(
+    null,
+  );
   const [schemaAutoGenerated, setSchemaAutoGenerated] = useState(false);
 
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -101,9 +131,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
   // Populate data if editing
   useEffect(() => {
     if (target) {
-      setName(target.name || '');
-      setUrl(target.url || '');
-      setMethod((target.method as HTTPMethod) || 'GET');
+      setName(target.name || "");
+      setUrl(target.url || "");
+      setMethod((target.method as HTTPMethod) || "GET");
       setExpectedStatus(target.expected_status || 200);
       setExpectedTimeMs(target.expected_response_time_ms || 2000);
       setCheckInterval(target.check_interval || 60);
@@ -111,98 +141,116 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
       // Parse Auth from request_headers
       const headers = target.request_headers || {};
-      const authHeader = headers['Authorization'] || headers['authorization'] || '';
-      if (authHeader.startsWith('Basic ')) {
-        setAuthType('basic');
+      const authHeader =
+        headers["Authorization"] || headers["authorization"] || "";
+      if (authHeader.startsWith("Basic ")) {
+        setAuthType("basic");
         try {
-          const decoded = atob(authHeader.replace('Basic ', ''));
-          const [u, p] = decoded.split(':');
-          setAuthUser(u || '');
-          setAuthPass(p || '');
+          const decoded = atob(authHeader.replace("Basic ", ""));
+          const [u, p] = decoded.split(":");
+          setAuthUser(u || "");
+          setAuthPass(p || "");
         } catch {
           // keep empty
         }
-      } else if (authHeader.startsWith('Bearer ')) {
-        setAuthType('bearer');
-        setAuthToken(authHeader.replace('Bearer ', ''));
+      } else if (authHeader.startsWith("Bearer ")) {
+        setAuthType("bearer");
+        setAuthToken(authHeader.replace("Bearer ", ""));
       } else {
         const apiKeyEntry = Object.entries(headers).find(
           ([k]) =>
-            k.toLowerCase() === 'x-api-key' ||
-            k.toLowerCase() === 'apikey' ||
-            k.toLowerCase() === 'api-key'
+            k.toLowerCase() === "x-api-key" ||
+            k.toLowerCase() === "apikey" ||
+            k.toLowerCase() === "api-key",
         );
         if (apiKeyEntry) {
-          setAuthType('apikey');
+          setAuthType("apikey");
           setApiKeyHeader(apiKeyEntry[0]);
           setApiKeyValue(apiKeyEntry[1]);
         } else {
-          setAuthType('none');
+          setAuthType("none");
         }
       }
 
       // Parse Body
       const body = target.request_body;
-      if (body && typeof body === 'object' && Object.keys(body).length > 0) {
-        setBodyMode('raw');
+      if (body && typeof body === "object" && Object.keys(body).length > 0) {
+        setBodyMode("raw");
         setRequestBodyJson(JSON.stringify(body, null, 2));
       } else {
-        setBodyMode('kv');
-        setBodyPairs([{ key: '', value: '' }]);
+        setBodyMode("kv");
+        setBodyPairs([{ key: "", value: "" }]);
       }
 
       // Parse Schema
       const schema = target.expected_schema;
-      if (schema && typeof schema === 'object' && Object.keys(schema).length > 0) {
+      if (
+        schema &&
+        typeof schema === "object" &&
+        Object.keys(schema).length > 0
+      ) {
         const fields = Object.entries(schema).map(([field, type]) => ({
           field,
           type: schemaType(type),
         }));
-        setSchemaFields(fields.length > 0 ? fields : [{ field: '', type: 'string' }]);
+        setSchemaFields(
+          fields.length > 0 ? fields : [{ field: "", type: "string" }],
+        );
         setExpectedSchemaJson(JSON.stringify(schema, null, 2));
       } else {
-        setSchemaFields([{ field: '', type: 'string' }]);
-        setExpectedSchemaJson('');
+        setSchemaFields([{ field: "", type: "string" }]);
+        setExpectedSchemaJson("");
       }
     } else {
-      setName('');
-      setUrl('');
-      setMethod('GET');
+      setName("");
+      setUrl("");
+      setMethod("GET");
       setExpectedStatus(200);
       setExpectedTimeMs(2000);
       setEnabled(true);
-      setAuthType('none');
-      setAuthUser('');
-      setAuthPass('');
-      setAuthToken('');
-      setApiKeyHeader('X-API-Key');
-      setApiKeyValue('');
-      setBodyMode('kv');
-      setBodyPairs([{ key: '', value: '' }]);
-      setRequestBodyJson('');
-      setSchemaMode('builder');
-      setSchemaFields([{ field: '', type: 'string' }]);
-      setExpectedSchemaJson('');
+      setAuthType("none");
+      setAuthUser("");
+      setAuthPass("");
+      setAuthToken("");
+      setApiKeyHeader("X-API-Key");
+      setApiKeyValue("");
+      setBodyMode("kv");
+      setBodyPairs([{ key: "", value: "" }]);
+      setRequestBodyJson("");
+      setSchemaMode("builder");
+      setSchemaFields([{ field: "", type: "string" }]);
+      setExpectedSchemaJson("");
       setTestResult(null);
     }
   }, [target]);
 
   // Body Pair handlers
-  const addBodyPair = () => setBodyPairs([...bodyPairs, { key: '', value: '' }]);
-  const removeBodyPair = (index: number) => setBodyPairs(bodyPairs.filter((_, i) => i !== index));
-  const updateBodyPair = (index: number, field: 'key' | 'value', val: string) => {
+  const addBodyPair = () =>
+    setBodyPairs([...bodyPairs, { key: "", value: "" }]);
+  const removeBodyPair = (index: number) =>
+    setBodyPairs(bodyPairs.filter((_, i) => i !== index));
+  const updateBodyPair = (
+    index: number,
+    field: "key" | "value",
+    val: string,
+  ) => {
     const updated = [...bodyPairs];
     updated[index][field] = val;
     setBodyPairs(updated);
   };
 
   // Schema Field handlers
-  const addSchemaField = () => setSchemaFields([...schemaFields, { field: '', type: 'string' }]);
+  const addSchemaField = () =>
+    setSchemaFields([...schemaFields, { field: "", type: "string" }]);
   const removeSchemaField = (index: number) =>
     setSchemaFields(schemaFields.filter((_, i) => i !== index));
-  const updateSchemaField = (index: number, key: 'field' | 'type', val: string) => {
+  const updateSchemaField = (
+    index: number,
+    key: "field" | "type",
+    val: string,
+  ) => {
     const updated = [...schemaFields];
-    if (key === 'field') updated[index].field = val;
+    if (key === "field") updated[index].field = val;
     else updated[index].type = schemaType(val);
     setSchemaFields(updated);
   };
@@ -216,25 +264,30 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
     // Build headers from Auth tab
     const headers: Record<string, string> = {};
-    if (authType === 'basic' && authUser.trim()) {
+    if (authType === "basic" && authUser.trim()) {
       const token = btoa(`${authUser.trim()}:${authPass}`);
-      headers['Authorization'] = `Basic ${token}`;
-    } else if (authType === 'bearer' && authToken.trim()) {
-      headers['Authorization'] = `Bearer ${authToken.trim()}`;
-    } else if (authType === 'apikey' && apiKeyHeader.trim() && apiKeyValue.trim()) {
+      headers["Authorization"] = `Basic ${token}`;
+    } else if (authType === "bearer" && authToken.trim()) {
+      headers["Authorization"] = `Bearer ${authToken.trim()}`;
+    } else if (
+      authType === "apikey" &&
+      apiKeyHeader.trim() &&
+      apiKeyValue.trim()
+    ) {
       headers[apiKeyHeader.trim()] = apiKeyValue.trim();
     }
 
     // Build body
     let body: Record<string, unknown> = {};
-    if (method !== 'GET' && method !== 'HEAD') {
-      if (bodyMode === 'kv') {
+    if (method !== "GET" && method !== "HEAD") {
+      if (bodyMode === "kv") {
         bodyPairs.forEach((pair) => {
           if (pair.key.trim()) {
             let parsedVal: string | number | boolean = pair.value.trim();
-            if (parsedVal === 'true') parsedVal = true;
-            else if (parsedVal === 'false') parsedVal = false;
-            else if (!isNaN(Number(parsedVal)) && parsedVal !== '') parsedVal = Number(parsedVal);
+            if (parsedVal === "true") parsedVal = true;
+            else if (parsedVal === "false") parsedVal = false;
+            else if (!isNaN(Number(parsedVal)) && parsedVal !== "")
+              parsedVal = Number(parsedVal);
             body[pair.key.trim()] = parsedVal;
           }
         });
@@ -248,7 +301,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
     }
 
     try {
-      const response = await diagnostic.run('api-checks/test-request/', {
+      const response = await diagnostic.run("api-checks/test-request/", {
         url: url.trim(),
         method,
         headers,
@@ -256,7 +309,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
       });
       setTestResult(response.data?.data as APITestRequestResult);
     } catch (caughtError: unknown) {
- const err = apiFailure(caughtError);
+      const err = apiFailure(caughtError);
       if (diagnostic.isLimit(err)) return;
       setTestResult({
         success: false,
@@ -267,7 +320,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
         is_json: false,
         size_bytes: 0,
         error:
-          err.response?.data?.message || err.message || 'Error al conectar con el endpoint remoto.',
+          err.response?.data?.message ||
+          err.message ||
+          "Error al conectar con el endpoint remoto.",
       });
     } finally {
       setIsTesting(false);
@@ -278,25 +333,32 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
   const handleAutoGenerateSchema = () => {
     if (!testResult) return;
 
-    if (testResult.schema_inferred && Object.keys(testResult.schema_inferred).length > 0) {
+    if (
+      testResult.schema_inferred &&
+      Object.keys(testResult.schema_inferred).length > 0
+    ) {
       const entries = Object.entries(testResult.schema_inferred);
       const fields: SchemaFieldPair[] = entries.map(([field, type]) => ({
         field,
         type: schemaType(type),
       }));
       setSchemaFields(fields);
-      setExpectedSchemaJson(JSON.stringify(testResult.schema_inferred, null, 2));
+      setExpectedSchemaJson(
+        JSON.stringify(testResult.schema_inferred, null, 2),
+      );
     }
 
     if (testResult.status_code) {
       setExpectedStatus(testResult.status_code);
     }
     if (testResult.response_time_ms) {
-      setExpectedTimeMs(Math.max(Math.round(testResult.response_time_ms * 2), 500));
+      setExpectedTimeMs(
+        Math.max(Math.round(testResult.response_time_ms * 2), 500),
+      );
     }
 
     setSchemaAutoGenerated(true);
-    setActiveTab('schema');
+    setActiveTab("schema");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -306,25 +368,30 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
     // 1. Build Headers
     const headers: Record<string, string> = {};
-    if (authType === 'basic' && authUser.trim()) {
+    if (authType === "basic" && authUser.trim()) {
       const token = btoa(`${authUser.trim()}:${authPass}`);
-      headers['Authorization'] = `Basic ${token}`;
-    } else if (authType === 'bearer' && authToken.trim()) {
-      headers['Authorization'] = `Bearer ${authToken.trim()}`;
-    } else if (authType === 'apikey' && apiKeyHeader.trim() && apiKeyValue.trim()) {
+      headers["Authorization"] = `Basic ${token}`;
+    } else if (authType === "bearer" && authToken.trim()) {
+      headers["Authorization"] = `Bearer ${authToken.trim()}`;
+    } else if (
+      authType === "apikey" &&
+      apiKeyHeader.trim() &&
+      apiKeyValue.trim()
+    ) {
       headers[apiKeyHeader.trim()] = apiKeyValue.trim();
     }
 
     // 2. Build Request Body
     let body: Record<string, unknown> = {};
-    if (method !== 'GET' && method !== 'HEAD') {
-      if (bodyMode === 'kv') {
+    if (method !== "GET" && method !== "HEAD") {
+      if (bodyMode === "kv") {
         bodyPairs.forEach((pair) => {
           if (pair.key.trim()) {
             let parsedVal: string | number | boolean = pair.value.trim();
-            if (parsedVal === 'true') parsedVal = true;
-            else if (parsedVal === 'false') parsedVal = false;
-            else if (!isNaN(Number(parsedVal)) && parsedVal !== '') parsedVal = Number(parsedVal);
+            if (parsedVal === "true") parsedVal = true;
+            else if (parsedVal === "false") parsedVal = false;
+            else if (!isNaN(Number(parsedVal)) && parsedVal !== "")
+              parsedVal = Number(parsedVal);
             body[pair.key.trim()] = parsedVal;
           }
         });
@@ -333,7 +400,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
           body = JSON.parse(requestBodyJson);
         } catch {
           setJsonError(
-            'El campo "Cuerpo de Petición (Body JSON)" no contiene un formato JSON válido.'
+            'El campo "Cuerpo de Petición (Body JSON)" no contiene un formato JSON válido.',
           );
           return;
         }
@@ -342,7 +409,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
     // 3. Build Expected Schema
     let schema: Record<string, string> = {};
-    if (schemaMode === 'builder') {
+    if (schemaMode === "builder") {
       schemaFields.forEach((item) => {
         if (item.field.trim()) {
           schema[item.field.trim()] = item.type;
@@ -352,11 +419,30 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
       try {
         schema = JSON.parse(expectedSchemaJson);
       } catch {
-        setJsonError('El campo "Esquema Esperado JSON" no contiene un formato JSON válido.');
+        setJsonError(
+          'El campo "Esquema Esperado JSON" no contiene un formato JSON válido.',
+        );
         return;
       }
     }
 
+    if (
+      !schema ||
+      typeof schema !== "object" ||
+      Array.isArray(schema) ||
+      Object.entries(schema).some(
+        ([key, value]) =>
+          !key ||
+          !["string", "integer", "float", "boolean", "list", "dict"].includes(
+            value,
+          ),
+      )
+    ) {
+      setJsonError(
+        "El contrato JSON debe contener campos de primer nivel con tipos string, integer, float, boolean, list o dict. Los esquemas anidados no están disponibles.",
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       await onSubmit({
@@ -382,14 +468,15 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
       className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <div
+      <ModalSurface
+        label={target ? "Editar API Check Target" : "Nuevo API Check Target"}
+        onClose={onClose}
         className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5 border-b border-border-base/70 pb-4">
           <h2 className="text-xl font-bold text-text-main flex items-center gap-2 font-sans">
             <Plug size={22} className="text-accent-green" />
-            {target ? 'Editar API Check Target' : 'Nuevo API Check Target'}
+            {target ? "Editar API Check Target" : "Nuevo API Check Target"}
           </h2>
           <button
             onClick={onClose}
@@ -449,7 +536,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
               <label className="text-xs font-semibold text-text-muted">
                 URL del Endpoint REST
               </label>
-              <span className="text-xs text-text-dim">Protocolo HTTP o HTTPS</span>
+              <span className="text-xs text-text-dim">
+                Protocolo HTTP o HTTPS
+              </span>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -463,7 +552,8 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 }}
                 className="flex-1 bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
               />
-              <AdminButton capability="api_checks.test"
+              <AdminButton
+                capability="api_checks.test"
                 type="button"
                 onClick={handleTestRequest}
                 disabled={!url.trim() || isTesting}
@@ -483,18 +573,31 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 )}
               </AdminButton>
             </div>
-                <ConfigurationDiagnosticNotice notice={diagnostic.notice} remaining={diagnostic.remaining} />
+            <ConfigurationDiagnosticNotice
+              notice={diagnostic.notice}
+              remaining={diagnostic.remaining}
+            />
           </div>
 
+          {!["GET", "HEAD"].includes(method) && (
+            <p
+              role="note"
+              className="border border-accent-yellow/30 rounded-xl p-3 text-sm text-accent-yellow"
+            >
+              {method} puede modificar datos. Al habilitar este monitor se
+              ejecutará periódicamente, además de las pruebas manuales. Usa un
+              entorno o cuenta de prueba con permisos mínimos.
+            </p>
+          )}
           {/* LIVE TEST RESPONSE VIEWER (Postman-style preview) */}
           {testResult && (
             <div
               className={`p-4 rounded-2xl border text-xs animate-in fade-in duration-200 ${
                 testResult.success
                   ? testResult.status_code && testResult.status_code < 400
-                    ? 'bg-accent-green/5 border-accent-green/30'
-                    : 'bg-accent-yellow/5 border-accent-yellow/30'
-                  : 'bg-accent-red/5 border-accent-red/30'
+                    ? "bg-accent-green/5 border-accent-green/30"
+                    : "bg-accent-yellow/5 border-accent-yellow/30"
+                  : "bg-accent-red/5 border-accent-red/30"
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-border-base/50">
@@ -511,10 +614,10 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                     <span
                       className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-xs ${
                         testResult.status_code < 300
-                          ? 'bg-accent-green/15 text-accent-green border border-accent-green/30'
+                          ? "bg-accent-green/15 text-accent-green border border-accent-green/30"
                           : testResult.status_code < 400
-                          ? 'bg-accent-blue/15 text-accent-blue border border-accent-blue/30'
-                          : 'bg-accent-red/15 text-accent-red border border-accent-red/30'
+                            ? "bg-accent-blue/15 text-accent-blue border border-accent-blue/30"
+                            : "bg-accent-red/15 text-accent-red border border-accent-red/30"
                       }`}
                     >
                       HTTP {testResult.status_code}
@@ -538,7 +641,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   >
                     <Sparkles size={12} />
                     <span>
-                      {schemaAutoGenerated ? 'Schema Aplicado' : 'Auto-generar Config & Schema'}
+                      {schemaAutoGenerated
+                        ? "Schema Aplicado"
+                        : "Auto-generar Config & Schema"}
                     </span>
                   </button>
                 )}
@@ -547,14 +652,19 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
               {/* Response Body Inspector */}
               <div className="mt-2.5">
                 <div className="text-xs text-text-dim mb-1 font-mono flex items-center justify-between">
-                  <span>Cuerpo de Respuesta {testResult.is_json ? '(JSON)' : '(Texto)'}:</span>
+                  <span>
+                    Cuerpo de Respuesta{" "}
+                    {testResult.is_json ? "(JSON)" : "(Texto)"}:
+                  </span>
                   <span>{testResult.size_bytes} bytes</span>
                 </div>
                 <pre className="p-3 bg-bg-dark rounded-xl border border-border-base/70 font-mono text-xs text-text-main max-h-36 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">
                   {testResult.success
-                    ? typeof testResult.body === 'object'
+                    ? typeof testResult.body === "object"
                       ? JSON.stringify(testResult.body, null, 2)
-                      : String(testResult.body || 'Sin contenido en la respuesta.')
+                      : String(
+                          testResult.body || "Sin contenido en la respuesta.",
+                        )
                     : testResult.error}
                 </pre>
               </div>
@@ -603,12 +713,20 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                 onChange={(e) => setCheckInterval(Number(e.target.value))}
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono cursor-pointer"
               >
-                <option value={30} disabled={minInterval > 30}>Cada 30 seg · Business</option>
-                <option value={60} disabled={minInterval > 60}>Cada 1 min · Pro</option>
-                <option value={120} disabled={minInterval > 120}>Cada 2 min</option>
+                <option value={30} disabled={minInterval > 30}>
+                  Cada 30 seg · Business
+                </option>
+                <option value={60} disabled={minInterval > 60}>
+                  Cada 1 min · Pro
+                </option>
+                <option value={120} disabled={minInterval > 120}>
+                  Cada 2 min
+                </option>
                 <option value={300}>Cada 5 min</option>
               </select>
-              <p className="mt-1 text-xs text-text-dim">Mínimo de tu plan: {minInterval} segundos.</p>
+              <p className="mt-1 text-xs text-text-dim">
+                Mínimo de tu plan: {minInterval} segundos.
+              </p>
             </div>
           </div>
 
@@ -617,25 +735,25 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             <div className="flex border-b border-border-base/60 gap-4 text-xs font-medium pb-2">
               <button
                 type="button"
-                onClick={() => setActiveTab('auth')}
+                onClick={() => setActiveTab("auth")}
                 className={`pb-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  activeTab === 'auth'
-                    ? 'border-b-2 border-accent-green text-accent-green font-bold'
-                    : 'text-text-dim hover:text-text-main'
+                  activeTab === "auth"
+                    ? "border-b-2 border-accent-green text-accent-green font-bold"
+                    : "text-text-dim hover:text-text-main"
                 }`}
               >
                 <Lock size={14} />
                 Autenticación & Tokens
               </button>
 
-              {method !== 'GET' && method !== 'HEAD' && (
+              {method !== "GET" && method !== "HEAD" && (
                 <button
                   type="button"
-                  onClick={() => setActiveTab('body')}
+                  onClick={() => setActiveTab("body")}
                   className={`pb-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
-                    activeTab === 'body'
-                      ? 'border-b-2 border-accent-green text-accent-green font-bold'
-                      : 'text-text-dim hover:text-text-main'
+                    activeTab === "body"
+                      ? "border-b-2 border-accent-green text-accent-green font-bold"
+                      : "text-text-dim hover:text-text-main"
                   }`}
                 >
                   <Code2 size={14} />
@@ -645,11 +763,11 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
 
               <button
                 type="button"
-                onClick={() => setActiveTab('schema')}
+                onClick={() => setActiveTab("schema")}
                 className={`pb-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  activeTab === 'schema'
-                    ? 'border-b-2 border-accent-green text-accent-green font-bold'
-                    : 'text-text-dim hover:text-text-main'
+                  activeTab === "schema"
+                    ? "border-b-2 border-accent-green text-accent-green font-bold"
+                    : "text-text-dim hover:text-text-main"
                 }`}
               >
                 <CheckCircle2 size={14} />
@@ -661,14 +779,14 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             </div>
 
             {/* TAB 1: AUTHENTICATION */}
-            {activeTab === 'auth' && (
+            {activeTab === "auth" && (
               <div className="space-y-4 pt-1">
                 <div className="flex gap-2">
                   {[
-                    { id: 'none', label: 'Sin Auth' },
-                    { id: 'basic', label: 'Basic Auth' },
-                    { id: 'bearer', label: 'Bearer Token' },
-                    { id: 'apikey', label: 'API Key' },
+                    { id: "none", label: "Sin Auth" },
+                    { id: "basic", label: "Basic Auth" },
+                    { id: "bearer", label: "Bearer Token" },
+                    { id: "apikey", label: "API Key" },
                   ].map((item) => (
                     <button
                       key={item.id}
@@ -676,8 +794,8 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       onClick={() => setAuthType(item.id as AuthType)}
                       className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                         authType === item.id
-                          ? 'bg-accent-green/10 border-accent-green/40 text-accent-green'
-                          : 'bg-bg-dark border-border-base text-text-dim hover:text-text-main'
+                          ? "bg-accent-green/10 border-accent-green/40 text-accent-green"
+                          : "bg-bg-dark border-border-base text-text-dim hover:text-text-main"
                       }`}
                     >
                       {item.label}
@@ -685,10 +803,12 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   ))}
                 </div>
 
-                {authType === 'basic' && (
+                {authType === "basic" && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-xs text-text-dim mb-1">Usuario / Email</label>
+                      <label className="block text-xs text-text-dim mb-1">
+                        Usuario / Email
+                      </label>
                       <input
                         type="text"
                         placeholder="usuario@empresa.com"
@@ -698,7 +818,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-text-dim mb-1">Contraseña</label>
+                      <label className="block text-xs text-text-dim mb-1">
+                        Contraseña
+                      </label>
                       <input
                         type="password"
                         placeholder="••••••••"
@@ -710,7 +832,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   </div>
                 )}
 
-                {authType === 'bearer' && (
+                {authType === "bearer" && (
                   <div className="pt-2">
                     <label className="block text-xs text-text-dim mb-1">
                       Bearer Token (JWT / API Token)
@@ -725,10 +847,12 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   </div>
                 )}
 
-                {authType === 'apikey' && (
+                {authType === "apikey" && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-xs text-text-dim mb-1">Nombre del Header</label>
+                      <label className="block text-xs text-text-dim mb-1">
+                        Nombre del Header
+                      </label>
                       <input
                         type="text"
                         placeholder="X-API-Key"
@@ -738,7 +862,9 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-text-dim mb-1">Valor de la Llave</label>
+                      <label className="block text-xs text-text-dim mb-1">
+                        Valor de la Llave
+                      </label>
                       <input
                         type="password"
                         placeholder="sk_live_..."
@@ -753,34 +879,34 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             )}
 
             {/* TAB 2: REQUEST BODY */}
-            {activeTab === 'body' && method !== 'GET' && method !== 'HEAD' && (
+            {activeTab === "body" && method !== "GET" && method !== "HEAD" && (
               <div className="space-y-4 pt-1">
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setBodyMode('kv')}
+                    onClick={() => setBodyMode("kv")}
                     className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                      bodyMode === 'kv'
-                        ? 'bg-accent-green/10 border-accent-green/40 text-accent-green'
-                        : 'bg-bg-dark border-border-base text-text-dim'
+                      bodyMode === "kv"
+                        ? "bg-accent-green/10 border-accent-green/40 text-accent-green"
+                        : "bg-bg-dark border-border-base text-text-dim"
                     }`}
                   >
                     Clave - Valor
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBodyMode('raw')}
+                    onClick={() => setBodyMode("raw")}
                     className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                      bodyMode === 'raw'
-                        ? 'bg-accent-green/10 border-accent-green/40 text-accent-green'
-                        : 'bg-bg-dark border-border-base text-text-dim'
+                      bodyMode === "raw"
+                        ? "bg-accent-green/10 border-accent-green/40 text-accent-green"
+                        : "bg-bg-dark border-border-base text-text-dim"
                     }`}
                   >
                     JSON Raw
                   </button>
                 </div>
 
-                {bodyMode === 'kv' ? (
+                {bodyMode === "kv" ? (
                   <div className="space-y-2">
                     {bodyPairs.map((pair, idx) => (
                       <div key={idx} className="flex gap-2 items-center">
@@ -788,14 +914,18 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                           type="text"
                           placeholder="Clave (ej. usuario)"
                           value={pair.key}
-                          onChange={(e) => updateBodyPair(idx, 'key', e.target.value)}
+                          onChange={(e) =>
+                            updateBodyPair(idx, "key", e.target.value)
+                          }
                           className="flex-1 bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs text-text-main font-mono"
                         />
                         <input
                           type="text"
                           placeholder="Valor"
                           value={pair.value}
-                          onChange={(e) => updateBodyPair(idx, 'value', e.target.value)}
+                          onChange={(e) =>
+                            updateBodyPair(idx, "value", e.target.value)
+                          }
                           className="flex-1 bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs text-text-main font-mono"
                         />
                         {bodyPairs.length > 1 && (
@@ -814,8 +944,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       onClick={addBodyPair}
                       className="flex items-center gap-1.5 text-xs font-mono text-accent-green hover:underline pt-1 cursor-pointer"
                     >
-                      <Plus size={14} />
-                      + Agregar Par Clave-Valor
+                      <Plus size={14} />+ Agregar Par Clave-Valor
                     </button>
                   </div>
                 ) : (
@@ -833,28 +962,28 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
             )}
 
             {/* TAB 3: SCHEMA VALIDATION */}
-            {activeTab === 'schema' && (
+            {activeTab === "schema" && (
               <div className="space-y-4 pt-1">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setSchemaMode('builder')}
+                      onClick={() => setSchemaMode("builder")}
                       className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                        schemaMode === 'builder'
-                          ? 'bg-accent-green/10 border-accent-green/40 text-accent-green'
-                          : 'bg-bg-dark border-border-base text-text-dim'
+                        schemaMode === "builder"
+                          ? "bg-accent-green/10 border-accent-green/40 text-accent-green"
+                          : "bg-bg-dark border-border-base text-text-dim"
                       }`}
                     >
                       Constructor Visual
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSchemaMode('raw')}
+                      onClick={() => setSchemaMode("raw")}
                       className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                        schemaMode === 'raw'
-                          ? 'bg-accent-green/10 border-accent-green/40 text-accent-green'
-                          : 'bg-bg-dark border-border-base text-text-dim'
+                        schemaMode === "raw"
+                          ? "bg-accent-green/10 border-accent-green/40 text-accent-green"
+                          : "bg-bg-dark border-border-base text-text-dim"
                       }`}
                     >
                       JSON Raw
@@ -873,7 +1002,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                   )}
                 </div>
 
-                {schemaMode === 'builder' ? (
+                {schemaMode === "builder" ? (
                   <div className="space-y-2">
                     {schemaFields.map((item, idx) => (
                       <div key={idx} className="flex gap-2 items-center">
@@ -881,12 +1010,16 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                           type="text"
                           placeholder="Nombre del campo (ej. status, id, data)"
                           value={item.field}
-                          onChange={(e) => updateSchemaField(idx, 'field', e.target.value)}
+                          onChange={(e) =>
+                            updateSchemaField(idx, "field", e.target.value)
+                          }
                           className="flex-1 bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs text-text-main font-mono"
                         />
                         <select
                           value={item.type}
-                          onChange={(e) => updateSchemaField(idx, 'type', e.target.value)}
+                          onChange={(e) =>
+                            updateSchemaField(idx, "type", e.target.value)
+                          }
                           className="w-36 bg-bg-card border border-border-base rounded-xl px-3 py-1.5 text-xs text-text-main font-mono cursor-pointer"
                         >
                           <option value="string">Cadena (string)</option>
@@ -913,8 +1046,7 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
                       onClick={addSchemaField}
                       className="flex items-center gap-1.5 text-xs font-mono text-accent-green hover:underline pt-1 cursor-pointer"
                     >
-                      <Plus size={14} />
-                      + Agregar Campo a Validar
+                      <Plus size={14} />+ Agregar Campo a Validar
                     </button>
                   </div>
                 ) : (
@@ -964,15 +1096,15 @@ export default function APICheckForm({ target, onSubmit, onClose }: APICheckForm
               {submitting ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : target ? (
-                'Actualizar'
+                "Actualizar"
               ) : (
-                'Guardar y Monitorear'
+                "Guardar y Monitorear"
               )}
             </button>
           </div>
         </form>
-      </div>
+      </ModalSurface>
     </div>,
-    document.body
+    document.body,
   );
 }

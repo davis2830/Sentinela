@@ -8,6 +8,7 @@ from api_checks.models import APICheckResult
 from dns_monitor.models import DNSChangeHistory
 from monitoring.models import MonitoringCheck, AgentExecution
 from organizations.models import Organization
+from common.models import ScanExecution
 from security_headers.models import SecurityHeaderResult
 
 
@@ -22,15 +23,29 @@ class Command(BaseCommand):
         total = 0
         for organization in Organization.objects.iterator():
             from common.retention_policy import retention_policy
+
             policy = retention_policy(organization)
             days = policy["planned_days"] if dry_run else policy["applied_days"]
             cutoff = timezone.now() - timedelta(days=days)
             querysets = {
-                "monitoring_checks": MonitoringCheck.objects.filter(target__organization=organization, checked_at__lt=cutoff),
-                "api_check_results": APICheckResult.objects.filter(target__organization=organization, checked_at__lt=cutoff),
-                "security_header_results": SecurityHeaderResult.objects.filter(target__organization=organization, checked_at__lt=cutoff),
-                "dns_change_history": DNSChangeHistory.objects.filter(record__organization=organization, changed_at__lt=cutoff),
-                "agent_execution_receipts": AgentExecution.objects.filter(organization=organization, expires_at__lt=timezone.now()),
+                "cloud_execution_receipts": ScanExecution.objects.filter(
+                    organization=organization, expires_at__lt=timezone.now() - timedelta(hours=24)
+                ),
+                "monitoring_checks": MonitoringCheck.objects.filter(
+                    target__organization=organization, checked_at__lt=cutoff
+                ),
+                "api_check_results": APICheckResult.objects.filter(
+                    target__organization=organization, checked_at__lt=cutoff
+                ),
+                "security_header_results": SecurityHeaderResult.objects.filter(
+                    target__organization=organization, checked_at__lt=cutoff
+                ),
+                "dns_change_history": DNSChangeHistory.objects.filter(
+                    record__organization=organization, changed_at__lt=cutoff
+                ),
+                "agent_execution_receipts": AgentExecution.objects.filter(
+                    organization=organization, expires_at__lt=timezone.now()
+                ),
             }
             counts = {name: queryset.count() for name, queryset in querysets.items()}
             org_total = sum(counts.values())

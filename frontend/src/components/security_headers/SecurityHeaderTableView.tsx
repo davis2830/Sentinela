@@ -1,21 +1,27 @@
-import AdminButton from '../common/AdminButton';
-import React from 'react';
-import type { SecurityHeaderTarget } from '../../types/security_headers';
-import GradeBadge from '../common/GradeBadge';
+import ResourceActionButtons from "../common/ResourceActionButtons";
+import SelectionCheckbox from "../common/SelectionCheckbox";
+import {
+  hasMeasurement,
+  healthPalette,
+  securityHealthTone,
+  securityResponseTone,
+} from "../../utils/healthPresentation";
+
+import React from "react";
+import type { SecurityHeaderTarget } from "../../types/security_headers";
+import GradeBadge from "../common/GradeBadge";
 import {
   Clock,
   Pencil,
   Trash2,
   ExternalLink,
-  CheckSquare,
-  Square,
   Shield,
   ShieldAlert,
   Lock,
   FileCode2,
   Layers,
   Zap,
-} from 'lucide-react';
+} from "lucide-react";
 
 export interface SecurityHeaderTableViewProps {
   targets: SecurityHeaderTarget[];
@@ -45,42 +51,54 @@ export default function SecurityHeaderTableView({
     if (target.last_grade) return target.last_grade;
     const score = target.last_score;
     if (score === null) return null;
-    if (score >= 95) return 'A+';
-    if (score >= 80) return 'A';
-    if (score >= 70) return 'B';
-    if (score >= 60) return 'C';
-    if (score >= 50) return 'D';
-    return 'F';
+    if (score >= 95) return "A+";
+    if (score >= 80) return "A";
+    if (score >= 70) return "B";
+    if (score >= 60) return "C";
+    if (score >= 50) return "D";
+    return "F";
   };
 
   return (
-    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div
+      data-testid="connectivity-table"
+      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans"
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
+            <tr className="border-b border-border-base text-text-muted text-xs bg-bg-dark/80">
               <th scope="col" className="py-3 px-3.5 w-10">
-                <button
-                  type="button"
-                  onClick={onSelectAll}
-                  className="text-text-dim hover:text-accent-green transition-colors"
-                  title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                >
-                  {allSelected ? (
-                    <CheckSquare size={16} className="text-accent-green" />
-                  ) : (
-                    <Square size={16} />
-                  )}
-                </button>
+                <SelectionCheckbox
+                  checked={allSelected}
+                  label="Seleccionar todos los recursos de esta página"
+                  onChange={onSelectAll}
+                />
               </th>
-              <th scope="col" className="py-3 px-4">Endpoint / Servicio</th>
-              <th scope="col" className="py-3 px-3">Calificación</th>
-              <th scope="col" className="py-3 px-3">Blindaje Crítico</th>
-              <th scope="col" className="py-3 px-3">Latencia</th>
-              <th scope="col" className="py-3 px-3">Fuga de Stack</th>
-              <th scope="col" className="py-3 px-3">Monitoreo</th>
-              <th scope="col" className="py-3 px-3">Último Análisis</th>
-              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-4">
+                Endpoint / Servicio
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Calificación
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Blindaje Crítico
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Latencia
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Fuga de Stack
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Monitoreo
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Último Análisis
+              </th>
+              <th scope="col" className="py-3 px-4 text-right">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40">
@@ -94,9 +112,17 @@ export default function SecurityHeaderTableView({
                   onClick={() => onSelectTarget(target)}
                   tabIndex={0}
                   aria-label={target.name}
-                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectTarget(target); } }}
+                  onKeyDown={(e) => {
+                    if (
+                      e.target === e.currentTarget &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      onSelectTarget(target);
+                    }
+                  }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                    isSelected ? 'bg-accent-green/[0.03]' : ''
+                    isSelected ? "bg-accent-green/[0.03]" : ""
                   }`}
                 >
                   {/* Row Checkbox */}
@@ -107,22 +133,20 @@ export default function SecurityHeaderTableView({
                       onToggleSelect(target);
                     }}
                   >
-                    <button
-                      type="button"
-                      className="text-text-dim hover:text-accent-green transition-colors"
-                    >
-                      {isSelected ? (
-                        <CheckSquare size={16} className="text-accent-green" />
-                      ) : (
-                        <Square size={16} />
-                      )}
-                    </button>
+                    <SelectionCheckbox
+                      checked={isSelected}
+                      label={`Seleccionar ${target.name}`}
+                      onChange={() => onToggleSelect(target)}
+                    />
                   </td>
 
                   {/* Name and URL */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <Shield size={14} className="text-accent-green shrink-0" />
+                      <Shield
+                        size={14}
+                        className="text-accent-green shrink-0"
+                      />
                       <span className="font-bold text-text-main group-hover:text-accent-green transition-colors text-sm">
                         {target.name}
                       </span>
@@ -145,7 +169,11 @@ export default function SecurityHeaderTableView({
                   {/* Grade & Score */}
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">
-                      <GradeBadge grade={grade} score={target.last_score} />
+                      <GradeBadge
+                        grade={grade}
+                        score={target.last_score}
+                        tone={securityHealthTone(target)}
+                      />
                       {target.last_score !== null && (
                         <span className="font-mono font-bold text-xs text-text-muted">
                           {target.last_score} pts
@@ -159,33 +187,40 @@ export default function SecurityHeaderTableView({
                     <div className="flex items-center gap-1 font-mono text-xs">
                       <span
                         className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                          hasMeasurement(target.last_checked_at) &&
                           target.has_hsts
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
-                            : 'bg-bg-dark border border-border-base/40 text-text-dim'
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold"
+                            : "bg-bg-dark border border-border-base/40 text-text-dim"
                         }`}
-                        title={target.has_hsts ? 'HSTS Activo' : 'HSTS Ausente'}
+                        title={target.has_hsts ? "HSTS Activo" : "HSTS Ausente"}
                       >
                         <Lock size={9} />
                         HSTS
                       </span>
                       <span
                         className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                          hasMeasurement(target.last_checked_at) &&
                           target.has_csp
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
-                            : 'bg-bg-dark border border-border-base/40 text-text-dim'
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold"
+                            : "bg-bg-dark border border-border-base/40 text-text-dim"
                         }`}
-                        title={target.has_csp ? 'CSP Activo' : 'CSP Ausente'}
+                        title={target.has_csp ? "CSP Activo" : "CSP Ausente"}
                       >
                         <FileCode2 size={9} />
                         CSP
                       </span>
                       <span
                         className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                          hasMeasurement(target.last_checked_at) &&
                           target.has_xfo
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold'
-                            : 'bg-bg-dark border border-border-base/40 text-text-dim'
+                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold"
+                            : "bg-bg-dark border border-border-base/40 text-text-dim"
                         }`}
-                        title={target.has_xfo ? 'X-Frame-Options Activo' : 'XFO Ausente'}
+                        title={
+                          target.has_xfo
+                            ? "X-Frame-Options Activo"
+                            : "XFO Ausente"
+                        }
                       >
                         <Layers size={9} />
                         XFO
@@ -195,14 +230,11 @@ export default function SecurityHeaderTableView({
 
                   {/* Latency */}
                   <td className="py-3 px-3 font-mono text-xs">
-                    {target.last_response_time_ms !== null && target.last_response_time_ms !== undefined ? (
+                    {target.last_response_time_ms !== null &&
+                    target.last_response_time_ms !== undefined ? (
                       <span
                         className={`flex items-center gap-1 font-semibold ${
-                          target.last_response_time_ms < 400
-                            ? 'text-accent-green'
-                            : target.last_response_time_ms < 1000
-                            ? 'text-accent-yellow'
-                            : 'text-accent-red'
+                          healthPalette[securityResponseTone(target)].text
                         }`}
                       >
                         <Zap size={11} />
@@ -215,10 +247,16 @@ export default function SecurityHeaderTableView({
 
                   {/* Server Leak Detection */}
                   <td className="py-3 px-3">
-                    {!target.last_checked_at ? <span className="text-text-dim">Sin datos</span> : target.info_leak_detected ? (
+                    {!target.last_checked_at ? (
+                      <span className="text-text-dim">Sin datos</span>
+                    ) : target.info_leak_detected ? (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse"
-                        title={target.server_header || target.powered_by_header || 'Expone software de servidor'}
+                        title={
+                          target.server_header ||
+                          target.powered_by_header ||
+                          "Expone software de servidor"
+                        }
                       >
                         <ShieldAlert size={11} />
                         Fuga detectada
@@ -234,7 +272,8 @@ export default function SecurityHeaderTableView({
                   <td className="py-3 px-3 text-xs font-medium">
                     {target.enabled ? (
                       <span className="text-accent-green flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green" /> Activo
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />{" "}
+                        Activo
                       </span>
                     ) : (
                       <span className="text-text-dim">Pausado</span>
@@ -246,13 +285,16 @@ export default function SecurityHeaderTableView({
                     {target.last_checked_at ? (
                       <span className="flex items-center gap-1">
                         <Clock size={12} />
-                        {new Date(target.last_checked_at).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {new Date(target.last_checked_at).toLocaleTimeString(
+                          "es-ES",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
                       </span>
                     ) : (
-                      'Nunca'
+                      "Nunca"
                     )}
                   </td>
 
@@ -262,23 +304,32 @@ export default function SecurityHeaderTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-
-                      <AdminButton capability="security_headers.update"
-                        type="button"
-                        onClick={(e) => onEdit(target, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors"
-                        title="Editar endpoint"
-                      >
-                        <Pencil size={14} />
-                      </AdminButton>
-                      <AdminButton capability="security_headers.delete"
-                        type="button"
-                        onClick={(e) => onDelete(target, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors"
-                        title="Eliminar endpoint"
-                      >
-                        <Trash2 size={14} />
-                      </AdminButton>
+                      <ResourceActionButtons
+                        label={`Acciones de ${target.name}`}
+                        actions={[
+                          {
+                            label: "Editar endpoint",
+                            onClick: (e) => onEdit(target, e),
+                            capability: "security_headers.update",
+                            icon: (
+                              <>
+                                <Pencil size={14} />
+                              </>
+                            ),
+                          },
+                          {
+                            label: "Eliminar endpoint",
+                            onClick: (e) => onDelete(target, e),
+                            capability: "security_headers.delete",
+                            danger: true,
+                            icon: (
+                              <>
+                                <Trash2 size={14} />
+                              </>
+                            ),
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>

@@ -32,6 +32,7 @@ class DNSMonitorService:
         start_time = time.perf_counter()
         try:
             from common.security import resolve_safe_target_endpoint, validate_safe_target_endpoint
+
             validate_safe_target_endpoint(f"http://{clean_domain}", allow_private=False)
             if nameserver:
                 _, _, _, nameserver_ips = resolve_safe_target_endpoint(
@@ -80,6 +81,7 @@ class DNSMonitorService:
                         }
 
             return {
+                "resolver": ", ".join(str(n) for n in resolver.nameservers),
                 "success": True,
                 "domain": clean_domain,
                 "record_type": rec_type,
@@ -162,21 +164,21 @@ class DNSMonitorService:
     @staticmethod
     @transaction.atomic
     @beta_creation("dns_records")
-    def create_record(organization_id, domain, record_type):
+    def create_record(organization_id, domain, record_type, expected_values=None):
         """Create a new DNS record to monitor and trigger immediate resolution."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         record, created = DNSRecord.objects.get_or_create(
             organization_id=organization_id,
             domain=clean_domain,
             record_type=record_type,
+            defaults={"expected_values": expected_values or []},
         )
         if not created:
             return record
-        try:
-            from .tasks import scan_dns_records
-            scan_dns_records.delay(str(record.id))
-        except Exception:
-            pass
+        from .tasks import scan_dns_records
+        from common.executions import initial_scan
+
+        initial_scan(record, scan_dns_records)
         return record
 
     @staticmethod
@@ -192,28 +194,25 @@ class DNSMonitorService:
     @transaction.atomic
     def delete_record(record_id, organization_id):
         """Delete a DNS record."""
-        record = DNSRecord.objects.get(
-            id=record_id, organization_id=organization_id
-        )
+        record = DNSRecord.objects.get(id=record_id, organization_id=organization_id)
         record.delete()
 
     @staticmethod
     @transaction.atomic
-    def update_record(record_id, organization_id, domain=None, record_type=None):
+    def update_record(record_id, organization_id, domain=None, record_type=None, expected_values=None):
         """Update domain or record_type for a DNS record."""
-        record = DNSRecord.objects.get(
-            id=record_id, organization_id=organization_id
-        )
+        record = DNSRecord.objects.get(id=record_id, organization_id=organization_id)
+        if expected_values is not None:
+            record.expected_values = expected_values
         if domain:
             record.domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         if record_type:
             record.record_type = record_type
         record.save()
-        try:
-            from .tasks import scan_dns_records
-            scan_dns_records.delay(str(record.id))
-        except Exception:
-            pass
+        from .tasks import scan_dns_records
+        from common.executions import initial_scan
+
+        initial_scan(record, scan_dns_records)
         return record
 
     @staticmethod
@@ -229,13 +228,13 @@ class DNSMonitorService:
             changed_at__gte=since_24h,
         ).count()
 
-        unresolved = records.filter(value="").count()
+        unresolved = records.exclude(last_attempt_status="success").count()
 
         # Compute average response time in ms
-        records_with_lat = records.filter(response_time_ms__isnull=False)
-        avg_lat = 0
-        if records_with_lat.exists():
-            avg_lat = round(sum(r.response_time_ms for r in records_with_lat) / records_with_lat.count(), 1)
+        from django.db.models import Avg
+
+        average = records.filter(last_attempt_status="success").aggregate(value=Avg("response_time_ms"))["value"]
+        avg_lat = round(average, 1) if average is not None else None
 
         return {
             "total": total,
@@ -247,12 +246,31 @@ class DNSMonitorService:
 
     @staticmethod
     @transaction.atomic
-    def update_record_scan(record_id, new_value, ttl, response_time_ms=None):
+    def update_record_scan(
+        record_id, new_value, ttl, response_time_ms=None, error_code="", error_message="", resolver=""
+    ):
         """Update a DNS record with scan results, latency, and detect changes."""
         record = DNSRecord.objects.get(id=record_id)
+        from common.execution_context import assert_current
+
+        assert_current(record)
         old_value = record.value
         now = timezone.now()
 
+        record.last_scanned_at = now
+        record.last_attempt_status = "error" if error_code else "success"
+        record.last_error_code = error_code
+        record.last_error_message = error_message[:500]
+        if resolver:
+            record.resolver = resolver
+        if error_code:
+            record.matches_expected = None
+            record.save()
+            return record
+        record.last_successful_at = now
+        record.matches_expected = (
+            (sorted(record.expected_values) == sorted(new_value.splitlines())) if record.expected_values else None
+        )
         value_changed = sorted(old_value.splitlines()) != sorted(new_value.splitlines()) and old_value != ""
 
         record.value = new_value
@@ -275,9 +293,7 @@ class DNSMonitorService:
     @staticmethod
     def get_change_history(record_id, organization_id, limit=50):
         """Return change history for a DNS record."""
-        record = DNSRecord.objects.get(
-            id=record_id, organization_id=organization_id
-        )
+        record = DNSRecord.objects.get(id=record_id, organization_id=organization_id)
         return record.change_history.all()[:limit]
 
     @staticmethod
@@ -292,18 +308,7 @@ class DNSMonitorService:
 
     @staticmethod
     def bulk_action(organization_id, action, record_ids):
-        """Execute bulk actions (scan, delete) on selected DNS records."""
-        records = DNSRecord.objects.filter(
-            organization_id=organization_id, id__in=record_ids
-        )
-        count = records.count()
-        if action == "scan":
-            from .tasks import scan_dns_records
-            for rec in records:
-                scan_dns_records.delay(str(rec.id))
-            return {"action": "scan", "processed": count, "message": f"{count} registros DNS encolados para re-resolución."}
-        elif action == "delete":
-            deleted_count = records.delete()[0]
-            return {"action": "delete", "processed": deleted_count, "message": f"{deleted_count} registros eliminados."}
-        else:
-            raise ValueError(f"Acción no soportada: {action}")
+        from common.bulk import operate
+        from .tasks import scan_dns_records
+
+        return operate(DNSRecord, organization_id, action, record_ids, scan_dns_records)

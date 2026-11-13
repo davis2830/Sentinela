@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, name="dns.scan_records", soft_time_limit=510, time_limit=540)
-@guarded_scan('dns_monitor.DNSRecord')
+@guarded_scan("dns_monitor.DNSRecord")
 def scan_dns_records(self, record_id):
     """Scan a DNS record for a given record.
 
@@ -23,6 +23,7 @@ def scan_dns_records(self, record_id):
     try:
         record = DNSRecord.objects.select_related("organization").get(id=record_id)
         from common.subscriptions import monitoring_allowed
+
         if not monitoring_allowed(record.organization):
             return {"status": "skipped", "reason": "subscription_required"}
     except DNSRecord.DoesNotExist:
@@ -42,6 +43,7 @@ def scan_dns_records(self, record_id):
             new_value=new_value,
             ttl=res.get("ttl"),
             response_time_ms=res.get("response_time_ms"),
+            resolver=res.get("resolver", ""),
         )
         logger.info(
             "DNS scan complete for %s %s: %d values in %sms (TTL %s)",
@@ -57,6 +59,8 @@ def scan_dns_records(self, record_id):
             new_value="",
             ttl=None,
             response_time_ms=res.get("response_time_ms"),
+            error_code=res.get("error_type") or "ERROR",
+            error_message=res.get("error_message") or "La consulta DNS no se completó.",
         )
         logger.warning(
             "DNS scan failed for %s %s (%s): %s in %sms",

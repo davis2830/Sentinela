@@ -351,6 +351,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Endpoint quick view: summary first; full analysis lives in the dossier. */
 .endpoint-quick-panel { width:100%; max-width:720px; height:100%; overflow-y:auto; background:rgb(var(--sentinel-bg-card)); border-left:1px solid rgb(var(--sentinel-border-base)); }
+.connectivity-directory-table button { min-width:44px; min-height:44px; }
 .quick-panel-header { position:sticky; top:0; z-index:10; display:flex; gap:12px; padding:16px; background:rgb(var(--sentinel-bg-card)); border-bottom:1px solid rgb(var(--sentinel-border-base)); }
 .quick-panel-body { display:flex; flex-direction:column; gap:12px; padding:16px; min-width:0; }
 .quick-panel-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }

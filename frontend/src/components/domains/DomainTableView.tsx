@@ -1,17 +1,22 @@
-import AdminButton from '../common/AdminButton';
-import React from 'react';
-import type { DomainInfo } from '../../types/domain';
+import ResourceActionButtons from "../common/ResourceActionButtons";
+import SelectionCheckbox from "../common/SelectionCheckbox";
+
+import React from "react";
+import type { DomainInfo } from "../../types/domain";
+import {
+  expirationTone,
+  hasMeasurement,
+  healthPalette,
+} from "../../utils/healthPresentation";
 import {
   Pencil,
   Trash2,
   ExternalLink,
-  CheckSquare,
-  Square,
   Globe2,
   Lock,
   Unlock,
   Server,
-} from 'lucide-react';
+} from "lucide-react";
 
 export interface DomainTableViewProps {
   domains: DomainInfo[];
@@ -37,7 +42,6 @@ export default function DomainTableView({
   const allSelected =
     domains.length > 0 && selectedIds.length === domains.length;
 
-
   const calculateLifePercentage = (domain: DomainInfo) => {
     if (!domain.creation_date || !domain.expiration_date) return null;
     const start = new Date(domain.creation_date).getTime();
@@ -51,51 +55,71 @@ export default function DomainTableView({
 
   const parseNameservers = (nsData: unknown): string[] => {
     if (!nsData) return [];
-    if (Array.isArray(nsData)) return nsData.map((s) => String(s).toLowerCase());
-    if (typeof nsData === 'string') {
+    if (Array.isArray(nsData))
+      return nsData.map((s) => String(s).toLowerCase());
+    if (typeof nsData === "string") {
       try {
         const parsed = JSON.parse(nsData);
-        if (Array.isArray(parsed)) return parsed.map((s) => String(s).toLowerCase());
+        if (Array.isArray(parsed))
+          return parsed.map((s) => String(s).toLowerCase());
       } catch {
-        return nsData.split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase());
+        return nsData
+          .split(/[\s,]+/)
+          .filter(Boolean)
+          .map((s) => s.toLowerCase());
       }
     }
     return [];
   };
 
   return (
-    <div data-testid="connectivity-table" className="min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans">
+    <div
+      data-testid="connectivity-table"
+      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans"
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-xs bg-bg-card">
+            <tr className="border-b border-border-base text-text-muted text-xs bg-bg-dark/80">
               <th scope="col" className="py-3 px-3.5 w-10">
-                <button
-                  type="button"
-                  onClick={onSelectAll}
-                  className="text-text-dim hover:text-accent-green transition-colors cursor-pointer"
-                  title={allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                >
-                  {allSelected ? (
-                    <CheckSquare size={16} className="text-accent-green" />
-                  ) : (
-                    <Square size={16} />
-                  )}
-                </button>
+                <SelectionCheckbox
+                  checked={allSelected}
+                  label="Seleccionar todos los recursos de esta página"
+                  onChange={onSelectAll}
+                />
               </th>
-              <th scope="col" className="py-3 px-4">Dominio FQDN</th>
-              <th scope="col" className="py-3 px-3">Registrador ICANN</th>
-              <th scope="col" className="py-3 px-3">Bloqueo EPP</th>
-              <th scope="col" className="py-3 px-3">Vigencia & Timeline</th>
-              <th scope="col" className="py-3 px-3">Fecha Vencimiento</th>
-              <th scope="col" className="py-3 px-3">Servidores NS</th>
-              <th scope="col" className="py-3 px-4 text-right">Acciones</th>
+              <th scope="col" className="py-3 px-4">
+                Dominio FQDN
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Registrador ICANN
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Bloqueo EPP
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Vigencia & Timeline
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Fecha Vencimiento
+              </th>
+              <th scope="col" className="py-3 px-3">
+                Servidores NS
+              </th>
+              <th scope="col" className="py-3 px-4 text-right">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-base/40">
             {domains.map((domain) => {
               const isSelected = selectedIds.includes(domain.id);
               const days = domain.days_until_expiration;
+              const measured =
+                hasMeasurement(domain.last_scanned_at) &&
+                domain.status !== "error" &&
+                !domain.error_message;
+              const expiryTone = expirationTone(days, measured);
               const lifePct = calculateLifePercentage(domain);
               const nsList = parseNameservers(domain.name_servers);
 
@@ -105,9 +129,17 @@ export default function DomainTableView({
                   onClick={() => onSelectDomain(domain)}
                   tabIndex={0}
                   aria-label={domain.domain}
-                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectDomain(domain); } }}
+                  onKeyDown={(e) => {
+                    if (
+                      e.target === e.currentTarget &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      onSelectDomain(domain);
+                    }
+                  }}
                   className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                    isSelected ? 'bg-accent-green/[0.03]' : ''
+                    isSelected ? "bg-accent-green/[0.03]" : ""
                   }`}
                 >
                   {/* Row Checkbox */}
@@ -118,22 +150,20 @@ export default function DomainTableView({
                       onToggleSelect(domain);
                     }}
                   >
-                    <button
-                      type="button"
-                      className="text-text-dim hover:text-accent-green transition-colors cursor-pointer"
-                    >
-                      {isSelected ? (
-                        <CheckSquare size={16} className="text-accent-green" />
-                      ) : (
-                        <Square size={16} />
-                      )}
-                    </button>
+                    <SelectionCheckbox
+                      checked={isSelected}
+                      label={`Seleccionar ${domain.domain}`}
+                      onChange={() => onToggleSelect(domain)}
+                    />
                   </td>
 
                   {/* Domain Name */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <Globe2 size={14} className="text-accent-green shrink-0" />
+                      <Globe2
+                        size={14}
+                        className="text-accent-green shrink-0"
+                      />
                       <span className="font-bold text-text-main group-hover:text-accent-green transition-colors text-sm">
                         {domain.domain}
                       </span>
@@ -153,20 +183,26 @@ export default function DomainTableView({
                   {/* Registrar */}
                   <td
                     className="py-3 px-3 text-text-muted text-xs truncate max-w-[170px]"
-                    title={domain.registrar || ''}
+                    title={domain.registrar || ""}
                   >
-                    {domain.registrar || 'Desconocido'}
+                    {domain.registrar || "Desconocido"}
                   </td>
 
                   {/* EPP Domain Lock */}
                   <td className="py-3 px-3">
-                    {domain.is_locked ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent-green/10 text-accent-green border border-accent-green/30">
+                    {domain.is_locked == null ? (
+                      <span className="text-text-dim">Sin información EPP</span>
+                    ) : domain.is_locked ? (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${healthPalette[measured ? "success" : "muted"].badge}`}
+                      >
                         <Lock size={10} />
                         Protegido
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/30">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${healthPalette[measured ? "warning" : "muted"].badge}`}
+                      >
                         <Unlock size={10} />
                         Sin Bloqueo
                       </span>
@@ -179,16 +215,8 @@ export default function DomainTableView({
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-mono font-bold">
                           {days !== null ? (
-                            <span
-                              className={
-                                days <= 0
-                                  ? 'text-accent-red'
-                                  : days <= 30
-                                  ? 'text-accent-yellow'
-                                  : 'text-accent-green'
-                              }
-                            >
-                              {days <= 0 ? 'Expirado' : `${days} días`}
+                            <span className={healthPalette[expiryTone].text}>
+                              {days <= 0 ? "Expirado" : `${days} días`}
                             </span>
                           ) : (
                             <span className="text-text-dim">-</span>
@@ -206,11 +234,7 @@ export default function DomainTableView({
                         <div className="w-full h-1 bg-bg-dark rounded-full overflow-hidden border border-border-base/50">
                           <div
                             className={`h-full transition-all duration-500 rounded-full ${
-                              days !== null && days <= 15
-                                ? 'bg-accent-red'
-                                : days !== null && days <= 30
-                                ? 'bg-accent-yellow'
-                                : 'bg-accent-green'
+                              healthPalette[expiryTone].fill
                             }`}
                             style={{ width: `${lifePct}%` }}
                           />
@@ -222,8 +246,10 @@ export default function DomainTableView({
                   {/* Expiration Date */}
                   <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
                     {domain.expiration_date
-                      ? new Date(domain.expiration_date).toLocaleDateString('es-ES')
-                      : 'N/A'}
+                      ? new Date(domain.expiration_date).toLocaleDateString(
+                          "es-ES",
+                        )
+                      : "N/A"}
                   </td>
 
                   {/* Nameservers */}
@@ -231,7 +257,7 @@ export default function DomainTableView({
                     {nsList.length > 0 ? (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue border border-accent-blue/30 text-xs font-medium"
-                        title={nsList.join(', ')}
+                        title={nsList.join(", ")}
                       >
                         <Server size={11} />
                         {nsList.length} NS
@@ -247,23 +273,32 @@ export default function DomainTableView({
                       className="flex items-center justify-end gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-
-                      <AdminButton capability="domain.update"
-                        type="button"
-                        onClick={(e) => onEdit(domain, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-green hover:bg-accent-green/10 rounded-full transition-colors cursor-pointer"
-                        title="Editar dominio"
-                      >
-                        <Pencil size={14} />
-                      </AdminButton>
-                      <AdminButton capability="domain.delete"
-                        type="button"
-                        onClick={(e) => onDelete(domain, e)}
-                        className="p-1.5 text-text-dim hover:text-accent-red hover:bg-accent-red/10 rounded-full transition-colors cursor-pointer"
-                        title="Eliminar dominio"
-                      >
-                        <Trash2 size={14} />
-                      </AdminButton>
+                      <ResourceActionButtons
+                        label={`Acciones de ${domain.domain}`}
+                        actions={[
+                          {
+                            label: "Editar dominio",
+                            onClick: (e) => onEdit(domain, e),
+                            capability: "domain.update",
+                            icon: (
+                              <>
+                                <Pencil size={14} />
+                              </>
+                            ),
+                          },
+                          {
+                            label: "Eliminar dominio",
+                            onClick: (e) => onDelete(domain, e),
+                            capability: "domain.delete",
+                            danger: true,
+                            icon: (
+                              <>
+                                <Trash2 size={14} />
+                              </>
+                            ),
+                          },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>

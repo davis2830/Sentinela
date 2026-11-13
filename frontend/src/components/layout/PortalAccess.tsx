@@ -6,6 +6,7 @@ import { hasCapability } from "../../hooks/useCapability";
 
 export const operationRoutes: Record<string, string> = {
   "/monitoring": "monitoring",
+  "/senti9": "monitoring",
   "/ssl": "ssl_monitor",
   "/dns": "dns_monitor",
   "/domains": "domain",

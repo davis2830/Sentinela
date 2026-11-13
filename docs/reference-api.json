@@ -62,7 +62,89 @@
   "paths": {
     "/api/v1/agent-probes/": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -96,10 +178,16 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "lifecycle": {},
                           "name": {
                             "type": "string"
                           },
                           "os_info": {
+                            "type": "string"
+                          },
+                          "revoked_at": {
+                            "format": "date-time",
+                            "nullable": true,
                             "type": "string"
                           },
                           "status": {
@@ -114,9 +202,7 @@
                             "format": "date-time",
                             "type": "string"
                           },
-                          "version": {
-                            "type": "string"
-                          }
+                          "version": {}
                         },
                         "required": [
                           "name"
@@ -129,7 +215,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -141,6 +269,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -185,7 +318,21 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "distribution": {
+                    "enum": [
+                      "registry",
+                      "local"
+                    ],
+                    "type": "string"
+                  },
                   "name": {
+                    "type": "string"
+                  },
+                  "platform": {
+                    "enum": [
+                      "linux",
+                      "windows"
+                    ],
                     "type": "string"
                   }
                 },
@@ -230,10 +377,16 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "lifecycle": {},
                         "name": {
                           "type": "string"
                         },
                         "os_info": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "format": "date-time",
+                          "nullable": true,
                           "type": "string"
                         },
                         "status": {
@@ -248,9 +401,7 @@
                           "format": "date-time",
                           "type": "string"
                         },
-                        "version": {
-                          "type": "string"
-                        }
+                        "version": {}
                       },
                       "required": [
                         "name"
@@ -309,10 +460,16 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "lifecycle": {},
                         "name": {
                           "type": "string"
                         },
                         "os_info": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "format": "date-time",
+                          "nullable": true,
                           "type": "string"
                         },
                         "status": {
@@ -327,9 +484,7 @@
                           "format": "date-time",
                           "type": "string"
                         },
-                        "version": {
-                          "type": "string"
-                        }
+                        "version": {}
                       },
                       "required": [
                         "name"
@@ -388,6 +543,65 @@
         "x-permission-classes": [
           "IsAuthenticated"
         ]
+      }
+    },
+    "/api/v1/agent-probes/diagnostic/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {},
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "ProbeDiagnosticView.get",
+        "x-authentication-classes": [],
+        "x-handler": "monitoring.probe_views.ProbeDiagnosticView.get",
+        "x-permission-classes": []
       }
     },
     "/api/v1/agent-probes/heartbeat/": {
@@ -664,6 +878,335 @@
         "x-handler": "monitoring.views.AgentProbeDetailView.delete",
         "x-permission-classes": [
           "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/agent-probes/{probe_id}/detail/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "probe_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "assigned_targets_count": {},
+                        "created_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "delivery": {},
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "ip_address": {
+                          "type": "string"
+                        },
+                        "is_online": {
+                          "type": "boolean"
+                        },
+                        "last_heartbeat": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "lifecycle": {},
+                        "name": {
+                          "type": "string"
+                        },
+                        "os_info": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "online",
+                            "offline"
+                          ],
+                          "type": "string"
+                        },
+                        "telemetry": {},
+                        "updated_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "version": {}
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "ProbeReadView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.probe_views.ProbeReadView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/agent-probes/{probe_id}/installation/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "probe_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "distribution",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {},
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "ProbeInstallationView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.probe_views.ProbeInstallationView.get",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrgAdmin"
+        ]
+      }
+    },
+    "/api/v1/agent-probes/{probe_id}/revoke/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "probe_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {},
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {},
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "ProbeRevokeView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.probe_views.ProbeRevokeView.post",
+        "x-permission-classes": [
+          "IsAuthenticated",
+          "IsOrgAdmin"
         ]
       }
     },
@@ -3602,7 +4145,89 @@
     },
     "/api/v1/api-checks/": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3691,7 +4316,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -3703,6 +4370,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -4925,6 +5597,7 @@
                             "nullable": true,
                             "type": "number"
                           },
+                          "schema_failures": {},
                           "schema_valid": {
                             "nullable": true,
                             "type": "boolean"
@@ -8003,6 +8676,87 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8021,8 +8775,12 @@
                           "domain": {
                             "type": "string"
                           },
+                          "expected_values": {},
                           "id": {
                             "format": "uuid",
+                            "type": "string"
+                          },
+                          "last_attempt_status": {
                             "type": "string"
                           },
                           "last_change_at": {
@@ -8030,10 +8788,25 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "last_error_code": {
+                            "type": "string"
+                          },
+                          "last_error_message": {
+                            "type": "string"
+                          },
                           "last_scanned_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
+                          },
+                          "last_successful_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "matches_expected": {
+                            "nullable": true,
+                            "type": "boolean"
                           },
                           "organization": {
                             "type": "string"
@@ -8048,8 +8821,12 @@
                               "CNAME",
                               "SOA",
                               "PTR",
-                              "CAA"
+                              "CAA",
+                              "SRV"
                             ],
+                            "type": "string"
+                          },
+                          "resolver": {
                             "type": "string"
                           },
                           "response_time_ms": {
@@ -8081,7 +8858,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -8093,6 +8912,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -8140,6 +8964,12 @@
                   "domain": {
                     "type": "string"
                   },
+                  "expected_values": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "record_type": {
                     "enum": [
                       "A",
@@ -8150,7 +8980,8 @@
                       "CNAME",
                       "SOA",
                       "PTR",
-                      "CAA"
+                      "CAA",
+                      "SRV"
                     ],
                     "type": "string"
                   }
@@ -8180,8 +9011,12 @@
                         "domain": {
                           "type": "string"
                         },
+                        "expected_values": {},
                         "id": {
                           "format": "uuid",
+                          "type": "string"
+                        },
+                        "last_attempt_status": {
                           "type": "string"
                         },
                         "last_change_at": {
@@ -8189,10 +9024,25 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
+                        "last_error_message": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "matches_expected": {
+                          "nullable": true,
+                          "type": "boolean"
                         },
                         "organization": {
                           "type": "string"
@@ -8207,8 +9057,12 @@
                             "CNAME",
                             "SOA",
                             "PTR",
-                            "CAA"
+                            "CAA",
+                            "SRV"
                           ],
+                          "type": "string"
+                        },
+                        "resolver": {
                           "type": "string"
                         },
                         "response_time_ms": {
@@ -8269,8 +9123,12 @@
                         "domain": {
                           "type": "string"
                         },
+                        "expected_values": {},
                         "id": {
                           "format": "uuid",
+                          "type": "string"
+                        },
+                        "last_attempt_status": {
                           "type": "string"
                         },
                         "last_change_at": {
@@ -8278,10 +9136,25 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
+                        "last_error_message": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "matches_expected": {
+                          "nullable": true,
+                          "type": "boolean"
                         },
                         "organization": {
                           "type": "string"
@@ -8296,8 +9169,12 @@
                             "CNAME",
                             "SOA",
                             "PTR",
-                            "CAA"
+                            "CAA",
+                            "SRV"
                           ],
+                          "type": "string"
+                        },
+                        "resolver": {
                           "type": "string"
                         },
                         "response_time_ms": {
@@ -8946,8 +9823,12 @@
                         "domain": {
                           "type": "string"
                         },
+                        "expected_values": {},
                         "id": {
                           "format": "uuid",
+                          "type": "string"
+                        },
+                        "last_attempt_status": {
                           "type": "string"
                         },
                         "last_change_at": {
@@ -8955,10 +9836,25 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
+                        "last_error_message": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "matches_expected": {
+                          "nullable": true,
+                          "type": "boolean"
                         },
                         "organization": {
                           "type": "string"
@@ -8973,8 +9869,12 @@
                             "CNAME",
                             "SOA",
                             "PTR",
-                            "CAA"
+                            "CAA",
+                            "SRV"
                           ],
+                          "type": "string"
+                        },
+                        "resolver": {
                           "type": "string"
                         },
                         "response_time_ms": {
@@ -9068,7 +9968,36 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
+                "properties": {
+                  "domain": {
+                    "type": "string"
+                  },
+                  "expected_values": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "record_type": {
+                    "enum": [
+                      "A",
+                      "AAAA",
+                      "MX",
+                      "TXT",
+                      "NS",
+                      "CNAME",
+                      "SOA",
+                      "PTR",
+                      "CAA",
+                      "SRV"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "domain",
+                  "record_type"
+                ],
                 "type": "object"
               }
             }
@@ -9089,8 +10018,12 @@
                         "domain": {
                           "type": "string"
                         },
+                        "expected_values": {},
                         "id": {
                           "format": "uuid",
+                          "type": "string"
+                        },
+                        "last_attempt_status": {
                           "type": "string"
                         },
                         "last_change_at": {
@@ -9098,10 +10031,25 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
+                        "last_error_message": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "matches_expected": {
+                          "nullable": true,
+                          "type": "boolean"
                         },
                         "organization": {
                           "type": "string"
@@ -9116,8 +10064,12 @@
                             "CNAME",
                             "SOA",
                             "PTR",
-                            "CAA"
+                            "CAA",
+                            "SRV"
                           ],
+                          "type": "string"
+                        },
+                        "resolver": {
                           "type": "string"
                         },
                         "response_time_ms": {
@@ -9441,7 +10393,89 @@
     },
     "/api/v1/domains/": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -9458,6 +10492,9 @@
                           "creation_date": {
                             "format": "date-time",
                             "nullable": true,
+                            "type": "string"
+                          },
+                          "data_source": {
                             "type": "string"
                           },
                           "days_until_expiration": {
@@ -9483,9 +10520,15 @@
                             "type": "string"
                           },
                           "is_locked": {
+                            "nullable": true,
                             "type": "boolean"
                           },
                           "last_scanned_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_successful_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
@@ -9508,6 +10551,9 @@
                             "type": "string"
                           },
                           "scan_availability": {},
+                          "source_url": {
+                            "type": "string"
+                          },
                           "status": {
                             "type": "string"
                           },
@@ -9530,7 +10576,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -9542,6 +10630,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -9616,6 +10709,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "data_source": {
+                          "type": "string"
+                        },
                         "days_until_expiration": {
                           "nullable": true,
                           "type": "integer"
@@ -9639,9 +10735,15 @@
                           "type": "string"
                         },
                         "is_locked": {
+                          "nullable": true,
                           "type": "boolean"
                         },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -9664,6 +10766,9 @@
                           "type": "string"
                         },
                         "scan_availability": {},
+                        "source_url": {
+                          "type": "string"
+                        },
                         "status": {
                           "type": "string"
                         },
@@ -9717,6 +10822,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "data_source": {
+                          "type": "string"
+                        },
                         "days_until_expiration": {
                           "nullable": true,
                           "type": "integer"
@@ -9740,9 +10848,15 @@
                           "type": "string"
                         },
                         "is_locked": {
+                          "nullable": true,
                           "type": "boolean"
                         },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -9765,6 +10879,9 @@
                           "type": "string"
                         },
                         "scan_availability": {},
+                        "source_url": {
+                          "type": "string"
+                        },
                         "status": {
                           "type": "string"
                         },
@@ -9958,6 +11075,9 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "data_source": {
+                            "type": "string"
+                          },
                           "days_until_expiration": {
                             "nullable": true,
                             "type": "integer"
@@ -9981,9 +11101,15 @@
                             "type": "string"
                           },
                           "is_locked": {
+                            "nullable": true,
                             "type": "boolean"
                           },
                           "last_scanned_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_successful_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
@@ -10006,6 +11132,9 @@
                             "type": "string"
                           },
                           "scan_availability": {},
+                          "source_url": {
+                            "type": "string"
+                          },
                           "status": {
                             "type": "string"
                           },
@@ -10107,6 +11236,9 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "data_source": {
+                            "type": "string"
+                          },
                           "days_until_expiration": {
                             "nullable": true,
                             "type": "integer"
@@ -10130,9 +11262,15 @@
                             "type": "string"
                           },
                           "is_locked": {
+                            "nullable": true,
                             "type": "boolean"
                           },
                           "last_scanned_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_successful_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
@@ -10155,6 +11293,9 @@
                             "type": "string"
                           },
                           "scan_availability": {},
+                          "source_url": {
+                            "type": "string"
+                          },
                           "status": {
                             "type": "string"
                           },
@@ -10632,6 +11773,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "data_source": {
+                          "type": "string"
+                        },
                         "days_until_expiration": {
                           "nullable": true,
                           "type": "integer"
@@ -10655,9 +11799,15 @@
                           "type": "string"
                         },
                         "is_locked": {
+                          "nullable": true,
                           "type": "boolean"
                         },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -10680,6 +11830,9 @@
                           "type": "string"
                         },
                         "scan_availability": {},
+                        "source_url": {
+                          "type": "string"
+                        },
                         "status": {
                           "type": "string"
                         },
@@ -10787,6 +11940,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "data_source": {
+                          "type": "string"
+                        },
                         "days_until_expiration": {
                           "nullable": true,
                           "type": "integer"
@@ -10810,9 +11966,15 @@
                           "type": "string"
                         },
                         "is_locked": {
+                          "nullable": true,
                           "type": "boolean"
                         },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -10835,6 +11997,9 @@
                           "type": "string"
                         },
                         "scan_availability": {},
+                        "source_url": {
+                          "type": "string"
+                        },
                         "status": {
                           "type": "string"
                         },
@@ -16906,6 +18071,87 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -16933,6 +18179,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "coverage_status": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -17032,7 +18279,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -17044,6 +18333,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -17199,6 +18493,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -17336,6 +18631,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -18261,6 +19557,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -18512,6 +19809,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -19558,6 +20856,87 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -19585,6 +20964,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "coverage_status": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -19684,7 +21064,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -19696,6 +21118,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -19851,6 +21278,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -19988,6 +21416,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -20913,6 +22342,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -21164,6 +22594,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -32444,9 +33875,202 @@
         ]
       }
     },
+    "/api/v1/scan-executions/{execution_id}/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "error_code": {
+                          "type": "string"
+                        },
+                        "finished_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "origin": {
+                          "enum": [
+                            "cloud",
+                            "agent"
+                          ],
+                          "type": "string"
+                        },
+                        "started_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "state": {
+                          "enum": [
+                            "queued",
+                            "running",
+                            "completed",
+                            "failed",
+                            "expired"
+                          ],
+                          "type": "string"
+                        },
+                        "submitted_at": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "ScanExecutionView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "common.executions.ScanExecutionView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
     "/api/v1/security-headers/": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -32528,7 +34152,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -32540,6 +34206,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -33855,7 +35526,89 @@
     },
     "/api/v1/ssl-certificates/": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "method",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "grade",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "lifecycle",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "ordering",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "tag",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "page activa páginas de 25. export=csv exporta todos los resultados filtrados sin límite de página.",
+            "in": "query",
+            "name": "export",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -33905,7 +35658,15 @@
                           "issuer": {
                             "type": "string"
                           },
+                          "last_error_code": {
+                            "type": "string"
+                          },
                           "last_scanned_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_successful_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
@@ -33943,7 +35704,49 @@
                       "type": "string"
                     },
                     "meta": {
-                      "additionalProperties": true,
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "active": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "revoked": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "active",
+                            "pending",
+                            "revoked"
+                          ],
+                          "type": "object"
+                        },
+                        "has_next": {
+                          "type": "boolean"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "page_size": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "total_pages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "page_size",
+                        "total",
+                        "total_pages",
+                        "has_next"
+                      ],
                       "type": "object"
                     },
                     "success": {
@@ -33955,6 +35758,11 @@
                     "data"
                   ],
                   "type": "object"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },
@@ -34063,7 +35871,15 @@
                         "issuer": {
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -34163,7 +35979,15 @@
                         "issuer": {
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -34403,7 +36227,15 @@
                           "issuer": {
                             "type": "string"
                           },
+                          "last_error_code": {
+                            "type": "string"
+                          },
                           "last_scanned_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_successful_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
@@ -34551,7 +36383,15 @@
                           "issuer": {
                             "type": "string"
                           },
+                          "last_error_code": {
+                            "type": "string"
+                          },
                           "last_scanned_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "last_successful_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
@@ -35075,7 +36915,15 @@
                         "issuer": {
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
@@ -35229,7 +37077,15 @@
                         "issuer": {
                           "type": "string"
                         },
+                        "last_error_code": {
+                          "type": "string"
+                        },
                         "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"

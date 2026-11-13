@@ -1,0 +1,33 @@
+{
+  "html": "<aside class=\"senti9-start-panel\" aria-label=\"Instalación y siguientes pasos\"><div class=\"senti9-network-sketch\" aria-hidden=\"true\"><span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"25\" height=\"25\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-server\"><rect width=\"20\" height=\"8\" x=\"2\" y=\"2\" rx=\"2\" ry=\"2\"></rect><rect width=\"20\" height=\"8\" x=\"2\" y=\"14\" rx=\"2\" ry=\"2\"></rect><line x1=\"6\" x2=\"6.01\" y1=\"6\" y2=\"6\"></line><line x1=\"6\" x2=\"6.01\" y1=\"18\" y2=\"18\"></line></svg></span><span class=\"senti9-network-line\"></span><span><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"25\" height=\"25\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-shield-check\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg></span></div><p class=\"senti9-eyebrow\">DE TU RED A SENTINEL</p><h2 class=\"text-xl font-semibold\">Instala. Conecta. Monitorea.</h2><p class=\"text-text-muted leading-relaxed\">Un contenedor en tu red; la visibilidad, en Sentinel.</p><ol class=\"senti9-journey\"><li><span class=\"senti9-step-number\">1</span><div><h3 class=\"font-medium\">Registra la ubicación</h3><p class=\"text-text-muted text-sm mt-1\">Nombre y plataforma del equipo.</p></div></li><li><span class=\"senti9-step-number\">2</span><div><h3 class=\"font-medium\">Instala con Docker</h3><p class=\"text-text-muted text-sm mt-1\">Guarda el token y copia los comandos.</p></div></li><li><span class=\"senti9-step-number\">3</span><div><h3 class=\"font-medium\">Crea tu primer monitor</h3><p class=\"text-text-muted text-sm mt-1\">Confirma la señal y revisa su medición.</p></div></li></ol><button class=\"ui-button ui-button-secondary w-full\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-book-open\"><path d=\"M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z\"></path><path d=\"M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z\"></path></svg>Ver requisitos y pasos</button><p class=\"text-xs text-text-muted flex gap-2 leading-relaxed\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-shield-check shrink-0 mt-0.5\"><path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg>Sin puertos entrantes. El equipo necesita acceso a Sentinel y a los servicios que vas a medir.</p></aside>",
+  "width": 300,
+  "height": 622,
+  "style": [
+    "24px",
+    "linear-gradient(155deg, rgba(180, 153, 255, 0.075), rgba(0, 0, 0, 0) 48%) repeat scroll 0% 0% / auto padding-box border-box, rgb(16, 24, 32) none repeat scroll 0% 0% / auto padding-box border-box",
+    "16px",
+    "16px"
+  ],
+  "headings": [
+    {
+      "text": "Instala. Conecta. Monitorea.",
+      "font": "600 20px / 28px Roboto, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontSize": "20px"
+    },
+    {
+      "text": "Registra la ubicación",
+      "font": "500 14px / 20px Roboto, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontSize": "14px"
+    },
+    {
+      "text": "Instala con Docker",
+      "font": "500 14px / 20px Roboto, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontSize": "14px"
+    },
+    {
+      "text": "Crea tu primer monitor",
+      "font": "500 14px / 20px Roboto, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontSize": "14px"
+    }
+  ]
+}

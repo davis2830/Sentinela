@@ -39,7 +39,7 @@ ACTIONS = {
 }
 # Only listed handlers receive CRUD defaults. New handlers fail closed for custom users.
 HANDLERS = {
-    "monitoring": "TestConnectionView MonitoringTargetListView MonitoringTargetDetailView MonitoringCheckListView MonitoringUptimeView MonitoringTimeseriesView MonitoringGlobalPerformanceView MonitoringTargetScanView GlobalSearchView MonitoringTargetBulkScanView MonitoringTargetExportView MaintenanceWindowListView MaintenanceWindowDetailView BulkActionView TargetCoverageView",
+    "monitoring": "AgentProbeListView ProbeReadView ProbeInstallationView ProbeRevokeView AgentProbeDetailView AgentProbeRotateTokenView TestConnectionView MonitoringTargetListView MonitoringTargetDetailView MonitoringCheckListView MonitoringUptimeView MonitoringTimeseriesView MonitoringGlobalPerformanceView MonitoringTargetScanView GlobalSearchView MonitoringTargetBulkScanView MonitoringTargetExportView MaintenanceWindowListView MaintenanceWindowDetailView BulkActionView TargetCoverageView",
     "ssl_monitor": "SSLTestConnectionView SSLCertificateListView SSLCertificateDetailView SSLCertificateScanView SSLExpiringSoonView SSLExpiredView SSLStatsView SSLBulkScanView SSLBulkActionView",
     "dns_monitor": "DNSTestResolutionView DNSRecordListView DNSRecordDetailView DNSRecordScanView DNSChangeHistoryView DNSDomainsView DNSStatsView DNSBulkScanView DNSBulkActionView",
     "domain": "DomainTestWhoisView DomainListView DomainDetailView DomainScanView DomainExpiringSoonView DomainExpiredView DomainStatsView DomainBulkScanView DomainBulkActionView",

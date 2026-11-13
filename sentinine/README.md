@@ -1,7 +1,11 @@
 # Senti9 — Agente privado de Sentinel
 
 Producto de GcTechOps. Plataforma: https://sentinel.gctechops.com.
-Versión de código: 1.7.0. Nombre anterior: Sentinine.
+Versión de código: **1.8.0**. Nombre anterior: Sentinine. [Imagen pública en Docker Hub](https://hub.docker.com/r/davis1924/senti9), AMD64/ARM64, publicada el 2026-11-11. Usa la [guía vigente de instalación, diagnóstico y retorno](release/RELEASE_1_8_0.md), la [descripción de Docker Hub](release/DOCKERHUB.md) y la [revisión con digest y evidencia](../docs/SENTI9_PUBLIC_IMAGE_2026-11-11.md).
+
+## Antecedentes históricos
+
+Las secciones siguientes documentan el protocolo y las entregas anteriores. Sus comandos y estados de publicación son evidencia histórica; la instalación actual usa la guía 1.8.0 enlazada arriba.
 
 ## Telemetría interna en 1.7.0
 

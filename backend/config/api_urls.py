@@ -1,59 +1,46 @@
 from django.urls import include, path
 from common.views_health import HealthCheckView
 
+from common.executions import ScanExecutionView
+
 urlpatterns = [
+    path("scan-executions/<uuid:execution_id>/", ScanExecutionView.as_view()),
     # Accounts (Auth)
     path("auth/", include("accounts.urls")),
-
     # Organizations & Platform Admin
     path("organizations/", include("organizations.urls")),
     path("platform-admin/", include("organizations.urls_admin")),
-
     # Users (includes roles and permissions)
     path("users/", include("users.urls")),
-
     # Monitoring
     path("monitoring-targets/", include("monitoring.urls")),
     path("monitoring/", include("monitoring.urls")),
     path("agent-probes/", include("monitoring.urls_probes")),
-
     # SSL
     path("ssl-certificates/", include("ssl_monitor.urls")),
-
     # DNS
     path("dns-records/", include("dns_monitor.urls")),
-
     # Domain (WHOIS)
     path("domains/", include("domain.urls")),
-
     # API Checks
     path("api-checks/", include("api_checks.urls")),
-
     # Security Headers
     path("security-headers/", include("security_headers.urls")),
-
     # Alerts
     path("alert-rules/", include("alerts.urls")),
     path("alerts/", include("alerts.urls_alerts")),
-
     # Notifications
     path("notifications/", include("notifications.urls")),
-
     # Incidents
     path("incidents/", include("incidents.urls")),
-
     # Reports
     path("reports/", include("reports.urls")),
-
     # Audit
     path("audit-logs/", include("audit.urls")),
-
     # Status Page
     path("status-page/", include("status_page.urls")),
-
     # Maintenance Windows
     path("maintenance/", include("maintenance.urls")),
-
     # Meta-Monitoring & Health Check
     path("health/", HealthCheckView.as_view(), name="health"),
 ]
