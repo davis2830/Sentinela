@@ -45,16 +45,15 @@
   position: sticky;
   right: 0;
   z-index: 1;
-  box-shadow: -1px 0 0 rgb(var(--sentinel-border-base) / 0.65);
 }
 .connectivity-directory-table th:last-child {
-  background: rgb(var(--sentinel-bg-dark));
+  background: inherit;
 }
 .connectivity-directory-table td:last-child {
-  background: rgb(var(--sentinel-bg-card));
+  background: inherit;
 }
 .connectivity-directory-table tr:hover td:last-child {
-  background: rgb(var(--sentinel-bg-card-hover));
+  background: inherit;
 }
 @media (max-width: 1279px) {
   .connectivity-toolbar {

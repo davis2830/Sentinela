@@ -29,6 +29,7 @@ export default function MonitoringToolbar({
   viewMode,
   onViewModeChange,
 }: MonitoringToolbarProps) {
+  const isTableView = viewMode === "table";
   return (
     <ConnectivityToolbar
       testId="monitoring-toolbar"
@@ -36,50 +37,58 @@ export default function MonitoringToolbar({
       onSearchChange={onSearchChange}
       searchLabel="Buscar monitores por nombre, URL o IP"
       searchPlaceholder="Buscar por nombre, URL o IP…"
-      categories={["all", "https", "http", "tcp", "dns", "api", "ssl"].map(
-        (id) => ({ id, label: id === "all" ? "Todos" : id.toUpperCase() }),
-      )}
+      categories={
+        isTableView
+          ? undefined
+          : ["all", "https", "http", "tcp", "dns", "api", "ssl"].map(
+              (id) => ({ id, label: id === "all" ? "Todos" : id.toUpperCase() }),
+            )
+      }
       categoryLabel="Tipo"
       categoryAriaLabel="Filtrar por protocolo"
       selectedCategory={protocol}
       onCategoryChange={onProtocolChange}
-      statusPills={[
-        {
-          id: "all",
-          label: "Todos",
-          count: summary?.total ?? "—",
-          variant: "all",
-        },
-        {
-          id: "down",
-          label: "Caídos",
-          count: summary?.down ?? "—",
-          variant: "danger",
-        },
-        {
-          id: "up",
-          label: "Online",
-          count: summary?.up ?? "—",
-          variant: "success",
-        },
-        {
-          id: "slow",
-          label: "Lentos",
-          count: summary?.slow ?? "—",
-          variant: "warning",
-        },
-        {
-          id: "disabled",
-          label: "Pausados",
-          count: summary?.paused ?? "—",
-          variant: "neutral",
-        },
-      ]}
+      statusPills={
+        isTableView
+          ? undefined
+          : [
+              {
+                id: "all",
+                label: "Todos",
+                count: summary?.total ?? "—",
+                variant: "all",
+              },
+              {
+                id: "down",
+                label: "Caídos",
+                count: summary?.down ?? "—",
+                variant: "danger",
+              },
+              {
+                id: "up",
+                label: "Online",
+                count: summary?.up ?? "—",
+                variant: "success",
+              },
+              {
+                id: "slow",
+                label: "Lentos",
+                count: summary?.slow ?? "—",
+                variant: "warning",
+              },
+              {
+                id: "disabled",
+                label: "Pausados",
+                count: summary?.paused ?? "—",
+                variant: "neutral",
+              },
+            ]
+      }
       countsScope="conteos de toda la organización"
       selectedStatus={status}
       onStatusChange={onStatusChange}
       extraFilters={
-        tags.length ? (
+        !isTableView && tags.length ? (
           <select
             aria-label="Filtrar por etiqueta"
             title="Etiquetas disponibles en esta página y etiqueta aplicada"

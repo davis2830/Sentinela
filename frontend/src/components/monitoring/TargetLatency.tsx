@@ -1,10 +1,55 @@
 import type { MonitoringTarget } from '../../types/monitoring';
 import { finite, formatMetric, latencyTone } from '../../utils/endpointPresentation';
+import { AlertTriangle } from 'lucide-react';
 
 export function latestTargetCheck(target: MonitoringTarget) {
   return [...(target.recent_checks || [])].reverse().find(
     (c) => target.last_checked_at != null && Date.parse(c.checked_at) === Date.parse(target.last_checked_at)
   );
+}
+
+export function formatRelativeTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'caído';
+  const diffMs = Math.max(0, Date.now() - Date.parse(dateStr));
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'hace <1 min';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `hace ${diffHours} h`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `hace ${diffDays} d`;
+}
+
+export function getDownSinceText(target: MonitoringTarget): string {
+  if (!target.recent_checks || target.recent_checks.length === 0) {
+    return formatRelativeTime(target.last_checked_at || target.updated_at);
+  }
+  const checks = [...target.recent_checks].sort(
+    (a, b) => Date.parse(b.checked_at) - Date.parse(a.checked_at)
+  );
+  let earliestDown = checks[0];
+  for (let i = 0; i < checks.length; i++) {
+    if (checks[i].status === 'down' || checks[i].status === 'error') {
+      earliestDown = checks[i];
+    } else {
+      break;
+    }
+  }
+  return formatRelativeTime(earliestDown.checked_at);
+}
+
+export function formatShortDiagnostic(diagnostic: string, expectedStatus?: number): string {
+  const match = diagnostic.match(/HTTP\s*(\d+)/i);
+  if (match) {
+    const code = match[1];
+    const exp = expectedStatus || 200;
+    return `${code} ≠ ${exp}`;
+  }
+  if (diagnostic.length > 20) {
+    return diagnostic.slice(0, 18) + '…';
+  }
+  return diagnostic;
 }
 
 export function TargetDiagnostic({
@@ -19,12 +64,14 @@ export function TargetDiagnostic({
   const message = check?.diagnostic || (target.last_status === 'slow' ? 'Respuesta lenta registrada' : 'Comprobación fallida');
 
   if (compact) {
+    const shortText = formatShortDiagnostic(message, target.expected_status);
     return (
       <span
         title={message}
-        className="inline-flex items-center text-[11px] font-mono font-medium text-rose-400 truncate max-w-[280px]"
+        className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-rose-400 truncate max-w-[280px]"
       >
-        ⚠️ {message}
+        <AlertTriangle size={11} className="shrink-0 text-rose-400" />
+        <span>{shortText}</span>
       </span>
     );
   }
@@ -32,9 +79,10 @@ export function TargetDiagnostic({
   return (
     <p
       title={message}
-      className="text-xs mt-0.5 text-accent-red font-mono truncate max-w-[320px]"
+      className="text-xs mt-0.5 text-accent-red font-mono truncate max-w-[320px] flex items-center gap-1.5"
     >
-      ⚠️ {message}
+      <AlertTriangle size={12} className="shrink-0 text-rose-400" />
+      <span>{message}</span>
     </p>
   );
 }
@@ -66,13 +114,14 @@ export default function TargetLatency({
 
   if (compact) {
     if (isDown && target.enabled) {
+      const downSince = getDownSinceText(target);
       return (
         <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
           <span
-            className="font-mono text-text-dim text-xs"
-            title={`Servicio caído • Última latencia registrada: ${lastKnownLat || 'N/A'}`}
+            className="font-mono text-rose-400 text-xs font-semibold"
+            title={`Servicio caído (${downSince}) • Última latencia registrada: ${lastKnownLat || 'N/A'}`}
           >
-            {lastKnownLat ? `(últ. ${lastKnownLat})` : '—'}
+            {downSince}
           </span>
         </div>
       );

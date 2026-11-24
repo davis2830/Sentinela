@@ -21,7 +21,7 @@ export function TargetEnabledSwitch({
       aria-label={label}
       title={label}
       onClick={onChange}
-      className={`shrink-0 place-items-center rounded bg-transparent p-0 cursor-pointer ${
+      className={`shrink-0 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0 ${
         isCompact ? "grid h-6 w-8" : "ml-2 grid h-11 w-11"
       }`}
     >

@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
-import TargetLatency, { TargetDiagnostic } from "./TargetLatency";
+import TargetLatency, {
+  formatShortDiagnostic,
+} from "./TargetLatency";
 import { TargetEnabledSwitch } from "./TargetTableControls";
 import {
   Globe,
@@ -15,6 +17,7 @@ import {
   ChevronRight,
   Cloud,
   Check,
+  AlertTriangle,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
@@ -78,6 +81,12 @@ interface TargetTableViewProps {
   onSortChange: (field: "name" | "latency" | "status") => void;
   activeStatusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
+  protocolFilter?: string;
+  onProtocolFilterChange?: (protocol: string) => void;
+  tagFilter?: string;
+  onTagFilterChange?: (tag: string) => void;
+  availableTags?: string[];
+  totalOrgSummary?: Record<string, number>;
 }
 
 export default function TargetTableView({
@@ -95,6 +104,12 @@ export default function TargetTableView({
   onSortChange,
   activeStatusFilter = "all",
   onStatusFilterChange,
+  protocolFilter = "all",
+  onProtocolFilterChange,
+  tagFilter = "all",
+  onTagFilterChange,
+  availableTags = [],
+  totalOrgSummary,
 }: TargetTableViewProps) {
   const allSelected =
     targets.length > 0 && selectedIds.length === targets.length;
@@ -174,11 +189,20 @@ export default function TargetTableView({
 
   // 2. Metrics summary & Uptime 24h
   const summary = useMemo(() => {
-    const downCount = targets.filter(
-      (t) => t.enabled && (t.last_status === "down" || t.last_status === "error"),
-    ).length;
-    const slowCount = targets.filter((t) => t.enabled && t.last_status === "slow").length;
-    const upCount = targets.filter((t) => t.enabled && t.last_status === "up").length;
+    const totalCount = totalOrgSummary?.total ?? targets.length;
+    const downCount =
+      totalOrgSummary?.down ??
+      targets.filter(
+        (t) => t.enabled && (t.last_status === "down" || t.last_status === "error"),
+      ).length;
+    const slowCount =
+      totalOrgSummary?.slow ??
+      targets.filter((t) => t.enabled && t.last_status === "slow").length;
+    const upCount =
+      totalOrgSummary?.up ??
+      targets.filter((t) => t.enabled && t.last_status === "up").length;
+    const pausedCount =
+      totalOrgSummary?.paused ?? targets.filter((t) => !t.enabled).length;
 
     const activeLatencies = targets
       .filter((t) => t.enabled && typeof t.last_latency === "number" && t.last_latency >= 0)
@@ -200,7 +224,7 @@ export default function TargetTableView({
     }
     const uptime24h = totalChecks > 0 ? ((upChecks / totalChecks) * 100).toFixed(1) : "100.0";
 
-    return { downCount, slowCount, upCount, avgLatency, uptime24h };
+    return { totalCount, downCount, slowCount, upCount, pausedCount, avgLatency, uptime24h };
   }, [targets]);
 
   // 3. Group targets if requested
@@ -312,9 +336,15 @@ export default function TargetTableView({
           }));
 
     const isCompact = density === "compact";
-    const paddingY = isCompact ? "py-1.5" : "py-3";
+    const paddingY = isCompact ? "py-2" : "py-3";
     const isDown = target.enabled && (target.last_status === "down" || target.last_status === "error");
     const isOnline = target.enabled && target.last_status === "up";
+
+    const lastCheck = target.recent_checks?.length
+      ? target.recent_checks[target.recent_checks.length - 1]
+      : null;
+    const fullDiagnostic = lastCheck?.diagnostic || (target.last_status === "slow" ? "Respuesta lenta registrada" : "Comprobación fallida");
+    const shortDiagnostic = formatShortDiagnostic(fullDiagnostic, target.expected_status);
 
     return (
       <tr
@@ -341,7 +371,7 @@ export default function TargetTableView({
             : "hover:bg-bg-dark/50"
         }`}
       >
-        {/* 1. Selection Checkbox (24px compact hit target) */}
+        {/* 1. Selection Checkbox */}
         <td
           className={`${paddingY} px-2.5 w-8 text-center`}
           onClick={(e) => e.stopPropagation()}
@@ -353,7 +383,7 @@ export default function TargetTableView({
             aria-label={`Seleccionar ${target.name}`}
             title={isSelected ? "Deseleccionar" : "Seleccionar"}
             onClick={() => onSelectToggle(target)}
-            className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer"
+            className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
           >
             <span
               className={`grid h-4 w-4 place-items-center rounded transition-colors ${
@@ -376,85 +406,94 @@ export default function TargetTableView({
           {renderStatus(target)}
         </td>
 
-        {/* 3. Target & Endpoint with Integrated Protocol Badge */}
-        <td className={`${paddingY} px-2.5 min-w-0 max-w-[480px]`}>
-          <div className="flex flex-col justify-center">
-            {/* Primary line: [Type] Name · Endpoint · Senti9 */}
-            <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
-              {/* Type Badge inline */}
-              <span
-                className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-bold border shrink-0 uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
-                title={`Protocolo ${target.target_type.toUpperCase()} • Intervalo: cada ${target.interval}s`}
-              >
-                {target.target_type}
-              </span>
+        {/* 3. Target & Endpoint - w-full max-w-0 absorbs excess space */}
+        <td className={`${paddingY} px-3 w-full max-w-0`}>
+          <div className="flex min-w-0 items-center gap-2">
+            {/* Type Badge inline with fixed width */}
+            <span
+              className={`inline-block w-14 shrink-0 text-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
+              title={`Protocolo ${target.target_type.toUpperCase()} • Intervalo: cada ${target.interval}s`}
+            >
+              {target.target_type}
+            </span>
 
-              {/* Target Name */}
+            {/* Target Name */}
+            <span
+              className={`shrink-0 font-semibold text-xs transition-colors ${
+                isDown ? "text-rose-300 font-bold" : "text-text-main group-hover:text-accent-green"
+              }`}
+              title={target.name}
+            >
+              {target.name}
+            </span>
+
+            {/* Endpoint URL (Takes all remaining width, truncates cleanly) */}
+            <span
+              className="min-w-0 flex-1 truncate font-mono text-xs text-text-dim"
+              title={target.endpoint}
+            >
+              {target.endpoint}
+            </span>
+
+            {/* Senti9 Agent Pill without 'Senti9:' */}
+            {target.runner_type === "agent" && (
               <span
-                className={`font-semibold text-xs truncate max-w-[180px] transition-colors ${
-                  isDown ? "text-rose-300 font-bold" : "text-text-main group-hover:text-accent-green"
+                className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
+                  target.agent_probe_online === false ||
+                  target.agent_probe_status === "offline"
+                    ? "bg-accent-red/10 text-accent-red border-accent-red/30"
+                    : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
                 }`}
-                title={target.name}
+                title={`Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`}
               >
-                {target.name}
+                <Server size={9} className="shrink-0" />
+                <span className="truncate max-w-[80px]">
+                  {(target.agent_probe_name || "LAN").replace(/^Senti9:\s*/i, "")}
+                </span>
               </span>
+            )}
 
-              {/* Endpoint URL (Muted) */}
+            {/* Team Pill */}
+            {target.owner_team_name && (
               <span
-                className="text-[11px] text-text-dim font-mono truncate max-w-[210px] hidden sm:inline"
-                title={target.endpoint}
+                className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold border"
+                style={{
+                  backgroundColor: `${target.owner_team_color || "#8B5CF6"}15`,
+                  borderColor: `${target.owner_team_color || "#8B5CF6"}40`,
+                  color: target.owner_team_color || "#A78BFA",
+                }}
               >
-                {target.endpoint}
+                <Layers size={9} className="shrink-0" />
+                <span className="truncate max-w-[70px]">
+                  {target.owner_team_name}
+                </span>
               </span>
+            )}
 
-              {/* Senti9 Agent Pill */}
-              {target.runner_type === "agent" && (
-                <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-semibold border shrink-0 ${
-                    target.agent_probe_online === false ||
-                    target.agent_probe_status === "offline"
-                      ? "bg-accent-red/10 text-accent-red border-accent-red/30"
-                      : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
-                  }`}
-                  title={`Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`}
-                >
-                  <Server size={8} className="shrink-0" />
-                  <span className="truncate max-w-[70px]">
-                    Senti9: {target.agent_probe_name || "LAN"}
-                  </span>
-                </span>
-              )}
-
-              {/* Team Pill */}
-              {target.owner_team_name && (
-                <span
-                  className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-semibold border shrink-0"
-                  style={{
-                    backgroundColor: `${target.owner_team_color || "#8B5CF6"}15`,
-                    borderColor: `${target.owner_team_color || "#8B5CF6"}40`,
-                    color: target.owner_team_color || "#A78BFA",
-                  }}
-                >
-                  <Layers size={8} className="shrink-0" />
-                  <span className="truncate max-w-[60px]">
-                    {target.owner_team_name}
-                  </span>
-                </span>
-              )}
-            </div>
-
-            {/* Error diagnostic line ONLY if target is down or slow */}
-            {isDown && (
-              <div className="mt-0.5">
-                <TargetDiagnostic target={target} />
-              </div>
+            {/* In compact mode, show error inline at the end */}
+            {isCompact && isDown && (
+              <span
+                title={fullDiagnostic}
+                className="shrink-0 text-xs text-rose-300 font-mono inline-flex items-center gap-1"
+              >
+                <AlertTriangle size={12} className="text-rose-400 shrink-0" />
+                <span>{shortDiagnostic}</span>
+              </span>
             )}
           </div>
+
+          {/* In comfortable mode, error diagnostic on second line */}
+          {!isCompact && isDown && (
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-rose-400 font-mono truncate">
+              <AlertTriangle size={12} className="shrink-0 text-rose-400" />
+              <span>{fullDiagnostic}</span>
+            </div>
+          )}
         </td>
 
-        {/* 4. Latencia (Single Line Clean, or last known if down) */}
+        {/* 4. Latencia (Single Line Clean, or downSince if down) */}
         <td className={`${paddingY} px-2.5 whitespace-nowrap w-[105px]`}>
-          <TargetLatency target={target} compact />
+          <TargetLatency target={target} compact={isCompact} />
         </td>
 
         {/* 5. Historial Reciente (8 Slim Bars with Rich Tooltip) */}
@@ -500,38 +539,40 @@ export default function TargetTableView({
           </div>
         </td>
 
-        {/* 6. Acciones (Always Visible with Clean Icons + Compact Switch) */}
+        {/* 6. Acciones - Fade in on hover, background matches row */}
         <td
-          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[120px]`}
+          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] bg-inherit`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-end gap-1">
-            {onAlert && (
+          <div className="flex items-center justify-end gap-1.5">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
+              {onAlert && (
+                <button
+                  type="button"
+                  onClick={() => onAlert(target)}
+                  title="Vincular regla de alerta"
+                  className="table-action-btn p-1 rounded text-text-dim hover:text-accent-yellow hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 h-6 w-6 grid place-items-center"
+                >
+                  <Bell size={13} />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => onAlert(target)}
-                title="Vincular regla de alerta"
-                className="p-1 rounded text-text-dim hover:text-accent-yellow hover:bg-white/10 transition-colors cursor-pointer"
+                onClick={() => onEdit(target)}
+                title="Editar target"
+                className="table-action-btn p-1 rounded text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 h-6 w-6 grid place-items-center"
               >
-                <Bell size={13} />
+                <Pencil size={13} />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => onEdit(target)}
-              title="Editar target"
-              className="p-1 rounded text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              <Pencil size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(target)}
-              title="Eliminar target"
-              className="p-1 rounded text-text-dim hover:text-accent-red hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              <Trash2 size={13} />
-            </button>
+              <button
+                type="button"
+                onClick={() => onDelete(target)}
+                title="Eliminar target"
+                className="table-action-btn p-1 rounded text-text-dim hover:text-accent-red hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 h-6 w-6 grid place-items-center"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
 
             <TargetEnabledSwitch
               enabled={target.enabled}
@@ -553,11 +594,25 @@ export default function TargetTableView({
       <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 border-b border-border-base bg-bg-dark/70 text-xs select-none">
         {/* Left: Clickable Quick Filters */}
         <div className="flex items-center gap-2 text-text-muted flex-wrap">
+          {/* Todos Filter Chip */}
+          <button
+            type="button"
+            onClick={() => handleChipFilter("all")}
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
+              activeStatusFilter === "all"
+                ? "bg-zinc-700 text-white ring-1 ring-zinc-500"
+                : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
+            }`}
+            title="Mostrar todos los monitores"
+          >
+            <span>Todos ({targets.length})</span>
+          </button>
+
           {/* Down Filter Chip */}
           <button
             type="button"
             onClick={() => handleChipFilter("down")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
               activeStatusFilter === "down"
                 ? "bg-rose-500 text-white ring-2 ring-rose-500/50"
                 : summary.downCount > 0
@@ -580,7 +635,7 @@ export default function TargetTableView({
           <button
             type="button"
             onClick={() => handleChipFilter("up")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
               activeStatusFilter === "up"
                 ? "bg-emerald-500 text-black ring-2 ring-emerald-500/50"
                 : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
@@ -596,7 +651,7 @@ export default function TargetTableView({
             <button
               type="button"
               onClick={() => handleChipFilter("slow")}
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
                 activeStatusFilter === "slow"
                   ? "bg-amber-500 text-black ring-2 ring-amber-500/50"
                   : "bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
@@ -605,6 +660,23 @@ export default function TargetTableView({
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
               <span>{summary.slowCount} lentos</span>
+            </button>
+          )}
+
+          {/* Paused Filter Chip (if any) */}
+          {summary.pausedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => handleChipFilter("disabled")}
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
+                activeStatusFilter === "disabled"
+                  ? "bg-zinc-700 text-white ring-2 ring-zinc-500"
+                  : "bg-zinc-800/40 border border-zinc-700/50 text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Filtrar por servicios pausados"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+              <span>{summary.pausedCount} pausados</span>
             </button>
           )}
 
@@ -618,30 +690,67 @@ export default function TargetTableView({
             </span>
           )}
 
-          {/* 24h Uptime Badge */}
+          {/* 24h Uptime Badge with semantic color: ≥99% green, ≥95% amber, <95% red */}
           <span
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-green/10 border border-accent-green/30 text-accent-green text-[11px] font-mono font-bold hidden sm:inline-flex"
-            title="Uptime ponderado de las últimas 24 horas"
+            className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-mono font-bold hidden sm:inline-flex ${
+              parseFloat(summary.uptime24h) >= 99
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : parseFloat(summary.uptime24h) >= 95
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+            }`}
+            title="Uptime ponderado 24h (≥99% verde, ≥95% ámbar, <95% rojo)"
           >
             Uptime 24h: {summary.uptime24h}%
           </span>
-
-          {activeStatusFilter !== "all" && (
-            <button
-              type="button"
-              onClick={() => onStatusFilterChange?.("all")}
-              className="text-[11px] text-accent-cyan hover:underline ml-1 cursor-pointer"
-            >
-              Ver todos ({targets.length})
-            </button>
-          )}
         </div>
 
-        {/* Right: Group By & Density Toggle */}
-        <div className="flex items-center gap-3">
+        {/* Right: Tipo, Tag, Group By & Density Toggle */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Protocol / Tipo Selector */}
+          {onProtocolFilterChange && (
+            <div className="flex items-center gap-1 text-text-dim">
+              <span className="hidden xl:inline text-[11px]">Tipo:</span>
+              <select
+                value={protocolFilter || "all"}
+                onChange={(e) => onProtocolFilterChange(e.target.value)}
+                aria-label="Filtrar por tipo o protocolo"
+                className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer"
+              >
+                <option value="all">Tipo: Todos</option>
+                <option value="https">HTTPS</option>
+                <option value="http">HTTP</option>
+                <option value="tcp">TCP</option>
+                <option value="dns">DNS</option>
+                <option value="api">API</option>
+                <option value="ssl">SSL</option>
+              </select>
+            </div>
+          )}
+
+          {/* Tag Selector */}
+          {onTagFilterChange && availableTags && availableTags.length > 0 && (
+            <div className="flex items-center gap-1 text-text-dim">
+              <span className="hidden xl:inline text-[11px]">Tag:</span>
+              <select
+                value={tagFilter || "all"}
+                onChange={(e) => onTagFilterChange(e.target.value)}
+                aria-label="Filtrar por etiqueta"
+                className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer max-w-[120px]"
+              >
+                <option value="all">Tag: Todos</option>
+                {availableTags.map((t) => (
+                  <option key={t} value={t}>
+                    #{t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Group By selector */}
-          <div className="flex items-center gap-1.5 text-text-dim">
-            <span className="hidden lg:inline text-[11px]">Agrupar:</span>
+          <div className="flex items-center gap-1 text-text-dim">
+            <span className="hidden xl:inline text-[11px]">Agrupar:</span>
             <select
               value={groupBy}
               onChange={(e) =>
@@ -665,7 +774,7 @@ export default function TargetTableView({
             <button
               type="button"
               onClick={() => handleDensityChange("compact")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${
                 density === "compact"
                   ? "bg-accent-green/20 text-accent-green font-semibold"
                   : "text-text-dim hover:text-text-main"
@@ -677,7 +786,7 @@ export default function TargetTableView({
             <button
               type="button"
               onClick={() => handleDensityChange("comfortable")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${
                 density === "comfortable"
                   ? "bg-accent-green/20 text-accent-green font-semibold"
                   : "text-text-dim hover:text-text-main"
@@ -827,7 +936,7 @@ export default function TargetTableView({
                     aria-label="Seleccionar todos los recursos"
                     title={allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
                     onClick={onSelectAllToggle}
-                    className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer"
+                    className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
                   >
                     <span
                       className={`grid h-4 w-4 place-items-center rounded transition-colors ${
@@ -864,7 +973,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 cursor-pointer hover:text-text-main min-w-[260px]"
+                  className="py-2 px-3 cursor-pointer hover:text-text-main w-full"
                   onClick={() => onSortChange("name")}
                   title="Ordenar por nombre"
                 >
@@ -901,7 +1010,7 @@ export default function TargetTableView({
                 <th scope="col" className="py-2 px-2.5 w-[90px]">
                   Historial (8)
                 </th>
-                <th scope="col" className="py-2 px-2.5 text-right w-[120px]">
+                <th scope="col" className="py-2 px-2.5 text-right w-[110px] bg-inherit">
                   Acciones
                 </th>
               </tr>

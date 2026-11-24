@@ -486,6 +486,12 @@ export default function MonitoringPage() {
             onSortChange={handleSortChange}
             activeStatusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            protocolFilter={protocolFilter}
+            onProtocolFilterChange={setProtocolFilter}
+            tagFilter={selectedTag}
+            onTagFilterChange={setSelectedTag}
+            availableTags={allTags}
+            totalOrgSummary={directory.meta?.summary}
           />
         )
       ) : (
