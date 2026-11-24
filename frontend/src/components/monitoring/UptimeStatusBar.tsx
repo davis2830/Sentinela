@@ -6,6 +6,7 @@ import { formatMetric } from '../../utils/endpointPresentation';
 interface UptimeStatusBarProps {
   timeseries: TimeseriesPoint[];
   summary?: TimeseriesSummary | null;
+  targetCreatedAt?: string;
   isLoading?: boolean;
 }
 
@@ -18,17 +19,20 @@ interface HourBucket {
   avgLatency: number | null;
   downCount: number;
   totalCount: number;
+  isPreCreation?: boolean;
 }
 
 export default function UptimeStatusBar({
   timeseries,
   summary,
+  targetCreatedAt,
   isLoading = false,
 }: UptimeStatusBarProps) {
   // Aggregate timeseries into 24 one-hour buckets covering the last 24 hours in local time
   const buckets = useMemo<HourBucket[]>(() => {
     const now = Date.now();
     const oneHourMs = 60 * 60 * 1000;
+    const createdAtMs = targetCreatedAt ? Date.parse(targetCreatedAt) : 0;
     const result: HourBucket[] = [];
 
     for (let i = 23; i >= 0; i--) {
@@ -38,6 +42,22 @@ export default function UptimeStatusBar({
       const endDate = new Date(bucketEnd);
 
       const label = `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+      // If the target was created after this bucket ended, mark strictly as pre-creation no_data
+      if (createdAtMs > 0 && bucketEnd < createdAtMs) {
+        result.push({
+          index: 23 - i,
+          label,
+          startIso: startDate.toISOString(),
+          status: 'no_data',
+          uptimePct: null,
+          avgLatency: null,
+          downCount: 0,
+          totalCount: 0,
+          isPreCreation: true,
+        });
+        continue;
+      }
 
       // Find points falling into this hour bucket
       const points = (timeseries || []).filter((p) => {
@@ -55,6 +75,7 @@ export default function UptimeStatusBar({
           avgLatency: null,
           downCount: 0,
           totalCount: 0,
+          isPreCreation: false,
         });
         continue;
       }
@@ -66,14 +87,18 @@ export default function UptimeStatusBar({
       const latencies: number[] = [];
 
       for (const p of points) {
-        totalCount += p.total_count || 1;
-        const isDown = p.status === 'down' || p.is_down || (p.down_count > 0);
-        downCount += p.down_count || (isDown ? 1 : 0);
+        const count = typeof p.total_count === 'number' ? p.total_count : 0;
+        totalCount += count;
+
+        const isDown = p.status === 'down' || p.is_down || ((p.down_count || 0) > 0);
+        const pointDown = typeof p.down_count === 'number' ? p.down_count : (isDown ? 1 : 0);
+        downCount += pointDown;
+
         if (p.status === 'slow') {
           slowCount++;
         }
         if (p.status === 'up' && !isDown) {
-          upCount++;
+          upCount += Math.max(1, count - pointDown);
         }
         if (p.latency != null && p.latency >= 0) {
           latencies.push(p.latency);
@@ -84,13 +109,15 @@ export default function UptimeStatusBar({
         ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
         : null;
 
-      let status: 'up' | 'slow' | 'down' | 'no_data' = 'up';
-      if (downCount > 0) {
+      let status: 'up' | 'slow' | 'down' | 'no_data' = 'no_data';
+      if (totalCount === 0) {
+        status = 'no_data';
+      } else if (downCount > 0) {
         status = 'down';
       } else if (slowCount > 0) {
         status = 'slow';
-      } else if (upCount === 0 && totalCount === 0) {
-        status = 'no_data';
+      } else if (upCount > 0 || (totalCount > 0 && downCount === 0)) {
+        status = 'up';
       }
 
       const uptimePct = totalCount > 0
@@ -106,13 +133,17 @@ export default function UptimeStatusBar({
         avgLatency,
         downCount,
         totalCount,
+        isPreCreation: false,
       });
     }
 
     return result;
-  }, [timeseries]);
+  }, [timeseries, targetCreatedAt]);
 
   const uptimePct = summary?.uptime_percentage;
+  const targetAgeHours = targetCreatedAt
+    ? Math.floor((Date.now() - Date.parse(targetCreatedAt)) / (1000 * 60 * 60))
+    : 24;
   const uptimeColor =
     uptimePct != null
       ? uptimePct >= 99
@@ -158,7 +189,11 @@ export default function UptimeStatusBar({
           <span className={`font-bold ${uptimeColor}`}>
             {uptimePct != null ? `${formatMetric(uptimePct, 2)} %` : '—'}
           </span>
-          <span className="text-[11px] text-text-muted">24 h</span>
+          <span className="text-[11px] text-text-muted">
+            {targetAgeHours < 24 && targetAgeHours >= 0
+              ? `(sobre ${Math.max(1, targetAgeHours)} h)`
+              : '24 h'}
+          </span>
         </div>
       </header>
 
@@ -166,7 +201,9 @@ export default function UptimeStatusBar({
       <div className="flex items-center gap-[3px] w-full py-0.5">
         {buckets.map((b) => {
           let bgClass = 'bg-bg-card-hover';
-          let statusText = 'Sin datos';
+          let statusText = b.isPreCreation
+            ? 'Sin monitor (no creado aún)'
+            : 'Sin mediciones';
 
           if (b.status === 'up') {
             bgClass = 'bg-emerald-500 hover:bg-emerald-400';
@@ -179,18 +216,28 @@ export default function UptimeStatusBar({
             statusText = b.downCount > 0 ? `Caído (${b.downCount} fallos)` : 'Caído';
           }
 
+          // Tooltip position: clamp to left on start, clamp to right on end, center in middle
+          const tooltipPositionClass =
+            b.index < 5
+              ? 'left-0 translate-x-0'
+              : b.index > 18
+                ? 'right-0 left-auto translate-x-0'
+                : 'left-1/2 -translate-x-1/2';
+
           return (
             <div
               key={b.index}
               className={`flex-1 h-7 rounded-[3px] transition-all cursor-pointer relative group ${bgClass}`}
             >
               {/* Tooltip on hover */}
-              <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-40 min-w-[160px] p-2 rounded-lg bg-bg-dark border border-border-base shadow-2xl text-[11px] text-text-main space-y-1">
+              <div
+                className={`pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 min-w-[190px] p-2.5 rounded-xl bg-slate-900 border border-border-base shadow-2xl text-[11px] text-text-main space-y-1.5 whitespace-nowrap ${tooltipPositionClass}`}
+              >
                 <div className="font-mono text-text-muted text-[10px] border-b border-border-base pb-1">
                   {b.label}
                 </div>
-                <div className="flex items-center justify-between font-medium">
-                  <span>Estado:</span>
+                <div className="flex items-center justify-between gap-3 font-medium">
+                  <span className="text-text-muted">Estado:</span>
                   <span
                     className={
                       b.status === 'up'
@@ -206,13 +253,13 @@ export default function UptimeStatusBar({
                   </span>
                 </div>
                 {b.uptimePct != null && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-muted">Uptime:</span>
-                    <span className="font-mono">{b.uptimePct}%</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-text-muted">Disponibilidad:</span>
+                    <span className="font-mono font-semibold">{b.uptimePct}%</span>
                   </div>
                 )}
                 {b.avgLatency != null && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-text-muted">Latencia:</span>
                     <span className="font-mono">{b.avgLatency} ms</span>
                   </div>

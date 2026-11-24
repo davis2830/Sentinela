@@ -611,15 +611,14 @@ export default function TargetDetailDrawer({
               </span>
               <div className="mt-1">
                 <span
-                  className={`text-lg font-bold font-mono ${
-                    summary?.uptime_percentage != null
-                      ? summary.uptime_percentage >= 99
-                        ? "text-emerald-400"
-                        : summary.uptime_percentage >= 95
-                          ? "text-amber-400"
-                          : "text-rose-400"
-                      : "text-text-muted"
-                  }`}
+                  className={`text-lg font-bold font-mono ${summary?.uptime_percentage != null
+                    ? summary.uptime_percentage >= 99
+                      ? "text-emerald-400"
+                      : summary.uptime_percentage >= 95
+                        ? "text-amber-400"
+                        : "text-rose-400"
+                    : "text-text-muted"
+                    }`}
                 >
                   {measured && summary?.uptime_percentage != null
                     ? `${formatMetric(summary.uptime_percentage, 2)} %`
@@ -668,11 +667,10 @@ export default function TargetDetailDrawer({
               </span>
               <div className="mt-1">
                 <span
-                  className={`text-lg font-bold font-mono ${
-                    summary?.incidents_count || failedCurrent
-                      ? "text-rose-400"
-                      : "text-text-main"
-                  }`}
+                  className={`text-lg font-bold font-mono ${summary?.incidents_count || failedCurrent
+                    ? "text-rose-400"
+                    : "text-text-main"
+                    }`}
                 >
                   {summary?.incidents_count != null
                     ? formatMetric(summary.incidents_count)
@@ -691,6 +689,7 @@ export default function TargetDetailDrawer({
           <UptimeStatusBar
             timeseries={telemetry.data?.timeseries || []}
             summary={summary}
+            targetCreatedAt={target.created_at}
             isLoading={telemetry.isLoading}
           />
 
