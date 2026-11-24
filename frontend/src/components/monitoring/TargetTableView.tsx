@@ -18,6 +18,10 @@ import {
   Cloud,
   Check,
   AlertTriangle,
+  Search,
+  X,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
@@ -31,38 +35,38 @@ const typeIcons: Record<string, typeof Globe> = {
 };
 
 const typeColors: Record<string, { bg: string; text: string; border: string }> =
-  {
-    https: {
-      bg: "bg-sky-500/10",
-      text: "text-sky-400",
-      border: "border-sky-500/30",
-    },
-    http: {
-      bg: "bg-blue-500/10",
-      text: "text-blue-400",
-      border: "border-blue-500/30",
-    },
-    tcp: {
-      bg: "bg-purple-500/10",
-      text: "text-purple-400",
-      border: "border-purple-500/30",
-    },
-    dns: {
-      bg: "bg-emerald-500/10",
-      text: "text-emerald-400",
-      border: "border-emerald-500/30",
-    },
-    api: {
-      bg: "bg-amber-500/10",
-      text: "text-amber-400",
-      border: "border-amber-500/30",
-    },
-    ssl: {
-      bg: "bg-rose-500/10",
-      text: "text-rose-400",
-      border: "border-rose-500/30",
-    },
-  };
+{
+  https: {
+    bg: "bg-sky-500/10",
+    text: "text-sky-400",
+    border: "border-sky-500/30",
+  },
+  http: {
+    bg: "bg-blue-500/10",
+    text: "text-blue-400",
+    border: "border-blue-500/30",
+  },
+  tcp: {
+    bg: "bg-purple-500/10",
+    text: "text-purple-400",
+    border: "border-purple-500/30",
+  },
+  dns: {
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-400",
+    border: "border-emerald-500/30",
+  },
+  api: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-400",
+    border: "border-amber-500/30",
+  },
+  ssl: {
+    bg: "bg-rose-500/10",
+    text: "text-rose-400",
+    border: "border-rose-500/30",
+  },
+};
 
 interface TargetTableViewProps {
   targets: MonitoringTarget[];
@@ -87,6 +91,10 @@ interface TargetTableViewProps {
   onTagFilterChange?: (tag: string) => void;
   availableTags?: string[];
   totalOrgSummary?: Record<string, number>;
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  viewMode?: "grid" | "table";
+  onViewModeChange?: (mode: "grid" | "table") => void;
 }
 
 export default function TargetTableView({
@@ -110,6 +118,10 @@ export default function TargetTableView({
   onTagFilterChange,
   availableTags = [],
   totalOrgSummary,
+  search,
+  onSearchChange,
+  viewMode,
+  onViewModeChange,
 }: TargetTableViewProps) {
   const allSelected =
     targets.length > 0 && selectedIds.length === targets.length;
@@ -329,11 +341,11 @@ export default function TargetTableView({
       target.recent_checks && target.recent_checks.length > 0
         ? target.recent_checks
         : Array.from({ length: 8 }).map(() => ({
-            status: target.enabled ? (target.last_status || "unknown") : "disabled",
-            latency: target.last_latency,
-            checked_at: new Date().toISOString(),
-            diagnostic: null as string | null,
-          }));
+          status: target.enabled ? (target.last_status || "unknown") : "disabled",
+          latency: target.last_latency,
+          checked_at: new Date().toISOString(),
+          diagnostic: null as string | null,
+        }));
 
     const isCompact = density === "compact";
     const paddingY = isCompact ? "py-2" : "py-3";
@@ -361,14 +373,14 @@ export default function TargetTableView({
             onClick(target);
           }
         }}
-        className={`group cursor-pointer transition-colors border-b border-border-base/40 ${
+        className={`group cursor-pointer transition-colors border-b border-border-base/70 ${
           isSelected
             ? "bg-accent-green/5"
             : isDown
-            ? "bg-rose-500/[0.04] border-l-2 border-l-rose-500 hover:bg-rose-500/[0.08]"
+            ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
             : isOnline
-            ? "opacity-85 hover:opacity-100 hover:bg-bg-dark/40"
-            : "hover:bg-bg-dark/50"
+            ? "opacity-90 hover:opacity-100 hover:bg-white/[0.03]"
+            : "hover:bg-white/[0.03]"
         }`}
       >
         {/* 1. Selection Checkbox */}
@@ -386,11 +398,10 @@ export default function TargetTableView({
             className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
           >
             <span
-              className={`grid h-4 w-4 place-items-center rounded transition-colors ${
-                isSelected
-                  ? "bg-accent-green text-black ring-1 ring-accent-green/40"
-                  : "border border-border-base/90 bg-bg-dark/80 text-transparent"
-              }`}
+              className={`grid h-4 w-4 place-items-center rounded transition-colors ${isSelected
+                ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+                : "border border-border-base/90 bg-bg-dark/80 text-transparent"
+                }`}
             >
               <Check
                 size={10}
@@ -419,17 +430,16 @@ export default function TargetTableView({
 
             {/* Target Name */}
             <span
-              className={`shrink-0 font-semibold text-xs transition-colors ${
-                isDown ? "text-rose-300 font-bold" : "text-text-main group-hover:text-accent-green"
-              }`}
+              className={`shrink-0 font-semibold text-xs transition-colors ${isDown ? "text-rose-300 font-bold" : "text-text-main group-hover:text-accent-green"
+                }`}
               title={target.name}
             >
               {target.name}
             </span>
 
-            {/* Endpoint URL (Takes all remaining width, truncates cleanly) */}
+            {/* Endpoint URL (Non-stretching, naturally clustered with name) */}
             <span
-              className="min-w-0 flex-1 truncate font-mono text-xs text-text-dim"
+              className="shrink truncate max-w-[260px] lg:max-w-[380px] font-mono text-xs text-text-dim"
               title={target.endpoint}
             >
               {target.endpoint}
@@ -438,12 +448,11 @@ export default function TargetTableView({
             {/* Senti9 Agent Pill without 'Senti9:' */}
             {target.runner_type === "agent" && (
               <span
-                className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
-                  target.agent_probe_online === false ||
+                className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${target.agent_probe_online === false ||
                   target.agent_probe_status === "offline"
-                    ? "bg-accent-red/10 text-accent-red border-accent-red/30"
-                    : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
-                }`}
+                  ? "bg-accent-red/10 text-accent-red border-accent-red/30"
+                  : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
+                  }`}
                 title={`Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`}
               >
                 <Server size={9} className="shrink-0" />
@@ -470,13 +479,13 @@ export default function TargetTableView({
               </span>
             )}
 
-            {/* In compact mode, show error inline at the end */}
+            {/* In compact mode, show error inline at the end with explicit tooltip */}
             {isCompact && isDown && (
               <span
-                title={fullDiagnostic}
-                className="shrink-0 text-xs text-rose-300 font-mono inline-flex items-center gap-1"
+                title={`HTTP ${target.last_status || 404} · esperado ${target.expected_status || 200}`}
+                className="shrink-0 text-xs text-rose-300 font-mono inline-flex items-center gap-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20"
               >
-                <AlertTriangle size={12} className="text-rose-400 shrink-0" />
+                <AlertTriangle size={11} className="text-rose-400 shrink-0" />
                 <span>{shortDiagnostic}</span>
               </span>
             )}
@@ -492,7 +501,7 @@ export default function TargetTableView({
         </td>
 
         {/* 4. Latencia (Single Line Clean, or downSince if down) */}
-        <td className={`${paddingY} px-2.5 whitespace-nowrap w-[105px]`}>
+        <td className={`${paddingY} px-2.5 whitespace-nowrap w-[115px]`}>
           <TargetLatency target={target} compact={isCompact} />
         </td>
 
@@ -510,23 +519,22 @@ export default function TargetTableView({
 
               const timeStr = c.checked_at
                 ? new Date(c.checked_at).toLocaleTimeString("es-ES", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })
                 : "Sin hora";
               const statusName = isUp
                 ? "Online"
                 : isSlow
-                ? "Lento"
-                : "Caído";
+                  ? "Lento"
+                  : "Caído";
               const latStr =
                 typeof c.latency === "number" && c.latency >= 0
                   ? `${c.latency} ms`
                   : "—";
-              const tooltip = `${timeStr} • ${statusName} (${latStr})${
-                c.diagnostic ? `\n${c.diagnostic}` : ""
-              }`;
+              const tooltip = `${timeStr} • ${statusName} (${latStr})${c.diagnostic ? `\n${c.diagnostic}` : ""
+                }`;
 
               return (
                 <div
@@ -541,7 +549,9 @@ export default function TargetTableView({
 
         {/* 6. Acciones - Fade in on hover, background matches row */}
         <td
-          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] bg-inherit`}
+          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] ${
+            isDown ? "bg-[#1c1217]" : "bg-transparent"
+          } group-hover:bg-white/[0.03] transition-colors`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-end gap-1.5">
@@ -588,21 +598,48 @@ export default function TargetTableView({
   return (
     <div
       data-testid="connectivity-table"
-      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
+      className="connectivity-directory-table w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
     >
-      {/* Interactive KPI Micro-Strip (Clickable to Filter) & Density / Grouping Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 border-b border-border-base bg-bg-dark/70 text-xs select-none">
-        {/* Left: Clickable Quick Filters */}
-        <div className="flex items-center gap-2 text-text-muted flex-wrap">
+      {/* Interactive Unified Header & KPI Bar: Search + Quick Filters + Selects + Density + View Toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 border-b border-border-base bg-bg-dark/70 text-xs select-none">
+        {/* Left: Search Bar + Quick Filter Chips */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {/* Integrated Search Input */}
+          {onSearchChange && (
+            <div className="relative min-w-[140px] max-w-[220px]">
+              <Search
+                size={13}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim"
+              />
+              <input
+                type="search"
+                placeholder="Buscar por nombre, URL..."
+                value={search || ""}
+                onChange={(e) => onSearchChange(e.target.value)}
+                aria-label="Buscar monitores por nombre o URL"
+                className="h-7 w-full rounded-lg border border-border-base bg-bg-dark pl-7 pr-6 text-xs text-text-main placeholder:text-text-dim focus:border-accent-green focus:outline-none"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-dim hover:text-text-main cursor-pointer !min-h-0 !min-w-0"
+                  title="Limpiar búsqueda"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Todos Filter Chip */}
           <button
             type="button"
             onClick={() => handleChipFilter("all")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
-              activeStatusFilter === "all"
-                ? "bg-zinc-700 text-white ring-1 ring-zinc-500"
-                : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
-            }`}
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "all"
+              ? "bg-zinc-700 text-white ring-1 ring-zinc-500"
+              : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
+              }`}
             title="Mostrar todos los monitores"
           >
             <span>Todos ({targets.length})</span>
@@ -612,19 +649,17 @@ export default function TargetTableView({
           <button
             type="button"
             onClick={() => handleChipFilter("down")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
-              activeStatusFilter === "down"
-                ? "bg-rose-500 text-white ring-2 ring-rose-500/50"
-                : summary.downCount > 0
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "down"
+              ? "bg-rose-500 text-white ring-2 ring-rose-500/50"
+              : summary.downCount > 0
                 ? "bg-rose-500/15 border border-rose-500/40 text-rose-400 hover:bg-rose-500/25"
                 : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
-            }`}
+              }`}
             title="Filtrar por servicios caídos"
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                summary.downCount > 0 ? "bg-rose-500 animate-pulse" : "bg-text-dim"
-              }`}
+              className={`w-1.5 h-1.5 rounded-full ${summary.downCount > 0 ? "bg-rose-500 animate-pulse" : "bg-text-dim"
+                }`}
             />
             <span>
               {summary.downCount} {summary.downCount === 1 ? "caído" : "caídos"}
@@ -635,11 +670,10 @@ export default function TargetTableView({
           <button
             type="button"
             onClick={() => handleChipFilter("up")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
-              activeStatusFilter === "up"
-                ? "bg-emerald-500 text-black ring-2 ring-emerald-500/50"
-                : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-            }`}
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "up"
+              ? "bg-emerald-500 text-black ring-2 ring-emerald-500/50"
+              : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+              }`}
             title="Filtrar por servicios online"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -651,11 +685,10 @@ export default function TargetTableView({
             <button
               type="button"
               onClick={() => handleChipFilter("slow")}
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
-                activeStatusFilter === "slow"
-                  ? "bg-amber-500 text-black ring-2 ring-amber-500/50"
-                  : "bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-              }`}
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "slow"
+                ? "bg-amber-500 text-black ring-2 ring-amber-500/50"
+                : "bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                }`}
               title="Filtrar por servicios lentos"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -668,11 +701,10 @@ export default function TargetTableView({
             <button
               type="button"
               onClick={() => handleChipFilter("disabled")}
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${
-                activeStatusFilter === "disabled"
-                  ? "bg-zinc-700 text-white ring-2 ring-zinc-500"
-                  : "bg-zinc-800/40 border border-zinc-700/50 text-zinc-400 hover:text-zinc-200"
-              }`}
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "disabled"
+                ? "bg-zinc-700 text-white ring-2 ring-zinc-500"
+                : "bg-zinc-800/40 border border-zinc-700/50 text-zinc-400 hover:text-zinc-200"
+                }`}
               title="Filtrar por servicios pausados"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
@@ -682,120 +714,142 @@ export default function TargetTableView({
 
           {/* Average Latency */}
           {summary.avgLatency !== null && (
-            <span className="text-text-dim hidden md:inline font-mono">
-              • Latencia prom:{" "}
-              <strong className="text-text-main">
-                {summary.avgLatency} ms
-              </strong>
+            <span className="text-text-dim hidden md:inline font-mono text-[11px]">
+              • Lat: <strong className="text-text-main">{summary.avgLatency} ms</strong>
             </span>
           )}
 
-          {/* 24h Uptime Badge with semantic color: ≥99% green, ≥95% amber, <95% red */}
+          {/* 24h Uptime Badge with semantic color */}
           <span
-            className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-mono font-bold hidden sm:inline-flex ${
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-mono font-bold hidden sm:inline-flex ${
               parseFloat(summary.uptime24h) >= 99
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                 : parseFloat(summary.uptime24h) >= 95
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                 : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-            }`}
+              }`}
             title="Uptime ponderado 24h (≥99% verde, ≥95% ámbar, <95% rojo)"
           >
-            Uptime 24h: {summary.uptime24h}%
+            Uptime: {summary.uptime24h}%
           </span>
         </div>
 
-        {/* Right: Tipo, Tag, Group By & Density Toggle */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Right: Selects (without duplicate labels) + Density + View Toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Protocol / Tipo Selector */}
           {onProtocolFilterChange && (
-            <div className="flex items-center gap-1 text-text-dim">
-              <span className="hidden xl:inline text-[11px]">Tipo:</span>
-              <select
-                value={protocolFilter || "all"}
-                onChange={(e) => onProtocolFilterChange(e.target.value)}
-                aria-label="Filtrar por tipo o protocolo"
-                className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer"
-              >
-                <option value="all">Tipo: Todos</option>
-                <option value="https">HTTPS</option>
-                <option value="http">HTTP</option>
-                <option value="tcp">TCP</option>
-                <option value="dns">DNS</option>
-                <option value="api">API</option>
-                <option value="ssl">SSL</option>
-              </select>
-            </div>
+            <select
+              value={protocolFilter || "all"}
+              onChange={(e) => onProtocolFilterChange(e.target.value)}
+              aria-label="Filtrar por tipo o protocolo"
+              className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer h-7"
+            >
+              <option value="all">Tipo: Todos</option>
+              <option value="https">HTTPS</option>
+              <option value="http">HTTP</option>
+              <option value="tcp">TCP</option>
+              <option value="dns">DNS</option>
+              <option value="api">API</option>
+              <option value="ssl">SSL</option>
+            </select>
           )}
 
           {/* Tag Selector */}
           {onTagFilterChange && availableTags && availableTags.length > 0 && (
-            <div className="flex items-center gap-1 text-text-dim">
-              <span className="hidden xl:inline text-[11px]">Tag:</span>
-              <select
-                value={tagFilter || "all"}
-                onChange={(e) => onTagFilterChange(e.target.value)}
-                aria-label="Filtrar por etiqueta"
-                className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer max-w-[120px]"
-              >
-                <option value="all">Tag: Todos</option>
-                {availableTags.map((t) => (
-                  <option key={t} value={t}>
-                    #{t}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={tagFilter || "all"}
+              onChange={(e) => onTagFilterChange(e.target.value)}
+              aria-label="Filtrar por etiqueta"
+              className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer max-w-[110px] h-7"
+            >
+              <option value="all">Tag: Todos</option>
+              {availableTags.map((t) => (
+                <option key={t} value={t}>
+                  #{t}
+                </option>
+              ))}
+            </select>
           )}
 
           {/* Group By selector */}
-          <div className="flex items-center gap-1 text-text-dim">
-            <span className="hidden xl:inline text-[11px]">Agrupar:</span>
-            <select
-              value={groupBy}
-              onChange={(e) =>
-                setGroupBy(e.target.value as "none" | "senti9" | "type")
-              }
-              aria-label="Agrupar monitores"
-              className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer"
-            >
-              <option value="none">Sin agrupar</option>
-              <option value="senti9">Por Senti9 / Nube</option>
-              <option value="type">Por Protocolo</option>
-            </select>
-          </div>
+          <select
+            value={groupBy}
+            onChange={(e) =>
+              setGroupBy(e.target.value as "none" | "senti9" | "type")
+            }
+            aria-label="Agrupar monitores"
+            className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer h-7"
+          >
+            <option value="none">Sin agrupar</option>
+            <option value="senti9">Senti9 / Nube</option>
+            <option value="type">Protocolo</option>
+          </select>
 
           {/* Density toggle buttons */}
           <div
-            className="flex items-center border border-border-base rounded-lg p-0.5 bg-bg-dark shrink-0"
+            className="flex items-center border border-border-base rounded-lg p-0.5 bg-bg-dark shrink-0 h-7"
             role="group"
             aria-label="Selector de densidad de filas"
           >
             <button
               type="button"
               onClick={() => handleDensityChange("compact")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${
-                density === "compact"
-                  ? "bg-accent-green/20 text-accent-green font-semibold"
-                  : "text-text-dim hover:text-text-main"
-              }`}
-              title="Vista Compacta (~40-44px por fila)"
+              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${density === "compact"
+                ? "bg-accent-green/20 text-accent-green font-semibold"
+                : "text-text-dim hover:text-text-main"
+                }`}
+              title="Vista Compacta (~42px por fila)"
             >
               Compacto
             </button>
             <button
               type="button"
               onClick={() => handleDensityChange("comfortable")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${
-                density === "comfortable"
-                  ? "bg-accent-green/20 text-accent-green font-semibold"
-                  : "text-text-dim hover:text-text-main"
-              }`}
-              title="Vista Cómoda (espaciado holgado)"
+              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${density === "comfortable"
+                ? "bg-accent-green/20 text-accent-green font-semibold"
+                : "text-text-dim hover:text-text-main"
+                }`}
+              title="Vista Cómoda"
             >
               Cómodo
             </button>
           </div>
+
+          {/* View Mode Switcher (Grid vs Table) */}
+          {onViewModeChange && (
+            <div
+              className="flex items-center border border-border-base rounded-lg p-0.5 bg-bg-dark shrink-0 h-7"
+              role="group"
+              aria-label="Cambiar vista"
+            >
+              <button
+                type="button"
+                onClick={() => onViewModeChange("grid")}
+                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${
+                  viewMode === "grid"
+                    ? "bg-accent-green text-bg-dark"
+                    : "text-text-dim hover:text-text-main"
+                }`}
+                title="Vista Cuadrícula"
+                aria-label="Vista Cuadrícula"
+              >
+                <LayoutGrid size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onViewModeChange("table")}
+                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${
+                  viewMode === "table"
+                    ? "bg-accent-green text-bg-dark"
+                    : "text-text-dim hover:text-text-main"
+                }`}
+                title="Vista Tabla"
+                aria-label="Vista Tabla"
+              >
+                <List size={13} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -849,11 +903,10 @@ export default function TargetTableView({
                   className="grid h-6 w-6 place-items-center rounded bg-transparent p-0 shrink-0"
                 >
                   <span
-                    className={`grid h-4 w-4 place-items-center rounded transition-colors ${
-                      selectedIds.includes(target.id)
-                        ? "bg-accent-green text-black"
-                        : "border border-border-base bg-bg-dark"
-                    }`}
+                    className={`grid h-4 w-4 place-items-center rounded transition-colors ${selectedIds.includes(target.id)
+                      ? "bg-accent-green text-black"
+                      : "border border-border-base bg-bg-dark"
+                      }`}
                   >
                     <Check
                       size={10}
@@ -926,8 +979,8 @@ export default function TargetTableView({
       ) : (
         <div className="w-full">
           <table className="w-full text-left text-xs text-text-main border-collapse">
-            <thead>
-              <tr className="border-b border-border-base bg-bg-dark/80 font-semibold text-text-dim select-none">
+            <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md shadow-sm border-b border-border-base">
+              <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
                 <th scope="col" className="py-2 px-2.5 w-8 text-center">
                   <button
                     type="button"
@@ -939,11 +992,10 @@ export default function TargetTableView({
                     className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
                   >
                     <span
-                      className={`grid h-4 w-4 place-items-center rounded transition-colors ${
-                        allSelected
-                          ? "bg-accent-green text-black ring-1 ring-accent-green/40"
-                          : "border border-border-base/90 bg-bg-dark/80 text-transparent"
-                      }`}
+                      className={`grid h-4 w-4 place-items-center rounded transition-colors ${allSelected
+                        ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+                        : "border border-border-base/90 bg-bg-dark/80 text-transparent"
+                        }`}
                     >
                       <Check
                         size={10}
@@ -991,7 +1043,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[105px]"
+                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[115px]"
                   onClick={() => onSortChange("latency")}
                   title="Ordenar por latencia"
                 >

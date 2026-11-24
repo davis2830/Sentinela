@@ -12,13 +12,13 @@ export function formatRelativeTime(dateStr: string | null | undefined): string {
   if (!dateStr) return 'caído';
   const diffMs = Math.max(0, Date.now() - Date.parse(dateStr));
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'hace <1 min';
+  if (diffSec < 60) return 'caído <1 min';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `hace ${diffMin} min`;
+  if (diffMin < 60) return `caído ${diffMin} min`;
   const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `hace ${diffHours} h`;
+  if (diffHours < 24) return `caído ${diffHours} h`;
   const diffDays = Math.floor(diffHours / 24);
-  return `hace ${diffDays} d`;
+  return `caído ${diffDays} d`;
 }
 
 export function getDownSinceText(target: MonitoringTarget): string {

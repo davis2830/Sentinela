@@ -368,20 +368,22 @@ export default function MonitoringPage() {
         }
       />
 
-      <MonitoringToolbar
-        search={searchTerm}
-        onSearchChange={setSearchTerm}
-        protocol={protocolFilter}
-        onProtocolChange={setProtocolFilter}
-        status={statusFilter}
-        onStatusChange={setStatusFilter}
-        summary={directory.meta?.summary}
-        tags={allTags}
-        tag={selectedTag}
-        onTagChange={setSelectedTag}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-      />
+      {viewMode === "grid" && (
+        <MonitoringToolbar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          protocol={protocolFilter}
+          onProtocolChange={setProtocolFilter}
+          status={statusFilter}
+          onStatusChange={setStatusFilter}
+          summary={directory.meta?.summary}
+          tags={allTags}
+          tag={selectedTag}
+          onTagChange={setSelectedTag}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
+      )}
 
       {/* Floating Bulk Actions Bar */}
       {selectedIds.length > 0 && (
@@ -492,6 +494,10 @@ export default function MonitoringPage() {
             onTagFilterChange={setSelectedTag}
             availableTags={allTags}
             totalOrgSummary={directory.meta?.summary}
+            search={searchTerm}
+            onSearchChange={setSearchTerm}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
         )
       ) : (

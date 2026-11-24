@@ -39,17 +39,10 @@
   appearance: none;
 }
 
-/* Keep actions reachable while secondary columns scroll inside a table. */
+/* Keep actions background perfectly matching the row */
 .connectivity-directory-table th:last-child,
 .connectivity-directory-table td:last-child {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-}
-.connectivity-directory-table th:last-child {
-  background: inherit;
-}
-.connectivity-directory-table td:last-child {
+  position: static;
   background: inherit;
 }
 .connectivity-directory-table tr:hover td:last-child {
