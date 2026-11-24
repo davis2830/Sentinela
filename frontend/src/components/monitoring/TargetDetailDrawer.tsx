@@ -416,8 +416,9 @@ export default function TargetDetailDrawer({
           {/* Line 3: Single-line Metadata & ⋯ Menu inline */}
           <div className="flex items-center justify-between gap-2 pt-0.5">
             <div className="text-[11px] text-text-muted flex flex-wrap items-center gap-1.5 min-w-0">
-              <span className="uppercase font-semibold tracking-wider text-text-main">
-                {target.target_type}
+              <span className="inline-flex items-center gap-1 uppercase font-semibold tracking-wider text-text-main">
+                <Icon size={12} className="shrink-0" />
+                <span>{target.target_type}</span>
               </span>
               <span>·</span>
               <span>Cada {target.interval} s</span>

@@ -334,6 +334,7 @@ export default function TargetTableView({
 
   const renderRow = (target: MonitoringTarget) => {
     const isSelected = selectedIds.includes(target.id);
+    const TypeIcon = typeIcons[target.target_type] || Globe;
     const typeStyle = typeColors[target.target_type] || {
       bg: "bg-accent-green/10",
       text: "text-accent-green",
@@ -422,12 +423,13 @@ export default function TargetTableView({
         {/* 3. Target & Endpoint - w-full max-w-0 absorbs excess space */}
         <td className={`${paddingY} px-3 w-full max-w-0`}>
           <div className="flex min-w-0 items-center gap-2">
-            {/* Type Badge inline with fixed width */}
+            {/* Type Badge inline with fixed width and protocol icon */}
             <span
-              className={`inline-block w-14 shrink-0 text-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
+              className={`inline-flex items-center justify-center gap-1 w-[72px] shrink-0 text-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
               title={`Protocolo ${target.target_type.toUpperCase()} • Intervalo: cada ${target.interval}s`}
             >
-              {target.target_type}
+              <TypeIcon size={11} className="shrink-0" />
+              <span>{target.target_type}</span>
             </span>
 
             {/* Target Name */}

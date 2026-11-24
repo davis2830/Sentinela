@@ -341,9 +341,10 @@ export default function TargetCard({
 
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
           >
-            {target.target_type}
+            <Icon size={12} className="shrink-0" />
+            <span>{target.target_type}</span>
           </span>
           <span className="text-text-dim text-xs">cada {target.interval}s</span>
           {target.owner_team_name && (
