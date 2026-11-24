@@ -1,4 +1,8 @@
-import { TargetDiagnostic, latestTargetCheck } from "./TargetLatency";
+import {
+  TargetDiagnostic,
+  latestTargetCheck,
+  getDownSinceDuration,
+} from "./TargetLatency";
 import MeasurementStatus from "../common/MeasurementStatus";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -279,6 +283,29 @@ export default function TargetDetailDrawer({
             />
           </div>
           <TargetDiagnostic target={target} />
+
+          {failedCurrent && (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300">
+              <div className="flex items-center gap-2 font-semibold text-rose-400">
+                <AlertTriangle size={15} />
+                <span>Incidente activo · Estado Caído</span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-text-dim">
+                <div>
+                  <span className="text-[11px] block text-text-muted">Tiempo de interrupción</span>
+                  <strong className="text-rose-300 text-sm font-mono">
+                    {getDownSinceDuration(target)}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-[11px] block text-text-muted">Último chequeo</span>
+                  <span className="text-text-main font-mono text-xs">
+                    {resourceDate(target.last_checked_at)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {offline && (
             <p role="alert" className="quick-panel-attention">

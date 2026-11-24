@@ -8,6 +8,38 @@ export function latestTargetCheck(target: MonitoringTarget) {
   );
 }
 
+export function formatDowntimeDuration(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Desconocido';
+  const diffMs = Math.max(0, Date.now() - Date.parse(dateStr));
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return '< 1 minuto';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} minuto${diffMin === 1 ? '' : 's'}`;
+  const diffHours = Math.floor(diffMin / 60);
+  const remMin = diffMin % 60;
+  if (diffHours < 24) return `${diffHours} h ${remMin} m`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} día${diffDays === 1 ? '' : 's'}`;
+}
+
+export function getDownSinceDuration(target: MonitoringTarget): string {
+  if (!target.recent_checks || target.recent_checks.length === 0) {
+    return formatDowntimeDuration(target.last_checked_at || target.updated_at);
+  }
+  const checks = [...target.recent_checks].sort(
+    (a, b) => Date.parse(b.checked_at) - Date.parse(a.checked_at)
+  );
+  let earliestDown = checks[0];
+  for (let i = 0; i < checks.length; i++) {
+    if (checks[i].status === 'down' || checks[i].status === 'error') {
+      earliestDown = checks[i];
+    } else {
+      break;
+    }
+  }
+  return formatDowntimeDuration(earliestDown.checked_at);
+}
+
 export function formatRelativeTime(dateStr: string | null | undefined): string {
   if (!dateStr) return 'caído';
   const diffMs = Math.max(0, Date.now() - Date.parse(dateStr));
@@ -121,7 +153,7 @@ export default function TargetLatency({
             className="font-mono text-rose-400 text-xs font-semibold"
             title={`Servicio caído (${downSince}) • Última latencia registrada: ${lastKnownLat || 'N/A'}`}
           >
-            {downSince}
+            Caído
           </span>
         </div>
       );
