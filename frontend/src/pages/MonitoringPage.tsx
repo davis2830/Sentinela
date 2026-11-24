@@ -484,6 +484,8 @@ export default function MonitoringPage() {
             sortField={sortField}
             sortAsc={sortAsc}
             onSortChange={handleSortChange}
+            activeStatusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
           />
         )
       ) : (

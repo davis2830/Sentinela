@@ -16,15 +16,15 @@ export function TargetDiagnostic({
 }) {
   if (!target.enabled || !['slow', 'down', 'error'].includes(target.last_status || '')) return null;
   const check = latestTargetCheck(target);
-  const message = check?.diagnostic || (target.last_status === 'slow' ? 'Respuesta lenta' : 'Comprobación fallida');
+  const message = check?.diagnostic || (target.last_status === 'slow' ? 'Respuesta lenta registrada' : 'Comprobación fallida');
 
   if (compact) {
     return (
       <span
         title={message}
-        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-rose-500/15 border border-rose-500/30 text-rose-400 truncate max-w-[160px]"
+        className="inline-flex items-center text-[11px] font-mono font-medium text-rose-400 truncate max-w-[280px]"
       >
-        {message}
+        ⚠️ {message}
       </span>
     );
   }
@@ -32,10 +32,9 @@ export function TargetDiagnostic({
   return (
     <p
       title={message}
-      className="text-xs mt-1 ui-tone truncate max-w-[280px]"
-      data-tone={target.last_status === 'slow' ? 'warning' : 'danger'}
+      className="text-xs mt-0.5 text-accent-red font-mono truncate max-w-[320px]"
     >
-      {message}
+      ⚠️ {message}
     </p>
   );
 }
@@ -47,19 +46,38 @@ export default function TargetLatency({
   target: MonitoringTarget;
   compact?: boolean;
 }) {
-  const failed = ['down', 'error'].includes(target.last_status || '');
+  const isDown = ['down', 'error'].includes(target.last_status || '');
   const measured = Boolean(target.last_checked_at && Number.isFinite(Date.parse(target.last_checked_at)));
-  const value = !failed && measured && finite(target.last_latency) && target.last_latency >= 0
+  const value = !isDown && measured && finite(target.last_latency) && target.last_latency >= 0
     ? `${formatMetric(target.last_latency)} ms`
     : '—';
-  const tone = failed || !measured || !target.enabled
+  const tone = isDown || !measured || !target.enabled
     ? 'muted'
     : latencyTone(target.last_latency, target.max_latency_ms, target.last_status);
   const limitText = finite(target.max_latency_ms) && target.max_latency_ms > 0
     ? `${formatMetric(target.max_latency_ms)} ms`
     : 'Sin configurar';
 
+  // Last known latency when down
+  const lastUpCheck = isDown
+    ? [...(target.recent_checks || [])].reverse().find((c) => c.status === 'up' && finite(c.latency))
+    : null;
+  const lastKnownLat = lastUpCheck?.latency ? `${formatMetric(lastUpCheck.latency)} ms` : null;
+
   if (compact) {
+    if (isDown && target.enabled) {
+      return (
+        <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
+          <span
+            className="font-mono text-text-dim text-xs"
+            title={`Servicio caído • Última latencia registrada: ${lastKnownLat || 'N/A'}`}
+          >
+            {lastKnownLat ? `(últ. ${lastKnownLat})` : '—'}
+          </span>
+        </div>
+      );
+    }
+
     return (
       <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
         <span
@@ -84,9 +102,6 @@ export default function TargetLatency({
       </p>
       {finite(applied) && applied !== target.max_latency_ms && (
         <p className="text-xs font-normal text-text-dim">Aplicado: {formatMetric(applied)} ms</p>
-      )}
-      {!finite(applied) && target.last_status === 'up' && finite(target.last_latency) && finite(target.max_latency_ms) && target.last_latency > target.max_latency_ms && (
-        <p className="text-xs font-normal text-text-dim">Límite aplicado: no registrado</p>
       )}
     </div>
   );
