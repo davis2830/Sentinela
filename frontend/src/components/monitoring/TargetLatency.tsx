@@ -23,6 +23,9 @@ export function formatDowntimeDuration(dateStr: string | null | undefined): stri
 }
 
 export function getDownSinceDuration(target: MonitoringTarget): string {
+  if (target.down_since) {
+    return formatDowntimeDuration(target.down_since);
+  }
   if (!target.recent_checks || target.recent_checks.length === 0) {
     return formatDowntimeDuration(target.last_checked_at || target.updated_at);
   }
@@ -54,6 +57,9 @@ export function formatRelativeTime(dateStr: string | null | undefined): string {
 }
 
 export function getDownSinceText(target: MonitoringTarget): string {
+  if (target.down_since) {
+    return formatRelativeTime(target.down_since);
+  }
   if (!target.recent_checks || target.recent_checks.length === 0) {
     return formatRelativeTime(target.last_checked_at || target.updated_at);
   }

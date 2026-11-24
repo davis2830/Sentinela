@@ -290,16 +290,22 @@ export default function TargetDetailDrawer({
                 <AlertTriangle size={15} />
                 <span>Incidente activo · Estado Caído</span>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-text-dim">
+              <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-3 gap-2 text-text-dim">
                 <div>
                   <span className="text-[11px] block text-text-muted">Tiempo de interrupción</span>
-                  <strong className="text-rose-300 text-sm font-mono">
+                  <strong className="text-rose-300 text-sm font-mono block mt-0.5">
                     {getDownSinceDuration(target)}
                   </strong>
                 </div>
                 <div>
+                  <span className="text-[11px] block text-text-muted">Caído desde</span>
+                  <span className="text-text-main font-mono text-xs block mt-0.5">
+                    {resourceDate(target.down_since || target.last_checked_at)}
+                  </span>
+                </div>
+                <div>
                   <span className="text-[11px] block text-text-muted">Último chequeo</span>
-                  <span className="text-text-main font-mono text-xs">
+                  <span className="text-text-main font-mono text-xs block mt-0.5">
                     {resourceDate(target.last_checked_at)}
                   </span>
                 </div>

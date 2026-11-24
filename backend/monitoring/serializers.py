@@ -185,6 +185,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_status",
             "agent_probe_online",
             "recent_checks",
+            "down_since",
             "created_at",
             "updated_at",
         )
@@ -200,16 +201,34 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_status",
             "agent_probe_online",
             "recent_checks",
+            "down_since",
             "created_at",
             "updated_at",
         )
 
     recent_checks = serializers.SerializerMethodField()
+    down_since = serializers.SerializerMethodField()
     owner_team_name = serializers.CharField(source="owner_team.name", read_only=True, allow_null=True)
     owner_team_color = serializers.CharField(source="owner_team.color", read_only=True, allow_null=True)
     agent_probe_name = serializers.CharField(source="agent_probe.name", read_only=True, allow_null=True)
     agent_probe_status = serializers.CharField(source="agent_probe.status", read_only=True, allow_null=True)
     agent_probe_online = serializers.BooleanField(source="agent_probe.is_online", read_only=True, allow_null=True)
+
+    def get_down_since(self, obj):
+        if not obj.enabled or obj.last_status not in ["down", "error"]:
+            return None
+        last_healthy = obj.checks.filter(status__in=["up", "slow"]).order_by("-checked_at").first()
+        if last_healthy:
+            first_down = (
+                obj.checks.filter(status__in=["down", "error"], checked_at__gt=last_healthy.checked_at)
+                .order_by("checked_at")
+                .first()
+            )
+            down_at = first_down.checked_at if first_down else last_healthy.checked_at
+        else:
+            first_check = obj.checks.order_by("checked_at").first()
+            down_at = first_check.checked_at if first_check else obj.created_at
+        return down_at.isoformat() if down_at else None
 
     def get_recent_checks(self, obj):
         from .presentation import check_presentation
