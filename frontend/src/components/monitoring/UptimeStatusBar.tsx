@@ -124,11 +124,11 @@ export default function UptimeStatusBar({
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 space-y-2.5">
+      <div className="rounded-xl border border-border-base bg-bg-dark/60 p-3 space-y-2.5">
         <div className="flex items-center justify-between text-xs text-text-muted">
           <div className="flex items-center gap-1.5">
             <Activity size={14} className="text-emerald-400 animate-pulse" />
-            <span className="font-medium text-slate-300">Disponibilidad 24 h</span>
+            <span className="font-medium text-text-main">Disponibilidad 24 h</span>
           </div>
           <span className="animate-pulse">Cargando…</span>
         </div>
@@ -136,7 +136,7 @@ export default function UptimeStatusBar({
           {Array.from({ length: 24 }).map((_, idx) => (
             <div
               key={idx}
-              className="flex-1 h-7 rounded-[3px] bg-slate-800/60 animate-pulse"
+              className="flex-1 h-7 rounded-[3px] bg-bg-card-hover animate-pulse"
             />
           ))}
         </div>
@@ -147,12 +147,12 @@ export default function UptimeStatusBar({
   return (
     <section
       aria-label="Disponibilidad 24 h"
-      className="rounded-xl border border-border-base/40 bg-bg-card p-3 space-y-2"
+      className="rounded-xl border border-border-base bg-bg-dark/60 p-3 space-y-2"
     >
       <header className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
           <Activity size={14} className="text-accent-cyan shrink-0" />
-          <span className="font-semibold text-slate-200">Disponibilidad 24 h</span>
+          <span className="font-semibold text-text-main">Disponibilidad 24 h</span>
         </div>
         <div className="flex items-center gap-2 font-mono">
           <span className={`font-bold ${uptimeColor}`}>
@@ -165,7 +165,7 @@ export default function UptimeStatusBar({
       {/* 24-Segment Uptime Bar */}
       <div className="flex items-center gap-[3px] w-full py-0.5">
         {buckets.map((b) => {
-          let bgClass = 'bg-slate-800';
+          let bgClass = 'bg-bg-card-hover';
           let statusText = 'Sin datos';
 
           if (b.status === 'up') {
@@ -185,8 +185,8 @@ export default function UptimeStatusBar({
               className={`flex-1 h-7 rounded-[3px] transition-all cursor-pointer relative group ${bgClass}`}
             >
               {/* Tooltip on hover */}
-              <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-40 min-w-[160px] p-2 rounded-lg bg-slate-900 border border-slate-700/80 shadow-2xl text-[11px] text-slate-200 space-y-1">
-                <div className="font-mono text-text-muted text-[10px] border-b border-slate-800 pb-1">
+              <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-40 min-w-[160px] p-2 rounded-lg bg-bg-dark border border-border-base shadow-2xl text-[11px] text-text-main space-y-1">
+                <div className="font-mono text-text-muted text-[10px] border-b border-border-base pb-1">
                   {b.label}
                 </div>
                 <div className="flex items-center justify-between font-medium">
@@ -199,7 +199,7 @@ export default function UptimeStatusBar({
                           ? 'text-amber-400'
                           : b.status === 'down'
                             ? 'text-rose-400'
-                            : 'text-slate-400'
+                            : 'text-text-muted'
                     }
                   >
                     {statusText}

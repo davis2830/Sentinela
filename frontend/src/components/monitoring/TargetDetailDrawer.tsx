@@ -180,7 +180,7 @@ export default function TargetDetailDrawer({
   const isSlow = target.last_status === "slow";
   const currentMeasured = Boolean(
     target.last_checked_at &&
-      Number.isFinite(Date.parse(target.last_checked_at)),
+    Number.isFinite(Date.parse(target.last_checked_at)),
   );
 
   const [status, tone] = !target.enabled
@@ -203,7 +203,7 @@ export default function TargetDetailDrawer({
     typeof checkDetails.status_code === "number" || typeof checkDetails.status_code === "string"
       ? String(checkDetails.status_code)
       : latestCheck?.diagnostic?.match(/HTTP\s*(\d+)/i)?.[1] ||
-        (target.expected_status ? String(target.expected_status) : undefined);
+      (target.expected_status ? String(target.expected_status) : undefined);
   const expectedStatus =
     typeof checkDetails.expected_status === "number" || typeof checkDetails.expected_status === "string"
       ? String(checkDetails.expected_status)
@@ -269,7 +269,7 @@ export default function TargetDetailDrawer({
         const diffMs = Math.max(
           60000,
           Date.parse(incidentEnd.checked_at) -
-            Date.parse(incidentStart.checked_at),
+          Date.parse(incidentStart.checked_at),
         );
         const mins = Math.max(1, Math.round(diffMs / 60000));
         list.push({
@@ -325,17 +325,17 @@ export default function TargetDetailDrawer({
         aria-label={target.name}
         ref={dialogRef}
         tabIndex={-1}
-        className="w-full max-w-[540px] h-full bg-slate-950 border-l border-border-base/40 flex flex-col overflow-y-auto shadow-2xl"
+        className="w-full max-w-[540px] h-full bg-bg-card border-l border-border-base flex flex-col overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Sticky Header: Name, state badge, URL & navigation */}
-        <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-border-base/40 p-4 space-y-2">
+        <header className="sticky top-0 z-20 bg-bg-dark/95 backdrop-blur-md border-b border-border-base p-4 space-y-2">
           {/* Line 1: Icon + Name + Badge on left, Nav + Fullscreen + Close on right */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <Icon size={18} className="text-text-muted shrink-0" />
               <h2
-                className="text-base font-bold text-slate-100 truncate"
+                className="text-base font-bold text-text-main truncate"
                 title={target.name}
               >
                 {target.name}
@@ -348,10 +348,10 @@ export default function TargetDetailDrawer({
               </span>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0 text-slate-400">
+            <div className="flex items-center gap-1 shrink-0 text-text-muted">
               <button
                 type="button"
-                className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                className="p-1.5 rounded-lg hover:bg-bg-card-hover hover:text-text-main transition-colors disabled:opacity-30 disabled:pointer-events-none"
                 onClick={handlePrev}
                 disabled={!hasPrev}
                 title="Target anterior (↑)"
@@ -361,7 +361,7 @@ export default function TargetDetailDrawer({
               </button>
               <button
                 type="button"
-                className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                className="p-1.5 rounded-lg hover:bg-bg-card-hover hover:text-text-main transition-colors disabled:opacity-30 disabled:pointer-events-none"
                 onClick={handleNext}
                 disabled={!hasNext}
                 title="Target siguiente (↓)"
@@ -372,7 +372,7 @@ export default function TargetDetailDrawer({
               {full && (
                 <Link
                   to={fullViewUrl}
-                  className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-bg-card-hover hover:text-text-main transition-colors"
                   title="Abrir vista completa (⤢)"
                   aria-label="Abrir vista completa"
                 >
@@ -381,7 +381,7 @@ export default function TargetDetailDrawer({
               )}
               <button
                 type="button"
-                className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors ml-1"
+                className="p-1.5 rounded-lg hover:bg-bg-card-hover hover:text-text-main transition-colors ml-1"
                 onClick={onClose}
                 title="Cerrar (Esc)"
                 aria-label="Cerrar panel"
@@ -401,7 +401,7 @@ export default function TargetDetailDrawer({
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-mono text-slate-400 hover:text-slate-200 truncate transition-colors flex items-center gap-1 max-w-full"
+              className="text-xs font-mono text-text-muted hover:text-text-main truncate transition-colors flex items-center gap-1 max-w-full"
               title={`Abrir ${target.endpoint}`}
             >
               <span className="truncate">{target.endpoint}</span>
@@ -409,60 +409,62 @@ export default function TargetDetailDrawer({
             </a>
           </div>
 
-          {/* Line 3: Single-line Metadata */}
-          <div className="text-[11px] text-text-muted flex flex-wrap items-center gap-2">
-            <span className="uppercase font-semibold tracking-wider text-slate-300">
-              {target.target_type}
-            </span>
-            <span>·</span>
-            <span>Cada {target.interval} s</span>
-            <span>·</span>
-            <span>
-              {target.runner_type === "agent"
-                ? `Senti9: ${target.agent_probe_name || "Agente"}`
-                : "Cloud"}
-            </span>
-            {target.tags && target.tags.length > 0 && (
-              <>
-                <span>·</span>
-                <span className="truncate text-slate-400">
-                  {target.tags
-                    .map((t) => t.replace(/^Senti9:\s*/, ""))
-                    .join(", ")}
-                </span>
-              </>
-            )}
-          </div>
+          {/* Line 3: Single-line Metadata & ⋯ Menu inline */}
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <div className="text-[11px] text-text-muted flex flex-wrap items-center gap-1.5 min-w-0">
+              <span className="uppercase font-semibold tracking-wider text-text-main">
+                {target.target_type}
+              </span>
+              <span>·</span>
+              <span>Cada {target.interval} s</span>
+              <span>·</span>
+              <span>
+                {target.runner_type === "agent"
+                  ? `Senti9: ${target.agent_probe_name || "Agente"}`
+                  : "Cloud"}
+              </span>
+              {target.tags && target.tags.length > 0 && (
+                <>
+                  <span>·</span>
+                  <span className="truncate text-text-muted">
+                    {target.tags
+                      .map((t) => t.replace(/^Senti9:\s*/, ""))
+                      .join(", ")}
+                  </span>
+                </>
+              )}
+            </div>
 
-          {/* 3. Actions with Hierarchy: Primary Check Now + ⋯ dropdown */}
-          <div className="pt-2 flex items-center justify-between gap-3 border-t border-border-base/30">
-            <button
-              type="button"
-              onClick={() => onScan(target)}
-              disabled={isScanning}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-semibold text-xs transition-colors shadow-sm"
-            >
-              <RefreshCw
-                size={13}
-                className={isScanning ? "animate-spin" : ""}
-              />
-              <span>{isScanning ? "Comprobando…" : "Comprobar ahora"}</span>
-            </button>
-
-            {/* ⋯ More Menu */}
-            <div className="relative" ref={menuRef}>
+            {/* ⋯ More Menu directly next to tags */}
+            <div className="relative shrink-0" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setShowMoreMenu((prev) => !prev)}
-                className="p-1.5 rounded-lg border border-border-base/40 text-text-muted hover:text-slate-200 hover:bg-white/5 transition-colors"
+                className="p-1 rounded-lg border border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors"
                 title="Más acciones"
                 aria-label="Más acciones"
               >
-                <MoreHorizontal size={17} />
+                <MoreHorizontal size={15} />
               </button>
 
               {showMoreMenu && (
-                <div className="absolute right-0 top-full mt-1.5 z-30 min-w-[190px] rounded-xl border border-border-base/50 bg-slate-900 shadow-2xl p-1 text-xs text-slate-200 space-y-0.5 animate-in fade-in duration-100">
+                <div className="absolute right-0 top-full mt-1 z-30 min-w-[190px] rounded-xl border border-border-base bg-bg-dark shadow-2xl p-1 text-xs text-text-main space-y-0.5 animate-in fade-in duration-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onScan(target);
+                      setShowMoreMenu(false);
+                    }}
+                    disabled={isScanning}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors text-left text-emerald-400 font-medium disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      size={14}
+                      className={isScanning ? "animate-spin" : ""}
+                    />
+                    <span>{isScanning ? "Comprobando…" : "Comprobar ahora"}</span>
+                  </button>
+
                   {full && (
                     <a
                       href={
@@ -472,7 +474,7 @@ export default function TargetDetailDrawer({
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors"
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors"
                       onClick={() => setShowMoreMenu(false)}
                     >
                       <ExternalLink size={14} className="text-text-muted" />
@@ -486,7 +488,7 @@ export default function TargetDetailDrawer({
                       handleCopyUrl();
                       setShowMoreMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors text-left"
                   >
                     {copiedUrl ? (
                       <Check size={14} className="text-emerald-400" />
@@ -503,7 +505,7 @@ export default function TargetDetailDrawer({
                         onTogglePause(target);
                         setShowMoreMenu(false);
                       }}
-                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors text-left"
                     >
                       {target.enabled ? (
                         <>
@@ -525,7 +527,7 @@ export default function TargetDetailDrawer({
                       onEdit(target);
                       setShowMoreMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors text-left"
                   >
                     <Pencil size={14} className="text-text-muted" />
                     <span>Editar target</span>
@@ -537,7 +539,7 @@ export default function TargetDetailDrawer({
                       onAlert(target);
                       setShowMoreMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors text-left"
                   >
                     <Bell size={14} className="text-text-muted" />
                     <span>Crear alerta</span>
@@ -549,7 +551,7 @@ export default function TargetDetailDrawer({
                       onExport(target.id, target.name);
                       setShowMoreMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-bg-card-hover transition-colors text-left"
                   >
                     <Download size={14} className="text-text-muted" />
                     <span>Exportar CSV</span>
@@ -603,7 +605,7 @@ export default function TargetDetailDrawer({
           {/* 4. KPIs reducidos a 3 y más compactos */}
           <div className="grid grid-cols-3 gap-2">
             {/* 1. Disponibilidad */}
-            <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 flex flex-col justify-between">
+            <div className="rounded-xl border border-border-base bg-bg-dark/70 p-3 flex flex-col justify-between shadow-sm">
               <span className="text-[11px] text-text-muted font-medium">
                 Disp. 24h
               </span>
@@ -616,7 +618,7 @@ export default function TargetDetailDrawer({
                         : summary.uptime_percentage >= 95
                           ? "text-amber-400"
                           : "text-rose-400"
-                      : "text-slate-400"
+                      : "text-text-muted"
                   }`}
                 >
                   {measured && summary?.uptime_percentage != null
@@ -632,19 +634,19 @@ export default function TargetDetailDrawer({
             </div>
 
             {/* 2. Última latencia */}
-            <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 flex flex-col justify-between">
+            <div className="rounded-xl border border-border-base bg-bg-dark/70 p-3 flex flex-col justify-between shadow-sm">
               <span className="text-[11px] text-text-muted font-medium">
                 Última lat.
               </span>
               <div className="mt-1">
-                <span className="text-lg font-bold font-mono text-slate-100">
+                <span className="text-lg font-bold font-mono text-text-main">
                   {failedCurrent
                     ? lastKnownLatency
                       ? `${lastKnownLatency} ms`
                       : "—"
                     : currentMeasured &&
-                        target.last_latency != null &&
-                        target.last_latency >= 0
+                      target.last_latency != null &&
+                      target.last_latency >= 0
                       ? `${formatMetric(target.last_latency)} ms`
                       : "—"}
                 </span>
@@ -660,7 +662,7 @@ export default function TargetDetailDrawer({
             </div>
 
             {/* 3. Incidentes */}
-            <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 flex flex-col justify-between">
+            <div className="rounded-xl border border-border-base bg-bg-dark/70 p-3 flex flex-col justify-between shadow-sm">
               <span className="text-[11px] text-text-muted font-medium">
                 Incidentes
               </span>
@@ -669,7 +671,7 @@ export default function TargetDetailDrawer({
                   className={`text-lg font-bold font-mono ${
                     summary?.incidents_count || failedCurrent
                       ? "text-rose-400"
-                      : "text-slate-100"
+                      : "text-text-main"
                   }`}
                 >
                   {summary?.incidents_count != null
@@ -696,9 +698,9 @@ export default function TargetDetailDrawer({
           {failedCurrent && (
             <details
               open={true}
-              className="rounded-xl border border-border-base/40 bg-bg-card p-3.5 text-xs group"
+              className="rounded-xl border border-border-base bg-bg-dark/60 p-3.5 text-xs group"
             >
-              <summary className="font-semibold text-sm cursor-pointer select-none flex items-center justify-between text-slate-200 hover:text-white transition-colors">
+              <summary className="font-semibold text-sm cursor-pointer select-none flex items-center justify-between text-text-main hover:text-white transition-colors">
                 <span className="flex items-center gap-2">
                   <span className="text-text-muted group-open:rotate-90 transition-transform">
                     ▸
@@ -710,9 +712,9 @@ export default function TargetDetailDrawer({
                 </span>
               </summary>
 
-              <div className="mt-3.5 pt-3 border-t border-border-base/30 space-y-3">
+              <div className="mt-3.5 pt-3 border-t border-border-base space-y-3">
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg bg-bg-dark/60 p-2 border border-border-base/20">
+                  <div className="rounded-lg bg-bg-card p-2 border border-border-base">
                     <span className="block text-[10px] text-text-muted">
                       Código HTTP
                     </span>
@@ -720,19 +722,19 @@ export default function TargetDetailDrawer({
                       {statusCode || "—"}
                     </strong>
                   </div>
-                  <div className="rounded-lg bg-bg-dark/60 p-2 border border-border-base/20">
+                  <div className="rounded-lg bg-bg-card p-2 border border-border-base">
                     <span className="block text-[10px] text-text-muted">
                       Redirecciones
                     </span>
-                    <strong className="text-slate-200 font-mono text-sm">
+                    <strong className="text-text-main font-mono text-sm">
                       {redirectCount}
                     </strong>
                   </div>
-                  <div className="rounded-lg bg-bg-dark/60 p-2 border border-border-base/20">
+                  <div className="rounded-lg bg-bg-card p-2 border border-border-base">
                     <span className="block text-[10px] text-text-muted">
                       Tiempo resp.
                     </span>
-                    <strong className="text-slate-200 font-mono text-sm">
+                    <strong className="text-text-main font-mono text-sm">
                       {responseTime != null
                         ? `${formatMetric(responseTime)} ms`
                         : "—"}
@@ -766,7 +768,7 @@ export default function TargetDetailDrawer({
                       <span>{copiedBody ? "¡Copiado!" : "Copiar"}</span>
                     </button>
                   </div>
-                  <pre className="p-2.5 rounded-lg bg-bg-dark/80 border border-border-base/30 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-36">
+                  <pre className="p-2.5 rounded-lg bg-bg-dark border border-border-base font-mono text-[11px] text-text-main overflow-x-auto max-h-36">
                     {typeof checkDetails.body === "string"
                       ? checkDetails.body
                       : typeof checkDetails.response_body === "string"
@@ -781,7 +783,7 @@ export default function TargetDetailDrawer({
           {/* 6. Incidentes en lugar de comprobaciones repetidas */}
           <section aria-label="Incidentes" className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm text-slate-200">
+              <h3 className="font-semibold text-sm text-text-main">
                 Incidentes
               </h3>
               {full && (
@@ -802,7 +804,7 @@ export default function TargetDetailDrawer({
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
                         Actual
                       </span>
-                      <span className="text-slate-200 font-medium">
+                      <span className="text-text-main font-medium">
                         Desde{" "}
                         {resourceDate(
                           target.down_since || target.last_checked_at,
@@ -825,23 +827,23 @@ export default function TargetDetailDrawer({
               {previousIncidents.map((inc, i) => (
                 <div
                   key={i}
-                  className="rounded-xl border border-border-base/30 bg-bg-card p-3 text-xs space-y-1"
+                  className="rounded-xl border border-border-base bg-bg-dark/50 p-3 text-xs space-y-1"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-bg-card-hover text-text-muted border border-border-base">
                         Anterior
                       </span>
-                      <span className="text-slate-300 font-medium">
+                      <span className="text-text-main font-medium">
                         {inc.startedAt}
                       </span>
                     </div>
-                    <span className="font-mono text-slate-300 text-xs">
+                    <span className="font-mono text-text-main text-xs">
                       {inc.duration}
                     </span>
                   </div>
                   <p className="text-text-muted text-[11px]">
-                    Causa: <span className="text-slate-300">{inc.reason}</span>
+                    Causa: <span className="text-text-main">{inc.reason}</span>
                   </p>
                 </div>
               ))}
