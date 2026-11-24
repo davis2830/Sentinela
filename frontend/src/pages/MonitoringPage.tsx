@@ -591,6 +591,7 @@ export default function MonitoringPage() {
       {showForm && (
         <TargetForm
           target={editingTarget}
+          existingTargets={filteredTargets || targets || []}
           onSubmit={handleSubmit}
           onClose={() => {
             setShowForm(false);
