@@ -1,42 +1,40 @@
-import {
-  TargetDiagnostic,
-  latestTargetCheck,
-  getDownSinceDuration,
-} from "./TargetLatency";
-import MeasurementStatus from "../common/MeasurementStatus";
-import { useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   X,
+  ChevronUp,
+  ChevronDown,
+  ExternalLink,
+  RefreshCw,
+  MoreHorizontal,
+  Copy,
+  Check,
+  Pause,
+  Play,
+  Pencil,
+  Bell,
+  Download,
+  AlertTriangle,
   Globe,
   Server,
   Plug,
   Lock,
-  Activity,
-  Clock,
-  AlertTriangle,
-  MoreHorizontal,
-  Download,
-  Bell,
-  Pencil,
 } from "lucide-react";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
 import { useDialogFocus } from "../../hooks/useDialogFocus";
 import { useAuthStore } from "../../store/authStore";
 import { api } from "../../services/api";
-import ScanAction from "../common/ScanAction";
-import AdminButton from "../common/AdminButton";
-import MetricCard from "../common/MetricCard";
-import LatencyChart from "./LatencyChart";
-import {
-  finite,
-  formatMetric,
-  uptimeTone,
-  latencyTone,
-} from "../../utils/endpointPresentation";
+import { formatMetric } from "../../utils/endpointPresentation";
 import { resourceDate } from "../../utils/resourcePresentation";
+import {
+  getDownSinceDuration,
+  formatShortDiagnostic,
+  formatRelativeTime,
+  latestTargetCheck,
+} from "./TargetLatency";
+import UptimeStatusBar from "./UptimeStatusBar";
 import type {
   MonitoringTarget,
   MonitoringCheck,
@@ -51,27 +49,36 @@ const icons: Record<string, typeof Globe> = {
   api: Plug,
   ssl: Lock,
 };
+
 const states: Record<string, [string, string]> = {
   up: ["Operacional", "success"],
   slow: ["Degradado", "warning"],
   down: ["Caído", "danger"],
   error: ["Error", "danger"],
 };
+
 interface Props {
   target: MonitoringTarget;
+  targets?: MonitoringTarget[];
+  onSelectTarget?: (target: MonitoringTarget) => void;
   onClose: () => void;
   onScan: (target: MonitoringTarget) => void | Promise<unknown>;
   onEdit: (target: MonitoringTarget) => void;
   onAlert: (target: MonitoringTarget) => void;
+  onTogglePause?: (target: MonitoringTarget) => void;
   onExport: (id: string, name: string) => void;
   isScanning: boolean;
 }
+
 export default function TargetDetailDrawer({
   target,
+  targets = [],
+  onSelectTarget,
   onClose,
   onScan,
   onEdit,
   onAlert,
+  onTogglePause,
   onExport,
   isScanning,
 }: Props) {
@@ -79,13 +86,68 @@ export default function TargetDetailDrawer({
   const location = useLocation();
   const organizationId = useAuthStore((s) => s.user?.organization?.id);
   const refresh = useConnectivityRefresh();
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [copiedBody, setCopiedBody] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Targets navigation
+  const currentIndex = useMemo(
+    () => targets.findIndex((t) => t.id === target.id),
+    [targets, target.id],
+  );
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < targets.length - 1;
+
+  const handlePrev = () => {
+    if (hasPrev && onSelectTarget) {
+      onSelectTarget(targets[currentIndex - 1]);
+    }
+  };
+
+  const handleNext = () => {
+    if (hasNext && onSelectTarget) {
+      onSelectTarget(targets[currentIndex + 1]);
+    }
+  };
+
+  // Keyboard navigation: Esc to close, ArrowUp/ArrowDown to navigate
   useEffect(() => {
-    const close = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        ["INPUT", "TEXTAREA", "SELECT"].includes(
+          (e.target as HTMLElement)?.tagName,
+        )
+      ) {
+        return;
+      }
+      if (e.key === "Escape") {
+        onClose();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        handleNext();
+      }
     };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentIndex, hasPrev, hasNext, targets, onClose]);
+
+  // Click outside to close More menu
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMoreMenu]);
+
+  // Queries
   const telemetry = useQuery<TimeseriesData>({
     queryKey: ["target-timeseries", organizationId, target.id, "24h"],
     queryFn: async () =>
@@ -97,12 +159,13 @@ export default function TargetDetailDrawer({
     refetchInterval: refresh.refetchInterval,
     refetchOnWindowFocus: false,
   });
+
   const checks = useQuery<MonitoringCheck[]>({
     queryKey: ["drawer-checks", organizationId, target.id],
     queryFn: async () => {
       const data = (
         await api.get(`monitoring/${target.id}/checks/`, {
-          params: { limit: 3 },
+          params: { limit: 20 },
         })
       ).data.data;
       return Array.isArray(data) ? data : [];
@@ -110,36 +173,150 @@ export default function TargetDetailDrawer({
     refetchInterval: refresh.refetchInterval,
     refetchOnWindowFocus: false,
   });
+
   const summary = telemetry.isError ? null : telemetry.data?.summary;
   const measured = Boolean(summary && summary.total_checks > 0);
   const failedCurrent = ["down", "error"].includes(target.last_status || "");
+  const isSlow = target.last_status === "slow";
   const currentMeasured = Boolean(
     target.last_checked_at &&
-    Number.isFinite(Date.parse(target.last_checked_at)),
+      Number.isFinite(Date.parse(target.last_checked_at)),
   );
+
   const [status, tone] = !target.enabled
     ? ["Pausado", "muted"]
     : currentMeasured
       ? states[target.last_status || ""] || ["Sin datos", "muted"]
       : ["Sin datos", "muted"];
+
   const Icon = icons[target.target_type] || Globe;
   const full = ["http", "https"].includes(target.target_type);
-  const url = (tab = "summary") =>
-    `/monitoring/${target.id}?returnTo=${encodeURIComponent(location.pathname + location.search)}&tab=${tab}`;
-  const recent = checks.isError
-    ? []
-    : [...(checks.data || [])]
-        .sort((a, b) => Date.parse(b.checked_at) - Date.parse(a.checked_at))
-        .slice(0, 3);
-  const failed = recent.find((c) => ["down", "error"].includes(c.status));
-  const failure = failed?.details?.error || failed?.details?.error_message;
-  const offline =
-    target.runner_type === "agent" &&
-    (target.agent_probe_online === false ||
-      target.agent_probe_status === "offline");
+  const fullViewUrl = `/monitoring/${target.id}?returnTo=${encodeURIComponent(
+    location.pathname + location.search,
+  )}`;
+
+  // Last check & error diagnosis extraction
+  const firstMonitoringCheck = checks.data?.[0];
+  const latestCheck = firstMonitoringCheck || latestTargetCheck(target);
+  const checkDetails = (firstMonitoringCheck?.details || {}) as Record<string, unknown>;
+  const statusCode: string | undefined =
+    typeof checkDetails.status_code === "number" || typeof checkDetails.status_code === "string"
+      ? String(checkDetails.status_code)
+      : latestCheck?.diagnostic?.match(/HTTP\s*(\d+)/i)?.[1] ||
+        (target.expected_status ? String(target.expected_status) : undefined);
+  const expectedStatus =
+    typeof checkDetails.expected_status === "number" || typeof checkDetails.expected_status === "string"
+      ? String(checkDetails.expected_status)
+      : String(target.expected_status || 200);
+  const redirectCount =
+    typeof checkDetails.redirect_count === "number"
+      ? checkDetails.redirect_count
+      : typeof checkDetails.redirects === "number"
+        ? checkDetails.redirects
+        : 0;
+  const responseTime = latestCheck?.latency ?? target.last_latency;
+  const diagnosticMsg =
+    latestCheck?.diagnostic ||
+    (typeof checkDetails.error === "string" ? checkDetails.error : "") ||
+    (typeof checkDetails.error_message === "string" ? checkDetails.error_message : "") ||
+    (typeof checkDetails.reason === "string" ? checkDetails.reason : "");
+
+  // Last known healthy latency when down
+  const lastHealthyCheck = (target.recent_checks || []).find(
+    (c) => ["up", "slow"].includes(c.status) && c.latency != null,
+  );
+  const lastKnownLatency =
+    lastHealthyCheck?.latency != null
+      ? formatMetric(lastHealthyCheck.latency)
+      : null;
+  const lastKnownTimeAgo = lastHealthyCheck
+    ? formatRelativeTime(lastHealthyCheck.checked_at)
+    : null;
+
+  // Target age calculation for "calculado sobre X h"
+  const targetAgeHours = Math.floor(
+    (Date.now() - Date.parse(target.created_at)) / (1000 * 60 * 60),
+  );
+
+  // Group checks into previous resolved incidents
+  const previousIncidents = useMemo(() => {
+    if (!checks.data || checks.data.length === 0) return [];
+    const list: { startedAt: string; duration: string; reason: string }[] = [];
+    const sorted = [...checks.data].sort(
+      (a, b) => Date.parse(b.checked_at) - Date.parse(a.checked_at),
+    );
+
+    // Skip the current active outage window if currently failed
+    let startIdx = 0;
+    if (failedCurrent) {
+      while (
+        startIdx < sorted.length &&
+        ["down", "error"].includes(sorted[startIdx].status)
+      ) {
+        startIdx++;
+      }
+    }
+
+    let incidentEnd: MonitoringCheck | null = null;
+    let incidentStart: MonitoringCheck | null = null;
+
+    for (let i = startIdx; i < sorted.length; i++) {
+      const c = sorted[i];
+      if (["down", "error"].includes(c.status)) {
+        if (!incidentEnd) incidentEnd = c;
+        incidentStart = c;
+      } else if (incidentEnd && incidentStart) {
+        const diffMs = Math.max(
+          60000,
+          Date.parse(incidentEnd.checked_at) -
+            Date.parse(incidentStart.checked_at),
+        );
+        const mins = Math.max(1, Math.round(diffMs / 60000));
+        list.push({
+          startedAt: resourceDate(incidentStart.checked_at),
+          duration: `${mins} min`,
+          reason:
+            formatShortDiagnostic(incidentStart.diagnostic || "") ||
+            "Fallo de conexión",
+        });
+        incidentEnd = null;
+        incidentStart = null;
+        if (list.length >= 2) break;
+      }
+    }
+
+    return list;
+  }, [checks.data, failedCurrent]);
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(target.endpoint);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleCopyBody = async () => {
+    try {
+      const textToCopy =
+        typeof checkDetails.body === "string"
+          ? checkDetails.body
+          : typeof checkDetails.response_body === "string"
+            ? checkDetails.response_body
+            : JSON.stringify(checkDetails, null, 2);
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedBody(true);
+      setTimeout(() => setCopiedBody(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
   const content = (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-end"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-end animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
@@ -148,344 +325,550 @@ export default function TargetDetailDrawer({
         aria-label={target.name}
         ref={dialogRef}
         tabIndex={-1}
-        className="endpoint-quick-panel"
+        className="w-full max-w-[540px] h-full bg-slate-950 border-l border-border-base/40 flex flex-col overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="quick-panel-header">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Icon size={22} className="text-text-muted shrink-0" />
-              <h2 className="text-xl font-bold break-all">{target.name}</h2>
-              <span className="ui-status" data-tone={tone}>
+        {/* 1. Sticky Header: Name, state badge, URL & navigation */}
+        <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-border-base/40 p-4 space-y-2">
+          {/* Line 1: Icon + Name + Badge on left, Nav + Fullscreen + Close on right */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Icon size={18} className="text-text-muted shrink-0" />
+              <h2
+                className="text-base font-bold text-slate-100 truncate"
+                title={target.name}
+              >
+                {target.name}
+              </h2>
+              <span
+                className="ui-status shrink-0 text-xs px-2 py-0.5"
+                data-tone={tone}
+              >
                 {status}
               </span>
             </div>
-            <p className="text-sm text-text-dim break-all mt-1">
-              {target.endpoint}
-            </p>
-            <p className="text-xs text-text-muted mt-2">
-              {target.target_type.toUpperCase()} · Cada {target.interval} s ·
-              Última medición: {resourceDate(target.last_checked_at)}
-            </p>
-          </div>
-          <button
-            className="ui-button ui-button-icon shrink-0"
-            onClick={onClose}
-            aria-label="Cerrar panel"
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <div className="quick-panel-body">
-          <div className="flex flex-wrap items-center gap-2">
-            <ScanAction
-              resource={target}
-              route="monitoring"
-              pending={isScanning}
-              onScan={() => onScan(target)}
-            />
-            {full && (
-              <Link className="ui-button ui-button-secondary" to={url()}>
-                Abrir vista completa del endpoint →
-              </Link>
-            )}
-            <details className="quick-panel-actions">
-              <summary className="ui-button" aria-label="Más acciones">
-                <MoreHorizontal size={18} />
-                <span>Más</span>
-              </summary>
-              <div className="quick-panel-action-list">
-                <button
-                  className="ui-button"
-                  onClick={() => onExport(target.id, target.name)}
-                >
-                  <Download size={16} />
-                  Exportar CSV
-                </button>
-                <AdminButton
-                  capability="alerts.create"
-                  className="ui-button"
-                  onClick={() => onAlert(target)}
-                >
-                  <Bell size={16} />
-                  Crear alerta
-                </AdminButton>
-                <AdminButton
-                  capability="monitoring.update"
-                  className="ui-button"
-                  onClick={() => onEdit(target)}
-                >
-                  <Pencil size={16} />
-                  Editar
-                </AdminButton>
-                {full && (
-                  <Link className="ui-button" to={url("config")}>
-                    Configurar cobertura
-                  </Link>
-                )}
-              </div>
-            </details>
-          </div>
-          <div className="endpoint-metric-strip quick-panel-metrics">
-            <MetricCard
-              compact
-              label="Disponibilidad"
-              value={
-                measured && finite(summary?.uptime_percentage)
-                  ? formatMetric(summary.uptime_percentage, 2)
-                  : "—"
-              }
-              unit={measured ? "%" : undefined}
-              caption="Últimas 24 h"
-              icon={Activity}
-              tone={measured ? uptimeTone(summary?.uptime_percentage) : "muted"}
-            />
-            <MetricCard
-              compact
-              label="Latencia actual"
-              value={
-                !failedCurrent && currentMeasured && finite(target.last_latency)
-                  ? formatMetric(target.last_latency)
-                  : "—"
-              }
-              unit={
-                !failedCurrent && currentMeasured && finite(target.last_latency)
-                  ? "ms"
-                  : undefined
-              }
-              caption={
-                finite(target.max_latency_ms)
-                  ? `Límite actual: ${formatMetric(target.max_latency_ms)} ms`
-                  : "Límite sin configurar"
-              }
-              icon={Clock}
-              tone={
-                !failedCurrent && currentMeasured
-                  ? latencyTone(
-                      target.last_latency,
-                      target.max_latency_ms,
-                      target.last_status,
-                    )
-                  : "muted"
-              }
-            />
-            <MetricCard
-              compact
-              label="Interrupciones"
-              value={
-                measured && finite(summary?.incidents_count)
-                  ? formatMetric(summary.incidents_count)
-                  : "—"
-              }
-              caption="Últimas 24 h · estimadas"
-              icon={AlertTriangle}
-              tone={measured && summary?.incidents_count ? "danger" : "muted"}
-            />
-          </div>
-          <TargetDiagnostic target={target} />
 
-          {failedCurrent && (
-            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300">
-              <div className="flex items-center gap-2 font-semibold text-rose-400">
-                <AlertTriangle size={15} />
-                <span>Incidente activo · Estado Caído</span>
-              </div>
-              <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-3 gap-2 text-text-dim">
-                <div>
-                  <span className="text-[11px] block text-text-muted">Tiempo de interrupción</span>
-                  <strong className="text-rose-300 text-sm font-mono block mt-0.5">
-                    {getDownSinceDuration(target)}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-[11px] block text-text-muted">Caído desde</span>
-                  <span className="text-text-main font-mono text-xs block mt-0.5">
-                    {resourceDate(target.down_since || target.last_checked_at)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[11px] block text-text-muted">Último chequeo</span>
-                  <span className="text-text-main font-mono text-xs block mt-0.5">
-                    {resourceDate(target.last_checked_at)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {offline && (
-            <p role="alert" className="quick-panel-attention">
-              Guardián {target.agent_probe_name || "Senti9"} desconectado. Sin
-              telemetría reciente.
-            </p>
-          )}
-          {telemetry.isLoading ? (
-            <p role="status">Cargando mediciones…</p>
-          ) : telemetry.isError || !summary ? (
-            <div role="alert" className="ui-card">
-              <p>Datos no disponibles. No pudimos consultar las mediciones.</p>
+            <div className="flex items-center gap-1 shrink-0 text-slate-400">
               <button
-                className="ui-button"
-                onClick={() => void telemetry.refetch()}
+                type="button"
+                className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                onClick={handlePrev}
+                disabled={!hasPrev}
+                title="Target anterior (↑)"
+                aria-label="Target anterior"
               >
-                Volver a consultar historial
+                <ChevronUp size={18} />
               </button>
-            </div>
-          ) : !measured ? (
-            <p className="ui-card text-sm text-text-muted">
-              Sin mediciones en las últimas 24 h.
-            </p>
-          ) : (
-            <LatencyChart
-              compact
-              preview
-              timeseries={telemetry.data?.timeseries || []}
-              summary={summary}
-              period="24h"
-              thresholdMs={target.max_latency_ms ?? null}
-              periodControl={
-                <span className="text-xs text-text-muted">24 h</span>
-              }
-            />
-          )}
-          {failed && (
-            <div className="quick-panel-attention">
-              <p className="font-semibold text-sm">
-                Último fallo entre las comprobaciones recientes
-              </p>
-              <p className="text-xs mt-1 break-words">
-                {resourceDate(failed.checked_at)} ·{" "}
-                {typeof failure === "string"
-                  ? failure
-                  : "Sin diagnóstico registrado."}
-              </p>
-            </div>
-          )}
-          <section
-            aria-label="Comprobaciones recientes"
-            className="quick-panel-checks"
-          >
-            <div className="flex flex-wrap justify-between gap-2">
-              <h3 className="font-semibold text-sm">Últimas comprobaciones</h3>
+              <button
+                type="button"
+                className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                onClick={handleNext}
+                disabled={!hasNext}
+                title="Target siguiente (↓)"
+                aria-label="Target siguiente"
+              >
+                <ChevronDown size={18} />
+              </button>
               {full && (
                 <Link
-                  className="text-sm text-accent-cyan"
-                  to={url("availability")}
+                  to={fullViewUrl}
+                  className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors"
+                  title="Abrir vista completa (⤢)"
+                  aria-label="Abrir vista completa"
+                >
+                  <ExternalLink size={18} />
+                </Link>
+              )}
+              <button
+                type="button"
+                className="p-1.5 rounded-lg hover:bg-white/5 hover:text-slate-200 transition-colors ml-1"
+                onClick={onClose}
+                title="Cerrar (Esc)"
+                aria-label="Cerrar panel"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Line 2: URL or Endpoint */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <a
+              href={
+                target.endpoint.startsWith("http")
+                  ? target.endpoint
+                  : `https://${target.endpoint}`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-mono text-slate-400 hover:text-slate-200 truncate transition-colors flex items-center gap-1 max-w-full"
+              title={`Abrir ${target.endpoint}`}
+            >
+              <span className="truncate">{target.endpoint}</span>
+              <ExternalLink size={11} className="shrink-0 opacity-60" />
+            </a>
+          </div>
+
+          {/* Line 3: Single-line Metadata */}
+          <div className="text-[11px] text-text-muted flex flex-wrap items-center gap-2">
+            <span className="uppercase font-semibold tracking-wider text-slate-300">
+              {target.target_type}
+            </span>
+            <span>·</span>
+            <span>Cada {target.interval} s</span>
+            <span>·</span>
+            <span>
+              {target.runner_type === "agent"
+                ? `Senti9: ${target.agent_probe_name || "Agente"}`
+                : "Cloud"}
+            </span>
+            {target.tags && target.tags.length > 0 && (
+              <>
+                <span>·</span>
+                <span className="truncate text-slate-400">
+                  {target.tags
+                    .map((t) => t.replace(/^Senti9:\s*/, ""))
+                    .join(", ")}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* 3. Actions with Hierarchy: Primary Check Now + ⋯ dropdown */}
+          <div className="pt-2 flex items-center justify-between gap-3 border-t border-border-base/30">
+            <button
+              type="button"
+              onClick={() => onScan(target)}
+              disabled={isScanning}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-semibold text-xs transition-colors shadow-sm"
+            >
+              <RefreshCw
+                size={13}
+                className={isScanning ? "animate-spin" : ""}
+              />
+              <span>{isScanning ? "Comprobando…" : "Comprobar ahora"}</span>
+            </button>
+
+            {/* ⋯ More Menu */}
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setShowMoreMenu((prev) => !prev)}
+                className="p-1.5 rounded-lg border border-border-base/40 text-text-muted hover:text-slate-200 hover:bg-white/5 transition-colors"
+                title="Más acciones"
+                aria-label="Más acciones"
+              >
+                <MoreHorizontal size={17} />
+              </button>
+
+              {showMoreMenu && (
+                <div className="absolute right-0 top-full mt-1.5 z-30 min-w-[190px] rounded-xl border border-border-base/50 bg-slate-900 shadow-2xl p-1 text-xs text-slate-200 space-y-0.5 animate-in fade-in duration-100">
+                  {full && (
+                    <a
+                      href={
+                        target.endpoint.startsWith("http")
+                          ? target.endpoint
+                          : `https://${target.endpoint}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors"
+                      onClick={() => setShowMoreMenu(false)}
+                    >
+                      <ExternalLink size={14} className="text-text-muted" />
+                      <span>Abrir URL</span>
+                    </a>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCopyUrl();
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                  >
+                    {copiedUrl ? (
+                      <Check size={14} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={14} className="text-text-muted" />
+                    )}
+                    <span>{copiedUrl ? "¡URL copiada!" : "Copiar URL"}</span>
+                  </button>
+
+                  {onTogglePause && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onTogglePause(target);
+                        setShowMoreMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                    >
+                      {target.enabled ? (
+                        <>
+                          <Pause size={14} className="text-amber-400" />
+                          <span>Pausar monitoreo</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play size={14} className="text-emerald-400" />
+                          <span>Reanudar monitoreo</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onEdit(target);
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                  >
+                    <Pencil size={14} className="text-text-muted" />
+                    <span>Editar target</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAlert(target);
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                  >
+                    <Bell size={14} className="text-text-muted" />
+                    <span>Crear alerta</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onExport(target.id, target.name);
+                      setShowMoreMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                  >
+                    <Download size={14} className="text-text-muted" />
+                    <span>Exportar CSV</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Drawer Scrollable Content */}
+        <div className="p-4 space-y-4 flex-1">
+          {/* 2. Banner de incidente como elemento principal */}
+          {failedCurrent && (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300 space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-2 font-semibold text-rose-400 text-sm">
+                <AlertTriangle size={16} className="shrink-0 text-rose-400" />
+                <span>Caído desde hace {getDownSinceDuration(target)}</span>
+              </div>
+              <p className="text-text-dim text-xs pl-6 flex flex-wrap items-center gap-1.5">
+                <span className="font-mono text-rose-300 font-semibold">
+                  {statusCode
+                    ? `HTTP ${statusCode} (esperado ${expectedStatus})`
+                    : diagnosticMsg || "Comprobación fallida"}
+                </span>
+                <span>·</span>
+                <span>{summary?.down_checks ?? 1} fallos registrados</span>
+              </p>
+            </div>
+          )}
+
+          {isSlow && !failedCurrent && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-300 space-y-1 shadow-sm">
+              <div className="flex items-center gap-2 font-semibold text-amber-400 text-sm">
+                <AlertTriangle size={16} className="shrink-0 text-amber-400" />
+                <span>Respuesta lenta registrada</span>
+              </div>
+              <p className="text-text-dim text-xs pl-6">
+                Latencia actual:{" "}
+                {target.last_latency != null
+                  ? `${formatMetric(target.last_latency)} ms`
+                  : "—"}{" "}
+                · Límite:{" "}
+                {target.max_latency_ms != null
+                  ? `${formatMetric(target.max_latency_ms)} ms`
+                  : "Sin configurar"}
+              </p>
+            </div>
+          )}
+
+          {/* 4. KPIs reducidos a 3 y más compactos */}
+          <div className="grid grid-cols-3 gap-2">
+            {/* 1. Disponibilidad */}
+            <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 flex flex-col justify-between">
+              <span className="text-[11px] text-text-muted font-medium">
+                Disp. 24h
+              </span>
+              <div className="mt-1">
+                <span
+                  className={`text-lg font-bold font-mono ${
+                    summary?.uptime_percentage != null
+                      ? summary.uptime_percentage >= 99
+                        ? "text-emerald-400"
+                        : summary.uptime_percentage >= 95
+                          ? "text-amber-400"
+                          : "text-rose-400"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {measured && summary?.uptime_percentage != null
+                    ? `${formatMetric(summary.uptime_percentage, 2)} %`
+                    : "—"}
+                </span>
+              </div>
+              <span className="text-[10px] text-text-dim mt-0.5">
+                {targetAgeHours < 24 && targetAgeHours >= 0
+                  ? `calculado sobre ${Math.max(1, targetAgeHours)} h`
+                  : "Últimas 24 h"}
+              </span>
+            </div>
+
+            {/* 2. Última latencia */}
+            <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 flex flex-col justify-between">
+              <span className="text-[11px] text-text-muted font-medium">
+                Última lat.
+              </span>
+              <div className="mt-1">
+                <span className="text-lg font-bold font-mono text-slate-100">
+                  {failedCurrent
+                    ? lastKnownLatency
+                      ? `${lastKnownLatency} ms`
+                      : "—"
+                    : currentMeasured &&
+                        target.last_latency != null &&
+                        target.last_latency >= 0
+                      ? `${formatMetric(target.last_latency)} ms`
+                      : "—"}
+                </span>
+              </div>
+              <span
+                className="text-[10px] text-text-dim mt-0.5 truncate"
+                title={`Límite: ${target.max_latency_ms || 2000} ms`}
+              >
+                {failedCurrent && lastKnownTimeAgo
+                  ? `hace ${lastKnownTimeAgo.replace(/^caído\s*/, "")}`
+                  : `Límite: ${target.max_latency_ms || 2000} ms`}
+              </span>
+            </div>
+
+            {/* 3. Incidentes */}
+            <div className="rounded-xl border border-border-base/40 bg-bg-card p-3 flex flex-col justify-between">
+              <span className="text-[11px] text-text-muted font-medium">
+                Incidentes
+              </span>
+              <div className="mt-1">
+                <span
+                  className={`text-lg font-bold font-mono ${
+                    summary?.incidents_count || failedCurrent
+                      ? "text-rose-400"
+                      : "text-slate-100"
+                  }`}
+                >
+                  {summary?.incidents_count != null
+                    ? formatMetric(summary.incidents_count)
+                    : failedCurrent
+                      ? 1
+                      : 0}
+                </span>
+              </div>
+              <span className="text-[10px] text-text-dim mt-0.5">
+                {failedCurrent ? "1 activo" : "Últimas 24 h"}
+              </span>
+            </div>
+          </div>
+
+          {/* 5. Gráfica de curva reemplazada por barra de estado (Uptime Bar 24h) */}
+          <UptimeStatusBar
+            timeseries={telemetry.data?.timeseries || []}
+            summary={summary}
+            isLoading={telemetry.isLoading}
+          />
+
+          {/* 7. Diagnóstico del fallo útil y plegable */}
+          {failedCurrent && (
+            <details
+              open={true}
+              className="rounded-xl border border-border-base/40 bg-bg-card p-3.5 text-xs group"
+            >
+              <summary className="font-semibold text-sm cursor-pointer select-none flex items-center justify-between text-slate-200 hover:text-white transition-colors">
+                <span className="flex items-center gap-2">
+                  <span className="text-text-muted group-open:rotate-90 transition-transform">
+                    ▸
+                  </span>
+                  <span>Diagnóstico del último fallo</span>
+                </span>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                  {statusCode ? `${statusCode} ≠ ${expectedStatus}` : "Fallo"}
+                </span>
+              </summary>
+
+              <div className="mt-3.5 pt-3 border-t border-border-base/30 space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-bg-dark/60 p-2 border border-border-base/20">
+                    <span className="block text-[10px] text-text-muted">
+                      Código HTTP
+                    </span>
+                    <strong className="text-rose-400 font-mono text-sm">
+                      {statusCode || "—"}
+                    </strong>
+                  </div>
+                  <div className="rounded-lg bg-bg-dark/60 p-2 border border-border-base/20">
+                    <span className="block text-[10px] text-text-muted">
+                      Redirecciones
+                    </span>
+                    <strong className="text-slate-200 font-mono text-sm">
+                      {redirectCount}
+                    </strong>
+                  </div>
+                  <div className="rounded-lg bg-bg-dark/60 p-2 border border-border-base/20">
+                    <span className="block text-[10px] text-text-muted">
+                      Tiempo resp.
+                    </span>
+                    <strong className="text-slate-200 font-mono text-sm">
+                      {responseTime != null
+                        ? `${formatMetric(responseTime)} ms`
+                        : "—"}
+                    </strong>
+                  </div>
+                </div>
+
+                {diagnosticMsg && (
+                  <div className="rounded-lg bg-rose-950/20 border border-rose-900/30 p-2.5">
+                    <span className="text-[10px] text-rose-400 block font-semibold mb-1">
+                      Mensaje / Diagnóstico
+                    </span>
+                    <p className="font-mono text-xs text-rose-300 break-words">
+                      {diagnosticMsg}
+                    </p>
+                  </div>
+                )}
+
+                {/* Response snippet & copy button */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted font-medium">
+                      Parámetros de respuesta
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyBody}
+                      className="text-[11px] text-accent-cyan hover:underline inline-flex items-center gap-1"
+                    >
+                      {copiedBody ? <Check size={12} /> : <Copy size={12} />}
+                      <span>{copiedBody ? "¡Copiado!" : "Copiar"}</span>
+                    </button>
+                  </div>
+                  <pre className="p-2.5 rounded-lg bg-bg-dark/80 border border-border-base/30 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-36">
+                    {typeof checkDetails.body === "string"
+                      ? checkDetails.body
+                      : typeof checkDetails.response_body === "string"
+                        ? checkDetails.response_body
+                        : JSON.stringify(checkDetails, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </details>
+          )}
+
+          {/* 6. Incidentes en lugar de comprobaciones repetidas */}
+          <section aria-label="Incidentes" className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm text-slate-200">
+                Incidentes
+              </h3>
+              {full && (
+                <Link
+                  className="text-xs text-accent-cyan hover:underline"
+                  to={`${fullViewUrl}&tab=availability`}
                 >
                   Ver historial →
                 </Link>
               )}
             </div>
-            {checks.isLoading ? (
-              <p role="status">Consultando…</p>
-            ) : checks.isError ? (
-              <div role="alert">
-                <p>Historial no disponible.</p>
-                <button
-                  className="ui-button"
-                  onClick={() => void checks.refetch()}
-                >
-                  Reintentar
-                </button>
-              </div>
-            ) : !recent.length ? (
-              <p className="text-sm text-text-muted">
-                Sin comprobaciones registradas.
-              </p>
-            ) : (
-              recent.map((c) => {
-                const [label, checkTone] = states[c.status] || [
-                  "Sin estado",
-                  "muted",
-                ];
-                return (
-                  <div className="quick-panel-check" key={c.id}>
-                    <time>{resourceDate(c.checked_at)}</time>
-                    <span className="ui-status" data-tone={checkTone}>
-                      {label}
-                    </span>
-                    <strong
-                      className="tabular-nums ui-tone"
-                      data-tone={
-                        ["down", "error"].includes(c.status)
-                          ? "muted"
-                          : latencyTone(
-                              c.latency,
-                              target.max_latency_ms,
-                              c.status,
-                            )
-                      }
-                    >
-                      {["down", "error"].includes(c.status)
-                        ? "—"
-                        : finite(c.latency)
-                          ? `${formatMetric(c.latency)} ms`
-                          : "Sin latencia"}
+
+            <div className="space-y-2">
+              {failedCurrent && (
+                <div className="rounded-xl border border-rose-500/25 bg-rose-500/5 p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                        Actual
+                      </span>
+                      <span className="text-slate-200 font-medium">
+                        Desde{" "}
+                        {resourceDate(
+                          target.down_since || target.last_checked_at,
+                        )}
+                      </span>
+                    </div>
+                    <strong className="text-rose-400 font-mono text-xs">
+                      {getDownSinceDuration(target)}
                     </strong>
                   </div>
-                );
-              })
-            )}
+                  <p className="text-text-muted text-[11px]">
+                    Causa:{" "}
+                    <span className="text-rose-300 font-mono">
+                      {formatShortDiagnostic(diagnosticMsg) || "HTTP 404"}
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {previousIncidents.map((inc, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border-base/30 bg-bg-card p-3 text-xs space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">
+                        Anterior
+                      </span>
+                      <span className="text-slate-300 font-medium">
+                        {inc.startedAt}
+                      </span>
+                    </div>
+                    <span className="font-mono text-slate-300 text-xs">
+                      {inc.duration}
+                    </span>
+                  </div>
+                  <p className="text-text-muted text-[11px]">
+                    Causa: <span className="text-slate-300">{inc.reason}</span>
+                  </p>
+                </div>
+              ))}
+
+              {!failedCurrent && previousIncidents.length === 0 && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-300 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                  <span>
+                    Sin incidentes en las últimas 24 horas · 100% operativo
+                  </span>
+                </div>
+              )}
+            </div>
           </section>
-          <MeasurementStatus snapshot={target.scan_availability} />
-          {full && (
-            <nav
-              aria-label="Detalle del endpoint"
-              className="flex flex-wrap gap-4 text-sm text-accent-cyan"
-            >
-              <Link to={url("availability")}>Ver disponibilidad →</Link>
-              <Link to={url("config")}>Ver configuración →</Link>
-            </nav>
-          )}
-          {!full && (
-            <details className="ui-card text-sm">
-              <summary className="cursor-pointer">
-                Detalles del monitoreo
-              </summary>
-              <dl className="grid grid-cols-2 gap-3 mt-3">
-                <div>
-                  <dt>Método</dt>
-                  <dd>{target.http_method || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Código esperado</dt>
-                  <dd>{target.expected_status ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt>Umbral</dt>
-                  <dd>
-                    {target.max_latency_ms == null
-                      ? "Sin configurar"
-                      : `${target.max_latency_ms} ms`}
-                  </dd>
-                </div>
-              </dl>
-            </details>
-          )}
-          {failedCurrent && finite(target.last_latency) && (
-            <details className="text-xs text-text-muted">
-              <summary className="min-h-9 cursor-pointer flex items-center">
-                Detalles del intento fallido
-              </summary>
-              <p>Tiempo del intento: {formatMetric(target.last_latency)} ms</p>
-              <p>
-                Límite aplicado:{" "}
-                {finite(latestTargetCheck(target)?.applied_max_latency_ms)
-                  ? `${formatMetric(latestTargetCheck(target)!.applied_max_latency_ms!)} ms`
-                  : "No registrado"}
-              </p>
-            </details>
-          )}
-          {target.runner_type === "agent" && !offline && (
-            <p className="text-xs text-text-muted">
-              Ejecutor: {target.agent_probe_name || "Guardián Senti9"} · Red
-              interna
-            </p>
-          )}
+
+          {/* 8. Pie mínimo */}
+          <footer className="pt-4 border-t border-border-base/30 text-center text-xs text-text-muted">
+            Última comprobación {resourceDate(target.last_checked_at)} · origen{" "}
+            {target.runner_type === "agent"
+              ? `Senti9: ${target.agent_probe_name || "Agente"}`
+              : "cloud"}
+          </footer>
         </div>
       </div>
     </div>
   );
+
   return typeof document === "undefined"
     ? null
     : createPortal(content, document.body);

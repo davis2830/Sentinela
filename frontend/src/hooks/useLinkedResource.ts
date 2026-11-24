@@ -11,7 +11,7 @@ export function useLinkedResource<T extends { id: string }>(
   setSelected: Dispatch<SetStateAction<T | null>>,
 ) {
   const [params] = useSearchParams();
-  const linkedId = params.get("resource");
+  const linkedId = params.get("target") || params.get("resource");
   const opened = useRef<string | null>(null);
   const organization = useAuthStore((s) => s.user?.organization?.id);
   const routes: Record<string, string> = {

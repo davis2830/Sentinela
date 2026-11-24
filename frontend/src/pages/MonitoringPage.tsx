@@ -282,6 +282,31 @@ export default function MonitoringPage() {
     setShowForm(true);
   };
 
+  const handleSelectTarget = (target: MonitoringTarget | null) => {
+    setSelectedTarget(target);
+    setNavigationParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (target) {
+          next.set("target", target.id);
+        } else {
+          next.delete("target");
+          next.delete("resource");
+        }
+        return next;
+      },
+      { replace: false },
+    );
+  };
+
+  useEffect(() => {
+    const targetIdFromUrl =
+      navigationParams.get("target") || navigationParams.get("resource");
+    if (!targetIdFromUrl && selectedTarget) {
+      setSelectedTarget(null);
+    }
+  }, [navigationParams, selectedTarget]);
+
   // Bulk selection handlers
   const handleSelectToggle = (target: MonitoringTarget) => {
     setSelectedIds((prev) =>
@@ -464,7 +489,7 @@ export default function MonitoringPage() {
                 onToggle={(t) => toggleMutation.mutate(t)}
                 onAlert={() => navigate("/alerts")}
                 isScanning={scanningId === target.id}
-                onClick={setSelectedTarget}
+                onClick={handleSelectTarget}
                 isSelected={selectedIds.includes(target.id)}
                 onSelectToggle={handleSelectToggle}
               />
@@ -482,7 +507,7 @@ export default function MonitoringPage() {
             onToggle={(t) => toggleMutation.mutate(t)}
             onAlert={() => navigate("/alerts")}
             scanningId={scanningId}
-            onClick={setSelectedTarget}
+            onClick={handleSelectTarget}
             sortField={sortField}
             sortAsc={sortAsc}
             onSortChange={handleSortChange}
@@ -548,10 +573,13 @@ export default function MonitoringPage() {
       {selectedTarget && (
         <TargetDetailDrawer
           target={selectedTarget}
-          onClose={() => setSelectedTarget(null)}
+          targets={filteredTargets || []}
+          onSelectTarget={handleSelectTarget}
+          onClose={() => handleSelectTarget(null)}
           onScan={(t) => scanMutation.mutate(t.id)}
           onEdit={handleEdit}
           onAlert={() => navigate("/alerts")}
+          onTogglePause={(t) => toggleMutation.mutate(t)}
           onExport={handleExport}
           isScanning={scanningId === selectedTarget.id}
         />
