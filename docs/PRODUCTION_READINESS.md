@@ -44,7 +44,7 @@ Estado al 2026-10-07: auditoría local con correcciones y suites aprobadas; aún
 | Proxy | XFF solo desde gateway fijo | Pruebas unitarias aprobadas |
 | Celery | Beat sin tareas no registradas | Prueba de registro aprobada |
 | Datos | cuarentena revisada y aplicada con operador | Dry-run: 8 hallazgos; aplicación pendiente |
-| Logs | Alloy entrega a Loki y conserva posiciones | Smoke local aprobado; repetir en preproducción |
+| Logs | Salida estándar de Docker; sin recolector centralizado | Configurar rotación y retención en el host |
 | HTTPS | redirect, TLS externo y health interno | Pendiente en entorno productivo |
 
-TimescaleDB queda como evaluación futura. Promtail fue sustituido por Grafana Alloy.
+TimescaleDB queda como evaluación futura. Prometheus, Blackbox, Loki y Alloy se retiraron del despliegue.

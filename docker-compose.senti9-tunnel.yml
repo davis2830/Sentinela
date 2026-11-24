@@ -1,0 +1,43 @@
+# Layer over docker-compose.yml for the Oracle pilot.
+services:
+  senti9-origin:
+    extends:
+      file: docker-compose.yml
+      service: backend
+    container_name: sentinel_senti9_origin
+    image: ${COMPOSE_PROJECT_NAME:-sentinela}-backend
+    ports: !override ["127.0.0.1:8082:8000"]
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 1 --threads 2
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.senti9_origin
+      DEBUG: "False"
+      ALLOWED_HOSTS: localhost,127.0.0.1,senti9-origin,senti9.gctechops.com
+    networks: [default, agent_tunnel]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client as h; c=h.HTTPConnection('127.0.0.1',8000,timeout=3); c.request('GET','/api/v1/agent-probes/diagnostic/'); assert c.getresponse().status == 401"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  senti9-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: sentinel_senti9_tunnel
+    command: tunnel --no-autoupdate run --token-file /run/senti9/tunnel-token
+    depends_on:
+      senti9-origin:
+        condition: service_healthy
+    networks: [agent_tunnel]
+    volumes:
+      - tunnel_credentials:/run/senti9:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+networks:
+  agent_tunnel: {}
+
+volumes:
+  tunnel_credentials:
+    external: true
+    name: sentinela_cf_senti9

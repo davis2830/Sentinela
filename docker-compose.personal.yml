@@ -31,15 +31,6 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings.dev
       ALLOWED_HOSTS: localhost,127.0.0.1,backend
       PUBLIC_APP_URL: http://localhost:3001
-  prometheus:
-    profiles: [observability]
-  blackbox_exporter:
-    profiles: [observability]
-  loki:
-    profiles: [observability]
-  alloy:
-    profiles: [observability]
-
 networks:
   default:
     name: senti9_personal_lab

@@ -106,6 +106,10 @@ test("existing agent instructions safely quote local paths without rotating or p
   const input = dialog.getByRole("textbox", {
     name: "Ruta del archivo de token",
   });
+  const manual = dialog.getByText("Instalación manual o token en otra carpeta", { exact: true });
+  await expect(dialog.getByRole("button", { name: "Copiar: Instalar con Docker" })).toBeEnabled();
+  await expect(input).toBeHidden();
+  await manual.click();
   const start = dialog.getByRole("button", {
     name: "Copiar: 4. Inicia el agente",
     exact: true,
@@ -130,6 +134,7 @@ test("existing agent instructions safely quote local paths without rotating or p
     dialog.getByRole("region", { name: "4. Inicia el agente" }),
   ).toContainText("readonly");
   await dialog.getByRole("radio", { name: /Linux Docker/ }).check();
+  await manual.click();
   await expect(input).toHaveValue("");
   await expect(start).toBeDisabled();
   const linuxPath = "/home/Operador O'Neil/$(privado)/token.txt";
@@ -154,6 +159,7 @@ test("existing agent instructions safely quote local paths without rotating or p
   expect(urls.some((url) => url.includes("privado"))).toBe(false);
   await page.keyboard.press("Escape");
   await trigger.click();
+  await dialog.getByText("Instalación manual o token en otra carpeta", { exact: true }).click();
   await expect(
     page
       .getByRole("dialog")
@@ -202,6 +208,7 @@ for (const size of [
       .click();
     dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: /Windows/ }).check();
+    await dialog.getByText("Instalación manual o token en otra carpeta", { exact: true }).click();
     await dialog
       .getByRole("textbox", { name: "Ruta del archivo de token" })
       .fill("C:\\Agente Sentinel\\senti9-token.txt");
@@ -220,6 +227,7 @@ for (const size of [
       path: `${evidence}/install-windows-${size.width}.png`,
     });
     await dialog.getByRole("radio", { name: /Linux Docker/ }).check();
+    await dialog.getByText("Instalación manual o token en otra carpeta", { exact: true }).click();
     await dialog
       .getByRole("textbox", { name: "Ruta del archivo de token" })
       .fill("/home/operador/.config/senti9/token.txt");

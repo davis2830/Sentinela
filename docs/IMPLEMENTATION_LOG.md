@@ -340,6 +340,33 @@
 - Grafana Alloy sustituye referencias y despliegues de Promtail.
 - CI ejecuta suite Django completa, build, auditorías estrictas, Trivy, Compose, builds, Nginx y Playwright.
 
+## 2026-11-23 — Diagnóstico Oracle VM y Rediseño Integral UI/UX Senti9 (Modern Web Guidance)
+
+- **Diagnóstico y Recuperación Oracle VM:**
+  - Se diagnosticó el fallo de conexión de la VM de Oracle Cloud con Senti9 (`https://senti9.gctechops.com` vía Cloudflare Tunnel `sentinel_senti9_tunnel`).
+  - Causa raíz: Desincronización del token de sondeo tras revocación y recreación del registro de agente.
+  - Resolución: Se actualizó el hash SHA-256 del agente activo (`Servix`, UUID `c3e0d75d-d7c1-4f73-8d78-55aaae172b77`) en la base de datos de Sentinel (`token_hash='d6d914f530f42f290e305307bc7e7bfddc1de9790dbf2f8ce8b2e528e9174467'`). El agente se sincronizó inmediatamente en estado `ONLINE` (`Linux 7.0.0-1013-oracle x86_64`, `Senti9 v1.8.0`), midiendo el backend objetivo `UP` con 111ms de latencia.
+
+- **Rediseño Integral UI/UX del Módulo Senti9:**
+  - **Purga de CSS Legado:** Se eliminaron las 1,047 líneas de estilos aislados y no responsivos de `senti9.css`. El módulo fue completamente migrado al sistema de diseño Sentinel NOC basado en Tailwind CSS.
+  - **Cabecera NOC & KPIs:** Integración de `NOCPageHeader` con título y subtítulo ejecutivos, y `NOCKpiGrid` con 4 métricas en tiempo real:
+    - *Guardianes Activos* (agentes `ONLINE`),
+    - *Monitores LAN* (endpoints privados asignados),
+    - *Frecuencia de Polling* (10s),
+    - *Salud de la Flota* (porcentaje ponderado con barra de progreso).
+  - **NOCToolbar con Píldoras de Estado y Selector de Vista:** Búsqueda en vivo, filtros interactivos por píldoras (*Todos*, *Conectados*, *Desconectados*, *Esperando Señal*, *Revocados*) y selector de vista Tabla / Cuadrícula con persistencia en localStorage.
+  - **Modo Lista / Tabla Homologado (`Senti9TableView`):** Se implementó la vista de lista/tabla limpia por defecto, alineada al estándar de `TargetTableView` y `DomainTableView`, con balizas de estado (`ONLINE` con halo pulsante, `Desconectado`, `Esperando Señal`, `Revocado`), identificador y hostname con copiado en 1 clic, chips de SO/versión, monitores LAN asignados, última señal y menú de acciones rápidas.
+  - **Tarjetas Responsive `Senti9AgentCard`:** Disponibles como modo alternativo mediante el switcher de vista.
+  - **Onboarding e Instrucciones sin Flechas Nativas:** Se eliminaron las flechas por defecto del navegador (`►`/`▼`) en `<details><summary>` en el wizard de instalación y el drawer, sustituyéndolas por iconos SVG contextuales (`Terminal`, `ShieldCheck`, `Layers`, `Wrench`) y `ChevronDown` rotatorio suave.
+  - **Limpieza de Tiempos de Refresco:** Se eliminó la etiqueta `"hace menos de 1 min"` en `Senti9RefreshStatus`, mostrando un estado conciso de sincronización automática.
+  - **Depuración Visual y Limpieza:** Se eliminaron las 4 tarjetas KPI superiores (`NOCKpiGrid`) a petición directa para otorgar máxima visibilidad al listado limpio. Se actualizó el indicador de cuota a un badge sobrio con icono `Server` y texto `agentes Senti9`, eliminando barras amarillas. Se retiró la propiedad `queryKeys` del header para suprimir definitivamente la leyenda `Datos consultados hace menos de 1 min`.
+  - **Drawer Operativo `NOCDrawer`:** Panel lateral unificado para telemetría profunda, colas de trabajo, diagnóstico de red, drenaje de contenedores y rotación/revocación de tokens.
+  - **Wizard de Despliegue con Baliza Radar (`Senti9Setup`):** Modal guiado de 3 pasos (Registrar, Instalar, Verificar) con animación de radar en tiempo real durante la comprobación de la primera señal y visualización de éxito/reintento.
+
+- **Validación:**
+  - Compilación de producción (`tsc && vite build`) completada con 0 errores (código de salida 0).
+  - Verificación en caliente HMR en `localhost:3001` sin regresiones.
+
 ## Evidencia local
 
 - `manage.py check`: aprobado.

@@ -578,7 +578,7 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
         try:
             validate_safe_public_url(endpoint)
         except SSRFSecurityException as s_exc:
-            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(" ".join(str(detail) for detail in s_exc.detail), status_code=status.HTTP_400_BAD_REQUEST)
 
         start = time.perf_counter()
         try:

@@ -74,21 +74,17 @@ export function useTargetFormWorkspace({
   const [probeSearch, setProbeSearch] = useState("");
   const debouncedProbeSearch = useDebouncedValue(probeSearch, 300);
   // Fetch private satellite agents
-  const { data: probeRows = [] } = useQuery<AgentProbe[]>({
+  const { data: probeRows = [], isLoading: probesLoading, isError: probesFailed } = useQuery<AgentProbe[]>({
     queryKey: [
       "agent-probes-select",
       user?.organization?.id,
       debouncedProbeSearch,
     ],
-    queryFn: async () => {
-      try {
-        const response = await api.get("agent-probes/", {
-          params: { page: 1, search: debouncedProbeSearch },
-        });
-        return (response.data?.data || []) as AgentProbe[];
-      } catch {
-        return [];
-      }
+    queryFn: async ({ signal }) => {
+      const response = await api.get("agent-probes/", {
+        params: { page: 1, search: debouncedProbeSearch }, signal,
+      });
+      return (response.data?.data || []) as AgentProbe[];
     },
     staleTime: 30000,
     enabled: runnerType === "agent",
@@ -294,6 +290,7 @@ export function useTargetFormWorkspace({
 
   // Live Test Connection handler
   const handleTestConnection = async () => {
+    if (runnerType !== "cloud") return;
     const targetEndpoint = getActualEndpoint();
     if (
       !targetEndpoint ||
@@ -382,6 +379,11 @@ export function useTargetFormWorkspace({
     }
 
     let parsedHeaders = {};
+    if (runnerType === "agent" && !agentProbeId) {
+      setError("Selecciona el agente que ejecutará este monitor.");
+      setActiveTab("general");
+      return;
+    }
     if (headersJson.trim()) {
       try {
         parsedHeaders = JSON.parse(headersJson);
@@ -457,6 +459,8 @@ export function useTargetFormWorkspace({
     setAgentProbeId,
     teams,
     probes,
+    probesLoading,
+    probesFailed,
     probeSearch,
     setProbeSearch,
     subData,

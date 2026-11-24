@@ -85,6 +85,8 @@ test("Senti9 registration, private token file, first signal and archive use real
         name: "Guardé el archivo en una ubicación privada.",
       })
       .check();
+    await expect(dialog.getByRole("button", { name: "Copiar: Instalar con Docker" })).toBeEnabled();
+    await dialog.getByText("Instalación manual o token en otra carpeta", { exact: true }).click();
     await dialog
       .getByRole("textbox", { name: "Ruta del archivo de token" })
       .fill("C:\\Agente Sentinel\\senti9-token.txt");
@@ -94,7 +96,7 @@ test("Senti9 registration, private token file, first signal and archive use real
         .locator("pre"),
     ).toContainText(/\$\{?TokenPath/);
     await dialog.screenshot({
-      path: "../docs/assets/connectivity-implementation-20261110/senti9-install-windows.png",
+      path: test.info().outputPath("senti9-install-windows.png"),
     });
     await dialog
       .getByRole("button", { name: "Comprobar conexión", exact: true })
@@ -113,7 +115,7 @@ test("Senti9 registration, private token file, first signal and archive use real
       dialog.getByRole("heading", { name: "Conexión confirmada", exact: true }),
     ).toBeVisible({ timeout: 20000 });
     await page.screenshot({
-      path: "../docs/assets/connectivity-implementation-20261110/senti9-first-signal.png",
+      path: test.info().outputPath("senti9-first-signal.png"),
     });
     await dialog
       .getByRole("button", { name: "Crear monitor privado", exact: true })
@@ -125,9 +127,22 @@ test("Senti9 registration, private token file, first signal and archive use real
         .locator("select")
         .filter({ has: page.locator(`option[value="${probe.id}"]`) }),
     ).toHaveValue(probe.id);
+    const cloudTests: string[] = [];
+    page.on("request", r => {
+      if (r.url().includes("/monitoring/test-connection/")) cloudTests.push(r.url());
+    });
+    await page.getByRole("button", { name: "Consultar Senti9", exact: true }).click();
+    await expect(page.getByRole("dialog")).toContainText(name + " · Conectado");
+    await expect(page.getByRole("dialog")).toContainText("Sin entrega registrada");
+    await page.getByRole("button", { name: "Consultar estado del agente" }).click();
+    await expect(page.getByRole("button", { name: "Probar configuración" })).toHaveCount(0);
+    expect(cloudTests).toHaveLength(0);
     await page.keyboard.press("Escape");
     await page.goto("/senti9");
     await page.getByRole("textbox", { name: "Buscar agente" }).fill(name);
+    const card = page.getByRole("article", { name, exact: true });
+    await card.getByRole("button", { name: "Consultar estado del agente" }).click();
+    await expect(card).toContainText("Última entrega de resultados");
     await page
       .getByRole("button", { name: `Ver detalle de ${name}`, exact: true })
       .click();

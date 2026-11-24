@@ -25,53 +25,52 @@ export default function Senti9RefreshStatus({
 }) {
   const now = useClock();
   const minutes = Math.max(0, Math.floor((now - updatedAt) / 60000));
-  const age = !updatedAt
-    ? "sin consulta"
-    : minutes < 1
-      ? "hace menos de 1 min"
-      : minutes < 60
-        ? `hace ${minutes} min`
-        : `hace ${Math.floor(minutes / 60)} h`;
+  const age = !updatedAt || minutes < 1
+    ? ""
+    : minutes < 60
+      ? ` · ${minutes}m`
+      : ` · ${Math.floor(minutes / 60)}h`;
   const automatic = ready && !blockedReason;
   const label = fetching
-    ? "Consultando datos…"
+    ? "Sincronizando…"
     : failed
-      ? `Error de consulta · ${age}`
-      : `${!automatic ? blockedReason || "Auto no disponible" : enabled ? "Auto" : "Pausado"} · ${age}`;
+      ? "Error de lectura"
+      : `${!automatic ? blockedReason || "Pausado" : enabled ? "Auto-sync" : "Pausado"}${age}`;
   const active = automatic && enabled && !failed && !!updatedAt;
+
   return (
     <div
-      className="senti9-refresh-status"
+      className="inline-flex items-center gap-1.5 min-w-0"
       data-testid="senti9-refresh-status"
       aria-busy={fetching}
     >
       <button
         type="button"
-        className="senti9-live-indicator"
+        className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-text-muted hover:text-text-main hover:bg-white/5 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
         disabled={!automatic}
         aria-label={enabled ? "Pausar auto-refresco" : "Activar auto-refresco"}
         aria-pressed={enabled}
         onClick={onToggle}
-        title={`${enabled ? `Consulta automática. Próxima lectura en ${formatRefreshCountdown(countdown)}.` : "Consulta automática pausada o no disponible."} ${updatedAt ? `Última lectura: ${new Date(updatedAt).toLocaleString()}.` : "Aún no hay una lectura confirmada."} Consulta resultados guardados; no ejecuta monitores.`}
+        title={`${enabled ? `Sincronización activa. Próxima consulta en ${formatRefreshCountdown(countdown)}.` : "Sincronización pausada."} ${updatedAt ? `Última sincronización: ${new Date(updatedAt).toLocaleTimeString()}.` : ""}`}
       >
         <span
           aria-hidden="true"
           className={`h-2 w-2 shrink-0 rounded-full ${failed ? "bg-amber-400" : active ? "bg-emerald-400 motion-safe:animate-pulse" : "bg-slate-500"}`}
         />
-        <span aria-live="polite">{label}</span>
+        <span aria-live="polite" className="font-mono text-[11px]">{label}</span>
       </button>
       <button
         type="button"
-        className="senti9-header-icon"
+        className="h-8 w-8 grid place-items-center rounded-lg text-text-muted hover:text-text-main hover:bg-white/5 transition-colors disabled:opacity-50 shrink-0"
         aria-label="Actualizar datos"
         disabled={fetching}
         onClick={onRefresh}
-        title="Actualizar resultados guardados, sin ejecutar monitores"
+        title="Actualizar datos"
       >
         <RefreshCw
-          size={17}
+          size={13}
           aria-hidden="true"
-          className={fetching ? "motion-safe:animate-spin" : ""}
+          className={fetching ? "motion-safe:animate-spin text-accent-green" : ""}
         />
       </button>
     </div>

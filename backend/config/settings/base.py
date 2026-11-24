@@ -285,7 +285,7 @@ CELERY_BEAT_SCHEDULE = {
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = False
 
-# Blackbox Exporter
+# Public application and email
 PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "").strip() or ("http://localhost:3001" if DEBUG else "")
 TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
 TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
@@ -312,9 +312,6 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Sentinel <no-reply@example.invalid>")
-
-# Blackbox Exporter
-BLACKBOX_EXPORTER_URL = os.environ.get("BLACKBOX_EXPORTER_URL", "http://blackbox_exporter:9115")
 
 # Sentry Error Tracking & Performance Monitoring (AppSec & Meta-Observability)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()

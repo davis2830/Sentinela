@@ -26,6 +26,7 @@ import {
   Layers,
 } from "lucide-react";
 import RedirectNotice from "./RedirectNotice";
+import ProbeConnectionCheck from "./ProbeConnectionCheck";
 import type {
   MonitoringTarget,
   CreateTargetData,
@@ -176,6 +177,8 @@ export default function TargetForm({
     setAgentProbeId,
     teams,
     probes,
+    probesLoading,
+    probesFailed,
     probeSearch,
     setProbeSearch,
     subData,
@@ -405,7 +408,7 @@ export default function TargetForm({
               }`}
             >
               <Activity size={14} />
-              {isHttpType ? "3. Prueba" : "2. Prueba"}
+              {isHttpType ? "3. " : "2. "}{runnerType === "agent" ? "Estado de Senti9" : "Prueba"}
             </button>
           </div>
         </div>
@@ -513,7 +516,7 @@ export default function TargetForm({
                     <span
                       className={`w-2 h-2 rounded-full ${enabled ? "bg-emerald-400 animate-ping" : "bg-zinc-500"}`}
                     />
-                    {enabled ? "Activo (Sondeando)" : "Pausado"}
+                    {enabled ? "Habilitado" : "Pausado"}
                   </button>
                 </div>
               </div>
@@ -599,11 +602,7 @@ export default function TargetForm({
                 {runnerType === "agent" && (
                   <div className="pt-2 animate-in fade-in space-y-2">
                     <label className="block text-xs font-medium text-accent-purple flex items-center justify-between">
-                      <span>Selecciona el Guardián Senti9 Responsable *</span>
-                      <span className="text-xs text-text-dim">
-                        {probes.filter((p) => p.is_online).length} online de{" "}
-                        {probes.length}
-                      </span>
+                      <span>Agente que ejecutará el monitor *</span>
                     </label>
                     <label className="block text-sm">
                       Buscar Senti9
@@ -621,8 +620,7 @@ export default function TargetForm({
                     {probes.length === 0 ? (
                       <div className="p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-xl text-accent-yellow text-xs flex items-center justify-between">
                         <span>
-                          No tienes guardianes Senti9 registrados en tu
-                          organización.
+                          {probesLoading ? "Cargando agentes…" : probesFailed ? "No se pudo consultar el directorio de agentes." : probeSearch ? "Sin coincidencias para esta búsqueda." : "Sin agentes disponibles."}
                         </span>
                       </div>
                     ) : (
@@ -638,8 +636,7 @@ export default function TargetForm({
                         </option>
                         {probes.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name} ({p.is_online ? "● Online" : "○ Offline"})
-                            — {p.hostname || p.ip_address || "LAN"}
+                            {p.name} · {p.is_online ? "Conectado" : p.last_heartbeat ? "Sin señal reciente" : "Esperando primera señal"}
                           </option>
                         ))}
                       </select>
@@ -1005,7 +1002,15 @@ export default function TargetForm({
           )}
 
           {/* TAB 3: DIAGNÓSTICO & TEST EN VIVO */}
-          {activeTab === "diagnostic" && (
+          {activeTab === "diagnostic" && runnerType === "agent" && (
+            <section className="rounded-2xl border border-border-base bg-bg-dark/40 p-5 space-y-4">
+              <h3 className="font-semibold">Comprobación desde la red privada</h3>
+              <p className="text-sm text-text-muted">Al guardar el monitor habilitado, el Senti9 asignado recibirá el destino en su próxima consulta programada. Podrás ver la medición en Uptime y Latencia.</p>
+              <p className="break-all font-mono">{getActualEndpoint()}</p>
+              {agentProbeId ? <ProbeConnectionCheck key={agentProbeId} id={agentProbeId} expanded /> : <p>Selecciona un agente en General y Red.</p>}
+            </section>
+          )}
+          {activeTab === "diagnostic" && runnerType === "cloud" && (
             <div className="space-y-4 animate-in fade-in">
               <div className="bg-bg-dark/40 border border-border-base/70 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1133,7 +1138,7 @@ export default function TargetForm({
           {/* Modal Actions Footer */}
           <div className="flex items-center justify-between pt-4 border-t border-border-base/60 gap-3">
             <div className="flex items-center gap-2">
-              <button
+              {activeTab !== "diagnostic" && <button
                 type="button"
                 onClick={() => setActiveTab("diagnostic")}
                 disabled={testingConnection}
@@ -1144,8 +1149,8 @@ export default function TargetForm({
                 ) : (
                   <Play size={14} />
                 )}
-                Probar configuración
-              </button>
+                {runnerType === "agent" ? "Consultar Senti9" : "Probar configuración"}
+              </button>}
             </div>
 
             <div className="flex items-center gap-2.5">

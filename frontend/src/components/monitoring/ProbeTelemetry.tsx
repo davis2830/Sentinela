@@ -71,9 +71,9 @@ export default function ProbeTelemetry({
             : "success";
     const limit =
       current &&
-      queue &&
-      Number.isFinite(snapshot.queue_limit) &&
-      snapshot.queue_limit > 0
+        queue &&
+        Number.isFinite(snapshot.queue_limit) &&
+        snapshot.queue_limit > 0
         ? snapshot.queue_limit
         : null;
     const progress = limit
@@ -106,7 +106,7 @@ export default function ProbeTelemetry({
             </DetailStat>
           ))}
         </dl>
-        <div className="senti9-queue-capacity rounded-lg border border-white/5 bg-black/10 p-3">
+        <div className="rounded-lg border border-white/5 bg-black/10 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
             <span>Capacidad de la cola</span>
             <span className="font-mono text-slate-200">

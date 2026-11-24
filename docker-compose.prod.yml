@@ -148,7 +148,6 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required}@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required}@redis:6379/1
-      BLACKBOX_EXPORTER_URL: http://blackbox:9115
       JWT_ACCESS_TOKEN_LIFETIME_MINUTES: "15"
       JWT_REFRESH_TOKEN_LIFETIME_DAYS: "7"
       TZ: ${TZ:-America/Guatemala}
@@ -196,80 +195,9 @@ services:
     networks:
       - sentinel_internal_net
 
-  prometheus:
-    image: prom/prometheus:v2.55.1
-    container_name: sentinel_prometheus_prod
-    restart: always
-    volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    networks:
-      - sentinel_internal_net
-
-  blackbox:
-    image: prom/blackbox-exporter:v0.25.0
-    container_name: sentinel_blackbox_prod
-    restart: always
-    volumes:
-      - ./docker/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
-    networks:
-      - sentinel_internal_net
-    security_opt:
-      - no-new-privileges:true
-
-  loki:
-    image: grafana/loki:3.2.1
-    container_name: sentinel_loki_prod
-    restart: always
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - loki_data:/loki
-    networks:
-      - sentinel_internal_net
-    security_opt:
-      - no-new-privileges:true
-
-  alloy:
-    image: grafana/alloy:v1.4.3
-    container_name: sentinel_alloy_prod
-    restart: always
-    command:
-      - run
-      - --server.http.listen-addr=0.0.0.0:12345
-      - --storage.path=/var/lib/alloy/data
-      - /etc/alloy/config.alloy
-    environment:
-      ENVIRONMENT: production
-    user: "473:473"
-    group_add:
-      - "0"
-    volumes:
-      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - alloy_positions:/var/lib/alloy/data
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test: ["CMD", "/usr/bin/bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12345"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    depends_on:
-      - loki
-    networks:
-      - sentinel_internal_net
-
 volumes:
   postgres_data:
   redis_data:
-  prometheus_data:
-  loki_data:
-  alloy_positions:
   django_static:
 
 networks:

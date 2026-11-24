@@ -1,15 +1,23 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Server,
-  Search,
-  Download,
   BookOpen,
-  ShieldCheck,
+  Radio,
+  ShieldAlert,
   Loader2,
+  Download,
+  AlertTriangle,
+  RotateCw,
 } from "lucide-react";
-import { NOCDrawer } from "../components/common/noc";
+import {
+  NOCPageHeader,
+  NOCToolbar,
+  NOCDrawer,
+  type NOCStatusPill,
+} from "../components/common/noc";
 import {
   ReadFailure,
   DirectoryPagination,
@@ -25,8 +33,9 @@ import { useCapability } from "../hooks/useCapability";
 import Senti9Operation from "../components/monitoring/Senti9Operation";
 import { DetailBadge } from "../components/monitoring/Senti9DetailUI";
 import Senti9AgentCard from "../components/monitoring/Senti9AgentCard";
+import Senti9TableView from "../components/monitoring/Senti9TableView";
 import Senti9Quota from "../components/monitoring/Senti9Quota";
-import Senti9RefreshStatus from "../components/monitoring/Senti9RefreshStatus";
+import { usePersistentViewMode } from "../hooks/usePersistentViewMode";
 import { useConnectivityDirectory } from "../hooks/useConnectivityDirectory";
 import { useConnectivityRefresh } from "../hooks/useConnectivityRefresh";
 import { useAuthStore } from "../store/authStore";
@@ -37,6 +46,7 @@ import type { AgentProbe, ProbeInstallation } from "../types/agent_probe";
 type Detail = AgentProbe & {
   impact: { assigned: number; to_pause: number; pending: number };
 };
+
 const lifecycle = (p: AgentProbe) =>
   p.revoked_at
     ? "Revocado"
@@ -45,6 +55,7 @@ const lifecycle = (p: AgentProbe) =>
       : p.is_online
         ? "Conectado"
         : "Desconectado";
+
 const date = (v: string | null) =>
   v ? new Date(v).toLocaleString() : "Sin señal registrada";
 
@@ -66,6 +77,7 @@ function ProbeDetail({
       active.current = false;
     };
   }, []);
+
   const organization = useAuthStore((s) => s.user?.organization?.id);
   const [tab, setTab] = useState<string>(admin ? initialTab : "operation");
   const canCreateMonitor = useCapability("monitoring.create");
@@ -77,16 +89,18 @@ function ProbeDetail({
   const [platform, setPlatform] = useState<"linux" | "windows">("linux");
   const client = useQueryClient();
   const refresh = useConnectivityRefresh();
+
   const query = useQuery<Detail>({
     queryKey: ["agent-probe-detail", organization, id],
     queryFn: async ({ signal }) =>
       (await api.get(`agent-probes/${id}/detail/`, { signal })).data.data,
-    refetchInterval: (query) => {
-      refresh.refetchInterval(query);
+    refetchInterval: (q) => {
+      refresh.refetchInterval(q);
       return refresh.enabled ? 15000 : false;
     },
     refetchIntervalInBackground: false,
   });
+
   const installation = useQuery<ProbeInstallation>({
     queryKey: ["agent-probe-install", organization, id, platform],
     queryFn: async ({ signal }) =>
@@ -99,7 +113,9 @@ function ProbeDetail({
     enabled:
       admin && tab === "install" && !!query.data && !query.data.revoked_at,
   });
+
   const probe = query.data;
+
   const apply = async () => {
     if (!action) return;
     setBusy(true);
@@ -115,8 +131,8 @@ function ProbeDetail({
       setReason("");
       setMessage(
         action === "rotate"
-          ? "Token reemplazado. Descarga el archivo y actualiza el montaje antes de iniciar el agente."
-          : "Agente revocado. Sus monitores quedaron pausados.",
+          ? "Token reemplazado. Guarda el nuevo token y actualiza la configuración antes de reiniciar el contenedor."
+          : "Agente revocado exitosamente. Sus monitores LAN quedaron pausados.",
       );
       await query.refetch();
       void client.invalidateQueries({ queryKey: ["agent-probes"] });
@@ -124,12 +140,13 @@ function ProbeDetail({
     } catch (e) {
       setMessage(
         apiFailure(e).response?.data?.message ||
-          "No se pudo aplicar. Revisa el estado actual antes de reintentar.",
+        "No se pudo completar la acción. Revisa el estado actual antes de reintentar.",
       );
     } finally {
       setBusy(false);
     }
   };
+
   return (
     <NOCDrawer
       isOpen
@@ -137,8 +154,8 @@ function ProbeDetail({
         setToken("");
         onClose();
       }}
-      title={probe?.name || "Detalle de Senti9"}
-      maxWidthClass="max-w-4xl senti9-detail"
+      title={probe?.name || "Detalle de Guardián Senti9"}
+      maxWidthClass="max-w-4xl"
       tabVariant="segmented"
       statusBadge={
         probe && (
@@ -162,15 +179,11 @@ function ProbeDetail({
         )
       }
       tabs={[
-        { id: "operation", label: "Operación" },
-        ...(admin
-          ? [
-              ...(!probe?.revoked_at
-                ? [{ id: "install", label: "Instalación" }]
-                : []),
-              { id: "administration", label: "Administrar" },
-            ]
+        { id: "operation", label: "Operación & Servicios" },
+        ...(admin && !probe?.revoked_at
+          ? [{ id: "install", label: "Despliegue & Docker" }]
           : []),
+        ...(admin ? [{ id: "administration", label: "Seguridad & Tokens" }] : []),
       ]}
       activeTab={tab}
       onTabChange={(value) => {
@@ -181,8 +194,14 @@ function ProbeDetail({
     >
       <div className="space-y-5 text-sm min-w-0">
         {query.isError && <ReadFailure stale={!!probe} retry={query.refetch} />}
-        {!probe && !query.isError && <p role="status">Consultando agente…</p>}
+        {!probe && !query.isError && (
+          <div className="flex items-center justify-center py-12 text-text-muted gap-2">
+            <Loader2 size={18} className="animate-spin text-accent-green" />
+            <span>Consultando estado del agente...</span>
+          </div>
+        )}
         <ActionFeedback>{message}</ActionFeedback>
+
         {probe && tab === "operation" && (
           <Senti9Operation
             probe={probe}
@@ -191,154 +210,183 @@ function ProbeDetail({
             onNavigate={onClose}
           />
         )}
+
         {tab === "install" && admin && !probe?.revoked_at && (
-          <>
+          <div className="space-y-4">
             <PlatformPicker value={platform} onChange={setPlatform} />
-            <p className="senti9-inline-help">
-              Usa el archivo de token que guardaste. Consultar estas
-              instrucciones no genera otro token. Conserva el volumen{" "}
-              {installation.data?.volume_name || "del agente"} al actualizar o
-              volver a una versión compatible.
-            </p>
+            <div className="p-3.5 rounded-xl bg-bg-dark/60 border border-white/5 text-xs text-text-muted">
+              Usa el archivo de token seguro que guardaste al crear la sonda. Consultar estas instrucciones no altera el token activo en el host. Conserva el volumen persistente{" "}
+              <code className="text-accent-green font-mono">{installation.data?.volume_name || "senti9-data"}</code> al actualizar o migrar de contenedor.
+            </div>
             {installation.isError && (
               <ReadFailure retry={installation.refetch} />
-            )}{" "}
+            )}
             {installation.data && (
               <>
                 <InstallationInstructions
                   key={installation.data.platform}
                   profile={installation.data}
-                  verificationHint="Al terminar, pulsa Revisar conexión para consultar la última señal. La comunicación con Sentinel todavía no confirma una medición del servicio."
+                  verificationHint="Al completar la ejecución en el host remoto, Sentinel detectará automáticamente los latidos entrantes en menos de 10 segundos."
                 />
                 <button
-                  className="ui-button ui-button-primary"
+                  type="button"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-accent-green text-bg-dark hover:bg-accent-green-hover transition-colors"
                   onClick={() => {
                     setTab("operation");
                     void query.refetch();
                   }}
                 >
-                  Revisar conexión
+                  Verificar conexión operativa
                 </button>
               </>
             )}
-          </>
+          </div>
         )}
+
         {probe && tab === "administration" && admin && (
-          <>
-            <h3 className="text-base font-semibold">Credenciales y retiro</h3>
-            {probe.revoked_at ? (
-              <p>
-                Revocado el {date(probe.revoked_at)}. Su historial y
-                asignaciones se conservan; el token anterior ya no autoriza
-                acceso.
-              </p>
-            ) : (
-              <>
-                <p className="text-text-muted">
-                  Para rotar: activa drenaje, entrega los pendientes y detén el
-                  contenedor. Sentinel comprobará desconexión y ausencia de
-                  ejecuciones pendientes antes de reemplazar el token.
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-text-main">
+                  Gestión de Seguridad & Tokens
+                </h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Rotación de credenciales criptográficas y retiro controlado de agentes.
                 </p>
-                <div className="flex flex-wrap gap-3">
+              </div>
+            </div>
+
+            {probe.revoked_at ? (
+              <div className="p-4 rounded-xl border border-zinc-700 bg-zinc-800/30 text-xs text-zinc-400">
+                Guardián revocado el {date(probe.revoked_at)}. El historial operativo y las asignaciones se conservan para auditoría, pero el token anterior ha sido destruido de forma irreversible.
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-white/10 bg-bg-dark/60 space-y-3">
+                <p className="text-xs text-text-muted leading-relaxed">
+                  Para rotar el token de forma segura, asegúrate de tener acceso al host para actualizar la variable de entorno o archivo montado una vez emitido el nuevo secreto.
+                </p>
+                <div className="flex flex-wrap gap-2.5 pt-1">
                   <button
-                    className="ui-button"
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-text-main transition-colors"
                     onClick={() => {
                       setToken("");
                       setAction("rotate");
                     }}
                   >
-                    Rotar token
+                    <RotateCw size={14} />
+                    <span>Rotar Token</span>
                   </button>
                   <button
-                    className="ui-button text-accent-red"
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-colors"
                     onClick={() => {
                       setToken("");
                       setAction("revoke");
                     }}
                   >
-                    Retirar agente
+                    <ShieldAlert size={14} />
+                    <span>Retirar / Revocar Guardián</span>
                   </button>
                 </div>
-              </>
+              </div>
             )}
+
             {action && (
               <form
-                className="p-4 rounded-xl border border-accent-yellow/40 space-y-4"
+                className="p-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void apply();
                 }}
               >
-                <h4 className="font-semibold">
+                <div className="flex items-center gap-2 text-amber-300 font-semibold text-sm">
+                  <AlertTriangle size={16} />
+                  <h4>
+                    {action === "revoke"
+                      ? "Confirmar Revocación Definitiva"
+                      : "Confirmar Rotación de Token"}
+                  </h4>
+                </div>
+                <p className="text-xs text-text-muted leading-relaxed">
                   {action === "revoke"
-                    ? "Revocar acceso de Senti9"
-                    : "Reemplazar token de Senti9"}
-                </h4>
-                <p className="text-text-muted">
-                  {action === "revoke"
-                    ? `${probe.impact.to_pause} monitores se pausarán. ${probe.impact.pending} ejecuciones conocidas siguen pendientes. El token se invalidará irreversiblemente; no se reasignará ni reanudará ningún monitor.`
-                    : "El token anterior dejará de funcionar. Descarga el nuevo archivo en este paso y reemplaza su montaje antes de reiniciar."}
+                    ? `Se pausarán ${probe.impact?.to_pause ?? 0} monitor(es) LAN asignados. El token quedará invalidado y la sonda no podrá volver a conectarse.`
+                    : "El token previo dejará de ser admitido inmediatamente. Deberás copiar el nuevo token en el host antes del siguiente ciclo de latidos."}
                 </p>
+
                 {action === "revoke" && (
-                  <label className="block space-y-2">
-                    <span>Motivo obligatorio</span>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-text-main">
+                      Motivo del retiro (requerido para bitácora ISO 27001):
+                    </span>
                     <textarea
                       required
                       minLength={3}
                       maxLength={500}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      className="w-full min-h-24 rounded-xl bg-bg-main border border-border-base p-3"
+                      placeholder="Ej. Servidor desmantelado por migración de infraestructura a la nube..."
+                      className="w-full min-h-[90px] rounded-xl bg-bg-dark border border-white/10 p-3 text-xs text-text-main focus:border-accent-green focus:outline-none"
                     />
                   </label>
                 )}
-                <div className="flex flex-wrap gap-3">
+
+                <div className="flex items-center gap-2.5 pt-1">
                   <button
+                    type="submit"
                     disabled={busy}
-                    className={`min-h-11 px-4 rounded-xl font-semibold ${action === "revoke" ? "bg-accent-red text-white" : "bg-accent-green text-black"}`}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${action === "revoke"
+                      ? "bg-rose-500 text-white hover:bg-rose-600"
+                      : "bg-accent-green text-bg-dark hover:bg-accent-green-hover"
+                      } disabled:opacity-50`}
                   >
                     {busy
-                      ? "Aplicando…"
+                      ? "Procesando..."
                       : action === "revoke"
-                        ? "Revocar agente y pausar monitores"
-                        : "Reemplazar token"}
+                        ? "Revocar y Pausar Monitores"
+                        : "Generar Nuevo Token"}
                   </button>
                   <button
                     type="button"
-                    className="ui-button"
                     disabled={busy}
                     onClick={() => setAction(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-medium text-text-muted hover:text-text-main bg-white/5 transition-colors"
                   >
                     Cancelar
                   </button>
                 </div>
               </form>
             )}
+
             {token && (
-              <button
-                className="ui-button flex gap-2 items-center"
-                onClick={() => {
-                  try {
-                    const url = URL.createObjectURL(
-                      new Blob([token], { type: "text/plain" }),
-                    );
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `senti9-${id.slice(0, 8)}-token.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch {
-                    setMessage(
-                      "No se pudo descargar. Reintenta antes de cerrar.",
-                    );
-                  }
-                }}
-              >
-                <Download size={18} />
-                Descargar nuevo token (una sola revelación)
-              </button>
+              <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+                <p className="text-xs text-emerald-400 font-semibold">
+                  Nuevo token emitido exitosamente. Solo se mostrará una vez.
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-accent-green text-bg-dark hover:bg-accent-green-hover transition-colors"
+                  onClick={() => {
+                    try {
+                      const url = URL.createObjectURL(
+                        new Blob([token], { type: "text/plain" }),
+                      );
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `senti9-${id.slice(0, 8)}-token.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      setMessage("No se pudo descargar el archivo. Cópialo manualmente.");
+                    }
+                  }}
+                >
+                  <Download size={15} />
+                  <span>Descargar archivo de token</span>
+                </button>
+              </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </NOCDrawer>
@@ -346,240 +394,215 @@ function ProbeDetail({
 }
 
 export default function Senti9Page() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const admin = !!(user?.is_staff || user?.is_superuser);
   const canCreateMonitor = useCapability("monitoring.create");
+  const [viewMode, setViewMode] = usePersistentViewMode("senti9", "table");
   const [search, setSearch] = useState("");
-  const [lifecycleFilter, setLifecycle] = useState("active");
+  const [lifecycleFilter, setLifecycle] = useState("all");
   const [selected, setSelected] = useState<{
     id: string;
     tab: "operation" | "install";
   } | null>(null);
   const [panel, setPanel] = useState<"create" | "guide" | null>(null);
+
   const refresh = useConnectivityRefresh();
   const quota = refresh.subscription?.usage?.private_agents;
+
   const directory = useConnectivityDirectory<AgentProbe>(
     "agent-probes/",
     "agent-probes",
-    { search, lifecycle: lifecycleFilter },
+    { search, lifecycle: lifecycleFilter === "all" ? "" : lifecycleFilter },
     refresh.refetchInterval,
     { pollMs: refresh.enabled ? 15000 : undefined },
   );
+
+  const probes = directory.data || [];
+
+  // Métricas para los KPIs
+  const totalProbes = directory.meta?.total ?? probes.length;
+  const onlineCount = useMemo(
+    () => probes.filter((p) => p.is_online && !p.revoked_at).length,
+    [probes],
+  );
+  const offlineCount = useMemo(
+    () => probes.filter((p) => !p.is_online && p.last_heartbeat && !p.revoked_at).length,
+    [probes],
+  );
+  const pendingCount = useMemo(
+    () => probes.filter((p) => !p.last_heartbeat && !p.revoked_at).length,
+    [probes],
+  );
+  const revokedCount = useMemo(
+    () => probes.filter((p) => !!p.revoked_at).length,
+    [probes],
+  );
+
+  const statusPills: NOCStatusPill[] = [
+    { id: "all", label: "Todos", count: totalProbes, variant: "all" },
+    { id: "connected", label: "Conectados", count: onlineCount, variant: "success" },
+    { id: "disconnected", label: "Desconectados", count: offlineCount, variant: "danger" },
+    { id: "pending_connection", label: "Esperando Señal", count: pendingCount, variant: "warning" },
+    { id: "revoked", label: "Revocados", count: revokedCount, variant: "neutral" },
+  ];
+
   return (
-    <div className="compact-workspace senti9-workspace space-y-5 text-sm">
-      <header className="senti9-page-header">
-        <div className="senti9-page-heading">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-semibold tracking-tight">Senti9</h1>
-            <span className="senti9-page-badge">AGENTES PRIVADOS</span>
-          </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Monitorea tus servicios desde la oficina, sucursal o datacenter.
-          </p>
-        </div>
-        <div className="senti9-page-actions">
-          <button
-            type="button"
-            className="senti9-header-guide"
-            aria-label="Guía de instalación"
-            onClick={() => setPanel("guide")}
-          >
-            <BookOpen size={16} aria-hidden="true" />
-            <span>Guía</span>
-          </button>
-          <Senti9RefreshStatus
-            enabled={refresh.enabled}
-            ready={refresh.ready}
-            blockedReason={refresh.blockedReason}
-            countdown={refresh.countdown}
-            updatedAt={directory.dataUpdatedAt}
-            fetching={directory.isFetching}
-            failed={directory.isError}
-            onToggle={refresh.toggle}
-            onRefresh={() => {
-              void directory.refetch();
-            }}
-          />
-          {admin && (
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* 1. Header Oficial NOC */}
+      <NOCPageHeader
+        title="Guardianes Senti9"
+        badgeText="RED PRIVADA & ON-PREMISE"
+        description="Sondas satélite ligeras para monitoreo continuo de servicios LAN, bases de datos y VPCs sin apertura de puertos entrantes."
+        icon={<Radio size={24} className="text-accent-green" />}
+        autoRefresh={{
+          enabled: refresh.enabled,
+          countdown: refresh.countdown,
+          onToggle: refresh.toggle,
+          intervalSeconds: 15,
+          ready: refresh.ready,
+          blockedReason: refresh.blockedReason,
+        }}
+        actions={
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="senti9-register-button"
-              onClick={() => setPanel("create")}
+              onClick={() => setPanel("guide")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-text-muted hover:text-text-main bg-white/5 hover:bg-white/10 border border-white/5 transition-colors"
             >
-              <Plus size={18} aria-hidden="true" />
-              Registrar Senti9
+              <BookOpen size={14} />
+              <span>Requisitos & Guía</span>
             </button>
-          )}
-        </div>
-      </header>
-      <div className="senti9-workspace-grid">
-        <section
-          className="min-w-0 space-y-4"
-          aria-labelledby="senti9-directory-title"
-        >
-          <div className="senti9-directory-caption">
-            <div>
-              <h2 id="senti9-directory-title" className="text-lg font-semibold">
-                Tus agentes
-              </h2>
-              <p className="text-text-muted mt-1">
-                Revisa la conexión y abre sus monitores o instrucciones.
-              </p>
-            </div>
-            {quota && <Senti9Quota quota={quota} />}
-          </div>
-          <div className="senti9-directory-toolbar">
-            <label className="senti9-search">
-              <Search size={18} />
-              <span className="sr-only">Buscar agente</span>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre o host"
-              />
-            </label>
-            <label className="senti9-state-filter">
-              <span>Estado</span>
-              <select
-                value={lifecycleFilter}
-                onChange={(e) => setLifecycle(e.target.value)}
+
+            {admin && (
+              <button
+                type="button"
+                onClick={() => setPanel("create")}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-accent-green hover:bg-accent-green-hover text-bg-dark transition-colors shadow-sm cursor-pointer"
               >
-                <option value="active">Activos</option>
-                <option value="connected">Conectados</option>
-                <option value="disconnected">Desconectados</option>
-                <option value="pending_connection">Sin conexión inicial</option>
-                <option value="revoked">Archivo de revocados</option>
-                <option value="all">Todos</option>
-              </select>
-            </label>
-          </div>
-          {directory.isError && (
-            <ReadFailure stale={!!directory.data} retry={directory.refetch} />
-          )}
-          <div className="senti9-agent-list" aria-busy={directory.isFetching}>
-            {directory.isLoading && !directory.data ? (
-              <div role="status" className="senti9-empty">
-                <Loader2 size={24} className="animate-spin" />
-                <p>Consultando agentes…</p>
-              </div>
-            ) : (
-              directory.data?.map((probe) => (
-                <Senti9AgentCard
-                  key={probe.id}
-                  probe={probe}
-                  stale={directory.isError}
-                  admin={admin}
-                  canCreateMonitor={canCreateMonitor}
-                  onDetail={() =>
-                    setSelected({ id: probe.id, tab: "operation" })
-                  }
-                  onInstall={() =>
-                    setSelected({ id: probe.id, tab: "install" })
-                  }
-                />
-              ))
+                <Plus size={15} />
+                <span>Registrar Senti9</span>
+              </button>
             )}
-            {!directory.isLoading &&
-              !directory.isError &&
-              !directory.data?.length && (
-                <div className="senti9-empty">
-                  <span className="senti9-title-icon">
-                    <Server size={26} />
-                  </span>
-                  <h3 className="text-lg font-semibold">
-                    {search || lifecycleFilter !== "active"
-                      ? "No hay agentes con estos filtros"
-                      : "Conecta tu primera ubicación"}
-                  </h3>
-                  <p className="text-text-muted max-w-md">
-                    {search || lifecycleFilter !== "active"
-                      ? "Cambia el estado o la búsqueda para ver otros agentes."
-                      : "Registra Senti9 en un equipo de tu red para medir servicios privados desde Sentinel."}
-                  </p>
-                  {search || lifecycleFilter !== "active" ? (
-                    <button
-                      className="ui-button"
-                      onClick={() => {
-                        setSearch("");
-                        setLifecycle("active");
-                      }}
-                    >
-                      Limpiar filtros
-                    </button>
-                  ) : (
-                    <button
-                      className="ui-button ui-button-secondary"
-                      onClick={() => setPanel("guide")}
-                    >
-                      Ver cómo instalarlo
-                    </button>
-                  )}
-                </div>
-              )}
           </div>
-          <DirectoryPagination directory={directory} />
+        }
+      />
+
+      {/* 2. Toolbar Operativo & Filtros por Estado */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <NOCToolbar
+              searchTerm={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Buscar guardián por nombre, host, IP o versión..."
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              statusPills={statusPills}
+              selectedStatus={lifecycleFilter}
+              onStatusChange={(statusId) => setLifecycle(statusId)}
+              extraFilters={quota ? <Senti9Quota quota={quota} /> : undefined}
+            />
+          </div>
+        </div>
+
+        {/* 4. Mensaje de Error en Lectura */}
+        {directory.isError && (
+          <ReadFailure stale={!!directory.data} retry={directory.refetch} />
+        )}
+
+        {/* 5. Lista / Grid de Guardianes */}
+        <section aria-label="Directorio de Guardianes Senti9" className="min-w-0">
+          {directory.isLoading && !directory.data ? (
+            <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-white/5 bg-bg-card text-text-muted gap-3">
+              <Loader2 size={26} className="animate-spin text-accent-green" />
+              <p className="text-xs font-mono">Consultando catálogo de guardianes LAN...</p>
+            </div>
+          ) : probes.length > 0 ? (
+            viewMode === "table" ? (
+              <Senti9TableView
+                probes={probes}
+                onSelectProbe={(probe, initialTab) =>
+                  setSelected({ id: probe.id, tab: initialTab || "operation" })
+                }
+                onCreateMonitor={(id) => navigate(`/monitoring?create=1&agent=${id}`)}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {probes.map((probe) => (
+                  <Senti9AgentCard
+                    key={probe.id}
+                    probe={probe}
+                    stale={directory.isError}
+                    admin={admin}
+                    canCreateMonitor={canCreateMonitor}
+                    onDetail={() =>
+                      setSelected({ id: probe.id, tab: "operation" })
+                    }
+                    onInstall={() =>
+                      setSelected({ id: probe.id, tab: "install" })
+                    }
+                  />
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 px-6 rounded-2xl border border-white/5 bg-bg-card text-center space-y-3">
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-text-muted">
+                <Server size={32} />
+              </div>
+              <h3 className="text-base font-semibold text-text-main">
+                {search || lifecycleFilter !== "all"
+                  ? "No se encontraron guardianes con estos filtros"
+                  : "No hay guardianes Senti9 registrados aún"}
+              </h3>
+              <p className="text-xs text-text-muted max-w-md leading-relaxed">
+                {search || lifecycleFilter !== "all"
+                  ? "Intenta modificar el término de búsqueda o selecciona otro filtro de estado."
+                  : "Despliega tu primer agente Senti9 en un servidor local, máquina virtual o contenedor Docker para monitorear servicios privados sin exponer puertos."}
+              </p>
+              {search || lifecycleFilter !== "all" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setLifecycle("all");
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-text-main transition-colors mt-2"
+                >
+                  Restablecer filtros
+                </button>
+              ) : admin ? (
+                <button
+                  type="button"
+                  onClick={() => setPanel("create")}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-accent-green hover:bg-accent-green-hover text-bg-dark transition-colors mt-2"
+                >
+                  Registrar mi primer Senti9
+                </button>
+              ) : null}
+            </div>
+          )}
+
+          {/* 6. Paginación */}
+          <div className="pt-4">
+            <DirectoryPagination directory={directory} />
+          </div>
         </section>
-        <aside
-          className="senti9-start-panel"
-          aria-label="Instalación y siguientes pasos"
-        >
-          <div className="senti9-network-sketch" aria-hidden="true">
-            <span>
-              <Server size={25} />
-            </span>
-            <span className="senti9-network-line" />
-            <span>
-              <ShieldCheck size={25} />
-            </span>
-          </div>
-          <p className="senti9-eyebrow">DE TU RED A SENTINEL</p>
-          <h2 className="text-xl font-semibold">
-            Instala. Conecta. Monitorea.
-          </h2>
-          <p className="text-text-muted leading-relaxed">
-            Un contenedor en tu red; la visibilidad, en Sentinel.
-          </p>
-          <ol className="senti9-journey">
-            {[
-              ["Registra la ubicación", "Nombre y plataforma del equipo."],
-              ["Instala con Docker", "Guarda el token y copia los comandos."],
-              [
-                "Crea tu primer monitor",
-                "Confirma la señal y revisa su medición.",
-              ],
-            ].map(([title, text], i) => (
-              <li key={title}>
-                <span className="senti9-step-number">{i + 1}</span>
-                <div>
-                  <h3 className="font-medium">{title}</h3>
-                  <p className="text-text-muted text-sm mt-1">{text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-          <button
-            className="ui-button ui-button-secondary w-full"
-            onClick={() => setPanel("guide")}
-          >
-            <BookOpen size={17} />
-            Ver requisitos y pasos
-          </button>
-          <p className="text-xs text-text-muted flex gap-2 leading-relaxed">
-            <ShieldCheck size={16} className="shrink-0 mt-0.5" />
-            Sin puertos entrantes. El equipo necesita acceso a Sentinel y a los
-            servicios que vas a medir.
-          </p>
-        </aside>
       </div>
+
+      {/* 7. Diálogos y Drawers Modales */}
       {panel === "guide" && (
         <Senti9InstallGuide
           onClose={() => setPanel(null)}
           onRegister={admin ? () => setPanel("create") : undefined}
         />
       )}
+
       {panel === "create" && (
         <CreateProbeModal isOpen onClose={() => setPanel(null)} />
       )}
+
       {selected && (
         <ProbeDetail
           key={selected.id}

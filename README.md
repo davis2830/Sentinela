@@ -4,7 +4,7 @@ Plataforma multi-tenant de observabilidad NOC/SRE con monitoreo HTTP/TCP/DNS, ce
 
 ## Estado verificable
 
-La rama contiene hardening de proxy y SSRF, API tokens con hash, revocación transaccional de sesiones, scans asíncronos, retención tenant-aware, topología TLS de producción y recolección de logs con Grafana Alloy. La aprobación de producción sigue condicionada a los gates de [PRODUCTION_READINESS](docs/PRODUCTION_READINESS.md).
+La rama contiene hardening de proxy y SSRF, API tokens con hash, revocación transaccional de sesiones, scans asíncronos, retención tenant-aware, topología TLS de producción y logs por salida estándar de Docker. La aprobación de producción sigue condicionada a los gates de [PRODUCTION_READINESS](docs/PRODUCTION_READINESS.md).
 
 ## Desarrollo local
 
@@ -22,7 +22,7 @@ docker compose exec backend python manage.py migrate
 - Frontend: http://localhost:3001
 - API: http://localhost:8000/api/v1/
 - Health: http://localhost:8000/health/
-- Loki: http://localhost:3100
+
 
 No use targets privados con el runner cloud. Asígnelos a un Guardián Sentinine.
 
