@@ -23,6 +23,10 @@ import csv
 from django.http import HttpResponse
 import socket
 import time
+from uuid import UUID
+
+from common import safe_http
+from common.connectivity_directory import directory
 
 
 class MonitoringTargetListView(APIView):
@@ -40,7 +44,6 @@ class MonitoringTargetListView(APIView):
         team_id = request.query_params.get("team_id")
         if team_id:
             targets = targets.filter(owner_team_id=team_id)
-        from common.connectivity_directory import directory
 
         return directory(targets, request, MonitoringTargetSerializer, "monitoring")
 
@@ -588,8 +591,6 @@ class TestConnectionView(ConfigurationDiagnosticAPIView):
                 if isinstance(custom_headers, dict):
                     headers.update(custom_headers)
 
-                from common import safe_http
-
                 resp = safe_http.request(
                     method=http_method,
                     url=url,
@@ -841,7 +842,6 @@ class AgentProbeHeartbeatView(APIView):
         protocol = request.data.get("delivery_protocol", 1)
         capacity = request.data.get("capacity", 10)
         known = request.data.get("known_executions", [])
-        from uuid import UUID
 
         try:
             if (

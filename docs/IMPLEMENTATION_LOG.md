@@ -1,5 +1,25 @@
 # Bitácora de implementación
 
+## 2026-11-23 — Arquitectura SOLID y Buenas Prácticas: Runners OCP y Desacoplamiento SRP
+
+- **Principio Abierto/Cerrado (OCP) en Motor de Sondeos (Backend):**
+  - Creado `backend/monitoring/runners.py` con interfaz abstracta `CheckRunner(Protocol)`, DTO `CheckResult` y registro `check_runner_registry()`.
+  - Runners desacoplados implementados: `HTTPCheckRunner`, `TCPCheckRunner`, `DNSCheckRunner`, `SSLCheckRunner`.
+  - Refactorizado `backend/monitoring/tasks.py` para invocar `run_target_check(target)` eliminando la cadena rígida de `if/elif`.
+- **Principio de Responsabilidad Única (SRP) en Alertas (Frontend):**
+  - Desacoplada `AlertsPage.tsx` (reducida de 1,322 a 480 líneas).
+  - Componentes extraídos a `frontend/src/components/alerts/`:
+    - `AlertCardsView.tsx` (vista cuadrícula/tarjetas de incidentes con selección por lotes y badges).
+    - `AlertRuleCardsView.tsx` (tarjetas de reglas de umbral con acciones de edición/mute).
+    - `AlertInspectionDrawer.tsx` (panel drawer NOC para RCA, cronología/MTTR y elevación a incidentes).
+    - `AlertSnoozeModal.tsx` (modal interactivo para silenciado inteligente con presets).
+- **Inversión de Dependencias (DIP) y Limpieza:**
+  - Resueltas e importadas a nivel de módulo dependencias en `backend/monitoring/views.py` y `backend/monitoring/tasks.py`.
+- **Verificación:**
+  - Django check: 0 incidencias.
+  - Pruebas Django `monitoring.tests` (11/11 OK) y `alerts` (2/2 OK).
+  - TypeScript & Vite build: 0 errores de compilación (`tsc && vite build` completado exitosamente).
+
 ## 2026-11-04 — Recuperación de acceso: separación, formato y confirmación
 
 - Etiquetas separadas 8 px de los campos para evitar que el foco las cubra;

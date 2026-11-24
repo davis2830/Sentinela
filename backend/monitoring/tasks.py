@@ -1,13 +1,14 @@
+from datetime import timedelta
 import logging
 import socket
 from time import perf_counter
 from common.scan_limits import guarded_scan, enqueue_many
-from common.subscriptions import eligible_organization_ids
+from common.subscriptions import eligible_organization_ids, monitoring_allowed
 
 from celery import shared_task
 from django.utils import timezone
 
-from .models import MonitoringTarget
+from .models import AgentProbe, MonitoringTarget
 from .services import MonitoringService
 from common import safe_http
 from common.security import resolve_safe_target_endpoint
@@ -28,7 +29,6 @@ def run_monitoring_check(self, target_id):
     """
     try:
         target = MonitoringTarget.objects.select_related("organization").get(id=target_id)
-        from common.subscriptions import monitoring_allowed
 
         if not monitoring_allowed(target.organization):
             return {"status": "skipped", "reason": "subscription_required"}
@@ -47,17 +47,9 @@ def run_monitoring_check(self, target_id):
     logger.info("Running check for target: %s (%s)", target.name, target.target_type)
 
     try:
-        if target.target_type in ("http", "https", "api"):
-            status, latency, details = _run_http_check(target)
-        elif target.target_type == "tcp":
-            status, latency, details = _run_tcp_check(target)
-        elif target.target_type == "dns":
-            status, latency, details = _run_dns_check(target)
-        elif target.target_type == "ssl":
-            status, latency, details = _run_ssl_check(target)
-        else:
-            logger.error("Unsupported target type: %s", target.target_type)
-            return
+        from .runners import run_target_check
+        result = run_target_check(target)
+        status, latency, details = result.status, result.latency, result.details
 
         MonitoringService.record_check(
             target_id=target.id,
@@ -91,138 +83,30 @@ def run_monitoring_check(self, target_id):
 
 def _run_http_check(target):
     """Execute the configured request through the pinned, no-redirect client."""
-    url = target.endpoint
-    if "://" not in url:
-        url = f"https://{url}"
-    method = (target.http_method or "GET").upper()
-    start = perf_counter()
-    try:
-        # Only status/headers are needed: do not download an unbounded body.
-        with safe_http.request(
-            method=method,
-            url=url,
-            headers=dict(target.custom_headers or {}),
-            data=target.request_body.encode("utf-8") if target.request_body else None,
-            timeout=(5, 10),
-            stream=True,
-        ) as response:
-            latency_ms = (perf_counter() - start) * 1000
-            code = response.status_code
-        status = "down" if code != target.expected_status else ("slow" if latency_ms > target.max_latency_ms else "up")
-        return (
-            status,
-            round(latency_ms, 2),
-            {
-                "status_code": code,
-                "expected_status": target.expected_status,
-                "method": method,
-                "url": url,
-            },
-        )
-    except Exception as exc:
-        # Requests exceptions can include headers/URLs; persist only the category.
-        return "down", None, {"error": type(exc).__name__, "method": method, "url": url}
+    from .runners import HTTPCheckRunner
+    res = HTTPCheckRunner.run(target)
+    return res.status, res.latency, res.details
 
 
 def _run_tcp_check(target):
     """Connect only to a public IP obtained by the security resolver."""
-    _, _, port, resolved_ips = resolve_safe_target_endpoint(target.endpoint, allow_private=False)
-    start = perf_counter()
-    try:
-        with socket.create_connection((resolved_ips[0], port), timeout=10):
-            latency_ms = (perf_counter() - start) * 1000
-        return (
-            ("slow" if latency_ms > target.max_latency_ms else "up"),
-            round(latency_ms, 2),
-            {
-                "endpoint": target.endpoint,
-            },
-        )
-    except Exception as exc:
-        return "down", None, {"error": type(exc).__name__, "endpoint": target.endpoint}
+    from .runners import TCPCheckRunner
+    res = TCPCheckRunner.run(target)
+    return res.status, res.latency, res.details
 
 
 def _run_dns_check(target):
     """Perform a DNS resolution check."""
-    import socket
-
-    endpoint = target.endpoint.strip()
-    if "://" in endpoint:
-        endpoint = endpoint.split("://")[1]
-    host = endpoint.split("/")[0].split(":")[0]
-    start = timezone.now()
-    try:
-        from common.security import resolve_safe_target_endpoint
-
-        _, _, _, resolved_ips = resolve_safe_target_endpoint(
-            f"http://{host}",
-            allow_private=False,
-        )
-        elapsed = (timezone.now() - start).total_seconds() * 1000
-        addresses = list(resolved_ips)
-        return "up", round(elapsed, 2), {"addresses": addresses, "host": host}
-    except socket.gaierror as exc:
-        return "down", None, {"error": str(exc), "domain": host}
+    from .runners import DNSCheckRunner
+    res = DNSCheckRunner.run(target)
+    return res.status, res.latency, res.details
 
 
 def _run_ssl_check(target):
     """Perform an SSL certificate check for a monitoring target."""
-    import socket
-    import ssl as ssl_module
-    from datetime import datetime, timezone as dt_timezone
-
-    endpoint = target.endpoint.strip()
-    if "://" in endpoint:
-        endpoint = endpoint.split("://")[1]
-    host = endpoint.split("/")[0].split(":")[0]
-
-    start = timezone.now()
-    try:
-        from common.security import resolve_safe_target_endpoint
-
-        _, tls_hostname, port, resolved_ips = resolve_safe_target_endpoint(
-            f"https://{host}",
-            allow_private=False,
-        )
-        context = ssl_module.create_default_context()
-        with socket.create_connection((resolved_ips[0], port), timeout=10) as sock:
-            with context.wrap_socket(sock, server_hostname=tls_hostname) as ssock:
-                cert_info = ssock.getpeercert()
-
-        elapsed = (timezone.now() - start).total_seconds() * 1000
-
-        issuer_info = dict(x[0] for x in cert_info.get("issuer", []))
-        issuer_name = issuer_info.get("organizationName") or issuer_info.get("commonName") or "Unknown"
-
-        not_after = cert_info.get("notAfter", "")
-        expiration_date = None
-        days_remaining = None
-        if not_after:
-            try:
-                expiration_date = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=dt_timezone.utc)
-                now = datetime.now(dt_timezone.utc)
-                days_remaining = (expiration_date - now).days
-            except ValueError:
-                pass
-
-        status = "up"
-        if elapsed > (target.max_latency_ms or 2000):
-            status = "slow"
-
-        return (
-            status,
-            round(elapsed, 2),
-            {
-                "host": host,
-                "days_remaining": days_remaining,
-                "issuer": issuer_name,
-                "expiration_date": expiration_date.isoformat() if expiration_date else None,
-            },
-        )
-    except ssl_module.SSLError as exc:
-        return "down", None, {"error": f"SSL error: {exc}", "host": host}
-    except (socket.timeout, socket.gaierror, ConnectionRefusedError, OSError) as exc:
-        return "down", None, {"error": f"Connection error: {exc}", "host": host}
+    from .runners import SSLCheckRunner
+    res = SSLCheckRunner.run(target)
+    return res.status, res.latency, res.details
 
 
 @shared_task(name="monitoring.schedule_checks")
@@ -386,10 +270,6 @@ def check_sentinine_heartbeats():
     for > 45 seconds and is currently marked 'online', its status transitions to 'offline'.
     Dispatches a critical operational alert notifying operators of the disconnected probe.
     """
-    from datetime import timedelta
-    from django.utils import timezone
-    from .models import AgentProbe
-
     cutoff = timezone.now() - timedelta(seconds=45)
     stale_probes = AgentProbe.objects.filter(
         status=AgentProbe.ProbeStatus.ONLINE,
