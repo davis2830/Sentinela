@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
+  ChevronRight,
   Database,
   Play,
   Pause,
@@ -98,6 +99,48 @@ const tagSuggestions = [
   "api",
   "infra",
   "onboarding",
+];
+
+const COMMON_HTTP_STATUSES = [
+  {
+    group: "2xx · Éxito (Recomendado)",
+    codes: [
+      { code: 200, label: "200 — OK (Estándar para webs y APIs)" },
+      { code: 201, label: "201 — Created (Recurso creado exitosamente)" },
+      { code: 202, label: "202 — Accepted (Petición aceptada / En proceso)" },
+      { code: 204, label: "204 — No Content (Éxito sin cuerpo de respuesta)" },
+    ],
+  },
+  {
+    group: "3xx · Redirecciones",
+    codes: [
+      { code: 301, label: "301 — Moved Permanently (Redirección fija)" },
+      { code: 302, label: "302 — Found (Redirección temporal)" },
+      { code: 304, label: "304 — Not Modified (Caché válida)" },
+      { code: 307, label: "307 — Temporary Redirect (Redirección estricta)" },
+      { code: 308, label: "308 — Permanent Redirect (Redirección estricta)" },
+    ],
+  },
+  {
+    group: "4xx · Respuestas de cliente (Casos especiales)",
+    codes: [
+      { code: 400, label: "400 — Bad Request" },
+      { code: 401, label: "401 — Unauthorized (Requiere autenticación)" },
+      { code: 403, label: "403 — Forbidden (Acceso denegado)" },
+      { code: 404, label: "404 — Not Found (Validar recurso inexistente)" },
+      { code: 405, label: "405 — Method Not Allowed" },
+      { code: 422, label: "422 — Unprocessable Entity" },
+      { code: 429, label: "429 — Too Many Requests (Rate limit)" },
+    ],
+  },
+  {
+    group: "5xx · Respuestas de servidor",
+    codes: [
+      { code: 500, label: "500 — Internal Server Error" },
+      { code: 502, label: "502 — Bad Gateway" },
+      { code: 503, label: "503 — Service Unavailable" },
+    ],
+  },
 ];
 
 export default function TargetForm({
@@ -738,9 +781,11 @@ export default function TargetForm({
                             : "bg-bg-dark/60 border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover"
                       }`}
                     >
-                      <span>
-                        {item.locked ? "🔒 " : ""}
-                        {item.label}
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        {item.locked && (
+                          <Lock size={11} className="text-amber-400 shrink-0" />
+                        )}
+                        <span>{item.label}</span>
                       </span>
                     </button>
                   );
@@ -792,9 +837,10 @@ export default function TargetForm({
           <details className="group border border-border-base rounded-xl bg-bg-dark/40 overflow-hidden transition-all">
             <summary className="px-3.5 py-2.5 cursor-pointer text-xs font-semibold text-text-muted hover:text-text-main flex items-center justify-between select-none">
               <span className="flex items-center gap-2">
-                <span className="text-text-dim group-open:rotate-90 transition-transform">
-                  ▸
-                </span>
+                <ChevronRight
+                  size={14}
+                  className="text-text-dim group-open:rotate-90 transition-transform shrink-0"
+                />
                 <span>Opciones HTTP, etiquetas y parámetros avanzados</span>
               </span>
             </summary>
@@ -825,13 +871,28 @@ export default function TargetForm({
                     <label className="block text-[11px] text-text-muted mb-1 font-medium">
                       Código esperado
                     </label>
-                    <input
-                      type="number"
+                    <select
                       value={expectedStatus}
                       onChange={(e) => setExpectedStatus(Number(e.target.value))}
-                      placeholder="200"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-border-base bg-bg-dark font-mono text-xs text-text-main"
-                    />
+                      className="w-full px-2 py-1.5 rounded-lg border border-border-base bg-bg-dark font-mono text-xs text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
+                    >
+                      {!COMMON_HTTP_STATUSES.some((g) =>
+                        g.codes.some((c) => c.code === expectedStatus),
+                      ) && (
+                        <option value={expectedStatus}>
+                          {expectedStatus} (Personalizado)
+                        </option>
+                      )}
+                      {COMMON_HTTP_STATUSES.map((group) => (
+                        <optgroup key={group.group} label={group.group}>
+                          {group.codes.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -896,9 +957,10 @@ export default function TargetForm({
                       <button
                         type="button"
                         onClick={() => removeTag(t)}
-                        className="text-text-muted hover:text-rose-400"
+                        className="text-text-muted hover:text-rose-400 inline-flex items-center"
+                        title="Eliminar etiqueta"
                       >
-                        ×
+                        <X size={10} />
                       </button>
                     </span>
                   ))}
@@ -988,8 +1050,8 @@ export default function TargetForm({
                   )}
                   <span>
                     {testResult.status === "up"
-                      ? "✓ Comprobación exitosa"
-                      : "✗ La comprobación falló"}
+                      ? "Comprobación exitosa"
+                      : "La comprobación falló"}
                   </span>
                 </div>
                 {testResult.latency_ms != null && (

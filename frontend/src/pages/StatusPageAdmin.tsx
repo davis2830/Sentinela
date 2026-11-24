@@ -157,7 +157,7 @@ export default function StatusPageAdmin() {
           >
             {pages.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.company_name} {p.is_default ? '★ (Principal)' : ''}
+                {p.company_name} {p.is_default ? '(Principal)' : ''}
               </option>
             ))}
           </select>
