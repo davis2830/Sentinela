@@ -19,8 +19,12 @@ import {
   AlertTriangle,
   Globe,
   Server,
-  Plug,
   Lock,
+  ShieldCheck,
+  Network,
+  Waypoints,
+  Webhook,
+  Cloud,
 } from "lucide-react";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
 import { useDialogFocus } from "../../hooks/useDialogFocus";
@@ -43,10 +47,10 @@ import type {
 
 const icons: Record<string, typeof Globe> = {
   http: Globe,
-  https: Globe,
-  tcp: Server,
-  dns: Globe,
-  api: Plug,
+  https: ShieldCheck,
+  tcp: Network,
+  dns: Waypoints,
+  api: Webhook,
   ssl: Lock,
 };
 
@@ -418,10 +422,18 @@ export default function TargetDetailDrawer({
               <span>·</span>
               <span>Cada {target.interval} s</span>
               <span>·</span>
-              <span>
-                {target.runner_type === "agent"
-                  ? `Senti9: ${target.agent_probe_name || "Agente"}`
-                  : "Cloud"}
+              <span className="inline-flex items-center gap-1">
+                {target.runner_type === "agent" ? (
+                  <>
+                    <Server size={11} className="text-emerald-400 shrink-0" />
+                    <span>Senti9: {target.agent_probe_name || "Agente"}</span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud size={11} className="text-accent-cyan shrink-0" />
+                    <span>Cloud</span>
+                  </>
+                )}
               </span>
               {target.tags && target.tags.length > 0 && (
                 <>

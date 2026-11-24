@@ -16,6 +16,11 @@ import {
   Database,
   Play,
   Pause,
+  ShieldCheck,
+  Network,
+  Waypoints,
+  Webhook,
+  Cloud,
 } from "lucide-react";
 import ModalSurface from "../common/ModalSurface";
 import { useTargetFormWorkspace } from "./workspaces/useTargetFormWorkspace";
@@ -36,7 +41,7 @@ const protocols = [
     type: "https" as const,
     label: "HTTPS",
     desc: "Web segura con TLS / SSL",
-    icon: Globe,
+    icon: ShieldCheck,
     placeholder: "https://mi-servicio.com",
     namePlaceholder: "ej: Portal Web Principal",
   },
@@ -52,7 +57,7 @@ const protocols = [
     type: "tcp" as const,
     label: "TCP Port",
     desc: "Puertos de red (BD, LDAP, SSH)",
-    icon: Server,
+    icon: Network,
     placeholder: "10.138.15.10:5432",
     namePlaceholder: "ej: BD PostgreSQL Producción",
   },
@@ -60,7 +65,7 @@ const protocols = [
     type: "dns" as const,
     label: "DNS",
     desc: "Resolución de nombres y registros",
-    icon: Globe,
+    icon: Waypoints,
     placeholder: "dominio.com.gt",
     namePlaceholder: "ej: DNS Corporativo Primario",
   },
@@ -68,7 +73,7 @@ const protocols = [
     type: "api" as const,
     label: "API REST",
     desc: "HTTP con método, headers y cuerpo",
-    icon: Plug,
+    icon: Webhook,
     placeholder: "https://api.empresa.com/v1/health",
     namePlaceholder: "ej: API Gateway / Core",
   },
@@ -646,8 +651,9 @@ export default function TargetForm({
                   )}
                 </div>
                 <div>
-                  <div className="font-semibold text-xs text-text-main">
-                    Nube Sentinel (Público)
+                  <div className="font-semibold text-xs text-text-main flex items-center gap-1.5">
+                    <Cloud size={14} className="text-accent-cyan shrink-0" />
+                    <span>Nube Sentinel (Público)</span>
                   </div>
                   <div className="text-[11px] text-text-dim mt-0.5">
                     Sondeo externo desde Internet
@@ -676,8 +682,9 @@ export default function TargetForm({
                   )}
                 </div>
                 <div>
-                  <div className="font-semibold text-xs text-text-main">
-                    Guardián Senti9 (Privado)
+                  <div className="font-semibold text-xs text-text-main flex items-center gap-1.5">
+                    <Server size={14} className="text-emerald-400 shrink-0" />
+                    <span>Guardián Senti9 (Privado)</span>
                   </div>
                   <div className="text-[11px] text-text-dim mt-0.5">
                     Sondeo dentro de tu red LAN o VPC

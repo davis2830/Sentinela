@@ -6,22 +6,25 @@ import TargetLatency, { TargetDiagnostic } from "./TargetLatency";
 import {
   Globe,
   Lock,
-  Plug,
   Server,
   Trash2,
   Pencil,
   Bell,
   Activity,
   Layers,
+  ShieldCheck,
+  Network,
+  Waypoints,
+  Webhook,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
 const typeIcons: Record<string, typeof Globe> = {
   http: Globe,
-  https: Globe,
-  tcp: Server,
-  dns: Globe,
-  api: Plug,
+  https: ShieldCheck,
+  tcp: Network,
+  dns: Waypoints,
+  api: Webhook,
   ssl: Lock,
 };
 

@@ -6,7 +6,6 @@ import { TargetEnabledSwitch } from "./TargetTableControls";
 import {
   Globe,
   Server,
-  Plug,
   Lock,
   Bell,
   Pencil,
@@ -22,15 +21,19 @@ import {
   X,
   LayoutGrid,
   List,
+  ShieldCheck,
+  Network,
+  Waypoints,
+  Webhook,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
 const typeIcons: Record<string, typeof Globe> = {
   http: Globe,
-  https: Globe,
-  tcp: Server,
-  dns: Globe,
-  api: Plug,
+  https: ShieldCheck,
+  tcp: Network,
+  dns: Waypoints,
+  api: Webhook,
   ssl: Lock,
 };
 
@@ -373,15 +376,14 @@ export default function TargetTableView({
             onClick(target);
           }
         }}
-        className={`group cursor-pointer transition-colors border-b border-border-base/70 ${
-          isSelected
-            ? "bg-accent-green/5"
-            : isDown
+        className={`group cursor-pointer transition-colors border-b border-border-base/70 ${isSelected
+          ? "bg-accent-green/5"
+          : isDown
             ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
             : isOnline
-            ? "opacity-90 hover:opacity-100 hover:bg-white/[0.03]"
-            : "hover:bg-white/[0.03]"
-        }`}
+              ? "opacity-90 hover:opacity-100 hover:bg-white/[0.03]"
+              : "hover:bg-white/[0.03]"
+          }`}
       >
         {/* 1. Selection Checkbox */}
         <td
@@ -549,9 +551,8 @@ export default function TargetTableView({
 
         {/* 6. Acciones - Fade in on hover, background matches row */}
         <td
-          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] ${
-            isDown ? "bg-[#1c1217]" : "bg-transparent"
-          } group-hover:bg-white/[0.03] transition-colors`}
+          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] ${isDown ? "bg-[#1c1217]" : "bg-transparent"
+            } group-hover:bg-white/[0.03] transition-colors`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-end gap-1.5">
@@ -721,10 +722,9 @@ export default function TargetTableView({
 
           {/* 24h Uptime Badge with semantic color */}
           <span
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-mono font-bold hidden sm:inline-flex ${
-              parseFloat(summary.uptime24h) >= 99
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                : parseFloat(summary.uptime24h) >= 95
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-mono font-bold hidden sm:inline-flex ${parseFloat(summary.uptime24h) >= 99
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              : parseFloat(summary.uptime24h) >= 95
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                 : "bg-rose-500/10 border-rose-500/30 text-rose-400"
               }`}
@@ -825,11 +825,10 @@ export default function TargetTableView({
               <button
                 type="button"
                 onClick={() => onViewModeChange("grid")}
-                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${
-                  viewMode === "grid"
-                    ? "bg-accent-green text-bg-dark"
-                    : "text-text-dim hover:text-text-main"
-                }`}
+                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${viewMode === "grid"
+                  ? "bg-accent-green text-bg-dark"
+                  : "text-text-dim hover:text-text-main"
+                  }`}
                 title="Vista Cuadrícula"
                 aria-label="Vista Cuadrícula"
               >
@@ -838,11 +837,10 @@ export default function TargetTableView({
               <button
                 type="button"
                 onClick={() => onViewModeChange("table")}
-                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${
-                  viewMode === "table"
-                    ? "bg-accent-green text-bg-dark"
-                    : "text-text-dim hover:text-text-main"
-                }`}
+                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${viewMode === "table"
+                  ? "bg-accent-green text-bg-dark"
+                  : "text-text-dim hover:text-text-main"
+                  }`}
                 title="Vista Tabla"
                 aria-label="Vista Tabla"
               >
