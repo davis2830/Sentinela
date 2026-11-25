@@ -1,12 +1,18 @@
-import { useEffect, useState, useMemo } from "react";
-import TargetLatency, {
-  formatShortDiagnostic,
-} from "./TargetLatency";
+import { useEffect, useState } from "react";
+import TargetLatency, { formatShortDiagnostic } from "./TargetLatency";
 import { TargetEnabledSwitch } from "./TargetTableControls";
+import {
+  TARGET_TYPE_COLORS,
+  TARGET_TYPE_ICONS,
+  getTargetHistorySlots,
+  getTargetStatusKind,
+  type TargetDensity,
+  type TargetGroup,
+  type TargetSortField,
+} from "./useTargets";
 import {
   Globe,
   Server,
-  Lock,
   Bell,
   Pencil,
   Trash2,
@@ -14,94 +20,40 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
-  Cloud,
   Check,
   AlertTriangle,
-  Search,
-  X,
-  LayoutGrid,
-  List,
-  ShieldCheck,
-  Network,
-  Waypoints,
-  Webhook,
+  CheckCircle2,
+  XCircle,
+  PauseCircle,
+  HelpCircle,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
-const typeIcons: Record<string, typeof Globe> = {
-  http: Globe,
-  https: ShieldCheck,
-  tcp: Network,
-  dns: Waypoints,
-  api: Webhook,
-  ssl: Lock,
-};
-
-const typeColors: Record<string, { bg: string; text: string; border: string }> =
-{
-  https: {
-    bg: "bg-sky-500/10",
-    text: "text-sky-400",
-    border: "border-sky-500/30",
-  },
-  http: {
-    bg: "bg-blue-500/10",
-    text: "text-blue-400",
-    border: "border-blue-500/30",
-  },
-  tcp: {
-    bg: "bg-purple-500/10",
-    text: "text-purple-400",
-    border: "border-purple-500/30",
-  },
-  dns: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    border: "border-emerald-500/30",
-  },
-  api: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-400",
-    border: "border-amber-500/30",
-  },
-  ssl: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    border: "border-rose-500/30",
-  },
-};
-
 interface TargetTableViewProps {
-  targets: MonitoringTarget[];
+  sortedTargets: MonitoringTarget[];
+  groupedTargets: TargetGroup[] | null;
+  collapsedGroups: Record<string, boolean>;
+  onToggleGroup: (key: string) => void;
+  density: TargetDensity;
   selectedIds: string[];
   onSelectToggle: (target: MonitoringTarget) => void;
   onSelectAllToggle: () => void;
   onEdit: (target: MonitoringTarget) => void;
   onDelete: (target: MonitoringTarget) => void;
-  onScan: (target: MonitoringTarget) => void;
   onToggle: (target: MonitoringTarget) => void;
   onAlert?: (target: MonitoringTarget) => void;
-  scanningId: string | null;
   onClick: (target: MonitoringTarget) => void;
-  sortField: "name" | "latency" | "status";
+  sortField: TargetSortField;
   sortAsc: boolean;
-  onSortChange: (field: "name" | "latency" | "status") => void;
-  activeStatusFilter?: string;
-  onStatusFilterChange?: (status: string) => void;
-  protocolFilter?: string;
-  onProtocolFilterChange?: (protocol: string) => void;
-  tagFilter?: string;
-  onTagFilterChange?: (tag: string) => void;
-  availableTags?: string[];
-  totalOrgSummary?: Record<string, number>;
-  search?: string;
-  onSearchChange?: (value: string) => void;
-  viewMode?: "grid" | "table";
-  onViewModeChange?: (mode: "grid" | "table") => void;
+  onSortChange: (field: TargetSortField) => void;
 }
 
 export default function TargetTableView({
-  targets,
+  sortedTargets,
+  groupedTargets,
+  collapsedGroups,
+  onToggleGroup,
+  density,
   selectedIds,
   onSelectToggle,
   onSelectAllToggle,
@@ -113,46 +65,14 @@ export default function TargetTableView({
   sortField,
   sortAsc,
   onSortChange,
-  activeStatusFilter = "all",
-  onStatusFilterChange,
-  protocolFilter = "all",
-  onProtocolFilterChange,
-  tagFilter = "all",
-  onTagFilterChange,
-  availableTags = [],
-  totalOrgSummary,
-  search,
-  onSearchChange,
-  viewMode,
-  onViewModeChange,
 }: TargetTableViewProps) {
   const allSelected =
-    targets.length > 0 && selectedIds.length === targets.length;
+    sortedTargets.length > 0 && selectedIds.length === sortedTargets.length;
   const [mobile, setMobile] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches,
   );
-
-  // Density: 'compact' (~40-44px) vs 'comfortable' (~64px)
-  const [density, setDensity] = useState<"compact" | "comfortable">(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("sentinel_monitoring_density");
-      if (saved === "comfortable" || saved === "compact") return saved;
-    }
-    return "compact";
-  });
-
-  const handleDensityChange = (d: "compact" | "comfortable") => {
-    setDensity(d);
-    localStorage.setItem("sentinel_monitoring_density", d);
-  };
-
-  // Grouping: 'none' | 'senti9' | 'type'
-  const [groupBy, setGroupBy] = useState<"none" | "senti9" | "type">("none");
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-
-  const toggleGroup = (key: string) => {
-    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -162,205 +82,77 @@ export default function TargetTableView({
     return () => media.removeEventListener("change", update);
   }, []);
 
-  // 1. Sort targets: Down/Error first by default when sorting by status
-  const sortedTargets = useMemo(() => {
-    const list = [...targets];
-    const statusPriority: Record<string, number> = {
-      down: 0,
-      error: 0,
-      slow: 1,
-      unknown: 2,
-      up: 3,
-      disabled: 4,
-    };
-
-    list.sort((a, b) => {
-      if (sortField === "status") {
-        const aWeight = a.enabled
-          ? (statusPriority[a.last_status || "unknown"] ?? 2)
-          : 4;
-        const bWeight = b.enabled
-          ? (statusPriority[b.last_status || "unknown"] ?? 2)
-          : 4;
-        if (aWeight !== bWeight) {
-          return sortAsc ? aWeight - bWeight : bWeight - aWeight;
-        }
-        return a.name.localeCompare(b.name);
-      }
-      if (sortField === "name") {
-        return sortAsc
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name);
-      }
-      if (sortField === "latency") {
-        const aLat = a.last_latency ?? -1;
-        const bLat = b.last_latency ?? -1;
-        return sortAsc ? aLat - bLat : bLat - aLat;
-      }
-      return 0;
-    });
-    return list;
-  }, [targets, sortField, sortAsc]);
-
-  // 2. Metrics summary & Uptime 24h
-  const summary = useMemo(() => {
-    const totalCount = totalOrgSummary?.total ?? targets.length;
-    const downCount =
-      totalOrgSummary?.down ??
-      targets.filter(
-        (t) => t.enabled && (t.last_status === "down" || t.last_status === "error"),
-      ).length;
-    const slowCount =
-      totalOrgSummary?.slow ??
-      targets.filter((t) => t.enabled && t.last_status === "slow").length;
-    const upCount =
-      totalOrgSummary?.up ??
-      targets.filter((t) => t.enabled && t.last_status === "up").length;
-    const pausedCount =
-      totalOrgSummary?.paused ?? targets.filter((t) => !t.enabled).length;
-
-    const activeLatencies = targets
-      .filter((t) => t.enabled && typeof t.last_latency === "number" && t.last_latency >= 0)
-      .map((t) => t.last_latency as number);
-    const avgLatency = activeLatencies.length
-      ? Math.round(activeLatencies.reduce((a, b) => a + b, 0) / activeLatencies.length)
-      : null;
-
-    // Calculate Uptime percentage from recent checks
-    let totalChecks = 0;
-    let upChecks = 0;
-    for (const t of targets) {
-      if (t.enabled && t.recent_checks?.length) {
-        for (const c of t.recent_checks) {
-          totalChecks++;
-          if (c.status === "up") upChecks++;
-        }
-      }
-    }
-    const uptime24h = totalChecks > 0 ? ((upChecks / totalChecks) * 100).toFixed(1) : "100.0";
-
-    return { totalCount, downCount, slowCount, upCount, pausedCount, avgLatency, uptime24h };
-  }, [targets]);
-
-  // 3. Group targets if requested
-  const groupedTargets = useMemo(() => {
-    if (groupBy === "none") return null;
-    const groups: Record<
-      string,
-      { label: string; isAgent: boolean; icon: typeof Server; targets: MonitoringTarget[] }
-    > = {};
-
-    for (const t of sortedTargets) {
-      if (groupBy === "senti9") {
-        const isAgent = t.runner_type === "agent";
-        const key = isAgent ? t.agent_probe_name || "Senti9 LAN" : "cloud";
-        const label = isAgent
-          ? `Guardián Senti9: ${t.agent_probe_name || "LAN"}`
-          : "Monitoreo Nube Directa";
-        if (!groups[key]) {
-          groups[key] = { label, isAgent, icon: isAgent ? Server : Cloud, targets: [] };
-        }
-        groups[key].targets.push(t);
-      } else if (groupBy === "type") {
-        const key = t.target_type;
-        const label = `Protocolo ${t.target_type.toUpperCase()}`;
-        if (!groups[key]) {
-          groups[key] = { label, isAgent: false, icon: typeIcons[t.target_type] || Globe, targets: [] };
-        }
-        groups[key].targets.push(t);
-      }
-    }
-    return groups;
-  }, [sortedTargets, groupBy]);
-
-  const handleChipFilter = (filterKey: string) => {
-    if (!onStatusFilterChange) return;
-    if (activeStatusFilter === filterKey) {
-      onStatusFilterChange("all");
-    } else {
-      onStatusFilterChange(filterKey);
-    }
-  };
-
   const renderStatus = (target: MonitoringTarget) => {
-    if (!target.enabled) {
+    const kind = getTargetStatusKind(target);
+    if (kind === "paused") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-          Pausado
+          <PauseCircle size={11} className="text-zinc-400 shrink-0" />
+          <span>Pausado</span>
         </span>
       );
     }
-    if (target.last_status === "up") {
+    if (kind === "up") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-          </span>
-          Online
+          <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+          <span>Online</span>
         </span>
       );
     }
-    if (target.last_status === "slow") {
+    if (kind === "slow") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
-          </span>
-          Lento
+          <AlertTriangle size={11} className="text-amber-400 shrink-0" />
+          <span>Lento</span>
         </span>
       );
     }
-    if (target.last_status === "down" || target.last_status === "error") {
+    if (kind === "down") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/40 shrink-0">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500" />
-          </span>
-          Caído
+          <XCircle size={11} className="text-rose-400 shrink-0" />
+          <span>Caído</span>
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-        Desconocido
+        <HelpCircle size={11} className="text-zinc-500 shrink-0" />
+        <span>Desconocido</span>
       </span>
     );
   };
 
   const renderRow = (target: MonitoringTarget) => {
     const isSelected = selectedIds.includes(target.id);
-    const TypeIcon = typeIcons[target.target_type] || Globe;
-    const typeStyle = typeColors[target.target_type] || {
+    const TypeIcon = TARGET_TYPE_ICONS[target.target_type] || Globe;
+    const typeStyle = TARGET_TYPE_COLORS[target.target_type] || {
       bg: "bg-accent-green/10",
       text: "text-accent-green",
       border: "border-accent-green/30",
     };
 
-    const recentChecks =
-      target.recent_checks && target.recent_checks.length > 0
-        ? target.recent_checks
-        : Array.from({ length: 8 }).map(() => ({
-          status: target.enabled ? (target.last_status || "unknown") : "disabled",
-          latency: target.last_latency,
-          checked_at: new Date().toISOString(),
-          diagnostic: null as string | null,
-        }));
-
+    const historySlots = getTargetHistorySlots(target, 8);
+    const statusKind = getTargetStatusKind(target);
     const isCompact = density === "compact";
     const paddingY = isCompact ? "py-2" : "py-3";
-    const isDown = target.enabled && (target.last_status === "down" || target.last_status === "error");
-    const isOnline = target.enabled && target.last_status === "up";
+    const isDown = statusKind === "down";
+    const isOnline = statusKind === "up";
+    const isPaused = statusKind === "paused";
 
     const lastCheck = target.recent_checks?.length
       ? target.recent_checks[target.recent_checks.length - 1]
       : null;
-    const fullDiagnostic = lastCheck?.diagnostic || (target.last_status === "slow" ? "Respuesta lenta registrada" : "Comprobación fallida");
-    const shortDiagnostic = formatShortDiagnostic(fullDiagnostic, target.expected_status);
+    const fullDiagnostic =
+      lastCheck?.diagnostic ||
+      (target.last_status === "slow"
+        ? "Respuesta lenta registrada"
+        : "Comprobación fallida");
+    const shortDiagnostic = formatShortDiagnostic(
+      fullDiagnostic,
+      target.expected_status,
+    );
 
     return (
       <tr
@@ -377,14 +169,17 @@ export default function TargetTableView({
             onClick(target);
           }
         }}
-        className={`group cursor-pointer transition-colors border-b border-border-base/70 ${isSelected
-          ? "bg-accent-green/5"
-          : isDown
-            ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
-            : isOnline
-              ? "opacity-90 hover:opacity-100 hover:bg-white/[0.03]"
-              : "hover:bg-white/[0.03]"
-          }`}
+        className={`group cursor-pointer transition-colors border-b border-border-base/70 ${
+          isSelected
+            ? "bg-accent-green/5"
+            : isPaused
+              ? "opacity-60 hover:opacity-85 hover:bg-white/[0.02]"
+              : isDown
+                ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
+                : isOnline
+                  ? "opacity-90 hover:opacity-100 hover:bg-white/[0.03]"
+                  : "hover:bg-white/[0.03]"
+        }`}
       >
         {/* 1. Selection Checkbox */}
         <td
@@ -401,10 +196,11 @@ export default function TargetTableView({
             className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
           >
             <span
-              className={`grid h-4 w-4 place-items-center rounded transition-colors ${isSelected
-                ? "bg-accent-green text-black ring-1 ring-accent-green/40"
-                : "border border-border-base/90 bg-bg-dark/80 text-transparent"
-                }`}
+              className={`grid h-4 w-4 place-items-center rounded transition-colors ${
+                isSelected
+                  ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+                  : "border border-border-base/90 bg-bg-dark/80 text-transparent"
+              }`}
             >
               <Check
                 size={10}
@@ -415,8 +211,8 @@ export default function TargetTableView({
           </button>
         </td>
 
-        {/* 2. Estado (Fixed 100px width) */}
-        <td className={`${paddingY} px-2.5 whitespace-nowrap w-[100px]`}>
+        {/* 2. Estado (Fixed 105px width) */}
+        <td className={`${paddingY} px-2.5 whitespace-nowrap w-[105px]`}>
           {renderStatus(target)}
         </td>
 
@@ -426,7 +222,7 @@ export default function TargetTableView({
             {/* Type Badge inline with fixed width and protocol icon */}
             <span
               className={`inline-flex items-center justify-center gap-1 w-[72px] shrink-0 text-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
-              title={`Protocolo ${target.target_type.toUpperCase()} • Intervalo: cada ${target.interval}s`}
+              title={`Protocolo ${target.target_type.toUpperCase()} · Intervalo: cada ${target.interval}s`}
             >
               <TypeIcon size={11} className="shrink-0" />
               <span>{target.target_type}</span>
@@ -434,8 +230,13 @@ export default function TargetTableView({
 
             {/* Target Name */}
             <span
-              className={`shrink-0 font-semibold text-xs transition-colors ${isDown ? "text-rose-300 font-bold" : "text-text-main group-hover:text-accent-green"
-                }`}
+              className={`shrink-0 font-semibold text-xs transition-colors ${
+                isDown
+                  ? "text-rose-300 font-bold"
+                  : isPaused
+                    ? "text-text-muted"
+                    : "text-text-main group-hover:text-accent-green"
+              }`}
               title={target.name}
             >
               {target.name}
@@ -452,11 +253,12 @@ export default function TargetTableView({
             {/* Senti9 Agent Pill without 'Senti9:' */}
             {target.runner_type === "agent" && (
               <span
-                className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${target.agent_probe_online === false ||
+                className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
+                  target.agent_probe_online === false ||
                   target.agent_probe_status === "offline"
-                  ? "bg-accent-red/10 text-accent-red border-accent-red/30"
-                  : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
-                  }`}
+                    ? "bg-accent-red/10 text-accent-red border-accent-red/30"
+                    : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
+                }`}
                 title={`Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`}
               >
                 <Server size={9} className="shrink-0" />
@@ -486,7 +288,7 @@ export default function TargetTableView({
             {/* In compact mode, show error inline at the end with explicit tooltip */}
             {isCompact && isDown && (
               <span
-                title={`HTTP ${target.last_status || 404} · esperado ${target.expected_status || 200}`}
+                title={`${fullDiagnostic} · esperado ${target.expected_status || 200}`}
                 className="shrink-0 text-xs text-rose-300 font-mono inline-flex items-center gap-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20"
               >
                 <AlertTriangle size={11} className="text-rose-400 shrink-0" />
@@ -504,41 +306,47 @@ export default function TargetTableView({
           )}
         </td>
 
-        {/* 4. Latencia (Single Line Clean, or downSince if down) */}
-        <td className={`${paddingY} px-2.5 whitespace-nowrap w-[115px]`}>
-          <TargetLatency target={target} compact={isCompact} />
+        {/* 4. Latencia (Single Line Clean, or Paused / Caído) */}
+        <td className={`${paddingY} px-2.5 whitespace-nowrap w-[135px]`}>
+          <TargetLatency target={target} compact />
         </td>
 
-        {/* 5. Historial Reciente (8 Slim Bars with Rich Tooltip) */}
+        {/* 5. Historial Reciente (8 Slim Bars — gray if paused) */}
         <td className={`${paddingY} px-2.5 whitespace-nowrap w-[90px]`}>
           <div className="flex items-center gap-1 h-3 w-20">
-            {recentChecks.slice(-8).map((c, idx) => {
-              let bg = "bg-zinc-700";
-              const isUp = c.status === "up";
-              const isSlow = c.status === "slow";
-              if (isUp) bg = "bg-emerald-500";
-              else if (isSlow) bg = "bg-amber-400";
-              else if (c.status === "down" || c.status === "error")
-                bg = "bg-rose-500";
+            {historySlots.map((slot, idx) => {
+              let bg = "bg-bg-card-hover/70";
+              let tooltip = "Sin medición aún";
 
-              const timeStr = c.checked_at
-                ? new Date(c.checked_at).toLocaleTimeString("es-ES", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })
-                : "Sin hora";
-              const statusName = isUp
-                ? "Online"
-                : isSlow
-                  ? "Lento"
-                  : "Caído";
-              const latStr =
-                typeof c.latency === "number" && c.latency >= 0
-                  ? `${c.latency} ms`
-                  : "—";
-              const tooltip = `${timeStr} • ${statusName} (${latStr})${c.diagnostic ? `\n${c.diagnostic}` : ""
+              if (slot.status === "paused") {
+                bg = "bg-zinc-700/50";
+                tooltip = "Monitoreo pausado";
+              } else if (slot.status !== "no_data") {
+                if (slot.status === "up") bg = "bg-emerald-500";
+                else if (slot.status === "slow") bg = "bg-amber-400";
+                else if (slot.status === "down") bg = "bg-rose-500";
+
+                const timeStr = slot.checked_at
+                  ? new Date(slot.checked_at).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })
+                  : "Sin hora";
+                const statusName =
+                  slot.status === "up"
+                    ? "Online"
+                    : slot.status === "slow"
+                      ? "Lento"
+                      : "Caído";
+                const latStr =
+                  typeof slot.latency === "number" && slot.latency >= 0
+                    ? `${Math.round(slot.latency)} ms`
+                    : "—";
+                tooltip = `${timeStr} · ${statusName} (${latStr})${
+                  slot.diagnostic ? `\n${slot.diagnostic}` : ""
                 }`;
+              }
 
               return (
                 <div
@@ -553,8 +361,9 @@ export default function TargetTableView({
 
         {/* 6. Acciones - Fade in on hover, background matches row */}
         <td
-          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] ${isDown ? "bg-[#1c1217]" : "bg-transparent"
-            } group-hover:bg-white/[0.03] transition-colors`}
+          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] ${
+            isDown ? "bg-[#1c1217]" : "bg-transparent"
+          } group-hover:bg-white/[0.03] transition-colors`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-end gap-1.5">
@@ -603,256 +412,6 @@ export default function TargetTableView({
       data-testid="connectivity-table"
       className="connectivity-directory-table w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
     >
-      {/* Interactive Unified Header & KPI Bar: Search + Quick Filters + Selects + Density + View Toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 border-b border-border-base bg-bg-dark/70 text-xs select-none">
-        {/* Left: Search Bar + Quick Filter Chips */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {/* Integrated Search Input */}
-          {onSearchChange && (
-            <div className="relative min-w-[140px] max-w-[220px]">
-              <Search
-                size={13}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim"
-              />
-              <input
-                type="search"
-                placeholder="Buscar por nombre, URL..."
-                value={search || ""}
-                onChange={(e) => onSearchChange(e.target.value)}
-                aria-label="Buscar monitores por nombre o URL"
-                className="h-7 w-full rounded-lg border border-border-base bg-bg-dark pl-7 pr-6 text-xs text-text-main placeholder:text-text-dim focus:border-accent-green focus:outline-none"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => onSearchChange("")}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-dim hover:text-text-main cursor-pointer !min-h-0 !min-w-0"
-                  title="Limpiar búsqueda"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Todos Filter Chip */}
-          <button
-            type="button"
-            onClick={() => handleChipFilter("all")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "all"
-              ? "bg-zinc-700 text-white ring-1 ring-zinc-500"
-              : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
-              }`}
-            title="Mostrar todos los monitores"
-          >
-            <span>Todos ({targets.length})</span>
-          </button>
-
-          {/* Down Filter Chip */}
-          <button
-            type="button"
-            onClick={() => handleChipFilter("down")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "down"
-              ? "bg-rose-500 text-white ring-2 ring-rose-500/50"
-              : summary.downCount > 0
-                ? "bg-rose-500/15 border border-rose-500/40 text-rose-400 hover:bg-rose-500/25"
-                : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
-              }`}
-            title="Filtrar por servicios caídos"
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${summary.downCount > 0 ? "bg-rose-500 animate-pulse" : "bg-text-dim"
-                }`}
-            />
-            <span>
-              {summary.downCount} {summary.downCount === 1 ? "caído" : "caídos"}
-            </span>
-          </button>
-
-          {/* Up Filter Chip */}
-          <button
-            type="button"
-            onClick={() => handleChipFilter("up")}
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "up"
-              ? "bg-emerald-500 text-black ring-2 ring-emerald-500/50"
-              : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-              }`}
-            title="Filtrar por servicios online"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span>{summary.upCount} online</span>
-          </button>
-
-          {/* Slow Filter Chip (if any) */}
-          {summary.slowCount > 0 && (
-            <button
-              type="button"
-              onClick={() => handleChipFilter("slow")}
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "slow"
-                ? "bg-amber-500 text-black ring-2 ring-amber-500/50"
-                : "bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                }`}
-              title="Filtrar por servicios lentos"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span>{summary.slowCount} lentos</span>
-            </button>
-          )}
-
-          {/* Paused Filter Chip (if any) */}
-          {summary.pausedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => handleChipFilter("disabled")}
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all cursor-pointer !min-h-0 !min-w-0 ${activeStatusFilter === "disabled"
-                ? "bg-zinc-700 text-white ring-2 ring-zinc-500"
-                : "bg-zinc-800/40 border border-zinc-700/50 text-zinc-400 hover:text-zinc-200"
-                }`}
-              title="Filtrar por servicios pausados"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-              <span>{summary.pausedCount} pausados</span>
-            </button>
-          )}
-
-          {/* Average Latency */}
-          {summary.avgLatency !== null && (
-            <span className="text-text-dim hidden md:inline font-mono text-[11px]">
-              • Lat: <strong className="text-text-main">{summary.avgLatency} ms</strong>
-            </span>
-          )}
-
-          {/* 24h Uptime Badge with semantic color */}
-          <span
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-mono font-bold hidden sm:inline-flex ${parseFloat(summary.uptime24h) >= 99
-              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-              : parseFloat(summary.uptime24h) >= 95
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-              }`}
-            title="Uptime ponderado 24h (≥99% verde, ≥95% ámbar, <95% rojo)"
-          >
-            Uptime: {summary.uptime24h}%
-          </span>
-        </div>
-
-        {/* Right: Selects (without duplicate labels) + Density + View Toggle */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Protocol / Tipo Selector */}
-          {onProtocolFilterChange && (
-            <select
-              value={protocolFilter || "all"}
-              onChange={(e) => onProtocolFilterChange(e.target.value)}
-              aria-label="Filtrar por tipo o protocolo"
-              className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer h-7"
-            >
-              <option value="all">Tipo: Todos</option>
-              <option value="https">HTTPS</option>
-              <option value="http">HTTP</option>
-              <option value="tcp">TCP</option>
-              <option value="dns">DNS</option>
-              <option value="api">API</option>
-              <option value="ssl">SSL</option>
-            </select>
-          )}
-
-          {/* Tag Selector */}
-          {onTagFilterChange && availableTags && availableTags.length > 0 && (
-            <select
-              value={tagFilter || "all"}
-              onChange={(e) => onTagFilterChange(e.target.value)}
-              aria-label="Filtrar por etiqueta"
-              className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer max-w-[110px] h-7"
-            >
-              <option value="all">Tag: Todos</option>
-              {availableTags.map((t) => (
-                <option key={t} value={t}>
-                  #{t}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Group By selector */}
-          <select
-            value={groupBy}
-            onChange={(e) =>
-              setGroupBy(e.target.value as "none" | "senti9" | "type")
-            }
-            aria-label="Agrupar monitores"
-            className="bg-bg-dark border border-border-base rounded-lg px-2 py-0.5 text-xs text-text-main focus:border-accent-green cursor-pointer h-7"
-          >
-            <option value="none">Sin agrupar</option>
-            <option value="senti9">Senti9 / Nube</option>
-            <option value="type">Protocolo</option>
-          </select>
-
-          {/* Density toggle buttons */}
-          <div
-            className="flex items-center border border-border-base rounded-lg p-0.5 bg-bg-dark shrink-0 h-7"
-            role="group"
-            aria-label="Selector de densidad de filas"
-          >
-            <button
-              type="button"
-              onClick={() => handleDensityChange("compact")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${density === "compact"
-                ? "bg-accent-green/20 text-accent-green font-semibold"
-                : "text-text-dim hover:text-text-main"
-                }`}
-              title="Vista Compacta (~42px por fila)"
-            >
-              Compacto
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDensityChange("comfortable")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer !min-h-0 !min-w-0 ${density === "comfortable"
-                ? "bg-accent-green/20 text-accent-green font-semibold"
-                : "text-text-dim hover:text-text-main"
-                }`}
-              title="Vista Cómoda"
-            >
-              Cómodo
-            </button>
-          </div>
-
-          {/* View Mode Switcher (Grid vs Table) */}
-          {onViewModeChange && (
-            <div
-              className="flex items-center border border-border-base rounded-lg p-0.5 bg-bg-dark shrink-0 h-7"
-              role="group"
-              aria-label="Cambiar vista"
-            >
-              <button
-                type="button"
-                onClick={() => onViewModeChange("grid")}
-                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${viewMode === "grid"
-                  ? "bg-accent-green text-bg-dark"
-                  : "text-text-dim hover:text-text-main"
-                  }`}
-                title="Vista Cuadrícula"
-                aria-label="Vista Cuadrícula"
-              >
-                <LayoutGrid size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={() => onViewModeChange("table")}
-                className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${viewMode === "table"
-                  ? "bg-accent-green text-bg-dark"
-                  : "text-text-dim hover:text-text-main"
-                  }`}
-                title="Vista Tabla"
-                aria-label="Vista Tabla"
-              >
-                <List size={13} />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Main Table / Mobile View */}
       {mobile ? (
         <div
@@ -871,9 +430,7 @@ export default function TargetTableView({
                   className="ml-2 bg-bg-dark border border-border-base rounded-lg p-1.5 text-xs text-text-main"
                   value={sortField}
                   onChange={(e) =>
-                    onSortChange(
-                      e.target.value as "name" | "latency" | "status",
-                    )
+                    onSortChange(e.target.value as TargetSortField)
                   }
                 >
                   <option value="status">Estado (Caídos primero)</option>
@@ -893,7 +450,10 @@ export default function TargetTableView({
           </details>
 
           {sortedTargets.map((target) => (
-            <article key={target.id} className="min-w-0 p-3 space-y-2">
+            <article
+              key={target.id}
+              className={`min-w-0 p-3 space-y-2 ${!target.enabled ? "opacity-60" : ""}`}
+            >
               <div className="flex items-start gap-2">
                 <button
                   type="button"
@@ -903,10 +463,11 @@ export default function TargetTableView({
                   className="grid h-6 w-6 place-items-center rounded bg-transparent p-0 shrink-0"
                 >
                   <span
-                    className={`grid h-4 w-4 place-items-center rounded transition-colors ${selectedIds.includes(target.id)
-                      ? "bg-accent-green text-black"
-                      : "border border-border-base bg-bg-dark"
-                      }`}
+                    className={`grid h-4 w-4 place-items-center rounded transition-colors ${
+                      selectedIds.includes(target.id)
+                        ? "bg-accent-green text-black"
+                        : "border border-border-base bg-bg-dark"
+                    }`}
                   >
                     <Check
                       size={10}
@@ -987,15 +548,18 @@ export default function TargetTableView({
                     role="checkbox"
                     aria-checked={allSelected}
                     aria-label="Seleccionar todos los recursos"
-                    title={allSelected ? "Deseleccionar todos" : "Seleccionar todos"}
+                    title={
+                      allSelected ? "Deseleccionar todos" : "Seleccionar todos"
+                    }
                     onClick={onSelectAllToggle}
                     className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
                   >
                     <span
-                      className={`grid h-4 w-4 place-items-center rounded transition-colors ${allSelected
-                        ? "bg-accent-green text-black ring-1 ring-accent-green/40"
-                        : "border border-border-base/90 bg-bg-dark/80 text-transparent"
-                        }`}
+                      className={`grid h-4 w-4 place-items-center rounded transition-colors ${
+                        allSelected
+                          ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+                          : "border border-border-base/90 bg-bg-dark/80 text-transparent"
+                      }`}
                     >
                       <Check
                         size={10}
@@ -1007,7 +571,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[100px]"
+                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[105px]"
                   onClick={() => onSortChange("status")}
                   title="Ordenar por estado (Caídos primero)"
                 >
@@ -1043,7 +607,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[115px]"
+                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[135px]"
                   onClick={() => onSortChange("latency")}
                   title="Ordenar por latencia"
                 >
@@ -1062,74 +626,80 @@ export default function TargetTableView({
                 <th scope="col" className="py-2 px-2.5 w-[90px]">
                   Historial (8)
                 </th>
-                <th scope="col" className="py-2 px-2.5 text-right w-[110px] bg-inherit">
+                <th
+                  scope="col"
+                  className="py-2 px-2.5 text-right w-[110px] bg-inherit"
+                >
                   Acciones
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {groupedTargets ? (
-                Object.entries(groupedTargets).map(([key, group]) => {
-                  const isCollapsed = collapsedGroups[key];
-                  const GroupIcon = group.icon;
-                  const groupDownCount = group.targets.filter(
-                    (t) =>
-                      t.enabled &&
-                      (t.last_status === "down" || t.last_status === "error"),
-                  ).length;
+            {groupedTargets ? (
+              groupedTargets.map((group) => {
+                const isCollapsed = Boolean(collapsedGroups[group.key]);
+                const GroupIcon = group.icon;
 
-                  return (
-                    <tbody key={key} className="border-b border-border-base/50">
-                      {/* Collapsible Group Header Row */}
-                      <tr
-                        onClick={() => toggleGroup(key)}
-                        className="bg-bg-dark/70 hover:bg-bg-dark cursor-pointer transition-colors border-y border-border-base/60 select-none"
-                      >
-                        <td colSpan={6} className="py-1.5 px-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {isCollapsed ? (
-                                <ChevronRight size={13} className="text-text-dim" />
-                              ) : (
-                                <ChevronDown size={13} className="text-accent-green" />
-                              )}
-                              <GroupIcon
+                return (
+                  <tbody
+                    key={group.key}
+                    className="border-b border-border-base/50"
+                  >
+                    {/* Collapsible Group Header Row */}
+                    <tr
+                      onClick={() => onToggleGroup(group.key)}
+                      className="bg-bg-dark/70 hover:bg-bg-dark cursor-pointer transition-colors border-y border-border-base/60 select-none"
+                    >
+                      <td colSpan={6} className="py-1.5 px-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? (
+                              <ChevronRight
                                 size={13}
-                                className={
-                                  group.isAgent
-                                    ? "text-accent-purple"
-                                    : "text-sky-400"
-                                }
+                                className="text-text-dim"
                               />
-                              <span className="font-semibold text-text-main text-xs">
-                                {group.label}
-                              </span>
-                              <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-bg-card border border-border-base text-text-muted">
-                                {group.targets.length}{" "}
-                                {group.targets.length === 1
-                                  ? "monitor"
-                                  : "monitores"}
-                              </span>
-                              {groupDownCount > 0 && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/15 border border-rose-500/30 text-rose-400">
-                                  {groupDownCount} caído
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-text-dim">
-                              {isCollapsed ? "Expandir" : "Colapsar"}
+                            ) : (
+                              <ChevronDown
+                                size={13}
+                                className="text-accent-green"
+                              />
+                            )}
+                            <GroupIcon
+                              size={13}
+                              className={
+                                group.isAgent
+                                  ? "text-accent-purple"
+                                  : "text-sky-400"
+                              }
+                            />
+                            <span className="font-semibold text-text-main text-xs">
+                              {group.label}
                             </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-bg-card border border-border-base text-text-muted">
+                              {group.targets.length}{" "}
+                              {group.targets.length === 1
+                                ? "monitor"
+                                : "monitores"}
+                            </span>
+                            {group.downCount > 0 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 border border-rose-500/30 text-rose-400">
+                                {group.downCount}{" "}
+                                {group.downCount === 1 ? "caído" : "caídos"}
+                              </span>
+                            )}
                           </div>
-                        </td>
-                      </tr>
-                      {!isCollapsed && group.targets.map(renderRow)}
-                    </tbody>
-                  );
-                })
-              ) : (
-                sortedTargets.map(renderRow)
-              )}
-            </tbody>
+                          <span className="text-[10px] text-text-dim">
+                            {isCollapsed ? "Expandir" : "Colapsar"}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {!isCollapsed && group.targets.map(renderRow)}
+                  </tbody>
+                );
+              })
+            ) : (
+              <tbody>{sortedTargets.map(renderRow)}</tbody>
+            )}
           </table>
         </div>
       )}

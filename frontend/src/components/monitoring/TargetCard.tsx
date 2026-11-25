@@ -1,69 +1,44 @@
-import SelectionCheckbox from "../common/SelectionCheckbox";
+import { useEffect, useRef, useState } from "react";
 import { TargetEnabledSwitch } from "./TargetTableControls";
-import ResourceActionButtons from "../common/ResourceActionButtons";
-import TargetLatency, { TargetDiagnostic } from "./TargetLatency";
-
 import {
+  formatPausedSince,
+  formatShortDiagnostic,
+  getDownSinceText,
+  latestTargetCheck,
+} from "./TargetLatency";
+import {
+  TARGET_TYPE_COLORS,
+  TARGET_TYPE_ICONS,
+  getTargetHistorySlots,
+  getTargetStatusKind,
+  getTargetUptimePct,
+  type TargetDensity,
+} from "./useTargets";
+import {
+  finite,
+  formatMetric,
+  latencyTone,
+} from "../../utils/endpointPresentation";
+import {
+  AlertTriangle,
+  Bell,
+  Check,
+  CheckCircle2,
   Globe,
-  Lock,
+  HelpCircle,
+  MoreHorizontal,
+  PauseCircle,
+  Pencil,
+  RefreshCw,
   Server,
   Trash2,
-  Pencil,
-  Bell,
-  Activity,
-  Layers,
-  ShieldCheck,
-  Network,
-  Waypoints,
-  Webhook,
+  XCircle,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
-const typeIcons: Record<string, typeof Globe> = {
-  http: Globe,
-  https: ShieldCheck,
-  tcp: Network,
-  dns: Waypoints,
-  api: Webhook,
-  ssl: Lock,
-};
-
-const typeColors: Record<string, { bg: string; text: string; border: string }> =
-  {
-    https: {
-      bg: "bg-sky-500/10",
-      text: "text-sky-400",
-      border: "border-sky-500/30",
-    },
-    http: {
-      bg: "bg-blue-500/10",
-      text: "text-blue-400",
-      border: "border-blue-500/30",
-    },
-    tcp: {
-      bg: "bg-purple-500/10",
-      text: "text-purple-400",
-      border: "border-purple-500/30",
-    },
-    dns: {
-      bg: "bg-emerald-500/10",
-      text: "text-emerald-400",
-      border: "border-emerald-500/30",
-    },
-    api: {
-      bg: "bg-amber-500/10",
-      text: "text-amber-400",
-      border: "border-amber-500/30",
-    },
-    ssl: {
-      bg: "bg-rose-500/10",
-      text: "text-rose-400",
-      border: "border-rose-500/30",
-    },
-  };
-
 interface TargetCardProps {
   target: MonitoringTarget;
+  density?: TargetDensity;
   onEdit: (target: MonitoringTarget) => void;
   onDelete: (target: MonitoringTarget) => void;
   onScan: (target: MonitoringTarget) => void;
@@ -72,302 +47,678 @@ interface TargetCardProps {
   isScanning?: boolean;
   onClick: (target: MonitoringTarget) => void;
   isSelected?: boolean;
+  hasAnySelection?: boolean;
   onSelectToggle?: (target: MonitoringTarget) => void;
 }
 
 export default function TargetCard({
   target,
+  density = "comfortable",
   onEdit,
   onDelete,
+  onScan,
   onToggle,
   onAlert,
+  isScanning = false,
   onClick,
   isSelected = false,
+  hasAnySelection = false,
   onSelectToggle,
 }: TargetCardProps) {
-  const Icon = typeIcons[target.target_type] || Globe;
-  const status = target.last_status || "unknown";
-  const typeStyle = typeColors[target.target_type] || {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [menuOpen]);
+
+  const statusKind = getTargetStatusKind(target);
+  const isPaused = statusKind === "paused";
+  const isDown = statusKind === "down";
+  const isSlow = statusKind === "slow";
+  const isUp = statusKind === "up";
+  const isCompact = density === "compact";
+
+  const ProtocolIcon = TARGET_TYPE_ICONS[target.target_type] || Globe;
+  const typeStyle = TARGET_TYPE_COLORS[target.target_type] || {
     bg: "bg-accent-green/10",
     text: "text-accent-green",
     border: "border-accent-green/30",
   };
 
-  // Latency styling
+  // Diagnostics & Timing
+  const latestCheck =
+    latestTargetCheck(target) ||
+    (target.recent_checks?.length
+      ? target.recent_checks[target.recent_checks.length - 1]
+      : null);
+  const fullDiagnostic =
+    latestCheck?.diagnostic ||
+    (isSlow ? "Respuesta lenta registrada" : "Comprobación fallida");
+  const shortDiagnostic = formatShortDiagnostic(
+    fullDiagnostic,
+    target.expected_status,
+  );
+  const downSinceText = isDown ? getDownSinceText(target) : "";
+  const pausedSinceFull = isPaused ? formatPausedSince(target, false) : "";
+  const pausedSinceShort = isPaused ? formatPausedSince(target, true) : "";
 
-  // Status badge with pulsing dot
-  const renderStatusIndicator = () => {
-    if (!target.enabled) {
+  // Latency & Uptime 24h
+  const measured = Boolean(
+    target.last_checked_at && Number.isFinite(Date.parse(target.last_checked_at)),
+  );
+  const lastLatencyNum =
+    !isPaused &&
+    !isDown &&
+    measured &&
+    finite(target.last_latency) &&
+    target.last_latency >= 0
+      ? target.last_latency
+      : null;
+  const latencyValue =
+    lastLatencyNum !== null ? `${formatMetric(lastLatencyNum)} ms` : "—";
+  const latTone =
+    lastLatencyNum !== null
+      ? latencyTone(lastLatencyNum, target.max_latency_ms, target.last_status)
+      : "muted";
+
+  const lastUpCheck = isDown
+    ? [...(target.recent_checks || [])]
+        .reverse()
+        .find((c) => c.status === "up" && finite(c.latency))
+    : null;
+  const lastKnownLat = lastUpCheck?.latency
+    ? `${formatMetric(lastUpCheck.latency)} ms`
+    : null;
+
+  const uptimePct = getTargetUptimePct(target);
+  const uptimeDisplay =
+    uptimePct != null
+      ? `${uptimePct === 100 ? "100" : uptimePct.toFixed(1)} %`
+      : "—";
+  const uptimeColor =
+    uptimePct == null
+      ? "text-text-dim"
+      : uptimePct >= 99
+        ? "text-emerald-400"
+        : uptimePct >= 95
+          ? "text-amber-400"
+          : "text-rose-400";
+
+  // History slots (20 in comfortable, 12 in compact) — strictly gray when paused
+  const slotCount = isCompact ? 12 : 20;
+  const historySlots = getTargetHistorySlots(target, slotCount);
+
+  // Clean tags (strip Senti9: prefix, limit to 2 visible + "+N")
+  const cleanTags = (target.tags || [])
+    .map((t) => t.replace(/^Senti9:\s*/i, "").trim())
+    .filter(Boolean);
+  const visibleTags = cleanTags.slice(0, 2);
+  const extraTags = cleanTags.slice(2);
+
+  // Shape-coded Status Icon (accessible beyond color)
+  const renderStatusIcon = (size: number) => {
+    if (isPaused) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
-          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
-          Pausado
-        </span>
+        <PauseCircle
+          size={size}
+          className="text-zinc-400 shrink-0"
+          aria-label="Pausado"
+        />
       );
     }
-
-    if (status === "up") {
+    if (isDown) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          Online
-        </span>
+        <XCircle
+          size={size}
+          className="text-rose-400 shrink-0"
+          aria-label="Caído"
+        />
       );
     }
-
-    if (status === "slow") {
+    if (isSlow) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-          </span>
-          Lento
-        </span>
+        <AlertTriangle
+          size={size}
+          className="text-amber-400 shrink-0"
+          aria-label="Lento"
+        />
       );
     }
-
-    if (status === "down" || status === "error") {
+    if (isUp) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/30">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-          </span>
-          Caído
-        </span>
+        <CheckCircle2
+          size={size}
+          className="text-emerald-400 shrink-0"
+          aria-label="Online"
+        />
       );
     }
-
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
-        Desconocido
-      </span>
+      <HelpCircle
+        size={size}
+        className="text-zinc-500 shrink-0"
+        aria-label="Desconocido"
+      />
     );
   };
 
-  // Generate 20 blocks for the mini uptime sparkline
-  const recentChecks =
-    target.recent_checks && target.recent_checks.length > 0
-      ? target.recent_checks
-      : Array.from({ length: 16 }).map((_, i) => ({
-          status: target.enabled
-            ? status === "up"
-              ? "up"
-              : status === "slow"
-                ? "slow"
-                : "down"
-            : "disabled",
-          latency: target.last_latency,
-          checked_at: new Date(
-            Date.now() - (15 - i) * (target.interval || 60) * 1000,
-          ).toISOString(),
-        }));
+  // Card surface & left accent border
+  const cardSurfaceClass = isSelected
+    ? "border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30"
+    : isPaused
+      ? "bg-bg-card/80 border-border-base/60 border-l-2 border-l-zinc-600 opacity-60 hover:opacity-85 hover:border-border-base"
+      : isDown
+        ? "bg-[#1c1217] border-rose-500/35 border-l-2 border-l-rose-500 hover:bg-[#25161e] hover:border-rose-400/60"
+        : isSlow
+          ? "bg-bg-card border-amber-500/30 border-l-2 border-l-amber-400 hover:border-amber-400/60"
+          : isUp
+            ? "bg-bg-card border-border-base/75 border-l-2 border-l-emerald-500/70 hover:border-accent-green/50"
+            : "bg-bg-card border-border-base/75 border-l-2 border-l-zinc-600 hover:border-accent-green/40";
 
+  // Checkbox visibility: show on hover, focus, touch, or while any selection is active
+  const checkboxVisibilityClass =
+    isSelected || hasAnySelection
+      ? "opacity-100"
+      : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
+
+  // Overflow actions menu visibility: hover, focus, touch, or open
+  const actionsVisibilityClass = menuOpen
+    ? "opacity-100"
+    : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
+
+  const renderOverflowMenu = () => (
+    <div
+      ref={menuRef}
+      className="relative"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => setMenuOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label={`Más acciones para ${target.name}`}
+        title="Más acciones"
+        className={`grid h-6 w-6 place-items-center rounded-md text-text-muted hover:text-text-main hover:bg-white/10 transition-all cursor-pointer !min-h-0 !min-w-0 ${actionsVisibilityClass}`}
+      >
+        <MoreHorizontal size={14} />
+      </button>
+
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 top-7 z-30 w-44 rounded-xl border border-border-base bg-bg-dark/95 backdrop-blur-md p-1 shadow-2xl text-xs animate-in fade-in zoom-in-95 duration-100"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            disabled={isScanning || isPaused}
+            onClick={() => {
+              setMenuOpen(false);
+              onScan(target);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-text-main hover:bg-bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer !min-h-0"
+          >
+            <RefreshCw
+              size={13}
+              className={`text-accent-green shrink-0 ${isScanning ? "animate-spin" : ""}`}
+            />
+            <span>Comprobar ahora</span>
+          </button>
+
+          {onAlert && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                onAlert(target);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0"
+            >
+              <Bell size={13} className="text-amber-400 shrink-0" />
+              <span>Vincular alerta</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuOpen(false);
+              onEdit(target);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0"
+          >
+            <Pencil size={13} className="text-sky-400 shrink-0" />
+            <span>Editar target</span>
+          </button>
+
+          <div className="my-1 border-t border-border-base/70" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuOpen(false);
+              onDelete(target);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer !min-h-0"
+          >
+            <Trash2 size={13} className="shrink-0" />
+            <span>Eliminar target</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCheckbox = () => {
+    if (!onSelectToggle) return null;
+    return (
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={isSelected}
+        aria-label={`Seleccionar ${target.name}`}
+        title={isSelected ? "Deseleccionar" : "Seleccionar"}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectToggle(target);
+        }}
+        className={`sentinel-selection grid h-5 w-5 place-items-center rounded bg-transparent p-0 transition-opacity cursor-pointer !min-h-0 !min-w-0 shrink-0 ${checkboxVisibilityClass}`}
+      >
+        <span
+          className={`grid h-4 w-4 place-items-center rounded transition-colors ${
+            isSelected
+              ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+              : "border border-border-base/90 bg-bg-dark/90 text-transparent hover:border-text-muted"
+          }`}
+        >
+          <Check
+            size={10}
+            strokeWidth={3}
+            className={isSelected ? "opacity-100" : "opacity-0"}
+          />
+        </span>
+      </button>
+    );
+  };
+
+  const renderHistoryBars = (heightClass: string) => (
+    <div
+      className={`flex items-center gap-[3px] w-full ${heightClass}`}
+      aria-label={`Historial reciente de ${target.name}`}
+    >
+      {historySlots.map((slot, idx) => {
+        let bg = "bg-bg-card-hover/65";
+        let tooltip = "Sin medición aún";
+
+        if (slot.status === "paused") {
+          bg = "bg-zinc-700/50";
+          tooltip = "Monitoreo pausado";
+        } else if (slot.status !== "no_data") {
+          if (slot.status === "up") bg = "bg-emerald-500 hover:bg-emerald-400";
+          else if (slot.status === "slow") bg = "bg-amber-400 hover:bg-amber-300";
+          else if (slot.status === "down") bg = "bg-rose-500 hover:bg-rose-400";
+
+          const timeStr = slot.checked_at
+            ? new Date(slot.checked_at).toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })
+            : "Sin hora";
+          const statusName =
+            slot.status === "up"
+              ? "Online"
+              : slot.status === "slow"
+                ? "Lento"
+                : "Caído";
+          const latStr =
+            typeof slot.latency === "number" && slot.latency >= 0
+              ? `${Math.round(slot.latency)} ms`
+              : "—";
+          tooltip = `${timeStr} · ${statusName} (${latStr})${
+            slot.diagnostic ? `\n${slot.diagnostic}` : ""
+          }`;
+        }
+
+        return (
+          <div
+            key={idx}
+            title={tooltip}
+            className={`flex-1 h-full rounded-[2px] transition-transform hover:scale-y-125 ${bg}`}
+          />
+        );
+      })}
+    </div>
+  );
+
+  // =========================================================================
+  // COMPACT MODE (~220px "Status Wall" variant)
+  // =========================================================================
+  if (isCompact) {
+    const cardTooltip = [
+      `${target.name} (${target.target_type.toUpperCase()})`,
+      target.endpoint,
+      isDown
+        ? `${fullDiagnostic} · ${downSinceText}`
+        : isPaused
+          ? pausedSinceFull
+          : `Latencia: ${latencyValue} · Uptime 24h: ${uptimeDisplay}`,
+      cleanTags.length ? `Tags: ${cleanTags.map((t) => `#${t}`).join(", ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return (
+      <div
+        data-testid="connectivity-card"
+        role="button"
+        tabIndex={0}
+        aria-label={`Ver detalle de ${target.name}`}
+        title={cardTooltip}
+        onClick={() => onClick(target)}
+        onKeyDown={(e) => {
+          if (
+            e.target === e.currentTarget &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            onClick(target);
+          }
+        }}
+        className={`group relative flex h-full flex-col justify-between gap-2 rounded-xl border p-2.5 cursor-pointer transition-all duration-150 ${cardSurfaceClass}`}
+      >
+        {/* Row 1: Checkbox + Status Icon + Name + Overflow + Toggle */}
+        <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            {renderCheckbox()}
+            {renderStatusIcon(15)}
+            <h3
+              className={`text-xs font-semibold truncate ${
+                isDown
+                  ? "text-rose-300 font-bold"
+                  : isPaused
+                    ? "text-text-muted"
+                    : "text-text-main group-hover:text-accent-green transition-colors"
+              }`}
+            >
+              {target.name}
+            </h3>
+          </div>
+
+          <div
+            className="flex items-center gap-1 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {renderOverflowMenu()}
+            <TargetEnabledSwitch
+              enabled={target.enabled}
+              onChange={() => onToggle(target)}
+              size="compact"
+            />
+          </div>
+        </div>
+
+        {/* Row 2: Key Metric (Latency / Error / Paused) + Protocol Icon */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0 truncate">
+            {isPaused ? (
+              <span className="text-[11px] font-mono text-zinc-400 truncate block">
+                {pausedSinceShort}
+              </span>
+            ) : isDown ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-rose-400 truncate">
+                <AlertTriangle size={11} className="shrink-0" />
+                <span className="truncate">{shortDiagnostic}</span>
+              </span>
+            ) : (
+              <span
+                className="ui-tone text-sm font-bold font-mono"
+                data-tone={latTone}
+              >
+                {latencyValue}
+              </span>
+            )}
+          </div>
+
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border uppercase shrink-0 ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
+          >
+            <ProtocolIcon size={10} className="shrink-0" />
+            <span>{target.target_type}</span>
+          </span>
+        </div>
+
+        {/* Row 3: Slim History Strip */}
+        {renderHistoryBars("h-2")}
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // COMFORTABLE MODE (Standard ~320px card)
+  // =========================================================================
   return (
     <div
       data-testid="connectivity-card"
-      className={`group relative flex h-full flex-col bg-bg-card border rounded-xl p-4 cursor-pointer transition-colors duration-200 ${
-        isSelected
-          ? "border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30"
-          : "border-border-base/70 hover:border-accent-green/40 hover:bg-bg-card"
-      }`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Ver detalle de ${target.name}`}
       onClick={() => onClick(target)}
+      onKeyDown={(e) => {
+        if (
+          e.target === e.currentTarget &&
+          (e.key === "Enter" || e.key === " ")
+        ) {
+          e.preventDefault();
+          onClick(target);
+        }
+      }}
+      className={`group relative flex h-full flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all duration-150 ${cardSurfaceClass}`}
     >
-      {/* Top row: Checkbox, Icon, Title, Status & Actions */}
-      <div className="flex items-start justify-between gap-3 mb-3.5">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          {/* Custom Selection Checkbox Button */}
-
-          {/* Type Icon */}
-          <div
-            className={`w-10 h-10 rounded-xl ${typeStyle.bg} border ${typeStyle.border} flex items-center justify-center shrink-0 shadow-inner`}
-          >
-            <Icon className={typeStyle.text} size={18} />
+      {/* Top Section: Utility strip + Identity + Optional Error Callout */}
+      <div className="space-y-2">
+        {/* Utility Strip: Top-left checkbox (+ Senti9 pill if agent) & Top-right overflow + toggle */}
+        <div className="flex items-center justify-between gap-2 min-h-[22px]">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {renderCheckbox()}
+            {target.runner_type === "agent" && (
+              <span
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border truncate max-w-[140px] ${
+                  target.agent_probe_online === false ||
+                  target.agent_probe_status === "offline"
+                    ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                    : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
+                }`}
+                title={
+                  target.agent_probe_online === false ||
+                  target.agent_probe_status === "offline"
+                    ? `Guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`
+                    : `Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`
+                }
+              >
+                <Server size={10} className="shrink-0" />
+                <span className="truncate">
+                  {(target.agent_probe_name || "LAN").replace(
+                    /^Senti9:\s*/i,
+                    "",
+                  )}
+                </span>
+                {(target.agent_probe_online === false ||
+                  target.agent_probe_status === "offline") && (
+                  <span className="font-mono text-[9px]">(Offline)</span>
+                )}
+              </span>
+            )}
           </div>
 
-          {/* Name & Endpoint with padding */}
-          <div className="min-w-0 flex-1 pl-0.5">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className="flex items-center gap-1.5 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {renderOverflowMenu()}
+            <TargetEnabledSwitch
+              enabled={target.enabled}
+              onChange={() => onToggle(target)}
+              size="compact"
+            />
+          </div>
+        </div>
+
+        {/* Identity Row: Status Icon + Single-line Name/URL + Protocol Badge */}
+        <div className="flex items-start justify-between gap-2.5">
+          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+            <div className="mt-0.5 shrink-0">{renderStatusIcon(18)}</div>
+            <div className="min-w-0 flex-1">
               <h3
-                className="font-semibold text-text-main text-sm truncate max-w-[170px]"
+                className={`font-semibold text-sm leading-tight truncate ${
+                  isDown
+                    ? "text-rose-300 font-bold"
+                    : isPaused
+                      ? "text-text-muted"
+                      : "text-text-main group-hover:text-accent-green transition-colors"
+                }`}
                 title={target.name}
               >
                 {target.name}
               </h3>
-              {renderStatusIndicator()}
-              {target.runner_type === "agent" && (
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                    target.agent_probe_online === false ||
-                    target.agent_probe_status === "offline"
-                      ? "bg-accent-red/10 text-accent-red border-accent-red/30"
-                      : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
-                  }`}
-                  title={
-                    target.agent_probe_online === false ||
-                    target.agent_probe_status === "offline"
-                      ? `Atención: Guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`
-                      : `Sondeado localmente por Guardián Senti9: ${target.agent_probe_name || "LAN"}`
-                  }
-                >
-                  <Server size={10} />
-                  <span>Senti9: {target.agent_probe_name || "LAN"}</span>
-                  {(target.agent_probe_online === false ||
-                    target.agent_probe_status === "offline") && (
-                    <span className="text-xs text-accent-red font-mono">
-                      (Offline)
-                    </span>
-                  )}
-                </span>
-              )}
+              <p
+                className="text-xs text-text-dim font-mono truncate mt-0.5"
+                title={target.endpoint}
+              >
+                {target.endpoint}
+              </p>
             </div>
-            <p
-              className="text-xs text-text-dim font-mono truncate mt-1"
-              title={target.endpoint}
-            >
-              {target.endpoint}
-            </p>
+          </div>
+
+          {/* Protocol Badge with Semantic Icon */}
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border uppercase shrink-0 ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
+            title={`Protocolo ${target.target_type.toUpperCase()}`}
+          >
+            <ProtocolIcon size={11} className="shrink-0" />
+            <span>{target.target_type}</span>
+          </span>
+        </div>
+
+        {/* Failure / Slow Callout (only shown if failing or slow) */}
+        {isDown && (
+          <div
+            title={`${fullDiagnostic} · ${downSinceText}`}
+            className="flex items-center gap-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 px-2 py-1 text-xs font-mono text-rose-300 truncate"
+          >
+            <AlertTriangle size={12} className="text-rose-400 shrink-0" />
+            <span className="truncate">
+              {shortDiagnostic} · {downSinceText}
+            </span>
+          </div>
+        )}
+        {isSlow && (
+          <div
+            title={fullDiagnostic}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 px-2 py-1 text-xs font-mono text-amber-300 truncate"
+          >
+            <AlertTriangle size={12} className="text-amber-400 shrink-0" />
+            <span className="truncate">{fullDiagnostic}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Section: Metrics + 20 Slim Bars + Clean Single-Line Footer */}
+      <div className="mt-4 space-y-2.5">
+        {/* Primary Metrics Row: Big Latency + Uptime 24h */}
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="min-w-0 truncate">
+            {isPaused ? (
+              <span
+                className="text-xs font-medium text-zinc-400 font-mono"
+                title={pausedSinceFull}
+              >
+                {pausedSinceFull}
+              </span>
+            ) : isDown ? (
+              <div
+                className="flex items-baseline gap-2"
+                title={`Servicio caído (${downSinceText}) · Última latencia conocida: ${lastKnownLat || "N/A"}`}
+              >
+                <span className="text-base font-bold font-mono text-rose-400">
+                  Caído
+                </span>
+                {lastKnownLat && (
+                  <span className="text-[11px] font-mono text-text-dim">
+                    últ. {lastKnownLat}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span
+                className="ui-tone text-lg font-bold font-mono tracking-tight"
+                data-tone={latTone}
+                title={`Latencia actual: ${latencyValue}`}
+              >
+                {latencyValue}
+              </span>
+            )}
+          </div>
+
+          <div
+            className="flex items-baseline gap-1.5 text-xs shrink-0"
+            title="Disponibilidad calculada sobre comprobaciones recientes"
+          >
+            <span className="text-text-dim text-[11px]">Uptime 24h</span>
+            <span className={`font-mono font-bold ${uptimeColor}`}>
+              {uptimeDisplay}
+            </span>
           </div>
         </div>
 
-        {/* Action icons */}
-        <div className="flex items-center shrink-0">
-          <ResourceActionButtons
-            label={`Acciones de ${target.name}`}
-            actions={[
-              ...(onAlert
-                ? [
-                    {
-                      label: "Vincular regla de alerta",
-                      capability: "alerts.create" as const,
-                      icon: <Bell size={16} />,
-                      onClick: () => onAlert?.(target),
-                    },
-                  ]
-                : []),
-              {
-                label: "Editar target",
-                onClick: (e) => {
-                  e.stopPropagation();
-                  onEdit(target);
-                },
-                capability: "monitoring.update",
-                icon: (
-                  <>
-                    <Pencil size={14} />
-                  </>
-                ),
-              },
-              {
-                label: "Eliminar target",
-                onClick: (e) => {
-                  e.stopPropagation();
-                  onDelete(target);
-                },
-                capability: "monitoring.delete",
-                danger: true,
-                icon: (
-                  <>
-                    <Trash2 size={14} />
-                  </>
-                ),
-              },
-            ]}
-          />
-        </div>
-      </div>
+        {/* 20 Slim History Bars */}
+        {renderHistoryBars("h-3.5")}
 
-      {/* Tags row */}
-      {target.tags && target.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3.5">
-          {target.tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2.5 py-0.5 bg-bg-dark/80 border border-border-base/80 text-xs text-text-muted rounded-full font-medium"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Mini Uptime Sparkline / Blocks Bar */}
-      <div className="mt-auto mb-3.5 pt-3 border-t border-border-base/40">
-        <div className="flex items-center justify-between text-xs text-text-dim mb-2">
-          <span className="flex items-center gap-1.5 font-medium">
-            <Activity size={12} className="text-accent-green" /> Disponibilidad
-            Reciente
+        {/* Uniform Single-Line Footer: Interval + Fixed Max-2 Tags (+N) */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border-base/40 text-[11px] min-h-[24px]">
+          <span className="text-text-dim shrink-0 font-mono">
+            cada {target.interval} s
           </span>
-          <TargetLatency target={target} />
-        </div>
-        <TargetDiagnostic target={target} />
-        <div className="flex items-center gap-1 h-2.5 w-full">
-          {recentChecks.slice(-18).map((c, idx) => {
-            let bgClass = "bg-zinc-700";
-            if (c.status === "up")
-              bgClass = "bg-emerald-500 hover:bg-emerald-400";
-            else if (c.status === "slow")
-              bgClass = "bg-amber-400 hover:bg-amber-300";
-            else if (c.status === "down" || c.status === "error")
-              bgClass = "bg-rose-500 hover:bg-rose-400";
 
-            return (
-              <div
-                key={idx}
-                className={`flex-1 h-full rounded-full transition-transform hover:scale-125 cursor-pointer ${bgClass}`}
-                title={`Check ${idx + 1}: ${c.status.toUpperCase()} ${c.latency ? `(${c.latency.toFixed(0)}ms)` : ""}`}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bottom row: Protocol, Interval, Latency & Switch */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-border-base/30 text-xs relative pl-11">
-        <div data-card-selection className="absolute bottom-0 left-0">
-          {onSelectToggle && (
-            <SelectionCheckbox
-              checked={isSelected}
-              label={`Seleccionar ${target.name}`}
-              onChange={() => onSelectToggle?.(target)}
-            />
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border uppercase ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}
-          >
-            <Icon size={12} className="shrink-0" />
-            <span>{target.target_type}</span>
-          </span>
-          <span className="text-text-dim text-xs">cada {target.interval}s</span>
-          {target.owner_team_name && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border"
-              style={{
-                backgroundColor: `${target.owner_team_color || "#8B5CF6"}15`,
-                borderColor: `${target.owner_team_color || "#8B5CF6"}40`,
-                color: target.owner_team_color || "#A78BFA",
-              }}
-            >
-              <Layers size={10} className="shrink-0" />
-              <span className="truncate max-w-[100px]">
-                {target.owner_team_name}
+          <div className="flex items-center justify-end gap-1 min-w-0 overflow-hidden">
+            {visibleTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-1.5 py-0.5 rounded bg-bg-dark/80 border border-border-base/70 text-[10px] text-text-muted font-medium truncate max-w-[96px]"
+                title={`#${tag}`}
+              >
+                #{tag}
               </span>
-            </span>
-          )}
+            ))}
+            {extraTags.length > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded bg-bg-dark border border-border-base text-[10px] font-mono text-text-dim shrink-0"
+                title={extraTags.map((t) => `#${t}`).join(", ")}
+              >
+                +{extraTags.length}
+              </span>
+            )}
+          </div>
         </div>
-
-        <TargetEnabledSwitch
-          enabled={target.enabled}
-          onChange={() => onToggle(target)}
-        />
       </div>
     </div>
   );

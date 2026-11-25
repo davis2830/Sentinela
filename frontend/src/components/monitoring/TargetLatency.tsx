@@ -56,6 +56,21 @@ export function formatRelativeTime(dateStr: string | null | undefined): string {
   return `caído ${diffDays} d`;
 }
 
+export function formatPausedSince(target: MonitoringTarget, short = false): string {
+  const refDate = target.updated_at || target.last_checked_at || target.created_at;
+  const prefix = short ? 'Pausado hace' : 'Pausado desde hace';
+  if (!refDate || !Number.isFinite(Date.parse(refDate))) return 'Pausado';
+  const diffMs = Math.max(0, Date.now() - Date.parse(refDate));
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return `${prefix} <1 min`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${prefix} ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${prefix} ${diffHours} h`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${prefix} ${diffDays} d`;
+}
+
 export function getDownSinceText(target: MonitoringTarget): string {
   if (target.down_since) {
     return formatRelativeTime(target.down_since);
@@ -151,6 +166,20 @@ export default function TargetLatency({
   const lastKnownLat = lastUpCheck?.latency ? `${formatMetric(lastUpCheck.latency)} ms` : null;
 
   if (compact) {
+    if (!target.enabled) {
+      const pausedText = formatPausedSince(target, true);
+      return (
+        <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
+          <span
+            className="font-mono text-zinc-400 text-[11px] font-medium"
+            title={formatPausedSince(target, false)}
+          >
+            {pausedText}
+          </span>
+        </div>
+      );
+    }
+
     if (isDown && target.enabled) {
       const downSince = getDownSinceText(target);
       return (

@@ -19,11 +19,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { waitForFreshScan, type QueuedScan } from "../utils/scanPolling";
 import type { MonitoringTarget, CreateTargetData } from "../types/monitoring";
-import TargetCard from "../components/monitoring/TargetCard";
+import TargetCardGridView from "../components/monitoring/TargetCardGridView";
 import TargetTableView from "../components/monitoring/TargetTableView";
 import TargetDetailDrawer from "../components/monitoring/TargetDetailDrawer";
 import TargetForm from "../components/monitoring/TargetForm";
-import MonitoringToolbar from "../components/monitoring/MonitoringToolbar";
+import UptimeToolbar from "../components/monitoring/UptimeToolbar";
+import {
+  useTargets,
+  type TargetDensity,
+  type TargetGroupBy,
+  type TargetSortField,
+} from "../components/monitoring/useTargets";
 import ModalSurface from "../components/common/ModalSurface";
 import { usePersistentViewMode } from "../hooks/usePersistentViewMode";
 import {
@@ -77,10 +83,31 @@ export default function MonitoringPage() {
   const [selectedTag, setSelectedTag] = useState<string>("all");
   const [viewMode, setViewMode] = usePersistentViewMode("monitoring", "table");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<"name" | "latency" | "status">(
-    "status",
-  );
+  const [sortField, setSortField] = useState<TargetSortField>("status");
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Shared density & grouping across both List and Card views
+  const [density, setDensity] = useState<TargetDensity>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sentinel_monitoring_density");
+      if (saved === "comfortable" || saved === "compact") return saved;
+    }
+    return "comfortable";
+  });
+  const handleDensityChange = (next: TargetDensity) => {
+    setDensity(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sentinel_monitoring_density", next);
+    }
+  };
+
+  const [groupBy, setGroupBy] = useState<TargetGroupBy>("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const directory = useConnectivityDirectory<MonitoringTarget>(
     "monitoring/",
@@ -307,6 +334,17 @@ export default function MonitoringPage() {
     }
   }, [navigationParams, selectedTarget]);
 
+  const allTargets = useMemo(() => targets || [], [targets]);
+
+  // Shared sorting, summary KPIs and grouping for both Card and Table views
+  const { sortedTargets, summary, groupedTargets } = useTargets({
+    targets: allTargets,
+    sortField,
+    sortAsc,
+    groupBy,
+    totalOrgSummary: directory.meta?.summary,
+  });
+
   // Bulk selection handlers
   const handleSelectToggle = (target: MonitoringTarget) => {
     setSelectedIds((prev) =>
@@ -317,15 +355,15 @@ export default function MonitoringPage() {
   };
 
   const handleSelectAllToggle = () => {
-    if (!filteredTargets || filteredTargets.length === 0) return;
-    if (selectedIds.length === filteredTargets.length) {
+    if (!sortedTargets || sortedTargets.length === 0) return;
+    if (selectedIds.length === sortedTargets.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredTargets.map((t) => t.id));
+      setSelectedIds(sortedTargets.map((t) => t.id));
     }
   };
 
-  const handleSortChange = (field: "name" | "latency" | "status") => {
+  const handleSortChange = (field: TargetSortField) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -333,8 +371,6 @@ export default function MonitoringPage() {
       setSortAsc(true);
     }
   };
-
-  const allTargets = useMemo(() => targets || [], [targets]);
 
   // Keep the applied tag available even when its result page is empty.
   const allTags = useMemo(
@@ -348,8 +384,6 @@ export default function MonitoringPage() {
     [allTargets, selectedTag],
   );
 
-  // Filtered & Sorted Targets (Memoized)
-  const filteredTargets = allTargets;
   const hasFilters =
     !!searchTerm ||
     statusFilter !== "all" ||
@@ -360,7 +394,7 @@ export default function MonitoringPage() {
 
   if (isError && !targets) return <ReadFailure retry={refetch} />;
   return (
-    <div className="compact-workspace space-y-4 animate-in fade-in duration-300">
+    <div className="compact-workspace space-y-3.5 animate-in fade-in duration-300">
       {isError && <ReadFailure stale={!!targets} retry={refetch} />}
       <ActionFeedback>{directory.message}</ActionFeedback>
       {directory.confirmation}
@@ -393,26 +427,30 @@ export default function MonitoringPage() {
         }
       />
 
-      {viewMode === "grid" && (
-        <MonitoringToolbar
-          search={searchTerm}
-          onSearchChange={setSearchTerm}
-          protocol={protocolFilter}
-          onProtocolChange={setProtocolFilter}
-          status={statusFilter}
-          onStatusChange={setStatusFilter}
-          summary={directory.meta?.summary}
-          tags={allTags}
-          tag={selectedTag}
-          onTagChange={setSelectedTag}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
-      )}
+      {/* Shared Unified Summary & Filter Bar for both Card and List views */}
+      <UptimeToolbar
+        visibleCount={sortedTargets.length}
+        summary={summary}
+        activeStatusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        protocolFilter={protocolFilter}
+        onProtocolFilterChange={setProtocolFilter}
+        tagFilter={selectedTag}
+        onTagFilterChange={setSelectedTag}
+        availableTags={allTags}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        density={density}
+        onDensityChange={handleDensityChange}
+        search={searchTerm}
+        onSearchChange={setSearchTerm}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {/* Floating Bulk Actions Bar */}
       {selectedIds.length > 0 && (
-        <div className="sticky top-4 z-20 bg-bg-dark/95 border border-accent-green/50 backdrop-blur-md rounded-2xl p-3 px-5 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top duration-200">
+        <div className="sticky top-4 z-20 w-full max-w-[1400px] mx-auto bg-bg-dark/95 border border-accent-green/50 backdrop-blur-md rounded-2xl p-3 px-5 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-3">
             <CheckSquare size={18} className="text-accent-green" />
             <span className="text-sm font-semibold text-text-main">
@@ -476,57 +514,46 @@ export default function MonitoringPage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-accent-green" size={36} />
         </div>
-      ) : filteredTargets && filteredTargets.length > 0 ? (
+      ) : sortedTargets && sortedTargets.length > 0 ? (
         viewMode === "grid" && !compact ? (
-          <div className="connectivity-card-grid">
-            {filteredTargets.map((target: MonitoringTarget) => (
-              <TargetCard
-                key={target.id}
-                target={target}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onScan={(t) => scanMutation.mutateAsync(t.id)}
-                onToggle={(t) => toggleMutation.mutate(t)}
-                onAlert={() => navigate("/alerts")}
-                isScanning={scanningId === target.id}
-                onClick={handleSelectTarget}
-                isSelected={selectedIds.includes(target.id)}
-                onSelectToggle={handleSelectToggle}
-              />
-            ))}
-          </div>
+          <TargetCardGridView
+            sortedTargets={sortedTargets}
+            groupedTargets={groupedTargets}
+            collapsedGroups={collapsedGroups}
+            onToggleGroup={toggleGroup}
+            density={density}
+            selectedIds={selectedIds}
+            onSelectToggle={handleSelectToggle}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onScan={(t) => scanMutation.mutateAsync(t.id)}
+            onToggle={(t) => toggleMutation.mutate(t)}
+            onAlert={() => navigate("/alerts")}
+            scanningId={scanningId}
+            onClick={handleSelectTarget}
+          />
         ) : (
           <TargetTableView
-            targets={filteredTargets}
+            sortedTargets={sortedTargets}
+            groupedTargets={groupedTargets}
+            collapsedGroups={collapsedGroups}
+            onToggleGroup={toggleGroup}
+            density={density}
             selectedIds={selectedIds}
             onSelectToggle={handleSelectToggle}
             onSelectAllToggle={handleSelectAllToggle}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onScan={(t) => scanMutation.mutate(t.id)}
             onToggle={(t) => toggleMutation.mutate(t)}
             onAlert={() => navigate("/alerts")}
-            scanningId={scanningId}
             onClick={handleSelectTarget}
             sortField={sortField}
             sortAsc={sortAsc}
             onSortChange={handleSortChange}
-            activeStatusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            protocolFilter={protocolFilter}
-            onProtocolFilterChange={setProtocolFilter}
-            tagFilter={selectedTag}
-            onTagFilterChange={setSelectedTag}
-            availableTags={allTags}
-            totalOrgSummary={directory.meta?.summary}
-            search={searchTerm}
-            onSearchChange={setSearchTerm}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
           />
         )
       ) : (
-        <div className="bg-bg-card border border-border-base rounded-2xl text-center py-16 px-4">
+        <div className="w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl text-center py-16 px-4">
           <TrendingUp className="mx-auto text-text-dim mb-4" size={48} />
           <h3 className="text-lg font-bold text-text-main mb-1">
             No se encontraron objetivos de monitoreo
@@ -573,7 +600,7 @@ export default function MonitoringPage() {
       {selectedTarget && (
         <TargetDetailDrawer
           target={selectedTarget}
-          targets={filteredTargets || []}
+          targets={sortedTargets || []}
           onSelectTarget={handleSelectTarget}
           onClose={() => handleSelectTarget(null)}
           onScan={(t) => scanMutation.mutate(t.id)}
@@ -585,13 +612,11 @@ export default function MonitoringPage() {
         />
       )}
 
-      {/* Private Satellite Agent Directory Drawer */}
-
       {/* Target Create/Edit Modal Form */}
       {showForm && (
         <TargetForm
           target={editingTarget}
-          existingTargets={filteredTargets || targets || []}
+          existingTargets={sortedTargets || targets || []}
           onSubmit={handleSubmit}
           onClose={() => {
             setShowForm(false);
