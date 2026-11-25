@@ -185,6 +185,10 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_status",
             "agent_probe_online",
             "recent_checks",
+            "uptime_24h",
+            "checks_24h",
+            "coverage_24h_pct",
+            "monitored_minutes_24h",
             "down_since",
             "created_at",
             "updated_at",
@@ -201,18 +205,70 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_status",
             "agent_probe_online",
             "recent_checks",
+            "uptime_24h",
+            "checks_24h",
+            "coverage_24h_pct",
+            "monitored_minutes_24h",
             "down_since",
             "created_at",
             "updated_at",
         )
 
     recent_checks = serializers.SerializerMethodField()
+    uptime_24h = serializers.SerializerMethodField()
+    checks_24h = serializers.SerializerMethodField()
+    coverage_24h_pct = serializers.SerializerMethodField()
+    monitored_minutes_24h = serializers.SerializerMethodField()
     down_since = serializers.SerializerMethodField()
     owner_team_name = serializers.CharField(source="owner_team.name", read_only=True, allow_null=True)
     owner_team_color = serializers.CharField(source="owner_team.color", read_only=True, allow_null=True)
     agent_probe_name = serializers.CharField(source="agent_probe.name", read_only=True, allow_null=True)
     agent_probe_status = serializers.CharField(source="agent_probe.status", read_only=True, allow_null=True)
     agent_probe_online = serializers.BooleanField(source="agent_probe.is_online", read_only=True, allow_null=True)
+
+    def _get_24h_counts(self, obj):
+        if hasattr(obj, "checks_24h_total") and hasattr(obj, "checks_24h_up"):
+            return int(obj.checks_24h_total or 0), int(obj.checks_24h_up or 0)
+        cached = getattr(obj, "_cached_24h_counts", None)
+        if cached is not None:
+            return cached
+        from datetime import timedelta
+        from django.db.models import Count, Q
+        from django.utils import timezone
+
+        since_24h = timezone.now() - timedelta(hours=24)
+        agg = obj.checks.filter(checked_at__gte=since_24h).aggregate(
+            total=Count("id"),
+            up=Count("id", filter=Q(status__in=["up", "slow"])),
+        )
+        result = (int(agg["total"] or 0), int(agg["up"] or 0))
+        obj._cached_24h_counts = result
+        return result
+
+    def get_uptime_24h(self, obj):
+        total, up = self._get_24h_counts(obj)
+        if total <= 0:
+            return None
+        return round((up / total) * 100, 2)
+
+    def get_checks_24h(self, obj):
+        total, _ = self._get_24h_counts(obj)
+        return total
+
+    def get_coverage_24h_pct(self, obj):
+        total, _ = self._get_24h_counts(obj)
+        if total <= 0:
+            return 0.0
+        interval_sec = max(15, int(obj.interval or 60))
+        expected = 86400.0 / interval_sec
+        return round(min(100.0, (total / expected) * 100.0), 1)
+
+    def get_monitored_minutes_24h(self, obj):
+        total, _ = self._get_24h_counts(obj)
+        if total <= 0:
+            return 0
+        interval_sec = max(15, int(obj.interval or 60))
+        return min(1440, max(1, round((total * interval_sec) / 60.0)))
 
     def get_down_since(self, obj):
         if not obj.enabled or obj.last_status not in ["down", "error"]:

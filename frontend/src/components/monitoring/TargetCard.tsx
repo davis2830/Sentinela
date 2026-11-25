@@ -10,7 +10,7 @@ import {
   TARGET_TYPE_ICONS,
   getTargetHistorySlots,
   getTargetStatusKind,
-  getTargetUptimePct,
+  getTargetUptimeInfo,
   type TargetDensity,
 } from "./useTargets";
 import {
@@ -142,11 +142,9 @@ export default function TargetCard({
     ? `${formatMetric(lastUpCheck.latency)} ms`
     : null;
 
-  const uptimePct = getTargetUptimePct(target);
-  const uptimeDisplay =
-    uptimePct != null
-      ? `${uptimePct === 100 ? "100" : uptimePct.toFixed(1)} %`
-      : null;
+  const uptimeInfo = getTargetUptimeInfo(target);
+  const uptimePct = uptimeInfo.pct;
+  const uptimeDisplay = uptimeInfo.pctText;
   const uptimeColorClass =
     uptimePct == null
       ? "text-text-dim"
@@ -475,12 +473,21 @@ export default function TargetCard({
           ) : isUp && uptimeDisplay ? (
             <span
               className="inline-flex items-center gap-1 truncate"
-              title="Disponibilidad individual calculada sobre comprobaciones recientes"
+              title={uptimeInfo.tooltip}
             >
               <span className={`font-semibold ${uptimeColorClass}`}>
                 {uptimeDisplay}
               </span>
-              <span className="text-text-dim">· 24 h</span>
+              <span className="text-text-dim truncate">
+                · {uptimeInfo.windowLabel}
+              </span>
+            </span>
+          ) : isUp ? (
+            <span
+              className="text-text-dim truncate"
+              title={uptimeInfo.tooltip}
+            >
+              {uptimeInfo.windowLabel}
             </span>
           ) : isPaused ? (
             <span className="text-slate-500 truncate">

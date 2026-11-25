@@ -71,15 +71,114 @@ export function getTargetStatusKind(target: MonitoringTarget): TargetStatusKind 
   return "unknown";
 }
 
-export function getTargetUptimePct(target: MonitoringTarget): number | null {
-  if (!target.enabled) return null;
+export interface TargetUptimeInfo {
+  pct: number | null;
+  pctText: string | null;
+  windowLabel: string;
+  isPartial: boolean;
+  checks24h: number;
+  coveragePct: number;
+  tooltip: string;
+}
+
+function formatMonitoredDuration(minutes: number): string {
+  if (minutes < 60) return `${Math.max(1, minutes)} min`;
+  const hours = Math.round(minutes / 60);
+  return `${Math.max(1, hours)} h`;
+}
+
+export function getTargetUptimeInfo(target: MonitoringTarget): TargetUptimeInfo {
+  if (!target.enabled) {
+    return {
+      pct: null,
+      pctText: null,
+      windowLabel: "en pausa",
+      isPartial: true,
+      checks24h: target.checks_24h ?? 0,
+      coveragePct: target.coverage_24h_pct ?? 0,
+      tooltip: "Monitoreo pausado",
+    };
+  }
+
+  // Prefer real 24h aggregated metrics from backend when available
+  if (target.uptime_24h !== undefined || target.checks_24h !== undefined) {
+    const checks24h = target.checks_24h ?? 0;
+    const pct = target.uptime_24h ?? null;
+    const coveragePct = target.coverage_24h_pct ?? 0;
+    const monitoredMinutes = target.monitored_minutes_24h ?? 0;
+
+    if (pct === null || checks24h <= 0) {
+      return {
+        pct: null,
+        pctText: null,
+        windowLabel: "Sin datos · 24 h",
+        isPartial: true,
+        checks24h: 0,
+        coveragePct: 0,
+        tooltip:
+          "Sin comprobaciones registradas en las últimas 24 h (los huecos sin datos no cuentan como caída).",
+      };
+    }
+
+    const pctText = `${pct === 100 ? "100" : pct.toFixed(1)} %`;
+    const isPartial = coveragePct < 90;
+    const durationText = formatMonitoredDuration(monitoredMinutes);
+
+    if (!isPartial) {
+      return {
+        pct,
+        pctText,
+        windowLabel: "24 h",
+        isPartial: false,
+        checks24h,
+        coveragePct,
+        tooltip: `${pctText} sobre ${checks24h} comprobaciones en las últimas 24 h (${coveragePct}% de cobertura).`,
+      };
+    }
+
+    return {
+      pct,
+      pctText,
+      windowLabel: `parcial (${durationText})`,
+      isPartial: true,
+      checks24h,
+      coveragePct,
+      tooltip: `${pctText} sobre ${durationText} medidos (${checks24h} checks · ${coveragePct}% de las últimas 24 h). Los huecos sin datos no cuentan como caída.`,
+    };
+  }
+
+  // Fallback when backend 24h annotations are not yet present in payload
   const checks = target.recent_checks;
-  if (!checks || checks.length === 0) return null;
+  if (!checks || checks.length === 0) {
+    return {
+      pct: null,
+      pctText: null,
+      windowLabel: "Sin datos",
+      isPartial: true,
+      checks24h: 0,
+      coveragePct: 0,
+      tooltip: "Sin comprobaciones recientes registradas.",
+    };
+  }
   let up = 0;
   for (const c of checks) {
     if (c.status === "up" || c.status === "slow") up++;
   }
-  return (up / checks.length) * 100;
+  const pct = (up / checks.length) * 100;
+  const pctText = `${pct === 100 ? "100" : pct.toFixed(1)} %`;
+  return {
+    pct,
+    pctText,
+    windowLabel: `parcial (${checks.length} checks)`,
+    isPartial: true,
+    checks24h: checks.length,
+    coveragePct: 0,
+    tooltip: `${pctText} sobre las últimas ${checks.length} comprobaciones registradas. Los huecos sin datos no cuentan como caída.`,
+  };
+}
+
+export function getTargetUptimePct(target: MonitoringTarget): number | null {
+  return getTargetUptimeInfo(target).pct;
 }
 
 export interface HistorySlot {
@@ -145,7 +244,9 @@ export interface TargetSummaryMetrics {
   upCount: number;
   pausedCount: number;
   avgLatency: number | null;
-  uptime24h: string;
+  uptime24h: string | null;
+  uptimePartial: boolean;
+  uptimeCoveragePct: number;
 }
 
 export interface TargetGroup {
@@ -244,18 +345,37 @@ export function useTargets({
         )
       : null;
 
+    // Compute weighted 24h uptime & coverage across active targets (never fabricate 100% if 0 checks)
     let totalChecks = 0;
     let upChecks = 0;
+    let coverageSum = 0;
+    let coverageTargets = 0;
+
     for (const t of targets) {
-      if (t.enabled && t.recent_checks?.length) {
+      if (!t.enabled) continue;
+      if (t.checks_24h !== undefined && t.uptime_24h !== undefined) {
+        const count = t.checks_24h || 0;
+        if (count > 0 && t.uptime_24h !== null) {
+          totalChecks += count;
+          upChecks += (t.uptime_24h / 100) * count;
+        }
+        coverageSum += t.coverage_24h_pct ?? 0;
+        coverageTargets++;
+      } else if (t.recent_checks?.length) {
         for (const c of t.recent_checks) {
           totalChecks++;
           if (c.status === "up" || c.status === "slow") upChecks++;
         }
+        coverageSum += 0;
+        coverageTargets++;
       }
     }
+
     const uptime24h =
-      totalChecks > 0 ? ((upChecks / totalChecks) * 100).toFixed(1) : "100.0";
+      totalChecks > 0 ? ((upChecks / totalChecks) * 100).toFixed(1) : null;
+    const uptimeCoveragePct =
+      coverageTargets > 0 ? Math.round(coverageSum / coverageTargets) : 0;
+    const uptimePartial = uptimeCoveragePct < 90;
 
     return {
       totalCount,
@@ -265,6 +385,8 @@ export function useTargets({
       pausedCount,
       avgLatency,
       uptime24h,
+      uptimePartial,
+      uptimeCoveragePct,
     };
   }, [targets, totalOrgSummary]);
 

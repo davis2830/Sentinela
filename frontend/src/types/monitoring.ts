@@ -33,6 +33,10 @@ export interface MonitoringTarget {
   agent_probe_status?: "online" | "offline" | null;
   agent_probe_online?: boolean | null;
   recent_checks?: RecentCheckItem[];
+  uptime_24h?: number | null;
+  checks_24h?: number;
+  coverage_24h_pct?: number;
+  monitored_minutes_24h?: number;
   down_since?: string | null;
   created_at: string;
   updated_at: string;

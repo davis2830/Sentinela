@@ -95,13 +95,22 @@ export default function UptimeToolbar({
     onGroupByChange("none");
   };
 
-  const uptimeValue = parseFloat(summary.uptime24h);
+  const uptimeValue =
+    summary.uptime24h !== null ? parseFloat(summary.uptime24h) : null;
   const uptimeTextClass =
-    uptimeValue >= 99
-      ? "text-emerald-400"
-      : uptimeValue >= 95
-        ? "text-amber-400"
-        : "text-rose-400";
+    uptimeValue === null
+      ? "text-text-dim"
+      : uptimeValue >= 99
+        ? "text-emerald-400"
+        : uptimeValue >= 95
+          ? "text-amber-400"
+          : "text-rose-400";
+  const uptimeTooltip =
+    uptimeValue === null
+      ? "Sin comprobaciones registradas en las últimas 24 h (los huecos sin datos no cuentan como caída)"
+      : summary.uptimePartial
+        ? `Uptime ponderado sobre mediciones reales de las últimas 24 h (${summary.uptimeCoveragePct}% de cobertura). Los huecos sin datos no cuentan como caída.`
+        : `Uptime ponderado 24 h (${summary.uptimeCoveragePct}% cobertura · ≥99% verde, ≥95% ámbar, <95% rojo)`;
 
   return (
     <div
@@ -259,9 +268,16 @@ export default function UptimeToolbar({
               </span>
             )}
             {summary.avgLatency !== null && <span aria-hidden="true">·</span>}
-            <span title="Uptime ponderado 24 h (≥99% verde, ≥95% ámbar, <95% rojo)">
+            <span title={uptimeTooltip}>
               Uptime{" "}
-              <strong className={uptimeTextClass}>{summary.uptime24h} %</strong>
+              <strong className={uptimeTextClass}>
+                {summary.uptime24h !== null ? `${summary.uptime24h} %` : "—"}
+              </strong>
+              {summary.uptime24h !== null && summary.uptimePartial && (
+                <span className="ml-1 text-[10px] text-text-dim font-normal">
+                  (parcial)
+                </span>
+              )}
             </span>
           </div>
         </div>

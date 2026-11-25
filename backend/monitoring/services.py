@@ -16,15 +16,30 @@ class MonitoringService:
 
     @staticmethod
     def list_targets(organization_id):
-        """Return targets with a bounded PostgreSQL history prefetch."""
-        from django.db.models import Prefetch
+        """Return targets with bounded recent history and 24h availability annotations."""
+        from django.db.models import Count, Prefetch, Q
         from django.utils import timezone
         from datetime import timedelta
 
-        since_1h = timezone.now() - timedelta(hours=1)
+        now = timezone.now()
+        since_1h = now - timedelta(hours=1)
+        since_24h = now - timedelta(hours=24)
         return (
             MonitoringTarget.objects.filter(organization_id=organization_id)
             .select_related("owner_team", "agent_probe")
+            .annotate(
+                checks_24h_total=Count(
+                    "checks",
+                    filter=Q(checks__checked_at__gte=since_24h),
+                ),
+                checks_24h_up=Count(
+                    "checks",
+                    filter=Q(
+                        checks__checked_at__gte=since_24h,
+                        checks__status__in=["up", "slow"],
+                    ),
+                ),
+            )
             .prefetch_related(
                 Prefetch(
                     "checks",
