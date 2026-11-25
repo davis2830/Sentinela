@@ -34,6 +34,7 @@ import RelativeTime, {
   formatExactTime,
 } from "../common/connectivity/RelativeTime";
 import StatusPill, { StatusShapeIcon } from "../common/connectivity/StatusPill";
+import { TargetEnabledSwitch } from "./TargetTableControls";
 import ProbeTelemetry from "./ProbeTelemetry";
 import { InstallationInstructions } from "./Senti9Setup";
 import { PlatformPicker } from "./Senti9Installation";
@@ -62,6 +63,7 @@ interface Senti9DetailDrawerProps {
   canCreateMonitor: boolean;
   onSelectProbeId: (id: string) => void;
   onCreateMonitor: (probeId: string) => void;
+  onToggleProbe: (probe: AgentProbe) => void;
   onClose: () => void;
 }
 
@@ -73,6 +75,7 @@ export default function Senti9DetailDrawer({
   canCreateMonitor,
   onSelectProbeId,
   onCreateMonitor,
+  onToggleProbe,
   onClose,
 }: Senti9DetailDrawerProps) {
   const organization = useAuthStore((s) => s.user?.organization?.id);
@@ -157,6 +160,7 @@ export default function Senti9DetailDrawer({
   const state = probe ? getGuardianHealthState(probe) : "pending";
   const meta = GUARDIAN_STATE_META[state];
   const isRevoked = state === "revoked";
+  const isPaused = state === "paused";
   const isPending = state === "pending";
   const isDisconnected = state === "disconnected";
   const isStale = state === "stale_signal";
@@ -399,50 +403,60 @@ export default function Senti9DetailDrawer({
               )}
             </div>
 
-            {admin && !isRevoked && (
-              <div ref={menuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((prev) => !prev)}
-                  aria-label="Más opciones"
-                  className="h-7 w-7 grid place-items-center rounded-lg border border-border-base bg-bg-card text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0 !min-w-0"
-                >
-                  <MoreHorizontal size={14} />
-                </button>
-                {menuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-border-base bg-bg-dark/98 backdrop-blur-md p-1 shadow-2xl text-xs"
+            {admin && !isRevoked && probe && (
+              <div className="flex items-center gap-2">
+                <TargetEnabledSwitch
+                  enabled={probe.enabled !== false}
+                  onChange={() => onToggleProbe(probe)}
+                  size="compact"
+                  activeLabel="Pausar guardián"
+                  inactiveLabel="Activar guardián"
+                />
+                <div ref={menuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((prev) => !prev)}
+                    aria-label="Más opciones"
+                    title="Rotar token o revocar guardián"
+                    className="h-7 w-7 grid place-items-center rounded-lg border border-border-base bg-bg-card text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0 !min-w-0"
                   >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setToken("");
-                        setAction("rotate");
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
+                    <MoreHorizontal size={14} />
+                  </button>
+                  {menuOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-border-base bg-bg-dark/98 backdrop-blur-md p-1 shadow-2xl text-xs"
                     >
-                      <RotateCw size={13} className="text-amber-400" />
-                      <span>Rotar token</span>
-                    </button>
-                    <div className="my-1 border-t border-border-base/70" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setToken("");
-                        setAction("revoke");
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 cursor-pointer !min-h-0"
-                    >
-                      <ShieldAlert size={13} />
-                      <span>Revocar guardián</span>
-                    </button>
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setToken("");
+                          setAction("rotate");
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
+                      >
+                        <RotateCw size={13} className="text-amber-400" />
+                        <span>Rotar token</span>
+                      </button>
+                      <div className="my-1 border-t border-border-base/70" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setToken("");
+                          setAction("revoke");
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 cursor-pointer !min-h-0"
+                      >
+                        <ShieldAlert size={13} />
+                        <span>Revocar guardián</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -539,6 +553,28 @@ export default function Senti9DetailDrawer({
                     <p className="text-[11px] text-text-muted">
                       Despliega el contenedor Senti9 con el token generado al registrar este guardián. Los latidos aparecerán en menos de 15 s.
                     </p>
+                  )}
+                </div>
+              )}
+
+              {isPaused && (
+                <div className="rounded-xl border border-slate-700 bg-bg-dark/60 p-3.5 flex items-center justify-between gap-3 text-slate-300">
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="font-semibold text-xs text-slate-200">
+                      Guardián pausado
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      No despacha nuevos chequeos LAN mientras esté desactivado. Su token sigue activo.
+                    </p>
+                  </div>
+                  {admin && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleProbe(probe)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent-green/15 hover:bg-accent-green text-accent-green hover:text-black border border-accent-green/35 transition-colors cursor-pointer !min-h-0"
+                    >
+                      Reactivar
+                    </button>
                   )}
                 </div>
               )}

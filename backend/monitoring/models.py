@@ -23,6 +23,7 @@ class AgentProbe(OrganizationOwnedModel):
         max_length=150,
         help_text="Human-readable probe identifier (e.g. Datacenter Santiago)",
     )
+    enabled = models.BooleanField(default=True, db_index=True)
     token_hash = models.CharField(max_length=128, unique=True, db_index=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     revocation_reason = models.CharField(max_length=500, blank=True)

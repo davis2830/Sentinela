@@ -66,6 +66,7 @@ class AgentProbeSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
+            "enabled",
             "status",
             "is_online",
             "last_heartbeat",

@@ -244,6 +244,29 @@ export default function Senti9Toolbar({
               <span>{summary.pendingCount} esperando</span>
             </button>
 
+            {summary.pausedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleChip("paused")}
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap !min-h-0 !min-w-0 ${
+                  statusFilter === "paused"
+                    ? "bg-slate-500 text-white ring-2 ring-slate-400/50"
+                    : "bg-slate-500/10 border border-slate-500/35 text-slate-300 hover:bg-slate-500/20"
+                }`}
+                title="Filtrar por guardianes pausados"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    statusFilter === "paused" ? "bg-white" : "bg-slate-400"
+                  }`}
+                />
+                <span>
+                  {summary.pausedCount}{" "}
+                  {summary.pausedCount === 1 ? "pausado" : "pausados"}
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => toggleChip("revoked")}

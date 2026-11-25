@@ -775,12 +775,59 @@ class AgentProbeListView(APIView):
 
 
 class AgentProbeDetailView(APIView):
-    """Endpoint for deleting/revoking a private satellite runner.
+    """Endpoint for toggling or deleting/revoking a private satellite runner.
 
+    PATCH /api/v1/agent-probes/{id}/
     DELETE /api/v1/agent-probes/{id}/
     """
 
     permission_classes = (IsAuthenticated,)
+
+    def patch(self, request, probe_id):
+        from common.permissions import IsOrgAdmin
+        from rest_framework.exceptions import PermissionDenied
+        from .models import AgentProbe
+
+        if not IsOrgAdmin().has_permission(request, self):
+            raise PermissionDenied()
+
+        org_id = request.user.organization_id
+        try:
+            probe = AgentProbe.objects.get(pk=probe_id, organization_id=org_id)
+        except AgentProbe.DoesNotExist:
+            return error_response("Guardián no encontrado.", status_code=status.HTTP_404_NOT_FOUND)
+
+        if probe.revoked_at:
+            return error_response(
+                "No se puede activar ni pausar un guardián revocado.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enabled = request.data.get("enabled")
+        if not isinstance(enabled, bool):
+            return error_response(
+                "El campo 'enabled' debe ser booleano.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        probe.enabled = enabled
+        probe.save(update_fields=["enabled", "updated_at"])
+
+        try:
+            from audit.services import AuditService
+
+            AuditService.log_from_request(
+                request,
+                action="update",
+                module="monitoring",
+                description=(
+                    f"Guardián Senti9 {'activado' if enabled else 'pausado'}: {probe.name}"
+                ),
+            )
+        except ObjectDoesNotExist:
+            pass
+
+        return success_response(AgentProbeSerializer(probe).data)
 
     def delete(self, request, probe_id):
         org_id = request.user.organization_id

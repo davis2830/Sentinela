@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   CheckCircle2,
@@ -9,6 +10,7 @@ import {
   Server,
   Terminal,
 } from "lucide-react";
+import { api } from "../services/api";
 import { NOCPageHeader } from "../components/common/noc";
 import {
   ReadFailure,
@@ -39,10 +41,27 @@ import type { AgentProbe } from "../types/agent_probe";
 
 export default function Senti9Page() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const admin = !!(user?.is_staff || user?.is_superuser);
   const canCreateMonitor = useCapability("monitoring.create");
   const [viewMode, setViewMode] = usePersistentViewMode("senti9", "table");
+
+  const toggleMutation = useMutation({
+    mutationFn: async (probe: AgentProbe) => {
+      const nextEnabled = probe.enabled === false;
+      return (
+        await api.patch(`agent-probes/${probe.id}/`, {
+          enabled: nextEnabled,
+        })
+      ).data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["agent-probes"] });
+      void queryClient.invalidateQueries({ queryKey: ["agent-probe-detail"] });
+      void queryClient.invalidateQueries({ queryKey: ["monitoring-targets"] });
+    },
+  });
 
   // Unified filters & table state (preserved across List <-> Card switch)
   const [search, setSearch] = useState("");
@@ -234,6 +253,7 @@ export default function Senti9Page() {
               onCreateMonitor={(id) =>
                 navigate(`/monitoring?create=1&agent=${id}`)
               }
+              onToggleProbe={(probe) => toggleMutation.mutate(probe)}
             />
           ) : (
             <Senti9CardGridView
@@ -251,6 +271,7 @@ export default function Senti9Page() {
               onCreateMonitor={(id) =>
                 navigate(`/monitoring?create=1&agent=${id}`)
               }
+              onToggleProbe={(probe) => toggleMutation.mutate(probe)}
             />
           )
         ) : hasFilters ? (
@@ -381,6 +402,7 @@ export default function Senti9Page() {
           onCreateMonitor={(id) =>
             navigate(`/monitoring?create=1&agent=${id}`)
           }
+          onToggleProbe={(probe) => toggleMutation.mutate(probe)}
           onClose={() => setSelected(null)}
         />
       )}

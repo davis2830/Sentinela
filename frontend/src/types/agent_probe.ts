@@ -1,6 +1,7 @@
 export interface AgentProbe {
   id: string;
   name: string;
+  enabled?: boolean;
   lifecycle?: "pending_connection" | "connected" | "disconnected" | "revoked";
   revoked_at?: string | null;
   revocation_reason?: string;

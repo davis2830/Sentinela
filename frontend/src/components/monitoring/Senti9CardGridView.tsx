@@ -19,6 +19,7 @@ interface Senti9CardGridViewProps {
   canCreateMonitor: boolean;
   onSelectProbe: (probe: AgentProbe, section?: GuardianActionSection) => void;
   onCreateMonitor: (probeId: string) => void;
+  onToggleProbe: (probe: AgentProbe) => void;
 }
 
 export default function Senti9CardGridView({
@@ -32,6 +33,7 @@ export default function Senti9CardGridView({
   canCreateMonitor,
   onSelectProbe,
   onCreateMonitor,
+  onToggleProbe,
 }: Senti9CardGridViewProps) {
   const gridClass =
     density === "compact"
@@ -47,6 +49,7 @@ export default function Senti9CardGridView({
       canCreateMonitor={canCreateMonitor}
       onSelect={onSelectProbe}
       onCreateMonitor={onCreateMonitor}
+      onToggle={onToggleProbe}
     />
   );
 

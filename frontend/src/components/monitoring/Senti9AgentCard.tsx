@@ -23,6 +23,7 @@ interface Senti9AgentCardProps {
   canCreateMonitor: boolean;
   onSelect: (probe: AgentProbe, section?: GuardianActionSection) => void;
   onCreateMonitor: (probeId: string) => void;
+  onToggle: (probe: AgentProbe) => void;
 }
 
 export default function Senti9AgentCard({
@@ -32,11 +33,14 @@ export default function Senti9AgentCard({
   canCreateMonitor,
   onSelect,
   onCreateMonitor,
+  onToggle,
 }: Senti9AgentCardProps) {
   const state = getGuardianHealthState(probe);
   const meta = GUARDIAN_STATE_META[state];
   const isCompact = density === "compact";
   const isRevoked = state === "revoked";
+  const isPaused = state === "paused";
+  const isMuted = isRevoked || isPaused;
   const isDisconnected = state === "disconnected";
   const isStale = state === "stale_signal";
   const isPending = state === "pending";
@@ -53,13 +57,13 @@ export default function Senti9AgentCard({
     `Host: ${identifier}`,
     probe.ip_address ? `IP: ${probe.ip_address}` : "",
     probe.version ? `Versión: v${probe.version}` : "",
-    !isRevoked && !isPending ? `Cola local: ${queueTotal}` : "",
+    !isMuted && !isPending ? `Cola local: ${queueTotal}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
 
-  // Homologated card surface (neutral on connected, red on disconnected, amber on stale/pending, slate on revoked)
-  const cardSurfaceClass = isRevoked
+  // Homologated card surface (neutral on connected, red on disconnected, amber on stale/pending, slate on paused/revoked)
+  const cardSurfaceClass = isMuted
     ? "bg-bg-card/60 border-border-base/60 hover:bg-bg-card/85 hover:border-border-base"
     : isDisconnected
       ? "bg-[#1c1217] border-rose-500/45 hover:bg-[#25161e] hover:border-rose-400/70"
@@ -115,7 +119,7 @@ export default function Senti9AgentCard({
               } ${
                 isDisconnected
                   ? "text-rose-300 font-bold"
-                  : isRevoked
+                  : isMuted
                     ? "text-slate-400"
                     : "text-text-main group-hover:text-accent-green transition-colors"
               }`}
@@ -125,7 +129,7 @@ export default function Senti9AgentCard({
             </h3>
           </div>
 
-          {/* Unified Floating Hover/Focus/Touch Actions (+, Activity, Terminal, ⋯) — never pushes name */}
+          {/* Unified Floating Hover/Focus/Touch Actions + Always-Visible Toggle Switch */}
           <GuardianRowActions
             probe={probe}
             admin={admin}
@@ -133,13 +137,14 @@ export default function Senti9AgentCard({
             variant="card"
             onSelect={onSelect}
             onCreateMonitor={onCreateMonitor}
+            onToggle={onToggle}
           />
         </div>
 
         {/* Single Metadata Line: IP · Version (hash & queue live in tooltip and detail drawer) */}
         <div
           className={`${isCompact ? "pl-[24px] text-[11px]" : "pl-[26px] text-xs"} font-mono flex items-center gap-1.5 min-w-0 truncate ${
-            isRevoked ? "text-slate-500" : "text-text-dim"
+            isMuted ? "text-slate-500" : "text-text-dim"
           }`}
           title={detailTooltip}
         >
@@ -222,6 +227,13 @@ export default function Senti9AgentCard({
               <span className="font-mono text-xs font-medium text-slate-400 leading-none">
                 Revocado
               </span>
+            ) : isPaused ? (
+              <span className="font-mono text-xs font-medium text-slate-400 leading-none">
+                Pausado
+                {assigned > 0
+                  ? ` · ${assigned} ${assigned === 1 ? "monitor" : "monitores"}`
+                  : ""}
+              </span>
             ) : assigned > 0 ? (
               <>
                 <Link
@@ -269,6 +281,12 @@ export default function Senti9AgentCard({
                 value={probe.revoked_at}
                 emptyLabel="Revocado"
                 className="text-slate-500"
+              />
+            ) : isPaused ? (
+              <RelativeTime
+                value={probe.last_heartbeat}
+                emptyLabel="Pausado"
+                className="text-slate-400"
               />
             ) : (
               <RelativeTime

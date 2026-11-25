@@ -5,12 +5,16 @@ export function TargetEnabledSwitch({
   enabled,
   onChange,
   size = "compact",
+  activeLabel = "Pausar monitoreo",
+  inactiveLabel = "Activar monitoreo",
 }: {
   enabled: boolean;
   onChange: () => void;
   size?: "normal" | "compact";
+  activeLabel?: string;
+  inactiveLabel?: string;
 }) {
-  const label = enabled ? "Pausar monitoreo" : "Activar monitoreo";
+  const label = enabled ? activeLabel : inactiveLabel;
   const isCompact = size === "compact";
 
   return (

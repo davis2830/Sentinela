@@ -14,6 +14,7 @@ export type GuardianHealthState =
   | "stale_signal"
   | "disconnected"
   | "pending"
+  | "paused"
   | "revoked";
 
 export type GuardianPlatform = "linux" | "windows";
@@ -45,6 +46,7 @@ export function getGuardianHeartbeatAgeSec(probe: AgentProbe): number | null {
  */
 export function getGuardianHealthState(probe: AgentProbe): GuardianHealthState {
   if (probe.revoked_at) return "revoked";
+  if (probe.enabled === false) return "paused";
   if (!probe.last_heartbeat) return "pending";
 
   const ageSec = getGuardianHeartbeatAgeSec(probe);
@@ -87,6 +89,12 @@ export const GUARDIAN_STATE_META: Record<
     tone: "warning",
     shape: "clock",
   },
+  paused: {
+    label: "Pausado",
+    shortLabel: "Pausado",
+    tone: "muted",
+    shape: "pause",
+  },
   revoked: {
     label: "Revocado",
     shortLabel: "Revocado",
@@ -127,6 +135,7 @@ export interface GuardianSummaryMetrics {
   staleCount: number;
   disconnectedCount: number;
   pendingCount: number;
+  pausedCount: number;
   revokedCount: number;
   totalQueue: number;
   totalMonitors: number;
@@ -147,7 +156,8 @@ const STATE_PRIORITY: Record<GuardianHealthState, number> = {
   stale_signal: 1,
   pending: 2,
   connected: 3,
-  revoked: 4,
+  paused: 4,
+  revoked: 5,
 };
 
 interface UseGuardiansParams {
@@ -177,6 +187,7 @@ export function useGuardians({
     let staleCount = 0;
     let disconnectedCount = 0;
     let pendingCount = 0;
+    let pausedCount = 0;
     let revokedCount = 0;
     let totalQueue = 0;
     let totalMonitors = 0;
@@ -188,9 +199,10 @@ export function useGuardians({
       else if (state === "stale_signal") staleCount++;
       else if (state === "disconnected") disconnectedCount++;
       else if (state === "pending") pendingCount++;
+      else if (state === "paused") pausedCount++;
       else if (state === "revoked") revokedCount++;
 
-      if (state !== "revoked") {
+      if (state !== "revoked" && state !== "paused") {
         totalQueue += getGuardianQueueTotal(p);
       }
       const assigned = p.assigned_targets_count ?? 0;
@@ -207,6 +219,7 @@ export function useGuardians({
       staleCount,
       disconnectedCount,
       pendingCount,
+      pausedCount,
       revokedCount,
       totalQueue,
       totalMonitors,
@@ -333,7 +346,7 @@ export function useGuardians({
 }
 
 export interface GuardianHeartbeatSlot {
-  status: "ok" | "stale" | "missed" | "pending" | "revoked" | "no_data";
+  status: "ok" | "stale" | "missed" | "pending" | "paused" | "revoked" | "no_data";
   cls: string;
   tooltip: string;
 }
@@ -366,6 +379,14 @@ export function getGuardianHeartbeatSlots(
         status: "revoked",
         cls: "bg-slate-600/75",
         tooltip: `${timeStr} · Guardián revocado`,
+      };
+    }
+
+    if (state === "paused") {
+      return {
+        status: "paused",
+        cls: "bg-slate-600/75",
+        tooltip: `${timeStr} · Guardián pausado`,
       };
     }
 

@@ -787,6 +787,8 @@ class AgentProbeService:
 
         if not monitoring_allowed(probe.organization):
             return []
+        if not probe.enabled:
+            return []
         targets = probe.assigned_targets.filter(enabled=True, runner_type="agent")
         from .agent_delivery import redeliver, issue
 

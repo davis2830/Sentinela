@@ -40,10 +40,11 @@ def revoke(probe_id, organization_id, reason, user=None):
     probe.assigned_targets.filter(enabled=True).update(enabled=False)
     probe.revoked_at = timezone.now()
     probe.revocation_reason = reason.strip()
+    probe.enabled = False
     # Invalid even for older authentication implementations; no usable replacement secret.
     probe.token_hash = "revoked:" + uuid.uuid4().hex
     probe.status = "offline"
-    probe.save(update_fields=["revoked_at", "revocation_reason", "token_hash", "status", "updated_at"])
+    probe.save(update_fields=["revoked_at", "revocation_reason", "enabled", "token_hash", "status", "updated_at"])
     AuditService.log(
         action="delete",
         module="monitoring",

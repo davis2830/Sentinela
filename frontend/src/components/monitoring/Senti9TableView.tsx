@@ -48,6 +48,7 @@ interface Senti9TableViewProps {
   canCreateMonitor: boolean;
   onSelectProbe: (probe: AgentProbe, section?: GuardianActionSection) => void;
   onCreateMonitor: (probeId: string) => void;
+  onToggleProbe: (probe: AgentProbe) => void;
 }
 
 export default function Senti9TableView({
@@ -63,6 +64,7 @@ export default function Senti9TableView({
   canCreateMonitor,
   onSelectProbe,
   onCreateMonitor,
+  onToggleProbe,
 }: Senti9TableViewProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -85,6 +87,8 @@ export default function Senti9TableView({
     const meta = GUARDIAN_STATE_META[state];
     const platform = getGuardianPlatform(probe);
     const isRevoked = state === "revoked";
+    const isPaused = state === "paused";
+    const isMuted = isRevoked || isPaused;
     const isDisconnected = state === "disconnected";
     const isStale = state === "stale_signal";
     const isPending = state === "pending";
@@ -98,7 +102,7 @@ export default function Senti9TableView({
     const draining = Boolean(probe.telemetry?.snapshot?.draining);
 
     const identifier = probe.hostname || probe.id.slice(0, 12);
-    const rowBgClass = isRevoked
+    const rowBgClass = isMuted
       ? "bg-bg-dark/25 opacity-75 hover:opacity-95 hover:bg-white/[0.03]"
       : isDisconnected
         ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
@@ -148,7 +152,7 @@ export default function Senti9TableView({
             <span
               className={`shrink-0 font-semibold text-xs transition-colors ${isDisconnected
                 ? "text-rose-300 font-bold"
-                : isRevoked
+                : isMuted
                   ? "text-slate-400"
                   : "text-text-main group-hover:text-accent-green"
                 }`}
@@ -200,7 +204,7 @@ export default function Senti9TableView({
             )}
             <span
               className={
-                isRevoked ? "text-slate-400" : "text-text-main font-medium"
+                isMuted ? "text-slate-400" : "text-text-main font-medium"
               }
             >
               {platform === "windows" ? "Windows" : "Linux"}
@@ -240,7 +244,7 @@ export default function Senti9TableView({
             >
               <span
                 className={
-                  isRevoked
+                  isMuted
                     ? "text-slate-400"
                     : "text-text-main font-semibold group-hover/link:text-accent-green"
                 }
@@ -252,7 +256,7 @@ export default function Senti9TableView({
                   · {activeAssigned}{" "}
                   {activeAssigned === 1 ? "afectado" : "afectados"}
                 </span>
-              ) : !isRevoked && downAssigned > 0 ? (
+              ) : !isMuted && downAssigned > 0 ? (
                 <span className="text-[11px] font-semibold text-rose-400">
                   · {downAssigned} {downAssigned === 1 ? "caído" : "caídos"}
                 </span>
@@ -283,6 +287,17 @@ export default function Senti9TableView({
               emptyLabel="Revocado"
               className="text-[11px] text-slate-500"
             />
+          ) : isPaused ? (
+            <span
+              className="font-mono text-[11px] text-slate-400"
+              title={
+                probe.last_heartbeat
+                  ? `Pausado · último latido ${formatExactDate(probe.last_heartbeat)}`
+                  : "Guardián pausado"
+              }
+            >
+              Pausado
+            </span>
           ) : (
             <RelativeTime
               value={probe.last_heartbeat}
@@ -298,7 +313,7 @@ export default function Senti9TableView({
 
         {/* 6. Telemetría */}
         <td className={`${paddingY} px-3 whitespace-nowrap w-[92px]`}>
-          {isRevoked || isPending ? (
+          {isMuted || isPending ? (
             <span className="font-mono text-[11px] text-text-dim">—</span>
           ) : probe.telemetry?.snapshot ? (
             <span
@@ -322,7 +337,7 @@ export default function Senti9TableView({
 
         {/* 7. Acciones (fondo transparente para heredar exactamente el bg de la fila sin duplicar alfa) */}
         <td
-          className={`${paddingY} px-3 text-right whitespace-nowrap w-[124px] bg-transparent`}
+          className={`${paddingY} px-3 text-right whitespace-nowrap w-[144px] bg-transparent`}
           onClick={(e) => e.stopPropagation()}
         >
           <GuardianRowActions
@@ -332,6 +347,7 @@ export default function Senti9TableView({
             variant="table"
             onSelect={onSelectProbe}
             onCreateMonitor={onCreateMonitor}
+            onToggle={onToggleProbe}
           />
         </td>
       </tr>
@@ -455,7 +471,7 @@ export default function Senti9TableView({
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 text-right whitespace-nowrap w-[124px] bg-transparent"
+                className="py-2 px-3 text-right whitespace-nowrap w-[144px] bg-transparent"
               >
                 Acciones
               </th>
