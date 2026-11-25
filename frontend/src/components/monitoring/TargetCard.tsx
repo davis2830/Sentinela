@@ -88,10 +88,15 @@ export default function TargetCard({
     target.expected_status,
   );
   const downSinceText = isDown ? getDownSinceText(target) : "";
-  const pausedSinceFull = isPaused ? formatPausedSince(target, false) : "";
-  const pausedSinceShort = isPaused ? formatPausedSince(target, true) : "";
+  const pausedLabel = isPaused ? formatPausedSince(target, false) : "";
+  const pausedTooltip = isPaused ? formatPausedSince(target, true) : "";
 
-  // Latency & Uptime
+  // Clean display endpoint (strips scheme visually since protocol icon already shows it; full URL in tooltip)
+  const displayEndpoint = (target.endpoint || "")
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/$/, "");
+
+  // Latency & Threshold Margin (<50% emerald, 50-100% amber, >100% rose)
   const measured = Boolean(
     target.last_checked_at && Number.isFinite(Date.parse(target.last_checked_at)),
   );
@@ -103,12 +108,28 @@ export default function TargetCard({
     target.last_latency >= 0
       ? target.last_latency
       : null;
+  const latencyLimit =
+    finite(target.max_latency_ms) && target.max_latency_ms > 0
+      ? target.max_latency_ms
+      : 2000;
   const latencyValue =
     lastLatencyNum !== null ? `${formatMetric(lastLatencyNum)} ms` : "—";
   const latTone =
     lastLatencyNum !== null
-      ? latencyTone(lastLatencyNum, target.max_latency_ms, target.last_status)
+      ? latencyTone(lastLatencyNum, latencyLimit, target.last_status)
       : "muted";
+  const latencyColorClass =
+    latTone === "success"
+      ? "text-emerald-400"
+      : latTone === "warning"
+        ? "text-amber-400"
+        : latTone === "danger"
+          ? "text-rose-400"
+          : "text-text-dim";
+  const latencyPct =
+    lastLatencyNum !== null
+      ? Math.round((lastLatencyNum / latencyLimit) * 100)
+      : null;
 
   const lastUpCheck = isDown
     ? [...(target.recent_checks || [])]
@@ -125,32 +146,32 @@ export default function TargetCard({
       ? `${uptimePct === 100 ? "100" : uptimePct.toFixed(1)} %`
       : null;
 
-  // 16 slim bars in status-wall mode (12 in compact) — strictly gray when paused
-  const historySlots = getTargetHistorySlots(target, isCompact ? 12 : 16);
+  // 16 slim bars in status-wall mode (14 in compact) — solid slate-700 when paused for legibility
+  const historySlots = getTargetHistorySlots(target, isCompact ? 14 : 16);
 
-  // Neutral border on Online! Only Down (red) and Slow (amber) have colored borders; Paused is dimmed.
+  // Neutral border on Online; colored border ONLY on Down (red) and Slow (amber); legible muted look on Paused
   const cardSurfaceClass = isSelected
     ? "border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30"
     : isPaused
-      ? "bg-bg-card/80 border-border-base/60 opacity-55 hover:opacity-80 hover:border-border-base"
+      ? "bg-bg-card/60 border-border-base/60 hover:bg-bg-card/85 hover:border-border-base"
       : isDown
         ? "bg-[#1c1217] border-rose-500/45 hover:bg-[#25161e] hover:border-rose-400/70"
         : isSlow
           ? "bg-bg-card border-amber-500/40 hover:border-amber-400/70"
           : "bg-bg-card border-border-base/80 hover:border-text-dim/60";
 
-  // Floating checkbox in top-left corner so left-alignment of Status + Name + URL never shifts
+  // Checkbox visible on hover, keyboard focus inside card, touch devices, OR whenever ANY card is selected
   const checkboxVisibilityClass =
     isSelected || hasAnySelection
       ? "opacity-100 scale-100"
-      : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
+      : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:scale-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100";
 
   const renderStatusIcon = (size: number) => {
     if (isPaused) {
       return (
         <PauseCircle
           size={size}
-          className="text-zinc-400 shrink-0"
+          className="text-slate-400 shrink-0"
           aria-label="Pausado"
         />
       );
@@ -185,7 +206,7 @@ export default function TargetCard({
     return (
       <HelpCircle
         size={size}
-        className="text-zinc-500 shrink-0"
+        className="text-slate-500 shrink-0"
         aria-label="Desconocido"
       />
     );
@@ -197,12 +218,12 @@ export default function TargetCard({
       aria-label={`Historial reciente de ${target.name}`}
     >
       {historySlots.map((slot, idx) => {
-        let bg = "bg-bg-card-hover/65";
+        let bg = "bg-slate-800";
         let tooltip = "Sin medición aún";
 
         if (slot.status === "paused") {
-          bg = "bg-zinc-700/45";
-          tooltip = "Monitoreo pausado";
+          bg = "bg-slate-700";
+          tooltip = pausedTooltip || "Monitoreo pausado";
         } else if (slot.status !== "no_data") {
           if (slot.status === "up") bg = "bg-emerald-500 hover:bg-emerald-400";
           else if (slot.status === "slow") bg = "bg-amber-400 hover:bg-amber-300";
@@ -241,17 +262,12 @@ export default function TargetCard({
     </div>
   );
 
-  const cardTooltip = [
-    `${target.name} (${target.target_type.toUpperCase()} · cada ${target.interval} s)`,
-    target.endpoint,
-    target.runner_type === "agent"
-      ? `Guardián Senti9: ${target.agent_probe_name || "LAN"}`
-      : "Ejecutor: Nube Sentinel",
-    uptimeDisplay ? `Uptime 24h: ${uptimeDisplay}` : "",
-    isDown ? `${fullDiagnostic} · ${downSinceText}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const latencyTooltip =
+    lastLatencyNum !== null
+      ? `Latencia: ${latencyValue} (${latencyPct}% del límite de ${formatMetric(latencyLimit)} ms)${
+          uptimeDisplay ? ` · Uptime 24h: ${uptimeDisplay}` : ""
+        }`
+      : `Sin latencia registrada (límite: ${formatMetric(latencyLimit)} ms)`;
 
   return (
     <div
@@ -259,7 +275,6 @@ export default function TargetCard({
       role="button"
       tabIndex={0}
       aria-label={`Ver detalle de ${target.name}`}
-      title={isCompact ? cardTooltip : undefined}
       onClick={() => onClick(target)}
       onKeyDown={(e) => {
         if (
@@ -271,10 +286,10 @@ export default function TargetCard({
         }
       }}
       className={`group relative flex h-full flex-col justify-between rounded-2xl border cursor-pointer transition-all duration-150 ${
-        isCompact ? "p-3 gap-2.5" : "p-4 gap-4"
+        isCompact ? "p-3.5 gap-3" : "p-4 gap-4"
       } ${cardSurfaceClass}`}
     >
-      {/* Top-Left Floating Selection Checkbox (never shifts content alignment) */}
+      {/* Top-Left Floating Selection Checkbox (hover, focus-within, touch, or active bulk selection) */}
       {onSelectToggle && (
         <button
           type="button"
@@ -286,10 +301,10 @@ export default function TargetCard({
             e.stopPropagation();
             onSelectToggle(target);
           }}
-          className={`sentinel-selection absolute -top-2 -left-2 z-10 grid h-5 w-5 place-items-center rounded-md bg-bg-dark border shadow-md transition-all cursor-pointer !min-h-0 !min-w-0 ${
+          className={`sentinel-selection absolute -top-2 -left-2 z-20 grid h-5 w-5 place-items-center rounded-md border shadow-md transition-all cursor-pointer !min-h-0 !min-w-0 ${
             isSelected
               ? "border-accent-green bg-accent-green text-black"
-              : "border-border-base text-transparent hover:border-text-muted"
+              : "border-slate-600 bg-bg-dark text-transparent hover:border-accent-green"
           } ${checkboxVisibilityClass}`}
         >
           <Check
@@ -300,7 +315,7 @@ export default function TargetCard({
         </button>
       )}
 
-      {/* Top Block: Single Left Alignment (Status Icon + Name, URL below) & Hover Actions + Toggle on Right */}
+      {/* Top Block: Single Left Alignment (Status Icon + Name, Truncated URL below) & Hover Actions + Toggle */}
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-2 min-w-0">
           {/* Status Icon + Name */}
@@ -308,21 +323,21 @@ export default function TargetCard({
             {renderStatusIcon(isCompact ? 16 : 18)}
             <h3
               className={`font-semibold truncate leading-tight ${
-                isCompact ? "text-xs" : "text-sm"
+                isCompact ? "text-[13px]" : "text-sm"
               } ${
                 isDown
                   ? "text-rose-300 font-bold"
                   : isPaused
-                    ? "text-text-muted"
+                    ? "text-slate-400"
                     : "text-text-main group-hover:text-accent-green transition-colors"
               }`}
-              title={target.name}
+              title={`${target.name} · ${target.endpoint}`}
             >
               {target.name}
             </h3>
           </div>
 
-          {/* Right: Hover Actions (Bell, Pencil, Trash2) + Always-Visible Toggle */}
+          {/* Right: Hover/Focus/Touch Actions (Bell, Pencil, Trash2) + Always-Visible Toggle */}
           <div
             className="flex items-center gap-1 shrink-0"
             onClick={(e) => e.stopPropagation()}
@@ -367,15 +382,15 @@ export default function TargetCard({
           </div>
         </div>
 
-        {/* URL aligned directly under the Name (hidden in compact mode) */}
-        {!isCompact && (
-          <p
-            className="pl-[26px] text-xs text-text-dim font-mono truncate"
-            title={target.endpoint}
-          >
-            {target.endpoint}
-          </p>
-        )}
+        {/* Truncated Endpoint URL always shown under Name to distinguish similar names */}
+        <p
+          className={`${isCompact ? "pl-[24px] text-[11px]" : "pl-[26px] text-xs"} font-mono truncate ${
+            isPaused ? "text-slate-500" : "text-text-dim"
+          }`}
+          title={target.endpoint}
+        >
+          {displayEndpoint}
+        </p>
 
         {/* Inline Failure Detail (only when Down or Slow, aligned under Name) */}
         {isDown && (
@@ -385,14 +400,13 @@ export default function TargetCard({
           >
             <AlertTriangle size={11} className="text-rose-400 shrink-0" />
             <span className="truncate">
-              {shortDiagnostic}
-              {!isCompact && ` · ${downSinceText}`}
+              {shortDiagnostic} · {downSinceText}
             </span>
           </div>
         )}
-        {!isCompact && isSlow && (
+        {isSlow && (
           <div
-            className="pl-[26px] pt-0.5 flex items-center gap-1.5 text-[11px] font-mono text-amber-300 truncate"
+            className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} pt-0.5 flex items-center gap-1.5 text-[11px] font-mono text-amber-300 truncate`}
             title={fullDiagnostic}
           >
             <AlertTriangle size={11} className="text-amber-400 shrink-0" />
@@ -401,19 +415,19 @@ export default function TargetCard({
         )}
       </div>
 
-      {/* Bottom Block: Big Latency + Protocol on same baseline, Slim History Bars below */}
+      {/* Bottom Block: Semantic Latency + Protocol on same baseline, Slim History Bars below */}
       <div className={isCompact ? "space-y-2" : "space-y-2.5"}>
         <div className="flex items-baseline justify-between gap-2">
           {/* Big Latency / Status Metric */}
           <div className="min-w-0 truncate">
             {isPaused ? (
               <span
-                className={`font-mono font-medium text-zinc-400 ${
+                className={`font-mono font-medium text-slate-400 ${
                   isCompact ? "text-xs" : "text-sm"
                 }`}
-                title={pausedSinceFull}
+                title={pausedTooltip}
               >
-                {isCompact ? pausedSinceShort : pausedSinceFull}
+                {pausedLabel}
               </span>
             ) : isDown ? (
               <div
@@ -427,7 +441,7 @@ export default function TargetCard({
                 >
                   Caído
                 </span>
-                {!isCompact && lastKnownLat && (
+                {lastKnownLat && (
                   <span className="text-[11px] font-mono text-text-dim">
                     últ. {lastKnownLat}
                   </span>
@@ -435,30 +449,28 @@ export default function TargetCard({
               </div>
             ) : (
               <span
-                className={`ui-tone font-mono font-bold tracking-tight ${
-                  isCompact ? "text-base" : "text-2xl"
+                className={`font-mono font-bold tracking-tight ${latencyColorClass} ${
+                  isCompact ? "text-lg" : "text-2xl"
                 }`}
                 data-tone={latTone}
-                title={
-                  uptimeDisplay
-                    ? `Latencia: ${latencyValue} · Uptime 24h: ${uptimeDisplay}`
-                    : `Latencia: ${latencyValue}`
-                }
+                title={latencyTooltip}
               >
                 {latencyValue}
               </span>
             )}
           </div>
 
-          {/* Right: Clean Protocol Icon + Label (plus subtle Senti9 dot if private agent) */}
+          {/* Right: Clean Protocol Icon + Label (plus subtle Senti9 name if private agent) */}
           <div className="flex items-center gap-2 shrink-0">
-            {!isCompact && target.runner_type === "agent" && (
+            {target.runner_type === "agent" && (
               <span
                 className={`inline-flex items-center gap-1 text-[10px] font-medium ${
                   target.agent_probe_online === false ||
                   target.agent_probe_status === "offline"
                     ? "text-rose-400"
-                    : "text-text-dim"
+                    : isPaused
+                      ? "text-slate-500"
+                      : "text-text-dim"
                 }`}
                 title={
                   target.agent_probe_online === false ||
@@ -478,11 +490,11 @@ export default function TargetCard({
             )}
             <span
               className={`inline-flex items-center gap-1 font-mono font-semibold uppercase ${
-                isCompact ? "text-[10px]" : "text-xs"
-              } ${typeStyle.text}`}
+                isCompact ? "text-[11px]" : "text-xs"
+              } ${isPaused ? "text-slate-400" : typeStyle.text}`}
               title={`Protocolo ${target.target_type.toUpperCase()} · cada ${target.interval} s`}
             >
-              <ProtocolIcon size={isCompact ? 11 : 13} className="shrink-0" />
+              <ProtocolIcon size={isCompact ? 12 : 13} className="shrink-0" />
               <span>{target.target_type}</span>
             </span>
           </div>

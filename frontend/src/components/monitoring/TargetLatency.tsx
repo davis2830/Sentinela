@@ -56,9 +56,9 @@ export function formatRelativeTime(dateStr: string | null | undefined): string {
   return `caído ${diffDays} d`;
 }
 
-export function formatPausedSince(target: MonitoringTarget, short = false): string {
+export function formatPausedSince(target: MonitoringTarget, verbose = false): string {
   const refDate = target.updated_at || target.last_checked_at || target.created_at;
-  const prefix = short ? 'Pausado hace' : 'Pausado desde hace';
+  const prefix = verbose ? 'Pausado desde hace' : 'Pausado';
   if (!refDate || !Number.isFinite(Date.parse(refDate))) return 'Pausado';
   const diffMs = Math.max(0, Date.now() - Date.parse(refDate));
   const diffSec = Math.floor(diffMs / 1000);
@@ -167,12 +167,12 @@ export default function TargetLatency({
 
   if (compact) {
     if (!target.enabled) {
-      const pausedText = formatPausedSince(target, true);
+      const pausedText = formatPausedSince(target, false);
       return (
         <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
           <span
-            className="font-mono text-zinc-400 text-[11px] font-medium"
-            title={formatPausedSince(target, false)}
+            className="font-mono text-slate-400 text-[11px] font-medium"
+            title={formatPausedSince(target, true)}
           >
             {pausedText}
           </span>

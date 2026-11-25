@@ -6,13 +6,14 @@ export const measuredAt = (resource: Record<string, unknown>) => {
   return typeof stamp === 'string' && Number.isFinite(Date.parse(stamp)) ? stamp : null;
 };
 export const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
-/** A measured status takes precedence; a numeric threshold alone detects degradation. */
+/** Evaluates latency against its configured threshold (<50% green, 50-100% amber, >100% red). */
 export const latencyTone = (value: unknown, threshold?: unknown, status?: string | null): UITone => {
   if (!finite(value) || value < 0) return 'muted';
   if (status === 'down' || status === 'error') return 'danger';
-  if (status === 'slow') return 'warning';
-  if (status === 'up') return 'success';
-  if (finite(threshold) && threshold > 0) return value > threshold ? 'warning' : 'success';
+  const limit = finite(threshold) && threshold > 0 ? threshold : 2000;
+  if (value > limit) return 'danger';
+  if (value >= limit * 0.5 || status === 'slow') return 'warning';
+  if (status === 'up' || finite(threshold)) return 'success';
   return 'muted';
 };
 export const formatMetric = (n: number, decimals = 0) => n.toLocaleString('es-GT', {

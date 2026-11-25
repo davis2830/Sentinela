@@ -178,7 +178,7 @@ export default function TargetTableView({
           isSelected
             ? "bg-accent-green/5"
             : isPaused
-              ? "opacity-60 hover:opacity-85 hover:bg-white/[0.02]"
+              ? "bg-bg-dark/25 hover:bg-white/[0.03]"
               : isDown
                 ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
                 : isOnline
@@ -239,7 +239,7 @@ export default function TargetTableView({
                 isDown
                   ? "text-rose-300 font-bold"
                   : isPaused
-                    ? "text-text-muted"
+                    ? "text-slate-400"
                     : "text-text-main group-hover:text-accent-green"
               }`}
               title={target.name}
@@ -324,7 +324,7 @@ export default function TargetTableView({
               let tooltip = "Sin medición aún";
 
               if (slot.status === "paused") {
-                bg = "bg-zinc-700/50";
+                bg = "bg-slate-700";
                 tooltip = "Monitoreo pausado";
               } else if (slot.status !== "no_data") {
                 if (slot.status === "up") bg = "bg-emerald-500";

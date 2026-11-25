@@ -250,8 +250,9 @@ export default function UptimeToolbar({
           {/* Compact Inline Metrics */}
           <div className="hidden lg:flex items-center gap-2 pl-2 ml-1 border-l border-border-base/80 font-mono text-[11px] text-text-dim whitespace-nowrap shrink-0">
             {summary.avgLatency !== null && (
-              <span>
-                Lat.{" "}
+              <span title="Promedio de latencia de los monitores online">
+                <span className="hidden xl:inline">Latencia prom.</span>
+                <span className="xl:hidden">Lat. prom.</span>{" "}
                 <strong className="text-text-main">
                   {summary.avgLatency} ms
                 </strong>
