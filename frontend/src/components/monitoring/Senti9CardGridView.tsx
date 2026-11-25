@@ -1,8 +1,12 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import type { AgentProbe } from "../../types/agent_probe";
 import Senti9AgentCard from "./Senti9AgentCard";
 import type { GuardianActionSection } from "./Senti9TableView";
-import type { GuardianDensity, GuardianGroup } from "./useGuardians";
+import {
+  getGuardianHealthState,
+  type GuardianDensity,
+  type GuardianGroup,
+} from "./useGuardians";
 
 interface Senti9CardGridViewProps {
   sortedProbes: AgentProbe[];
@@ -10,6 +14,7 @@ interface Senti9CardGridViewProps {
   collapsedGroups: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
   density: GuardianDensity;
+  hasFilters: boolean;
   admin: boolean;
   canCreateMonitor: boolean;
   onSelectProbe: (probe: AgentProbe, section?: GuardianActionSection) => void;
@@ -22,6 +27,7 @@ export default function Senti9CardGridView({
   collapsedGroups,
   onToggleGroup,
   density,
+  hasFilters,
   admin,
   canCreateMonitor,
   onSelectProbe,
@@ -43,6 +49,16 @@ export default function Senti9CardGridView({
       onCreateMonitor={onCreateMonitor}
     />
   );
+
+  // When there is only 1 active guardian and no filters/groups, show a clean "Next Step" companion card
+  const singleGuardian =
+    !groupedProbes &&
+    !hasFilters &&
+    sortedProbes.length === 1 &&
+    canCreateMonitor &&
+    getGuardianHealthState(sortedProbes[0]) !== "revoked"
+      ? sortedProbes[0]
+      : null;
 
   if (groupedProbes) {
     return (
@@ -100,6 +116,43 @@ export default function Senti9CardGridView({
   return (
     <div className={`w-full max-w-[1400px] mx-auto ${gridClass}`}>
       {sortedProbes.map(renderCard)}
+
+      {singleGuardian && (
+        <div className="flex h-full flex-col justify-between rounded-2xl border border-dashed border-border-base/80 bg-bg-card/35 hover:bg-bg-card/60 hover:border-accent-green/45 p-4 gap-3 transition-all">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-dim">
+              Siguiente paso
+            </span>
+            <p className="text-sm font-semibold text-text-main">
+              {singleGuardian.assigned_targets_count > 0
+                ? `${singleGuardian.name} tiene ${singleGuardian.assigned_targets_count} ${
+                    singleGuardian.assigned_targets_count === 1
+                      ? "monitor"
+                      : "monitores"
+                  }.`
+                : `${singleGuardian.name} está listo para monitorear tu red.`}
+            </p>
+            <p className="text-xs text-text-muted leading-relaxed">
+              Agrega bases de datos, APIs internas o puertos TCP privados para
+              supervisarlos desde este guardián.
+            </p>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => onCreateMonitor(singleGuardian.id)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-accent-green/15 hover:bg-accent-green text-accent-green hover:text-black border border-accent-green/35 transition-colors cursor-pointer !min-h-0"
+            >
+              <Plus size={14} />
+              <span>
+                {singleGuardian.assigned_targets_count > 0
+                  ? "Crear otro monitor"
+                  : "Crear primer monitor"}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

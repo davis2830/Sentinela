@@ -242,6 +242,7 @@ export default function Senti9Page() {
               collapsedGroups={collapsedGroups}
               onToggleGroup={toggleGroup}
               density={density}
+              hasFilters={hasFilters}
               admin={admin}
               canCreateMonitor={canCreateMonitor}
               onSelectProbe={(probe, section = "operation") =>

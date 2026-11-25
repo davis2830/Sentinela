@@ -1,18 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Activity,
   ArrowUpDown,
+  ArrowUpRight,
   Check,
   ChevronDown,
   ChevronRight,
   Copy,
+  Cpu,
   Laptop,
-  MoreHorizontal,
-  Plus,
-  RotateCw,
-  ShieldAlert,
-  Terminal,
 } from "lucide-react";
 import type { AgentProbe } from "../../types/agent_probe";
 import RelativeTime, {
@@ -20,6 +16,7 @@ import RelativeTime, {
   formatExactTime,
 } from "../common/connectivity/RelativeTime";
 import StatusPill from "../common/connectivity/StatusPill";
+import GuardianRowActions from "./GuardianRowActions";
 import {
   GUARDIAN_QUEUE_WARN_THRESHOLD,
   GUARDIAN_STATE_META,
@@ -32,7 +29,11 @@ import {
   type GuardianSortField,
 } from "./useGuardians";
 
-export type GuardianActionSection = "operation" | "install" | "security" | "revoke";
+export type GuardianActionSection =
+  | "operation"
+  | "install"
+  | "security"
+  | "revoke";
 
 interface Senti9TableViewProps {
   sortedProbes: AgentProbe[];
@@ -64,26 +65,6 @@ export default function Senti9TableView({
   onCreateMonitor,
 }: Senti9TableViewProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!openMenuId) return;
-    const handleOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenuId(null);
-      }
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenMenuId(null);
-    };
-    document.addEventListener("mousedown", handleOutside);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handleOutside);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [openMenuId]);
 
   const handleCopy = async (e: React.MouseEvent, text: string, id: string) => {
     e.stopPropagation();
@@ -115,11 +96,10 @@ export default function Senti9TableView({
     const queueTotal = getGuardianQueueTotal(probe);
     const queueWarn = queueTotal >= GUARDIAN_QUEUE_WARN_THRESHOLD;
     const draining = Boolean(probe.telemetry?.snapshot?.draining);
-    const menuOpen = openMenuId === probe.id;
 
     const identifier = probe.hostname || probe.id.slice(0, 12);
     const rowBgClass = isRevoked
-      ? "bg-bg-dark/25 opacity-70 hover:opacity-90 hover:bg-white/[0.02]"
+      ? "bg-bg-dark/25 opacity-75 hover:opacity-95 hover:bg-white/[0.03]"
       : isDisconnected
         ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
         : isStale
@@ -143,8 +123,8 @@ export default function Senti9TableView({
         }}
         className={`group cursor-pointer transition-colors border-b border-border-base/60 ${rowBgClass}`}
       >
-        {/* 1. Estado (Shape + color pill) */}
-        <td className={`${paddingY} px-3 whitespace-nowrap w-[148px]`}>
+        {/* 1. Estado */}
+        <td className={`${paddingY} px-3 whitespace-nowrap w-[144px]`}>
           <StatusPill
             size="xs"
             label={meta.label}
@@ -162,17 +142,16 @@ export default function Senti9TableView({
           />
         </td>
 
-        {/* 2. Guardián: Name + hash + IP in a single compact line */}
+        {/* 2. Guardián (absorbe espacio disponible) */}
         <td className={`${paddingY} px-3 w-full max-w-0`}>
           <div className="flex min-w-0 items-center gap-2">
             <span
-              className={`shrink-0 font-semibold text-xs transition-colors ${
-                isDisconnected
-                  ? "text-rose-300 font-bold"
-                  : isRevoked
-                    ? "text-slate-400"
-                    : "text-text-main group-hover:text-accent-green"
-              }`}
+              className={`shrink-0 font-semibold text-xs transition-colors ${isDisconnected
+                ? "text-rose-300 font-bold"
+                : isRevoked
+                  ? "text-slate-400"
+                  : "text-text-main group-hover:text-accent-green"
+                }`}
               title={probe.name}
             >
               {probe.name}
@@ -211,15 +190,19 @@ export default function Senti9TableView({
           )}
         </td>
 
-        {/* 3. Plataforma y versión en una línea */}
-        <td className={`${paddingY} px-3 whitespace-nowrap w-[150px]`}>
+        {/* 3. Plataforma (Cpu para Linux, Laptop para Windows; nunca >_) */}
+        <td className={`${paddingY} px-3 whitespace-nowrap w-[132px]`}>
           <div className="flex items-center gap-1.5 text-xs">
             {platform === "windows" ? (
               <Laptop size={13} className="text-sky-400 shrink-0" />
             ) : (
-              <Terminal size={13} className="text-emerald-400 shrink-0" />
+              <Cpu size={13} className="text-emerald-400 shrink-0" />
             )}
-            <span className={isRevoked ? "text-slate-400" : "text-text-main font-medium"}>
+            <span
+              className={
+                isRevoked ? "text-slate-400" : "text-text-main font-medium"
+              }
+            >
               {platform === "windows" ? "Windows" : "Linux"}
             </span>
             {probe.version && (
@@ -243,18 +226,25 @@ export default function Senti9TableView({
           </div>
         </td>
 
-        {/* 4. Monitores LAN (link directo a Uptime filtrado por este guardián) */}
+        {/* 4. Monitores LAN (enlace clicable directo a Uptime filtrado por este guardián) */}
         <td
-          className={`${paddingY} px-3 whitespace-nowrap w-[170px]`}
+          className={`${paddingY} px-3 whitespace-nowrap w-[150px]`}
           onClick={(e) => e.stopPropagation()}
         >
           {assigned > 0 ? (
             <Link
               to={`/monitoring?agent=${probe.id}`}
-              className="inline-flex items-center gap-1.5 text-xs font-mono hover:underline"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-2 py-0.5 -ml-2 rounded-md text-xs font-mono hover:bg-accent-green/10 hover:text-accent-green transition-colors group/link"
               title="Ver monitores LAN de este guardián en Uptime"
             >
-              <span className={isRevoked ? "text-slate-400" : "text-text-main font-semibold"}>
+              <span
+                className={
+                  isRevoked
+                    ? "text-slate-400"
+                    : "text-text-main font-semibold group-hover/link:text-accent-green"
+                }
+              >
                 {assigned} {assigned === 1 ? "monitor" : "monitores"}
               </span>
               {(isDisconnected || isStale) && activeAssigned > 0 ? (
@@ -267,6 +257,10 @@ export default function Senti9TableView({
                   · {downAssigned} {downAssigned === 1 ? "caído" : "caídos"}
                 </span>
               ) : null}
+              <ArrowUpRight
+                size={11}
+                className="text-text-dim opacity-60 group-hover/link:opacity-100 group-hover/link:text-accent-green shrink-0"
+              />
             </Link>
           ) : (
             <span className="text-[11px] font-mono text-text-dim">
@@ -275,8 +269,8 @@ export default function Senti9TableView({
           )}
         </td>
 
-        {/* 5. Última señal (relativa + fecha exacta en tooltip) */}
-        <td className={`${paddingY} px-3 whitespace-nowrap w-[135px]`}>
+        {/* 5. Señal (RelativeTime en una sola línea) */}
+        <td className={`${paddingY} px-3 whitespace-nowrap w-[112px]`}>
           {isPending ? (
             <RelativeTime
               value={probe.created_at}
@@ -292,28 +286,26 @@ export default function Senti9TableView({
           ) : (
             <RelativeTime
               value={probe.last_heartbeat}
-              className={`text-xs ${
-                isDisconnected
-                  ? "text-rose-400 font-semibold"
-                  : isStale
-                    ? "text-amber-400 font-semibold"
-                    : "text-text-muted"
-              }`}
+              className={`text-xs ${isDisconnected
+                ? "text-rose-400 font-semibold"
+                : isStale
+                  ? "text-amber-400 font-semibold"
+                  : "text-text-muted"
+                }`}
             />
           )}
         </td>
 
-        {/* 6. Telemetría (Cola 0 en gris, ámbar >= 50) */}
-        <td className={`${paddingY} px-3 whitespace-nowrap w-[110px]`}>
+        {/* 6. Telemetría */}
+        <td className={`${paddingY} px-3 whitespace-nowrap w-[92px]`}>
           {isRevoked || isPending ? (
             <span className="font-mono text-[11px] text-text-dim">—</span>
           ) : probe.telemetry?.snapshot ? (
             <span
-              className={`font-mono text-xs ${
-                queueWarn || draining
-                  ? "text-amber-400 font-semibold"
-                  : "text-text-dim"
-              }`}
+              className={`font-mono text-xs ${queueWarn || draining
+                ? "text-amber-400 font-semibold"
+                : "text-text-dim"
+                }`}
               title={
                 draining
                   ? "Guardián drenando cola antes de detenerse"
@@ -328,145 +320,19 @@ export default function Senti9TableView({
           )}
         </td>
 
-        {/* 7. Acciones (mismo fondo que la fila, visibles en hover/focus/táctil + menú ⋯) */}
+        {/* 7. Acciones (fondo transparente para heredar exactamente el bg de la fila sin duplicar alfa) */}
         <td
-          className={`${paddingY} px-3 text-right whitespace-nowrap w-[110px] bg-inherit`}
+          className={`${paddingY} px-3 text-right whitespace-nowrap w-[124px] bg-transparent`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-end gap-1">
-            {!isRevoked && (
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() => onSelectProbe(probe, "operation")}
-                  title="Ver estado y telemetría"
-                  aria-label={`Ver detalle de ${probe.name}`}
-                  className="table-action-btn h-6 w-6 grid place-items-center rounded text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
-                >
-                  <Activity size={13} />
-                </button>
-                {admin && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectProbe(probe, "install")}
-                    title="Instrucciones de despliegue Docker"
-                    aria-label={`Instrucciones Docker de ${probe.name}`}
-                    className="table-action-btn h-6 w-6 grid place-items-center rounded text-text-dim hover:text-sky-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
-                  >
-                    <Terminal size={13} />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Overflow ⋯ menu */}
-            <div ref={menuOpen ? menuRef : undefined} className="relative">
-              <button
-                type="button"
-                onClick={() => setOpenMenuId(menuOpen ? null : probe.id)}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-label={`Más acciones para ${probe.name}`}
-                title="Más acciones"
-                className={`table-action-btn h-6 w-6 grid place-items-center rounded text-text-dim hover:text-text-main hover:bg-white/10 transition-all cursor-pointer !min-h-0 !min-w-0 ${
-                  menuOpen
-                    ? "opacity-100 bg-white/10 text-text-main"
-                    : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
-                }`}
-              >
-                <MoreHorizontal size={14} />
-              </button>
-
-              {menuOpen && (
-                <div
-                  role="menu"
-                  className="absolute right-0 top-7 z-30 w-48 rounded-xl border border-border-base bg-bg-dark/98 backdrop-blur-md p-1 shadow-2xl text-xs text-left animate-in fade-in zoom-in-95 duration-100"
-                >
-                  {!isRevoked && canCreateMonitor && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        onCreateMonitor(probe.id);
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0"
-                    >
-                      <Plus size={13} className="text-accent-green shrink-0" />
-                      <span>Agregar monitor LAN</span>
-                    </button>
-                  )}
-
-                  {!isRevoked && admin && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        onSelectProbe(probe, "install");
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0"
-                    >
-                      <Terminal size={13} className="text-sky-400 shrink-0" />
-                      <span>
-                        {outdated
-                          ? "Actualizar guardián"
-                          : "Comando de instalación"}
-                      </span>
-                    </button>
-                  )}
-
-                  {!isRevoked && admin && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        onSelectProbe(probe, "security");
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0"
-                    >
-                      <RotateCw size={13} className="text-amber-400 shrink-0" />
-                      <span>Rotar token</span>
-                    </button>
-                  )}
-
-                  {!isRevoked && admin && (
-                    <>
-                      <div className="my-1 border-t border-border-base/70" />
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          onSelectProbe(probe, "revoke");
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer !min-h-0"
-                      >
-                        <ShieldAlert size={13} className="shrink-0" />
-                        <span>Revocar guardián</span>
-                      </button>
-                    </>
-                  )}
-
-                  {isRevoked && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        onSelectProbe(probe, "security");
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0"
-                    >
-                      <Activity size={13} className="text-slate-400 shrink-0" />
-                      <span>Ver auditoría de retiro</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <GuardianRowActions
+            probe={probe}
+            admin={admin}
+            canCreateMonitor={canCreateMonitor}
+            variant="table"
+            onSelect={onSelectProbe}
+            onCreateMonitor={onCreateMonitor}
+          />
         </td>
       </tr>
     );
@@ -490,11 +356,11 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 cursor-pointer hover:text-text-main w-[148px]"
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-[144px]"
                 onClick={() => onSortChange("status")}
                 title="Ordenar por estado (problemas primero)"
               >
-                <div className="flex items-center gap-1">
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
                   <span>Estado</span>
                   <ArrowUpDown
                     size={11}
@@ -508,11 +374,18 @@ export default function Senti9TableView({
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 cursor-pointer hover:text-text-main w-full"
+                aria-sort={
+                  sortField === "name"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-full"
                 onClick={() => onSortChange("name")}
                 title="Ordenar por nombre"
               >
-                <div className="flex items-center gap-1">
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
                   <span>Guardián</span>
                   <ArrowUpDown
                     size={11}
@@ -524,16 +397,23 @@ export default function Senti9TableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 w-[150px]">
+              <th scope="col" className="py-2 px-3 whitespace-nowrap w-[132px]">
                 Plataforma
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 cursor-pointer hover:text-text-main w-[170px]"
+                aria-sort={
+                  sortField === "monitors"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-[150px]"
                 onClick={() => onSortChange("monitors")}
                 title="Ordenar por monitores asignados"
               >
-                <div className="flex items-center gap-1">
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
                   <span>Monitores</span>
                   <ArrowUpDown
                     size={11}
@@ -547,12 +427,19 @@ export default function Senti9TableView({
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 cursor-pointer hover:text-text-main w-[135px]"
+                aria-sort={
+                  sortField === "heartbeat"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-[112px]"
                 onClick={() => onSortChange("heartbeat")}
                 title="Ordenar por última señal"
               >
-                <div className="flex items-center gap-1">
-                  <span>Última señal</span>
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span>Señal</span>
                   <ArrowUpDown
                     size={11}
                     className={
@@ -563,12 +450,12 @@ export default function Senti9TableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 w-[110px]">
+              <th scope="col" className="py-2 px-3 whitespace-nowrap w-[92px]">
                 Telemetría
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 text-right w-[110px] bg-inherit"
+                className="py-2 px-3 text-right whitespace-nowrap w-[124px] bg-transparent"
               >
                 Acciones
               </th>

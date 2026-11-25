@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Laptop, Tag, Terminal, type LucideIcon } from "lucide-react";
+import { Cpu, Laptop, Tag, type LucideIcon } from "lucide-react";
 import type { AgentProbe } from "../../types/agent_probe";
 import type {
   StatusIconShape,
@@ -298,13 +298,13 @@ export function useGuardians({
       const state = getGuardianHealthState(p);
       let key = "";
       let label = "";
-      let icon: LucideIcon = Terminal;
+      let icon: LucideIcon = Cpu;
 
       if (groupBy === "platform") {
         const plat = getGuardianPlatform(p);
         key = plat;
         label = plat === "windows" ? "Windows" : "Linux";
-        icon = plat === "windows" ? Laptop : Terminal;
+        icon = plat === "windows" ? Laptop : Cpu;
       } else {
         key = p.version || "__none__";
         label = p.version ? `Versión v${p.version}` : "Sin versión reportada";
@@ -330,4 +330,82 @@ export function useGuardians({
   }, [sortedProbes, groupBy]);
 
   return { summary, availableVersions, sortedProbes, groupedProbes };
+}
+
+export interface GuardianHeartbeatSlot {
+  status: "ok" | "stale" | "missed" | "pending" | "revoked" | "no_data";
+  cls: string;
+  tooltip: string;
+}
+
+/**
+ * Generates timestamped heartbeat slots (each representing 1 heartbeat interval of 30 s)
+ * so every bar displays an exact local time and explicitly marks missed heartbeats in amber/red.
+ */
+export function getGuardianHeartbeatSlots(
+  probe: AgentProbe,
+  count: number,
+): GuardianHeartbeatSlot[] {
+  const now = Date.now();
+  const intervalMs = GUARDIAN_HEARTBEAT_INTERVAL_SEC * 1000;
+  const state = getGuardianHealthState(probe);
+  const createdMs = probe.created_at ? Date.parse(probe.created_at) : 0;
+  const lastHbMs = probe.last_heartbeat ? Date.parse(probe.last_heartbeat) : 0;
+
+  return Array.from({ length: count }).map((_, idx) => {
+    const slotEnd = now - (count - 1 - idx) * intervalMs;
+    const slotStart = slotEnd - intervalMs;
+    const timeStr = new Date(slotEnd).toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    if (state === "revoked") {
+      return {
+        status: "revoked",
+        cls: "bg-slate-600/75",
+        tooltip: `${timeStr} · Guardián revocado`,
+      };
+    }
+
+    if (createdMs > 0 && slotEnd < createdMs) {
+      return {
+        status: "no_data",
+        cls: "bg-slate-900/50 border border-slate-700/75",
+        tooltip: `${timeStr} · Sin datos (guardián aún no registrado)`,
+      };
+    }
+
+    if (state === "pending" || !Number.isFinite(lastHbMs) || lastHbMs <= 0) {
+      return {
+        status: "pending",
+        cls: "bg-slate-900/50 border border-slate-700/75",
+        tooltip: `${timeStr} · Esperando primera señal`,
+      };
+    }
+
+    // Slot is after the last received heartbeat -> missed heartbeat!
+    if (slotStart > lastHbMs) {
+      const missedSec = Math.floor((slotEnd - lastHbMs) / 1000);
+      if (missedSec <= GUARDIAN_HEARTBEAT_INTERVAL_SEC * 5) {
+        return {
+          status: "stale",
+          cls: "bg-amber-400 hover:bg-amber-300",
+          tooltip: `${timeStr} · Latido atrasado (sin señal reciente)`,
+        };
+      }
+      return {
+        status: "missed",
+        cls: "bg-rose-500 hover:bg-rose-400",
+        tooltip: `${timeStr} · Latido perdido (guardián desconectado)`,
+      };
+    }
+
+    return {
+      status: "ok",
+      cls: "bg-emerald-500 hover:bg-emerald-400",
+      tooltip: `${timeStr} · Latido recibido`,
+    };
+  });
 }

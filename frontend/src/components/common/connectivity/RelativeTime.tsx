@@ -30,8 +30,7 @@ export function formatRelativeAgo(
   const ts = Date.parse(value);
   if (!Number.isFinite(ts)) return emptyLabel;
   const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (diffSec < 5) return "hace unos s";
-  if (diffSec < 60) return `hace ${diffSec} s`;
+  if (diffSec < 60) return `hace ${Math.max(1, diffSec)} s`;
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `hace ${diffMin} min`;
   const diffHours = Math.floor(diffMin / 60);

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronUp,
   Copy,
+  Cpu,
   Download,
   ExternalLink,
   Laptop,
@@ -40,6 +41,7 @@ import {
   GUARDIAN_QUEUE_WARN_THRESHOLD,
   GUARDIAN_STATE_META,
   getGuardianHealthState,
+  getGuardianHeartbeatSlots,
   getGuardianPlatform,
   getGuardianQueueTotal,
   isGuardianVersionOutdated,
@@ -234,30 +236,14 @@ export default function Senti9DetailDrawer({
   const outdated = probe ? isGuardianVersionOutdated(probe) : false;
   const identifier = probe?.hostname || probeId.slice(0, 12);
 
-  // Build 20-segment heartbeat visual bar
-  const barSegments = Array.from({ length: 20 }).map((_, idx) => {
-    if (isRevoked) return { cls: "bg-slate-600/75", title: "Guardián revocado" };
-    if (isPending) {
-      return {
+  // Build 20-segment timestamped heartbeat visual bar
+  const barSegments = probe
+    ? getGuardianHeartbeatSlots(probe, 20)
+    : Array.from({ length: 20 }).map(() => ({
+        status: "no_data" as const,
         cls: "bg-slate-900/50 border border-slate-700/75",
-        title: "Sin señal inicial registrada",
-      };
-    }
-    if (isDisconnected) {
-      return idx >= 14
-        ? { cls: "bg-rose-500", title: "Sin latidos (desconectado)" }
-        : {
-            cls: "bg-slate-900/50 border border-slate-700/75",
-            title: "Historial previo sin desglose de latidos",
-          };
-    }
-    if (isStale) {
-      return idx >= 17
-        ? { cls: "bg-amber-400", title: "Latido atrasado (sin señal reciente)" }
-        : { cls: "bg-emerald-500/80", title: "Latidos recibidos" };
-    }
-    return { cls: "bg-emerald-500", title: "Latido activo" };
-  });
+        tooltip: "Sin datos",
+      }));
 
   return createPortal(
     <div
@@ -363,7 +349,7 @@ export default function Senti9DetailDrawer({
               {probePlatform === "windows" ? (
                 <Laptop size={11} className="text-sky-400" />
               ) : (
-                <Terminal size={11} className="text-emerald-400" />
+                <Cpu size={11} className="text-emerald-400" />
               )}
               <span>{probePlatform === "windows" ? "Windows" : "Linux"}</span>
             </span>
@@ -701,7 +687,7 @@ export default function Senti9DetailDrawer({
                   {barSegments.map((seg, i) => (
                     <div
                       key={i}
-                      title={seg.title}
+                      title={seg.tooltip}
                       className={`flex-1 h-full rounded-[2px] ${seg.cls}`}
                     />
                   ))}

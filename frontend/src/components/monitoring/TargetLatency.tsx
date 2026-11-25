@@ -180,6 +180,25 @@ export default function TargetLatency({
       );
     }
 
+    const guardianOffline =
+      target.enabled &&
+      target.runner_type === "agent" &&
+      (target.agent_probe_online === false ||
+        target.agent_probe_status === "offline");
+
+    if (guardianOffline) {
+      return (
+        <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
+          <span
+            className="font-mono text-amber-400 text-[11px] font-medium"
+            title={`Sin datos: guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`}
+          >
+            Sin datos
+          </span>
+        </div>
+      );
+    }
+
     if (isDown && target.enabled) {
       const downSince = getDownSinceText(target);
       return (

@@ -39,14 +39,14 @@
   appearance: none;
 }
 
-/* Keep actions background perfectly matching the row */
+/* Keep actions background transparent so the row background applies once uniformly */
 .connectivity-directory-table th:last-child,
 .connectivity-directory-table td:last-child {
   position: static;
-  background: inherit;
+  background: transparent;
 }
 .connectivity-directory-table tr:hover td:last-child {
-  background: inherit;
+  background: transparent;
 }
 @media (max-width: 1279px) {
   .connectivity-toolbar {
