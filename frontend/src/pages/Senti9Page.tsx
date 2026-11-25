@@ -1,13 +1,17 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
+  ArrowUpRight,
   BookOpen,
   CheckCircle2,
   Loader2,
   Plus,
   Radio,
   Server,
+  Sparkles,
   Terminal,
 } from "lucide-react";
 import { api } from "../services/api";
@@ -16,6 +20,8 @@ import {
   ReadFailure,
   DirectoryPagination,
 } from "../components/common/DirectoryState";
+import ModalSurface from "../components/common/ModalSurface";
+import UpgradePlanModal from "../components/organization/UpgradePlanModal";
 import CreateProbeModal from "../components/monitoring/CreateProbeModal";
 import { Senti9InstallGuide } from "../components/monitoring/Senti9Installation";
 import { useCapability } from "../hooks/useCapability";
@@ -108,10 +114,36 @@ export default function Senti9Page() {
     id: string;
     section: GuardianActionSection;
   } | null>(null);
-  const [panel, setPanel] = useState<"create" | "guide" | null>(null);
+  const [panel, setPanel] = useState<"create" | "guide" | "upgrade" | null>(
+    null,
+  );
+  const [pauseConfirm, setPauseConfirm] = useState<AgentProbe | null>(null);
+
+  const handleToggleProbe = (probe: AgentProbe) => {
+    if (probe.enabled === false) {
+      // Reactivating is immediate and non-destructive
+      toggleMutation.mutate(probe);
+    } else {
+      // Pausing stops LAN monitors -> confirm impact first
+      setPauseConfirm(probe);
+    }
+  };
+
+  const confirmPauseProbe = () => {
+    if (!pauseConfirm) return;
+    toggleMutation.mutate(pauseConfirm, {
+      onSettled: () => setPauseConfirm(null),
+    });
+  };
 
   const refresh = useConnectivityRefresh();
   const quota = refresh.subscription?.usage?.private_agents;
+  const atQuotaLimit = Boolean(
+    quota &&
+      !quota.is_unlimited &&
+      quota.limit > 0 &&
+      quota.current >= quota.limit,
+  );
 
   const directory = useConnectivityDirectory<AgentProbe>(
     "agent-probes/",
@@ -169,7 +201,12 @@ export default function Senti9Page() {
         }}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            {quota && <Senti9Quota quota={quota} />}
+            {quota && (
+              <Senti9Quota
+                quota={quota}
+                onUpgrade={() => setPanel("upgrade")}
+              />
+            )}
 
             <button
               type="button"
@@ -182,16 +219,31 @@ export default function Senti9Page() {
               <span className="hidden sm:inline">Guía</span>
             </button>
 
-            {admin && (
-              <button
-                type="button"
-                onClick={() => setPanel("create")}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-accent-green hover:bg-accent-green/90 text-black transition-all shadow-md shadow-accent-green/20 cursor-pointer"
-              >
-                <Plus size={16} />
-                <span>Registrar guardián</span>
-              </button>
-            )}
+            {admin &&
+              (atQuotaLimit ? (
+                <button
+                  type="button"
+                  onClick={() => setPanel("upgrade")}
+                  title={`Alcanzaste el límite de tu plan (${quota?.current} de ${quota?.limit} ${quota?.limit === 1 ? "guardián" : "guardianes"}). Mejora tu plan para registrar otro.`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer"
+                >
+                  <Sparkles size={15} className="shrink-0" />
+                  <span className="hidden md:inline">
+                    Límite alcanzado · Mejorar plan
+                  </span>
+                  <span className="md:hidden">Mejorar plan</span>
+                  <ArrowUpRight size={14} className="shrink-0" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPanel("create")}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-accent-green hover:bg-accent-green/90 text-black transition-all shadow-md shadow-accent-green/20 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  <span>Registrar guardián</span>
+                </button>
+              ))}
           </div>
         }
       />
@@ -242,6 +294,7 @@ export default function Senti9Page() {
               collapsedGroups={collapsedGroups}
               onToggleGroup={toggleGroup}
               density={density}
+              hasFilters={hasFilters}
               sortField={sortField}
               sortAsc={sortAsc}
               onSortChange={handleSortChange}
@@ -253,7 +306,7 @@ export default function Senti9Page() {
               onCreateMonitor={(id) =>
                 navigate(`/monitoring?create=1&agent=${id}`)
               }
-              onToggleProbe={(probe) => toggleMutation.mutate(probe)}
+              onToggleProbe={handleToggleProbe}
             />
           ) : (
             <Senti9CardGridView
@@ -271,7 +324,7 @@ export default function Senti9Page() {
               onCreateMonitor={(id) =>
                 navigate(`/monitoring?create=1&agent=${id}`)
               }
-              onToggleProbe={(probe) => toggleMutation.mutate(probe)}
+              onToggleProbe={handleToggleProbe}
             />
           )
         ) : hasFilters ? (
@@ -380,13 +433,99 @@ export default function Senti9Page() {
       {panel === "guide" && (
         <Senti9InstallGuide
           onClose={() => setPanel(null)}
-          onRegister={admin ? () => setPanel("create") : undefined}
+          onRegister={
+            admin ? () => setPanel(atQuotaLimit ? "upgrade" : "create") : undefined
+          }
         />
       )}
 
       {panel === "create" && (
         <CreateProbeModal isOpen onClose={() => setPanel(null)} />
       )}
+
+      {panel === "upgrade" && (
+        <UpgradePlanModal
+          isOpen
+          onClose={() => setPanel(null)}
+          currentTier={refresh.subscription?.plan_tier || "free"}
+          subscriptionSummary={refresh.subscription}
+          initialReason={
+            quota
+              ? `Alcanzaste el límite de tu plan (${quota.current} de ${quota.limit} ${
+                  quota.limit === 1 ? "guardián" : "guardianes"
+                }). Mejora tu plan para registrar más guardianes Senti9.`
+              : "Mejora tu plan para ampliar el límite de guardianes Senti9."
+          }
+        />
+      )}
+
+      {pauseConfirm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+            onClick={() => !toggleMutation.isPending && setPauseConfirm(null)}
+          >
+            <ModalSurface
+              label={`Confirmar pausa de ${pauseConfirm.name}`}
+              onClose={() => !toggleMutation.isPending && setPauseConfirm(null)}
+              className="w-full max-w-md rounded-2xl border border-border-base bg-bg-card p-5 shadow-2xl space-y-4"
+            >
+              {(() => {
+                const impactCount =
+                  pauseConfirm.active_targets_count ??
+                  pauseConfirm.assigned_targets_count ??
+                  0;
+                return (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-400 shrink-0">
+                        <AlertTriangle size={18} />
+                      </div>
+                      <div className="space-y-1 min-w-0">
+                        <h3 className="text-sm font-bold text-text-main leading-snug">
+                          {impactCount > 0
+                            ? `Pausar ${pauseConfirm.name} detendrá ${impactCount} ${
+                                impactCount === 1 ? "monitor" : "monitores"
+                              }. ¿Continuar?`
+                            : `¿Pausar el guardián ${pauseConfirm.name}?`}
+                        </h3>
+                        <p className="text-xs text-text-muted leading-relaxed">
+                          {impactCount > 0
+                            ? "Los monitores LAN asociados aparecerán en Uptime como «Pausado: guardián detenido» y no se marcarán como caídos. El token del guardián se conserva."
+                            : "El guardián dejará de despachar tareas LAN hasta que lo reactives. Su token de conexión se conserva."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={toggleMutation.isPending}
+                        onClick={() => setPauseConfirm(null)}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-text-muted hover:text-text-main bg-bg-dark border border-border-base cursor-pointer disabled:opacity-50 !min-h-0"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={toggleMutation.isPending}
+                        onClick={confirmPauseProbe}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition-colors cursor-pointer disabled:opacity-50 !min-h-0"
+                      >
+                        {toggleMutation.isPending && (
+                          <Loader2 size={12} className="animate-spin" />
+                        )}
+                        <span>Pausar guardián</span>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </ModalSurface>
+          </div>,
+          document.body,
+        )}
 
       {selected && (
         <Senti9DetailDrawer
@@ -402,7 +541,7 @@ export default function Senti9Page() {
           onCreateMonitor={(id) =>
             navigate(`/monitoring?create=1&agent=${id}`)
           }
-          onToggleProbe={(probe) => toggleMutation.mutate(probe)}
+          onToggleProbe={handleToggleProbe}
           onClose={() => setSelected(null)}
         />
       )}

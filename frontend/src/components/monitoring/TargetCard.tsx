@@ -12,6 +12,7 @@ import {
   getTargetStatusKind,
   getTargetUptimeInfo,
   isTargetGuardianOffline,
+  isTargetGuardianPaused,
   type TargetDensity,
 } from "./useTargets";
 import {
@@ -64,11 +65,12 @@ export default function TargetCard({
   onSelectToggle,
 }: TargetCardProps) {
   const statusKind = getTargetStatusKind(target);
+  const guardianPaused = isTargetGuardianPaused(target);
   const guardianOffline = isTargetGuardianOffline(target);
   const isPaused = statusKind === "paused";
-  const isDown = !guardianOffline && statusKind === "down";
-  const isSlow = !guardianOffline && statusKind === "slow";
-  const isUp = !guardianOffline && statusKind === "up";
+  const isDown = !guardianOffline && !guardianPaused && statusKind === "down";
+  const isSlow = !guardianOffline && !guardianPaused && statusKind === "slow";
+  const isUp = !guardianOffline && !guardianPaused && statusKind === "up";
   const isCompact = density === "compact";
 
   const ProtocolIcon = TARGET_TYPE_ICONS[target.target_type] || Globe;
@@ -92,8 +94,16 @@ export default function TargetCard({
     target.expected_status,
   );
   const downSinceText = isDown ? getDownSinceText(target) : "";
-  const pausedLabel = isPaused ? formatPausedSince(target, false) : "";
-  const pausedTooltip = isPaused ? formatPausedSince(target, true) : "";
+  const pausedLabel = guardianPaused
+    ? "Pausado"
+    : isPaused
+      ? formatPausedSince(target, false)
+      : "";
+  const pausedTooltip = guardianPaused
+    ? `Pausado: guardián detenido (${target.agent_probe_name || "LAN"})`
+    : isPaused
+      ? formatPausedSince(target, true)
+      : "";
 
   // Clean display endpoint (strips scheme visually since protocol icon already shows it; full URL in tooltip)
   const displayEndpoint = (target.endpoint || "")
@@ -500,6 +510,14 @@ export default function TargetCard({
               title={uptimeInfo.tooltip}
             >
               {uptimeInfo.windowLabel}
+            </span>
+          ) : guardianPaused ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-slate-400 truncate"
+              title={`Pausado: el guardián Senti9 (${target.agent_probe_name || "LAN"}) está detenido`}
+            >
+              <Server size={11} className="text-slate-400 shrink-0" />
+              <span className="truncate">Pausado: guardián detenido</span>
             </span>
           ) : isPaused ? (
             <span className="text-slate-500 truncate">

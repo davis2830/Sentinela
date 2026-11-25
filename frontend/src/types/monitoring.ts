@@ -32,6 +32,7 @@ export interface MonitoringTarget {
   agent_probe_name?: string | null;
   agent_probe_status?: "online" | "offline" | null;
   agent_probe_online?: boolean | null;
+  agent_probe_enabled?: boolean | null;
   recent_checks?: RecentCheckItem[];
   uptime_24h?: number | null;
   checks_24h?: number;

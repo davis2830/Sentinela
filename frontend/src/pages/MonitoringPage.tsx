@@ -39,6 +39,7 @@ import {
   TrendingUp,
   CheckSquare,
   Server,
+  X,
 } from "lucide-react";
 
 export default function MonitoringPage() {
@@ -384,11 +385,30 @@ export default function MonitoringPage() {
     [allTargets, selectedTag],
   );
 
+  const activeAgentId = navigationParams.get("agent") || "";
+  const activeAgentName = useMemo(() => {
+    if (!activeAgentId) return "";
+    const match = allTargets.find((t) => t.agent_probe === activeAgentId);
+    return (match?.agent_probe_name || "").replace(/^Senti9:\s*/i, "");
+  }, [activeAgentId, allTargets]);
+
+  const clearAgentFilter = () => {
+    setNavigationParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("agent");
+        return next;
+      },
+      { replace: false },
+    );
+  };
+
   const hasFilters =
     !!searchTerm ||
     statusFilter !== "all" ||
     protocolFilter !== "all" ||
-    selectedTag !== "all";
+    selectedTag !== "all" ||
+    !!activeAgentId;
 
   useLinkedResource(targets, selectedTarget, setSelectedTarget);
 
@@ -447,6 +467,30 @@ export default function MonitoringPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
+
+      {/* Active Guardian Filter Banner (when opened from Senti9 "X monitor(es)") */}
+      {activeAgentId && (
+        <div className="w-full max-w-[1400px] mx-auto flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-accent-purple/35 bg-accent-purple/10 text-xs">
+          <div className="flex items-center gap-2 min-w-0 text-text-main">
+            <Server size={13} className="text-accent-purple shrink-0" />
+            <span className="truncate">
+              Filtrado por guardián Senti9:{" "}
+              <strong className="font-semibold">
+                {activeAgentName || activeAgentId.slice(0, 8)}
+              </strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={clearAgentFilter}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium text-text-muted hover:text-text-main hover:bg-white/10 transition-colors cursor-pointer shrink-0 !min-h-0"
+            title="Quitar filtro de guardián y ver todos los monitores"
+          >
+            <X size={12} />
+            <span>Quitar filtro</span>
+          </button>
+        </div>
+      )}
 
       {/* Floating Bulk Actions Bar */}
       {selectedIds.length > 0 && (

@@ -758,7 +758,8 @@ export default function Senti9DetailDrawer({
                 ) : assignedMonitors.length > 0 ? (
                   <ul className="divide-y divide-border-base/50">
                     {assignedMonitors.map((m) => {
-                      const mPaused = !m.enabled;
+                      const mPaused = !m.enabled || isPaused;
+                      const mGuardianPaused = m.enabled && isPaused;
                       const mGuardianDown =
                         !mPaused && (isDisconnected || isStale);
                       const mDown =
@@ -800,15 +801,17 @@ export default function Senti9DetailDrawer({
                               </span>
                             </div>
                             <span className="font-mono text-[11px] shrink-0 text-text-muted">
-                              {mPaused
-                                ? "Pausado"
-                                : mGuardianDown
-                                  ? "Sin datos"
-                                  : mDown
-                                    ? "Caído"
-                                    : m.last_latency != null
-                                      ? `${Math.round(m.last_latency)} ms`
-                                      : "—"}
+                              {mGuardianPaused
+                                ? "Pausado: guardián detenido"
+                                : mPaused
+                                  ? "Pausado"
+                                  : mGuardianDown
+                                    ? "Sin datos"
+                                    : mDown
+                                      ? "Caído"
+                                      : m.last_latency != null
+                                        ? `${Math.round(m.last_latency)} ms`
+                                        : "—"}
                             </span>
                           </Link>
                         </li>

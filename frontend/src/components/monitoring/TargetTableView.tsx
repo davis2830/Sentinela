@@ -7,6 +7,7 @@ import {
   getTargetHistorySlots,
   getTargetStatusKind,
   isTargetGuardianOffline,
+  isTargetGuardianPaused,
   type TargetDensity,
   type TargetGroup,
   type TargetSortField,
@@ -93,8 +94,16 @@ export default function TargetTableView({
       );
     }
     if (kind === "paused") {
+      const byGuardian = isTargetGuardianPaused(target);
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0"
+          title={
+            byGuardian
+              ? `Pausado: guardián detenido (${target.agent_probe_name || "LAN"})`
+              : "Monitoreo pausado"
+          }
+        >
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
           Pausado
         </span>
@@ -271,12 +280,18 @@ export default function TargetTableView({
             {target.runner_type === "agent" && (
               <span
                 className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
-                  target.agent_probe_online === false ||
-                  target.agent_probe_status === "offline"
-                    ? "bg-accent-red/10 text-accent-red border-accent-red/30"
-                    : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
+                  isTargetGuardianPaused(target)
+                    ? "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                    : target.agent_probe_online === false ||
+                        target.agent_probe_status === "offline"
+                      ? "bg-accent-red/10 text-accent-red border-accent-red/30"
+                      : "bg-accent-purple/10 text-accent-purple border-accent-purple/30"
                 }`}
-                title={`Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`}
+                title={
+                  isTargetGuardianPaused(target)
+                    ? `Guardián Senti9 (${target.agent_probe_name || "LAN"}) pausado`
+                    : `Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`
+                }
               >
                 <Server size={9} className="shrink-0" />
                 <span className="truncate max-w-[80px]">
@@ -299,6 +314,17 @@ export default function TargetTableView({
                 <span className="truncate max-w-[70px]">
                   {target.owner_team_name}
                 </span>
+              </span>
+            )}
+
+            {/* Guardian paused callout */}
+            {isTargetGuardianPaused(target) && (
+              <span
+                title={`El guardián Senti9 (${target.agent_probe_name || "LAN"}) está pausado; el monitor no se reporta como caído.`}
+                className="shrink-0 text-[11px] text-slate-300 font-mono inline-flex items-center gap-1 bg-slate-500/15 px-1.5 py-0.5 rounded border border-slate-500/30"
+              >
+                <Server size={10} className="text-slate-400 shrink-0" />
+                <span>Pausado: guardián detenido</span>
               </span>
             )}
 

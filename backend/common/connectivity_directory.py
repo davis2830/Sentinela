@@ -55,7 +55,16 @@ def filtered(rows, params, module):
             rows = rows.filter(**{field: value})
     state = params.get("status", "all")
     if state != "all":
-        if module in ("monitoring", "api_checks"):
+        if module == "monitoring":
+            guardian_paused = Q(runner_type="agent", agent_probe__enabled=False)
+            if state in ("disabled", "paused"):
+                rows = rows.filter(Q(enabled=False) | guardian_paused)
+            else:
+                rows = rows.filter(
+                    enabled=True,
+                    last_status__in=["down", "error"] if state == "down" else [state],
+                ).exclude(guardian_paused)
+        elif module == "api_checks":
             rows = (
                 rows.filter(enabled=False)
                 if state in ("disabled", "paused")
@@ -146,12 +155,14 @@ def filtered(rows, params, module):
 def directory(rows, request, serializer, module):
     summary = None
     if module == "monitoring" and "page" in request.query_params:
+        guardian_paused = Q(runner_type="agent", agent_probe__enabled=False)
+        active_q = Q(enabled=True) & ~guardian_paused
         summary = rows.aggregate(
             total=Count("pk"),
-            up=Count("pk", filter=Q(enabled=True, last_status="up")),
-            slow=Count("pk", filter=Q(enabled=True, last_status="slow")),
-            down=Count("pk", filter=Q(enabled=True, last_status__in=["down", "error"])),
-            paused=Count("pk", filter=Q(enabled=False)),
+            up=Count("pk", filter=active_q & Q(last_status="up")),
+            slow=Count("pk", filter=active_q & Q(last_status="slow")),
+            down=Count("pk", filter=active_q & Q(last_status__in=["down", "error"])),
+            paused=Count("pk", filter=Q(enabled=False) | guardian_paused),
         )
     rows = filtered(rows, request.query_params, module)
     if request.query_params.get("export") == "csv":

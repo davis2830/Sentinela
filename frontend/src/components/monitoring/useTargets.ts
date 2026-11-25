@@ -63,7 +63,16 @@ export const TARGET_TYPE_COLORS: Record<
   },
 };
 
+export function isTargetGuardianPaused(target: MonitoringTarget): boolean {
+  return (
+    target.enabled &&
+    target.runner_type === "agent" &&
+    target.agent_probe_enabled === false
+  );
+}
+
 export function isTargetGuardianOffline(target: MonitoringTarget): boolean {
+  if (isTargetGuardianPaused(target)) return false;
   return (
     target.enabled &&
     target.runner_type === "agent" &&
@@ -73,7 +82,7 @@ export function isTargetGuardianOffline(target: MonitoringTarget): boolean {
 }
 
 export function getTargetStatusKind(target: MonitoringTarget): TargetStatusKind {
-  if (!target.enabled) return "paused";
+  if (!target.enabled || isTargetGuardianPaused(target)) return "paused";
   if (isTargetGuardianOffline(target)) return "unknown";
   if (target.last_status === "down" || target.last_status === "error") return "down";
   if (target.last_status === "slow") return "slow";
@@ -98,15 +107,18 @@ function formatMonitoredDuration(minutes: number): string {
 }
 
 export function getTargetUptimeInfo(target: MonitoringTarget): TargetUptimeInfo {
-  if (!target.enabled) {
+  if (!target.enabled || isTargetGuardianPaused(target)) {
+    const byGuardian = isTargetGuardianPaused(target);
     return {
       pct: null,
       pctText: null,
-      windowLabel: "en pausa",
+      windowLabel: byGuardian ? "guardián detenido" : "en pausa",
       isPartial: true,
       checks24h: target.checks_24h ?? 0,
       coveragePct: target.coverage_24h_pct ?? 0,
-      tooltip: "Monitoreo pausado",
+      tooltip: byGuardian
+        ? `Pausado: guardián detenido (${target.agent_probe_name || "LAN"})`
+        : "Monitoreo pausado",
     };
   }
 
@@ -202,7 +214,7 @@ export function getTargetHistorySlots(
   target: MonitoringTarget,
   count: number,
 ): HistorySlot[] {
-  if (!target.enabled) {
+  if (!target.enabled || isTargetGuardianPaused(target)) {
     return Array.from({ length: count }).map(() => ({
       status: "paused",
       latency: null,

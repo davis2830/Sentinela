@@ -9,6 +9,8 @@ import {
   Copy,
   Cpu,
   Laptop,
+  Plus,
+  Server,
 } from "lucide-react";
 import type { AgentProbe } from "../../types/agent_probe";
 import RelativeTime, {
@@ -21,6 +23,7 @@ import {
   GUARDIAN_QUEUE_WARN_THRESHOLD,
   GUARDIAN_STATE_META,
   getGuardianHealthState,
+  getGuardianHeartbeatSlots,
   getGuardianPlatform,
   getGuardianQueueTotal,
   isGuardianVersionOutdated,
@@ -41,6 +44,7 @@ interface Senti9TableViewProps {
   collapsedGroups: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
   density: GuardianDensity;
+  hasFilters: boolean;
   sortField: GuardianSortField;
   sortAsc: boolean;
   onSortChange: (field: GuardianSortField) => void;
@@ -57,6 +61,7 @@ export default function Senti9TableView({
   collapsedGroups,
   onToggleGroup,
   density,
+  hasFilters,
   sortField,
   sortAsc,
   onSortChange,
@@ -100,6 +105,7 @@ export default function Senti9TableView({
     const queueTotal = getGuardianQueueTotal(probe);
     const queueWarn = queueTotal >= GUARDIAN_QUEUE_WARN_THRESHOLD;
     const draining = Boolean(probe.telemetry?.snapshot?.draining);
+    const heartbeatSlots = getGuardianHeartbeatSlots(probe, 8);
 
     const identifier = probe.hostname || probe.id.slice(0, 12);
     const rowBgClass = isMuted
@@ -146,11 +152,11 @@ export default function Senti9TableView({
           />
         </td>
 
-        {/* 2. Guardián (absorbe espacio disponible) */}
-        <td className={`${paddingY} px-3 w-full max-w-0`}>
+        {/* 2. Guardián (absorbe el espacio disponible con truncate; columnas derechas fijas) */}
+        <td className={`${paddingY} px-3 max-w-0`}>
           <div className="flex min-w-0 items-center gap-2">
             <span
-              className={`shrink-0 font-semibold text-xs transition-colors ${isDisconnected
+              className={`shrink-0 max-w-[45%] truncate font-semibold text-xs transition-colors ${isDisconnected
                 ? "text-rose-300 font-bold"
                 : isMuted
                   ? "text-slate-400"
@@ -311,8 +317,24 @@ export default function Senti9TableView({
           )}
         </td>
 
-        {/* 6. Telemetría */}
-        <td className={`${paddingY} px-3 whitespace-nowrap w-[92px]`}>
+        {/* 6. Latidos (8 barras con hora exacta, homologado con Historial (8) de Uptime) */}
+        <td className={`${paddingY} px-3 whitespace-nowrap`}>
+          <div
+            className="flex items-center gap-1 h-3 w-20"
+            aria-label={`Latidos recientes de ${probe.name}`}
+          >
+            {heartbeatSlots.map((slot, idx) => (
+              <div
+                key={idx}
+                title={slot.tooltip}
+                className={`flex-1 h-full rounded-[2px] ${slot.cls}`}
+              />
+            ))}
+          </div>
+        </td>
+
+        {/* 7. Telemetría */}
+        <td className={`${paddingY} px-3 whitespace-nowrap`}>
           {isMuted || isPending ? (
             <span className="font-mono text-[11px] text-text-dim">—</span>
           ) : probe.telemetry?.snapshot ? (
@@ -354,13 +376,33 @@ export default function Senti9TableView({
     );
   };
 
+  const emptyGuardians =
+    !hasFilters && canCreateMonitor
+      ? sortedProbes.filter(
+          (p) =>
+            (p.assigned_targets_count ?? 0) === 0 &&
+            !p.revoked_at &&
+            p.enabled !== false,
+        )
+      : [];
+
   return (
     <div
       data-testid="senti9-table"
       className="connectivity-directory-table w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-text-main border-collapse">
+        <table className="w-full min-w-[960px] table-fixed text-left text-xs text-text-main border-collapse">
+          <colgroup>
+            <col className="w-[144px]" />
+            <col />
+            <col className="w-[144px]" />
+            <col className="w-[156px]" />
+            <col className="w-[114px]" />
+            <col className="w-[104px]" />
+            <col className="w-[96px]" />
+            <col className="w-[144px]" />
+          </colgroup>
           <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
             <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
               <th
@@ -372,7 +414,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-[144px]"
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
                 onClick={() => onSortChange("status")}
                 title="Ordenar por estado (problemas primero)"
               >
@@ -397,7 +439,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-full"
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
                 onClick={() => onSortChange("name")}
                 title="Ordenar por nombre"
               >
@@ -413,7 +455,7 @@ export default function Senti9TableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 whitespace-nowrap w-[132px]">
+              <th scope="col" className="py-2 px-3 whitespace-nowrap">
                 Plataforma
               </th>
               <th
@@ -425,7 +467,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-[150px]"
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
                 onClick={() => onSortChange("monitors")}
                 title="Ordenar por monitores asignados"
               >
@@ -450,7 +492,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main w-[112px]"
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
                 onClick={() => onSortChange("heartbeat")}
                 title="Ordenar por última señal"
               >
@@ -466,12 +508,15 @@ export default function Senti9TableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 whitespace-nowrap w-[92px]">
+              <th scope="col" className="py-2 px-3 whitespace-nowrap">
+                Latidos (8)
+              </th>
+              <th scope="col" className="py-2 px-3 whitespace-nowrap">
                 Telemetría
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 text-right whitespace-nowrap w-[144px] bg-transparent"
+                className="py-2 px-3 text-right whitespace-nowrap bg-transparent"
               >
                 Acciones
               </th>
@@ -492,7 +537,7 @@ export default function Senti9TableView({
                     onClick={() => onToggleGroup(group.key)}
                     className="bg-bg-dark/70 hover:bg-bg-dark cursor-pointer transition-colors border-y border-border-base/60 select-none"
                   >
-                    <td colSpan={7} className="py-1.5 px-3">
+                    <td colSpan={8} className="py-1.5 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {isCollapsed ? (
@@ -537,6 +582,31 @@ export default function Senti9TableView({
           )}
         </table>
       </div>
+
+      {/* Conditional notice row below table ONLY when 1+ active guardians have 0 monitors */}
+      {emptyGuardians.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-border-base/60 bg-bg-dark/35 text-xs">
+          <div className="flex items-center gap-2 text-text-muted min-w-0">
+            <Server size={13} className="text-text-dim shrink-0" />
+            <span className="truncate">
+              {emptyGuardians.length === 1
+                ? `${emptyGuardians[0].name} no tiene monitores asignados todavía.`
+                : `${emptyGuardians.length} guardianes (${emptyGuardians
+                    .slice(0, 2)
+                    .map((g) => g.name)
+                    .join(", ")}${emptyGuardians.length > 2 ? "…" : ""}) no tienen monitores asignados.`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onCreateMonitor(emptyGuardians[0].id)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-accent-green/15 hover:bg-accent-green text-accent-green hover:text-black border border-accent-green/35 transition-colors cursor-pointer shrink-0 !min-h-0"
+          >
+            <Plus size={12} />
+            <span>Crear monitor</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

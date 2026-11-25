@@ -53,15 +53,17 @@ export default function Senti9CardGridView({
     />
   );
 
-  // When there is only 1 active guardian and no filters/groups, show a clean "Next Step" companion card
-  const singleGuardian =
-    !groupedProbes &&
-    !hasFilters &&
-    sortedProbes.length === 1 &&
-    canCreateMonitor &&
-    getGuardianHealthState(sortedProbes[0]) !== "revoked"
-      ? sortedProbes[0]
-      : null;
+  // Conditional companion card: shown ONLY when 1+ active guardians have 0 monitors (max 1 card total, never repeated per guardian)
+  const emptyGuardians =
+    !groupedProbes && !hasFilters && canCreateMonitor
+      ? sortedProbes.filter(
+          (p) =>
+            (p.assigned_targets_count ?? 0) === 0 &&
+            getGuardianHealthState(p) !== "revoked" &&
+            getGuardianHealthState(p) !== "paused",
+        )
+      : [];
+  const primaryEmptyGuardian = emptyGuardians[0] ?? null;
 
   if (groupedProbes) {
     return (
@@ -120,38 +122,31 @@ export default function Senti9CardGridView({
     <div className={`w-full max-w-[1400px] mx-auto ${gridClass}`}>
       {sortedProbes.map(renderCard)}
 
-      {singleGuardian && (
+      {primaryEmptyGuardian && (
         <div className="flex h-full flex-col justify-between rounded-2xl border border-dashed border-border-base/80 bg-bg-card/35 hover:bg-bg-card/60 hover:border-accent-green/45 p-4 gap-3 transition-all">
           <div className="space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-text-dim">
-              Siguiente paso
-            </span>
             <p className="text-sm font-semibold text-text-main">
-              {singleGuardian.assigned_targets_count > 0
-                ? `${singleGuardian.name} tiene ${singleGuardian.assigned_targets_count} ${
-                    singleGuardian.assigned_targets_count === 1
-                      ? "monitor"
-                      : "monitores"
-                  }.`
-                : `${singleGuardian.name} está listo para monitorear tu red.`}
+              {emptyGuardians.length === 1
+                ? `${primaryEmptyGuardian.name} no tiene monitores`
+                : `${emptyGuardians.length} guardianes sin monitores`}
             </p>
             <p className="text-xs text-text-muted leading-relaxed">
-              Agrega bases de datos, APIs internas o puertos TCP privados para
-              supervisarlos desde este guardián.
+              {emptyGuardians.length === 1
+                ? "Agrega bases de datos, APIs internas o puertos TCP privados para supervisarlos desde este guardián."
+                : `${emptyGuardians
+                    .slice(0, 2)
+                    .map((g) => g.name)
+                    .join(", ")}${emptyGuardians.length > 2 ? " y otros" : ""} están listos para supervisar servicios dentro de tu red.`}
             </p>
           </div>
           <div>
             <button
               type="button"
-              onClick={() => onCreateMonitor(singleGuardian.id)}
+              onClick={() => onCreateMonitor(primaryEmptyGuardian.id)}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-accent-green/15 hover:bg-accent-green text-accent-green hover:text-black border border-accent-green/35 transition-colors cursor-pointer !min-h-0"
             >
               <Plus size={14} />
-              <span>
-                {singleGuardian.assigned_targets_count > 0
-                  ? "Crear otro monitor"
-                  : "Crear primer monitor"}
-              </span>
+              <span>Crear primer monitor</span>
             </button>
           </div>
         </div>

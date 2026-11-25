@@ -211,6 +211,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_name",
             "agent_probe_status",
             "agent_probe_online",
+            "agent_probe_enabled",
             "recent_checks",
             "uptime_24h",
             "checks_24h",
@@ -231,6 +232,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_name",
             "agent_probe_status",
             "agent_probe_online",
+            "agent_probe_enabled",
             "recent_checks",
             "uptime_24h",
             "checks_24h",
@@ -252,6 +254,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
     agent_probe_name = serializers.CharField(source="agent_probe.name", read_only=True, allow_null=True)
     agent_probe_status = serializers.CharField(source="agent_probe.status", read_only=True, allow_null=True)
     agent_probe_online = serializers.BooleanField(source="agent_probe.is_online", read_only=True, allow_null=True)
+    agent_probe_enabled = serializers.BooleanField(source="agent_probe.enabled", read_only=True, allow_null=True)
 
     def _get_24h_counts(self, obj):
         if hasattr(obj, "checks_24h_total") and hasattr(obj, "checks_24h_up"):

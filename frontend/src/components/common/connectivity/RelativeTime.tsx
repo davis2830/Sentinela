@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 export function formatExactDate(value: string | null | undefined): string {
   if (!value) return "Sin registro";
   const date = new Date(value);
@@ -50,6 +52,13 @@ export default function RelativeTime({
   prefix?: string;
   className?: string;
 }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!value) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 10000);
+    return () => window.clearInterval(id);
+  }, [value]);
+
   const relative = formatRelativeAgo(value, emptyLabel);
   const exact = value ? formatExactDate(value) : emptyLabel;
 

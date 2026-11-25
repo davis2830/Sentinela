@@ -2,7 +2,13 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight, Server } from "lucide-react";
 import type { QuotaMetric } from "../../types/organization";
 
-export default function Senti9Quota({ quota }: { quota: QuotaMetric }) {
+export default function Senti9Quota({
+  quota,
+  onUpgrade,
+}: {
+  quota: QuotaMetric;
+  onUpgrade?: () => void;
+}) {
   const nearOrAtLimit =
     !quota.is_unlimited &&
     quota.limit > 0 &&
@@ -32,16 +38,27 @@ export default function Senti9Quota({ quota }: { quota: QuotaMetric }) {
           </>
         )}
       </span>
-      {nearOrAtLimit && (
-        <Link
-          to="/organization"
-          className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent-green hover:underline"
-          title="Ampliar límite de guardianes en tu plan"
-        >
-          <span>Mejorar plan</span>
-          <ArrowUpRight size={11} />
-        </Link>
-      )}
+      {nearOrAtLimit &&
+        (onUpgrade ? (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent-green hover:underline cursor-pointer !min-h-0 !min-w-0"
+            title="Ampliar límite de guardianes en tu plan"
+          >
+            <span>Mejorar plan</span>
+            <ArrowUpRight size={11} />
+          </button>
+        ) : (
+          <Link
+            to="/organization"
+            className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent-green hover:underline"
+            title="Ampliar límite de guardianes en tu plan"
+          >
+            <span>Mejorar plan</span>
+            <ArrowUpRight size={11} />
+          </Link>
+        ))}
     </span>
   );
 }

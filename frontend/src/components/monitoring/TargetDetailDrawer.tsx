@@ -180,8 +180,13 @@ export default function TargetDetailDrawer({
 
   const summary = telemetry.isError ? null : telemetry.data?.summary;
   const measured = Boolean(summary && summary.total_checks > 0);
-  const failedCurrent = ["down", "error"].includes(target.last_status || "");
-  const isSlow = target.last_status === "slow";
+  const guardianPaused =
+    target.enabled &&
+    target.runner_type === "agent" &&
+    target.agent_probe_enabled === false;
+  const failedCurrent =
+    !guardianPaused && ["down", "error"].includes(target.last_status || "");
+  const isSlow = !guardianPaused && target.last_status === "slow";
   const currentMeasured = Boolean(
     target.last_checked_at &&
     Number.isFinite(Date.parse(target.last_checked_at)),
@@ -189,9 +194,11 @@ export default function TargetDetailDrawer({
 
   const [status, tone] = !target.enabled
     ? ["Pausado", "muted"]
-    : currentMeasured
-      ? states[target.last_status || ""] || ["Sin datos", "muted"]
-      : ["Sin datos", "muted"];
+    : guardianPaused
+      ? ["Pausado: guardián detenido", "muted"]
+      : currentMeasured
+        ? states[target.last_status || ""] || ["Sin datos", "muted"]
+        : ["Sin datos", "muted"];
 
   const Icon = icons[target.target_type] || Globe;
   const full = ["http", "https"].includes(target.target_type);

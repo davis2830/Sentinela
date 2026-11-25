@@ -166,6 +166,24 @@ export default function TargetLatency({
   const lastKnownLat = lastUpCheck?.latency ? `${formatMetric(lastUpCheck.latency)} ms` : null;
 
   if (compact) {
+    const guardianPaused =
+      target.enabled &&
+      target.runner_type === "agent" &&
+      target.agent_probe_enabled === false;
+
+    if (guardianPaused) {
+      return (
+        <div data-testid="target-latency" className="inline-flex items-center whitespace-nowrap">
+          <span
+            className="font-mono text-slate-400 text-[11px] font-medium"
+            title={`Pausado: guardián detenido (${target.agent_probe_name || "LAN"})`}
+          >
+            Pausado
+          </span>
+        </div>
+      );
+    }
+
     if (!target.enabled) {
       const pausedText = formatPausedSince(target, false);
       return (
