@@ -39,8 +39,8 @@ export default function TargetCardGridView({
   const hasAnySelection = selectedIds.length > 0;
   const gridClass =
     density === "compact"
-      ? "grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5"
-      : "grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3.5";
+      ? "grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3"
+      : "grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-4";
 
   const renderCard = (target: MonitoringTarget) => (
     <TargetCard
@@ -62,13 +62,13 @@ export default function TargetCardGridView({
 
   if (groupedTargets) {
     return (
-      <div className="w-full max-w-[1400px] mx-auto space-y-4">
+      <div className="w-full max-w-[1400px] mx-auto space-y-5">
         {groupedTargets.map((group) => {
           const isCollapsed = Boolean(collapsedGroups[group.key]);
           const GroupIcon = group.icon;
 
           return (
-            <section key={group.key} className="space-y-2.5">
+            <section key={group.key} className="space-y-3">
               <button
                 type="button"
                 onClick={() => onToggleGroup(group.key)}

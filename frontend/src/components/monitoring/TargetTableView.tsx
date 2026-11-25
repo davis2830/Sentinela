@@ -22,10 +22,6 @@ import {
   ChevronRight,
   Check,
   AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  PauseCircle,
-  HelpCircle,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
 
@@ -87,39 +83,48 @@ export default function TargetTableView({
     if (kind === "paused") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
-          <PauseCircle size={11} className="text-zinc-400 shrink-0" />
-          <span>Pausado</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+          Pausado
         </span>
       );
     }
     if (kind === "up") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
-          <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
-          <span>Online</span>
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+          </span>
+          Online
         </span>
       );
     }
     if (kind === "slow") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0">
-          <AlertTriangle size={11} className="text-amber-400 shrink-0" />
-          <span>Lento</span>
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+          </span>
+          Lento
         </span>
       );
     }
     if (kind === "down") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/40 shrink-0">
-          <XCircle size={11} className="text-rose-400 shrink-0" />
-          <span>Caído</span>
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500" />
+          </span>
+          Caído
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
-        <HelpCircle size={11} className="text-zinc-500 shrink-0" />
-        <span>Desconocido</span>
+        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+        Desconocido
       </span>
     );
   };
