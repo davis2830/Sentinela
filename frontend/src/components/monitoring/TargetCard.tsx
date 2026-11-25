@@ -147,8 +147,16 @@ export default function TargetCard({
     uptimePct != null
       ? `${uptimePct === 100 ? "100" : uptimePct.toFixed(1)} %`
       : null;
+  const uptimeColorClass =
+    uptimePct == null
+      ? "text-text-dim"
+      : uptimePct >= 99
+        ? "text-emerald-400/90"
+        : uptimePct >= 95
+          ? "text-amber-400"
+          : "text-rose-400";
 
-  // 16 slim bars in status-wall mode (14 in compact) — solid slate-700 when paused for legibility
+  // 16 slim bars in comfortable mode (14 in compact)
   const historySlots = getTargetHistorySlots(target, isCompact ? 14 : 16);
 
   // Neutral border on Online; colored border ONLY on Down (red) and Slow (amber); legible muted look on Paused
@@ -161,12 +169,6 @@ export default function TargetCard({
         : isSlow
           ? "bg-bg-card border-amber-500/40 hover:border-amber-400/70"
           : "bg-bg-card border-border-base/80 hover:border-text-dim/60";
-
-  // Checkbox visible on hover, keyboard focus inside card, touch devices, OR whenever ANY card is selected
-  const checkboxVisibilityClass =
-    isSelected || hasAnySelection
-      ? "opacity-100 scale-100"
-      : "opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:scale-100 [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100";
 
   const renderStatusIcon = (size: number) => {
     if (isPaused) {
@@ -214,17 +216,20 @@ export default function TargetCard({
     );
   };
 
+  // Visually distinct gray states:
+  // - no_data ("Sin medición aún"): hollow outlined slot (bg-slate-900/50 border border-slate-700/75)
+  // - paused ("Monitoreo pausado"): solid muted slate bar (bg-slate-600/75)
   const renderHistoryBars = (heightClass: string) => (
     <div
       className={`flex items-center gap-[3px] w-full ${heightClass}`}
       aria-label={`Historial reciente de ${target.name}`}
     >
       {historySlots.map((slot, idx) => {
-        let bg = "bg-slate-800";
+        let bg = "bg-slate-900/50 border border-slate-700/75";
         let tooltip = "Sin medición aún";
 
         if (slot.status === "paused") {
-          bg = "bg-slate-700";
+          bg = "bg-slate-600/75";
           tooltip = pausedTooltip || "Monitoreo pausado";
         } else if (slot.status !== "no_data") {
           if (slot.status === "up") bg = "bg-emerald-500 hover:bg-emerald-400";
@@ -271,6 +276,9 @@ export default function TargetCard({
         }`
       : `Sin latencia registrada (límite: ${formatMetric(latencyLimit)} ms)`;
 
+  const showSelectionBox = Boolean(onSelectToggle);
+  const forceCheckbox = isSelected || hasAnySelection;
+
   return (
     <div
       data-testid="connectivity-card"
@@ -288,41 +296,61 @@ export default function TargetCard({
         }
       }}
       className={`group relative flex h-full flex-col justify-between rounded-2xl border cursor-pointer transition-all duration-150 ${
-        isCompact ? "p-3.5 gap-3" : "p-4 gap-4"
+        isCompact ? "p-3.5 gap-3" : "p-4 gap-3.5"
       } ${cardSurfaceClass}`}
     >
-      {/* Top-Left Floating Selection Checkbox (hover, focus-within, touch, or active bulk selection) */}
-      {onSelectToggle && (
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={isSelected}
-          aria-label={`Seleccionar ${target.name}`}
-          title={isSelected ? "Deseleccionar" : "Seleccionar"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectToggle(target);
-          }}
-          className={`sentinel-selection absolute -top-2 -left-2 z-20 grid h-5 w-5 place-items-center rounded-md border shadow-md transition-all cursor-pointer !min-h-0 !min-w-0 ${
-            isSelected
-              ? "border-accent-green bg-accent-green text-black"
-              : "border-slate-600 bg-bg-dark text-transparent hover:border-accent-green"
-          } ${checkboxVisibilityClass}`}
-        >
-          <Check
-            size={11}
-            strokeWidth={3}
-            className={isSelected ? "opacity-100" : "opacity-0"}
-          />
-        </button>
-      )}
-
-      {/* Top Block: Single Left Alignment (Status Icon + Name, Truncated URL below) & Hover Actions + Toggle */}
+      {/* Top Block: Single Left Alignment (Status Icon / In-place Checkbox + Name + Agent, URL & Sub-metric below) */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          {/* Status Icon + Name + Optional Senti9 Agent Pill */}
+        <div className="relative flex items-center justify-between gap-2 min-w-0">
+          {/* Left: In-place Status Icon -> Checkbox swap on hover/focus/selection + Name + Agent Pill */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {renderStatusIcon(isCompact ? 16 : 18)}
+            <div
+              className={`relative shrink-0 grid place-items-center ${
+                isCompact ? "w-4 h-4" : "w-[18px] h-[18px]"
+              }`}
+            >
+              {/* Status Icon (fades out when checkbox takes its place) */}
+              <span
+                className={`grid place-items-center transition-opacity duration-150 ${
+                  showSelectionBox
+                    ? forceCheckbox
+                      ? "opacity-0 pointer-events-none"
+                      : "opacity-100 group-hover:opacity-0 group-focus-within:opacity-0 [@media(hover:none)]:opacity-0"
+                    : "opacity-100"
+                }`}
+              >
+                {renderStatusIcon(isCompact ? 16 : 18)}
+              </span>
+
+              {/* Selection Checkbox inside the card, substituting the status icon */}
+              {showSelectionBox && (
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={isSelected}
+                  aria-label={`Seleccionar ${target.name}`}
+                  title={isSelected ? "Deseleccionar" : "Seleccionar"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectToggle?.(target);
+                  }}
+                  className={`sentinel-selection absolute inset-0 grid place-items-center rounded-[4px] border transition-all duration-150 cursor-pointer !min-h-0 !min-w-0 ${
+                    isSelected
+                      ? "border-accent-green bg-accent-green text-black opacity-100"
+                      : forceCheckbox
+                        ? "border-slate-500 bg-bg-dark text-transparent hover:border-accent-green opacity-100"
+                        : "border-slate-500 bg-bg-dark text-transparent hover:border-accent-green opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto"
+                  }`}
+                >
+                  <Check
+                    size={11}
+                    strokeWidth={3}
+                    className={isSelected ? "opacity-100" : "opacity-0"}
+                  />
+                </button>
+              )}
+            </div>
+
             <h3
               className={`font-semibold truncate leading-tight min-w-0 ${
                 isCompact ? "text-[13px]" : "text-sm"
@@ -337,6 +365,7 @@ export default function TargetCard({
             >
               {target.name}
             </h3>
+
             {!hideAgentBadge && target.runner_type === "agent" && (
               <span
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium shrink-0 max-w-[82px] ${
@@ -365,12 +394,13 @@ export default function TargetCard({
             )}
           </div>
 
-          {/* Right: Hover/Focus/Touch Actions (Bell, Pencil, Trash2) + Always-Visible Toggle */}
+          {/* Right: Non-shifting Floating Hover Actions + Always-Visible Toggle */}
           <div
-            className="flex items-center gap-1 shrink-0"
+            className="relative flex items-center shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-0.5 max-w-0 overflow-hidden opacity-0 group-hover:max-w-[84px] group-hover:opacity-100 group-focus-within:max-w-[84px] group-focus-within:opacity-100 [@media(hover:none)]:max-w-[84px] [@media(hover:none)]:opacity-100 transition-all duration-150">
+            {/* Floating overlay pill on desktop hover/focus (never pushes the name); inline on touch */}
+            <div className="flex items-center gap-0.5 rounded-lg border border-border-base/80 bg-bg-dark/95 backdrop-blur-sm px-0.5 py-0.5 shadow-lg absolute right-9 top-1/2 -translate-y-1/2 z-20 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:static [@media(hover:none)]:translate-y-0 [@media(hover:none)]:mr-1.5 [@media(hover:none)]:border-0 [@media(hover:none)]:bg-transparent [@media(hover:none)]:p-0 [@media(hover:none)]:shadow-none [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto transition-opacity duration-150">
               {onAlert && (
                 <button
                   type="button"
@@ -410,7 +440,7 @@ export default function TargetCard({
           </div>
         </div>
 
-        {/* Truncated Endpoint URL always shown under Name to distinguish similar names */}
+        {/* Line 2: Truncated Endpoint URL aligned directly under Name */}
         <p
           className={`${isCompact ? "pl-[24px] text-[11px]" : "pl-[26px] text-xs"} font-mono truncate ${
             isPaused ? "text-slate-500" : "text-text-dim"
@@ -420,27 +450,48 @@ export default function TargetCard({
           {displayEndpoint}
         </p>
 
-        {/* Inline Failure Detail (only when Down or Slow, aligned under Name) */}
-        {isDown && (
-          <div
-            className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} pt-0.5 flex items-center gap-1.5 text-[11px] font-mono text-rose-300 truncate`}
-            title={`${fullDiagnostic} · ${downSinceText}`}
-          >
-            <AlertTriangle size={11} className="text-rose-400 shrink-0" />
-            <span className="truncate">
-              {shortDiagnostic} · {downSinceText}
+        {/* Line 3 (Fixed single-line slot across all states): Error / Slow reason OR Online Uptime 24h */}
+        <div
+          className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} min-h-[18px] flex items-center text-[11px] font-mono truncate`}
+        >
+          {isDown ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-rose-300 truncate"
+              title={`${fullDiagnostic} · ${downSinceText}`}
+            >
+              <AlertTriangle size={11} className="text-rose-400 shrink-0" />
+              <span className="truncate">
+                {shortDiagnostic} · {downSinceText}
+              </span>
             </span>
-          </div>
-        )}
-        {isSlow && (
-          <div
-            className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} pt-0.5 flex items-center gap-1.5 text-[11px] font-mono text-amber-300 truncate`}
-            title={fullDiagnostic}
-          >
-            <AlertTriangle size={11} className="text-amber-400 shrink-0" />
-            <span className="truncate">{fullDiagnostic}</span>
-          </div>
-        )}
+          ) : isSlow ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-amber-300 truncate"
+              title={fullDiagnostic}
+            >
+              <AlertTriangle size={11} className="text-amber-400 shrink-0" />
+              <span className="truncate">{fullDiagnostic}</span>
+            </span>
+          ) : isUp && uptimeDisplay ? (
+            <span
+              className="inline-flex items-center gap-1 truncate"
+              title="Disponibilidad individual calculada sobre comprobaciones recientes"
+            >
+              <span className={`font-semibold ${uptimeColorClass}`}>
+                {uptimeDisplay}
+              </span>
+              <span className="text-text-dim">· 24 h</span>
+            </span>
+          ) : isPaused ? (
+            <span className="text-slate-500 truncate">
+              cada {target.interval} s · en pausa
+            </span>
+          ) : (
+            <span className="text-text-dim truncate">
+              cada {target.interval} s
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Bottom Block: Fixed-height Metric + Protocol row (uniform vertical alignment) & Slim History Bars */}

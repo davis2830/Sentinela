@@ -41,8 +41,8 @@ export default function TargetCardGridView({
   const hasAnySelection = selectedIds.length > 0;
   const gridClass =
     density === "compact"
-      ? "grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5 pt-1 pl-1 overflow-visible"
-      : "grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-4 pt-1 pl-1 overflow-visible";
+      ? "grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5"
+      : "grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-4";
 
   const renderCard = (target: MonitoringTarget) => (
     <TargetCard

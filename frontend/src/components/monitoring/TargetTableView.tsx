@@ -320,11 +320,11 @@ export default function TargetTableView({
         <td className={`${paddingY} px-2.5 whitespace-nowrap w-[90px]`}>
           <div className="flex items-center gap-1 h-3 w-20">
             {historySlots.map((slot, idx) => {
-              let bg = "bg-bg-card-hover/70";
+              let bg = "bg-slate-900/50 border border-slate-700/75";
               let tooltip = "Sin medición aún";
 
               if (slot.status === "paused") {
-                bg = "bg-slate-700";
+                bg = "bg-slate-600/75";
                 tooltip = "Monitoreo pausado";
               } else if (slot.status !== "no_data") {
                 if (slot.status === "up") bg = "bg-emerald-500";
