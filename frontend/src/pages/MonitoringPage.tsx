@@ -519,6 +519,7 @@ export default function MonitoringPage() {
           <TargetCardGridView
             sortedTargets={sortedTargets}
             groupedTargets={groupedTargets}
+            groupBy={groupBy}
             collapsedGroups={collapsedGroups}
             onToggleGroup={toggleGroup}
             density={density}

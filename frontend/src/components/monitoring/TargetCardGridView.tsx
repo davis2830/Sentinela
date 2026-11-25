@@ -1,11 +1,12 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import TargetCard from "./TargetCard";
-import type { TargetDensity, TargetGroup } from "./useTargets";
+import type { TargetDensity, TargetGroup, TargetGroupBy } from "./useTargets";
 import type { MonitoringTarget } from "../../types/monitoring";
 
 interface TargetCardGridViewProps {
   sortedTargets: MonitoringTarget[];
   groupedTargets: TargetGroup[] | null;
+  groupBy?: TargetGroupBy;
   collapsedGroups: Record<string, boolean>;
   onToggleGroup: (key: string) => void;
   density: TargetDensity;
@@ -23,6 +24,7 @@ interface TargetCardGridViewProps {
 export default function TargetCardGridView({
   sortedTargets,
   groupedTargets,
+  groupBy = "none",
   collapsedGroups,
   onToggleGroup,
   density,
@@ -47,6 +49,7 @@ export default function TargetCardGridView({
       key={target.id}
       target={target}
       density={density}
+      hideAgentBadge={groupBy === "senti9"}
       onEdit={onEdit}
       onDelete={onDelete}
       onScan={onScan}

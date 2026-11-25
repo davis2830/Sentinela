@@ -36,6 +36,7 @@ import type { MonitoringTarget } from "../../types/monitoring";
 interface TargetCardProps {
   target: MonitoringTarget;
   density?: TargetDensity;
+  hideAgentBadge?: boolean;
   onEdit: (target: MonitoringTarget) => void;
   onDelete: (target: MonitoringTarget) => void;
   onScan?: (target: MonitoringTarget) => void;
@@ -51,6 +52,7 @@ interface TargetCardProps {
 export default function TargetCard({
   target,
   density = "comfortable",
+  hideAgentBadge = false,
   onEdit,
   onDelete,
   onToggle,
@@ -318,11 +320,11 @@ export default function TargetCard({
       {/* Top Block: Single Left Alignment (Status Icon + Name, Truncated URL below) & Hover Actions + Toggle */}
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-2 min-w-0">
-          {/* Status Icon + Name */}
+          {/* Status Icon + Name + Optional Senti9 Agent Pill */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {renderStatusIcon(isCompact ? 16 : 18)}
             <h3
-              className={`font-semibold truncate leading-tight ${
+              className={`font-semibold truncate leading-tight min-w-0 ${
                 isCompact ? "text-[13px]" : "text-sm"
               } ${
                 isDown
@@ -335,6 +337,32 @@ export default function TargetCard({
             >
               {target.name}
             </h3>
+            {!hideAgentBadge && target.runner_type === "agent" && (
+              <span
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium shrink-0 max-w-[82px] ${
+                  target.agent_probe_online === false ||
+                  target.agent_probe_status === "offline"
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                    : isPaused
+                      ? "bg-bg-dark/60 border-border-base/60 text-slate-500"
+                      : "bg-bg-dark/80 border-border-base/80 text-text-muted"
+                }`}
+                title={
+                  target.agent_probe_online === false ||
+                  target.agent_probe_status === "offline"
+                    ? `Guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`
+                    : `Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`
+                }
+              >
+                <Server size={10} className="shrink-0" />
+                <span className="truncate">
+                  {(target.agent_probe_name || "LAN").replace(
+                    /^Senti9:\s*/i,
+                    "",
+                  )}
+                </span>
+              </span>
+            )}
           </div>
 
           {/* Right: Hover/Focus/Touch Actions (Bell, Pencil, Trash2) + Always-Visible Toggle */}
@@ -342,14 +370,14 @@ export default function TargetCard({
             className="flex items-center gap-1 shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
+            <div className="flex items-center gap-0.5 max-w-0 overflow-hidden opacity-0 group-hover:max-w-[84px] group-hover:opacity-100 group-focus-within:max-w-[84px] group-focus-within:opacity-100 [@media(hover:none)]:max-w-[84px] [@media(hover:none)]:opacity-100 transition-all duration-150">
               {onAlert && (
                 <button
                   type="button"
                   onClick={() => onAlert(target)}
                   title="Vincular regla de alerta"
                   aria-label={`Vincular alerta para ${target.name}`}
-                  className="grid h-6 w-6 place-items-center rounded-md text-text-dim hover:text-amber-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-text-dim hover:text-amber-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
                 >
                   <Bell size={13} />
                 </button>
@@ -359,7 +387,7 @@ export default function TargetCard({
                 onClick={() => onEdit(target)}
                 title="Editar target"
                 aria-label={`Editar ${target.name}`}
-                className="grid h-6 w-6 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
               >
                 <Pencil size={13} />
               </button>
@@ -368,7 +396,7 @@ export default function TargetCard({
                 onClick={() => onDelete(target)}
                 title="Eliminar target"
                 aria-label={`Eliminar ${target.name}`}
-                className="grid h-6 w-6 place-items-center rounded-md text-text-dim hover:text-rose-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-text-dim hover:text-rose-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
               >
                 <Trash2 size={13} />
               </button>
@@ -415,14 +443,18 @@ export default function TargetCard({
         )}
       </div>
 
-      {/* Bottom Block: Semantic Latency + Protocol on same baseline, Slim History Bars below */}
+      {/* Bottom Block: Fixed-height Metric + Protocol row (uniform vertical alignment) & Slim History Bars */}
       <div className={isCompact ? "space-y-2" : "space-y-2.5"}>
-        <div className="flex items-baseline justify-between gap-2">
+        <div
+          className={`flex items-center justify-between gap-2 ${
+            isCompact ? "h-7" : "h-8"
+          }`}
+        >
           {/* Big Latency / Status Metric */}
-          <div className="min-w-0 truncate">
+          <div className="min-w-0 truncate flex items-center">
             {isPaused ? (
               <span
-                className={`font-mono font-medium text-slate-400 ${
+                className={`font-mono font-medium leading-none text-slate-400 ${
                   isCompact ? "text-xs" : "text-sm"
                 }`}
                 title={pausedTooltip}
@@ -431,7 +463,7 @@ export default function TargetCard({
               </span>
             ) : isDown ? (
               <div
-                className="flex items-baseline gap-2"
+                className="flex items-baseline gap-2 leading-none"
                 title={`Servicio caído (${downSinceText}) · Última latencia conocida: ${lastKnownLat || "N/A"}`}
               >
                 <span
@@ -449,7 +481,7 @@ export default function TargetCard({
               </div>
             ) : (
               <span
-                className={`font-mono font-bold tracking-tight ${latencyColorClass} ${
+                className={`font-mono font-bold leading-none tracking-tight ${latencyColorClass} ${
                   isCompact ? "text-lg" : "text-2xl"
                 }`}
                 data-tone={latTone}
@@ -460,44 +492,16 @@ export default function TargetCard({
             )}
           </div>
 
-          {/* Right: Clean Protocol Icon + Label (plus subtle Senti9 name if private agent) */}
-          <div className="flex items-center gap-2 shrink-0">
-            {target.runner_type === "agent" && (
-              <span
-                className={`inline-flex items-center gap-1 text-[10px] font-medium ${
-                  target.agent_probe_online === false ||
-                  target.agent_probe_status === "offline"
-                    ? "text-rose-400"
-                    : isPaused
-                      ? "text-slate-500"
-                      : "text-text-dim"
-                }`}
-                title={
-                  target.agent_probe_online === false ||
-                  target.agent_probe_status === "offline"
-                    ? `Guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`
-                    : `Sondeado por Guardián Senti9: ${target.agent_probe_name || "LAN"}`
-                }
-              >
-                <Server size={11} className="shrink-0" />
-                <span className="truncate max-w-[70px]">
-                  {(target.agent_probe_name || "LAN").replace(
-                    /^Senti9:\s*/i,
-                    "",
-                  )}
-                </span>
-              </span>
-            )}
-            <span
-              className={`inline-flex items-center gap-1 font-mono font-semibold uppercase ${
-                isCompact ? "text-[11px]" : "text-xs"
-              } ${isPaused ? "text-slate-400" : typeStyle.text}`}
-              title={`Protocolo ${target.target_type.toUpperCase()} · cada ${target.interval} s`}
-            >
-              <ProtocolIcon size={isCompact ? 12 : 13} className="shrink-0" />
-              <span>{target.target_type}</span>
-            </span>
-          </div>
+          {/* Right: Clean Protocol Icon + Label (unobstructed) */}
+          <span
+            className={`inline-flex items-center gap-1 font-mono font-semibold leading-none uppercase shrink-0 ${
+              isCompact ? "text-[11px]" : "text-xs"
+            } ${isPaused ? "text-slate-400" : typeStyle.text}`}
+            title={`Protocolo ${target.target_type.toUpperCase()} · cada ${target.interval} s`}
+          >
+            <ProtocolIcon size={isCompact ? 12 : 13} className="shrink-0" />
+            <span>{target.target_type}</span>
+          </span>
         </div>
 
         {/* Slim History Bars */}
