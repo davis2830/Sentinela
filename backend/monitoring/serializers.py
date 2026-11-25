@@ -55,6 +55,9 @@ class AgentProbeSerializer(serializers.ModelSerializer):
 
     is_online = serializers.BooleanField(read_only=True)
     assigned_targets_count = serializers.SerializerMethodField()
+    active_targets_count = serializers.SerializerMethodField()
+    down_targets_count = serializers.SerializerMethodField()
+    latest_version = serializers.SerializerMethodField()
     delivery = serializers.SerializerMethodField()
     telemetry = serializers.SerializerMethodField()
 
@@ -69,11 +72,15 @@ class AgentProbeSerializer(serializers.ModelSerializer):
             "ip_address",
             "hostname",
             "version",
+            "latest_version",
             "os_info",
             "assigned_targets_count",
+            "active_targets_count",
+            "down_targets_count",
             "delivery",
             "lifecycle",
             "revoked_at",
+            "revocation_reason",
             "telemetry",
             "created_at",
             "updated_at",
@@ -86,14 +93,33 @@ class AgentProbeSerializer(serializers.ModelSerializer):
             "ip_address",
             "hostname",
             "version",
+            "latest_version",
             "os_info",
             "assigned_targets_count",
+            "active_targets_count",
+            "down_targets_count",
+            "revocation_reason",
             "created_at",
             "updated_at",
         )
 
     def get_assigned_targets_count(self, obj):
         return obj.assigned_count if hasattr(obj, "assigned_count") else obj.assigned_targets.count()
+
+    def get_active_targets_count(self, obj):
+        if hasattr(obj, "active_assigned_count"):
+            return obj.active_assigned_count
+        return obj.assigned_targets.filter(enabled=True).count()
+
+    def get_down_targets_count(self, obj):
+        if hasattr(obj, "down_assigned_count"):
+            return obj.down_assigned_count
+        return obj.assigned_targets.filter(enabled=True, last_status__in=["down", "error"]).count()
+
+    def get_latest_version(self, obj):
+        from .probe_installation import VERSION
+
+        return VERSION
 
     def get_telemetry(self, obj):
         from .probe_telemetry import present_telemetry

@@ -3,6 +3,7 @@ export interface AgentProbe {
   name: string;
   lifecycle?: "pending_connection" | "connected" | "disconnected" | "revoked";
   revoked_at?: string | null;
+  revocation_reason?: string;
   installation?: ProbeInstallation;
   status: "online" | "offline";
   is_online: boolean;
@@ -10,8 +11,11 @@ export interface AgentProbe {
   ip_address: string;
   hostname: string;
   version: string;
+  latest_version?: string;
   os_info: string;
   assigned_targets_count: number;
+  active_targets_count?: number;
+  down_targets_count?: number;
   telemetry?: {
     state: "current" | "stale" | "unknown";
     received_at: string | null;

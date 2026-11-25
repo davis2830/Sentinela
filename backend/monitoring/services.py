@@ -661,6 +661,19 @@ class AgentProbeService:
             AgentProbe.objects.filter(organization_id=organization_id)
             .annotate(
                 assigned_count=Count("assigned_targets", distinct=True),
+                active_assigned_count=Count(
+                    "assigned_targets",
+                    filter=Q(assigned_targets__enabled=True),
+                    distinct=True,
+                ),
+                down_assigned_count=Count(
+                    "assigned_targets",
+                    filter=Q(
+                        assigned_targets__enabled=True,
+                        assigned_targets__last_status__in=["down", "error"],
+                    ),
+                    distinct=True,
+                ),
                 receipt_pending=Count(
                     "agentexecution",
                     filter=Q(agentexecution__accepted_at__isnull=True, agentexecution__expires_at__gt=timezone.now()),

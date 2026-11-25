@@ -1,17 +1,47 @@
-import { Server } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowUpRight, Server } from "lucide-react";
 import type { QuotaMetric } from "../../types/organization";
 
 export default function Senti9Quota({ quota }: { quota: QuotaMetric }) {
+  const nearOrAtLimit =
+    !quota.is_unlimited &&
+    quota.limit > 0 &&
+    quota.current / quota.limit >= 0.8;
+
   return (
-    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-base bg-bg-dark/80 text-xs text-text-muted shadow-sm select-none">
-      <Server size={13} className="text-accent-green shrink-0" aria-hidden="true" />
+    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border-base bg-bg-dark/80 text-xs text-text-muted select-none">
+      <Server
+        size={12}
+        className={nearOrAtLimit ? "text-amber-400 shrink-0" : "text-accent-green shrink-0"}
+        aria-hidden="true"
+      />
       <span>
-        <strong className="font-mono font-medium text-text-main">
-          {quota.current}
-          {!quota.is_unlimited && ` / ${quota.limit}`}
-        </strong>
-        {quota.is_unlimited ? " agentes Senti9 (sin límite)" : " agentes Senti9"}
+        {quota.is_unlimited ? (
+          <>
+            <strong className="font-mono font-semibold text-text-main">
+              {quota.current}
+            </strong>{" "}
+            guardianes (plan ilimitado)
+          </>
+        ) : (
+          <>
+            <strong className="font-mono font-semibold text-text-main">
+              {quota.current} de {quota.limit}
+            </strong>{" "}
+            guardianes del plan
+          </>
+        )}
       </span>
+      {nearOrAtLimit && (
+        <Link
+          to="/organization"
+          className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent-green hover:underline"
+          title="Ampliar límite de guardianes en tu plan"
+        >
+          <span>Mejorar plan</span>
+          <ArrowUpRight size={11} />
+        </Link>
+      )}
     </span>
   );
 }

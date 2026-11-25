@@ -11,6 +11,7 @@ import {
   getTargetHistorySlots,
   getTargetStatusKind,
   getTargetUptimeInfo,
+  isTargetGuardianOffline,
   type TargetDensity,
 } from "./useTargets";
 import {
@@ -63,10 +64,11 @@ export default function TargetCard({
   onSelectToggle,
 }: TargetCardProps) {
   const statusKind = getTargetStatusKind(target);
+  const guardianOffline = isTargetGuardianOffline(target);
   const isPaused = statusKind === "paused";
-  const isDown = statusKind === "down";
-  const isSlow = statusKind === "slow";
-  const isUp = statusKind === "up";
+  const isDown = !guardianOffline && statusKind === "down";
+  const isSlow = !guardianOffline && statusKind === "slow";
+  const isUp = !guardianOffline && statusKind === "up";
   const isCompact = density === "compact";
 
   const ProtocolIcon = TARGET_TYPE_ICONS[target.target_type] || Globe;
@@ -157,14 +159,14 @@ export default function TargetCard({
   // 16 slim bars in comfortable mode (14 in compact)
   const historySlots = getTargetHistorySlots(target, isCompact ? 14 : 16);
 
-  // Neutral border on Online; colored border ONLY on Down (red) and Slow (amber); legible muted look on Paused
+  // Neutral border on Online; colored border ONLY on Down (red), Slow/Guardian-offline (amber); legible muted look on Paused
   const cardSurfaceClass = isSelected
     ? "border-accent-green bg-accent-green/5 ring-2 ring-accent-green/30"
     : isPaused
       ? "bg-bg-card/60 border-border-base/60 hover:bg-bg-card/85 hover:border-border-base"
       : isDown
         ? "bg-[#1c1217] border-rose-500/45 hover:bg-[#25161e] hover:border-rose-400/70"
-        : isSlow
+        : isSlow || guardianOffline
           ? "bg-bg-card border-amber-500/40 hover:border-amber-400/70"
           : "bg-bg-card border-border-base/80 hover:border-text-dim/60";
 
@@ -187,12 +189,12 @@ export default function TargetCard({
         />
       );
     }
-    if (isSlow) {
+    if (isSlow || guardianOffline) {
       return (
         <AlertTriangle
           size={size}
           className="text-amber-400 shrink-0"
-          aria-label="Lento"
+          aria-label={guardianOffline ? "Guardián desconectado" : "Lento"}
         />
       );
     }
@@ -452,7 +454,17 @@ export default function TargetCard({
         <div
           className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} min-h-[18px] flex items-center text-[11px] font-mono truncate`}
         >
-          {isDown ? (
+          {guardianOffline ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-amber-300 truncate"
+              title={`Sin datos: el guardián Senti9 (${target.agent_probe_name || "LAN"}) está desconectado. El servicio no se marca como caído hasta recuperar señal.`}
+            >
+              <Server size={11} className="text-amber-400 shrink-0" />
+              <span className="truncate">
+                Sin datos · guardián desconectado
+              </span>
+            </span>
+          ) : isDown ? (
             <span
               className="inline-flex items-center gap-1.5 text-rose-300 truncate"
               title={`${fullDiagnostic} · ${downSinceText}`}
@@ -518,6 +530,15 @@ export default function TargetCard({
                 title={pausedTooltip}
               >
                 {pausedLabel}
+              </span>
+            ) : guardianOffline ? (
+              <span
+                className={`font-mono font-semibold leading-none text-amber-400 ${
+                  isCompact ? "text-xs" : "text-sm"
+                }`}
+                title={`Sin mediciones recientes: guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`}
+              >
+                Sin datos
               </span>
             ) : isDown ? (
               <div

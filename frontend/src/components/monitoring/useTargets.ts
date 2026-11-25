@@ -63,8 +63,18 @@ export const TARGET_TYPE_COLORS: Record<
   },
 };
 
+export function isTargetGuardianOffline(target: MonitoringTarget): boolean {
+  return (
+    target.enabled &&
+    target.runner_type === "agent" &&
+    (target.agent_probe_online === false ||
+      target.agent_probe_status === "offline")
+  );
+}
+
 export function getTargetStatusKind(target: MonitoringTarget): TargetStatusKind {
   if (!target.enabled) return "paused";
+  if (isTargetGuardianOffline(target)) return "unknown";
   if (target.last_status === "down" || target.last_status === "error") return "down";
   if (target.last_status === "slow") return "slow";
   if (target.last_status === "up") return "up";

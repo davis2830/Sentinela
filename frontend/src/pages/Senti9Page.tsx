@@ -1,397 +1,41 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Plus,
-  Server,
   BookOpen,
-  Radio,
-  ShieldAlert,
+  CheckCircle2,
   Loader2,
-  Download,
-  AlertTriangle,
-  RotateCw,
+  Plus,
+  Radio,
+  Server,
+  Terminal,
 } from "lucide-react";
-import {
-  NOCPageHeader,
-  NOCToolbar,
-  NOCDrawer,
-  type NOCStatusPill,
-} from "../components/common/noc";
+import { NOCPageHeader } from "../components/common/noc";
 import {
   ReadFailure,
   DirectoryPagination,
-  ActionFeedback,
 } from "../components/common/DirectoryState";
 import CreateProbeModal from "../components/monitoring/CreateProbeModal";
-import { InstallationInstructions } from "../components/monitoring/Senti9Setup";
-import {
-  Senti9InstallGuide,
-  PlatformPicker,
-} from "../components/monitoring/Senti9Installation";
+import { Senti9InstallGuide } from "../components/monitoring/Senti9Installation";
 import { useCapability } from "../hooks/useCapability";
-import Senti9Operation from "../components/monitoring/Senti9Operation";
-import { DetailBadge } from "../components/monitoring/Senti9DetailUI";
-import Senti9AgentCard from "../components/monitoring/Senti9AgentCard";
-import Senti9TableView from "../components/monitoring/Senti9TableView";
+import Senti9Toolbar from "../components/monitoring/Senti9Toolbar";
+import Senti9TableView, {
+  type GuardianActionSection,
+} from "../components/monitoring/Senti9TableView";
+import Senti9CardGridView from "../components/monitoring/Senti9CardGridView";
+import Senti9DetailDrawer from "../components/monitoring/Senti9DetailDrawer";
 import Senti9Quota from "../components/monitoring/Senti9Quota";
+import {
+  useGuardians,
+  type GuardianDensity,
+  type GuardianGroupBy,
+  type GuardianSignalRange,
+  type GuardianSortField,
+} from "../components/monitoring/useGuardians";
 import { usePersistentViewMode } from "../hooks/usePersistentViewMode";
 import { useConnectivityDirectory } from "../hooks/useConnectivityDirectory";
 import { useConnectivityRefresh } from "../hooks/useConnectivityRefresh";
 import { useAuthStore } from "../store/authStore";
-import { api } from "../services/api";
-import { apiFailure } from "../services/errors";
-import type { AgentProbe, ProbeInstallation } from "../types/agent_probe";
-
-type Detail = AgentProbe & {
-  impact: { assigned: number; to_pause: number; pending: number };
-};
-
-const lifecycle = (p: AgentProbe) =>
-  p.revoked_at
-    ? "Revocado"
-    : !p.last_heartbeat
-      ? "Sin conexión inicial"
-      : p.is_online
-        ? "Conectado"
-        : "Desconectado";
-
-const date = (v: string | null) =>
-  v ? new Date(v).toLocaleString() : "Sin señal registrada";
-
-function ProbeDetail({
-  id,
-  initialTab,
-  onClose,
-  admin,
-}: {
-  id: string;
-  initialTab: "operation" | "install";
-  onClose: () => void;
-  admin: boolean;
-}) {
-  const active = useRef(true);
-  useEffect(() => {
-    active.current = true;
-    return () => {
-      active.current = false;
-    };
-  }, []);
-
-  const organization = useAuthStore((s) => s.user?.organization?.id);
-  const [tab, setTab] = useState<string>(admin ? initialTab : "operation");
-  const canCreateMonitor = useCapability("monitoring.create");
-  const [reason, setReason] = useState("");
-  const [action, setAction] = useState<"rotate" | "revoke" | null>(null);
-  const [token, setToken] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [platform, setPlatform] = useState<"linux" | "windows">("linux");
-  const client = useQueryClient();
-  const refresh = useConnectivityRefresh();
-
-  const query = useQuery<Detail>({
-    queryKey: ["agent-probe-detail", organization, id],
-    queryFn: async ({ signal }) =>
-      (await api.get(`agent-probes/${id}/detail/`, { signal })).data.data,
-    refetchInterval: (q) => {
-      refresh.refetchInterval(q);
-      return refresh.enabled ? 15000 : false;
-    },
-    refetchIntervalInBackground: false,
-  });
-
-  const installation = useQuery<ProbeInstallation>({
-    queryKey: ["agent-probe-install", organization, id, platform],
-    queryFn: async ({ signal }) =>
-      (
-        await api.get(`agent-probes/${id}/installation/`, {
-          params: { platform },
-          signal,
-        })
-      ).data.data,
-    enabled:
-      admin && tab === "install" && !!query.data && !query.data.revoked_at,
-  });
-
-  const probe = query.data;
-
-  const apply = async () => {
-    if (!action) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const r = await api.post(
-        `agent-probes/${id}/${action === "rotate" ? "rotate-token" : "revoke"}/`,
-        action === "revoke" ? { reason } : {},
-      );
-      if (!active.current) return;
-      if (action === "rotate") setToken(r.data.data.raw_token);
-      setAction(null);
-      setReason("");
-      setMessage(
-        action === "rotate"
-          ? "Token reemplazado. Guarda el nuevo token y actualiza la configuración antes de reiniciar el contenedor."
-          : "Agente revocado exitosamente. Sus monitores LAN quedaron pausados.",
-      );
-      await query.refetch();
-      void client.invalidateQueries({ queryKey: ["agent-probes"] });
-      void client.invalidateQueries({ queryKey: ["monitoring-targets"] });
-    } catch (e) {
-      setMessage(
-        apiFailure(e).response?.data?.message ||
-        "No se pudo completar la acción. Revisa el estado actual antes de reintentar.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <NOCDrawer
-      isOpen
-      onClose={() => {
-        setToken("");
-        onClose();
-      }}
-      title={probe?.name || "Detalle de Guardián Senti9"}
-      maxWidthClass="max-w-4xl"
-      tabVariant="segmented"
-      statusBadge={
-        probe && (
-          <DetailBadge
-            tone={
-              probe.revoked_at
-                ? "muted"
-                : query.isError
-                  ? "warning"
-                  : probe.is_online
-                    ? "success"
-                    : probe.last_heartbeat
-                      ? "warning"
-                      : "muted"
-            }
-            pulse={!query.isError && probe.is_online && !probe.revoked_at}
-          >
-            {lifecycle(probe)}
-            {query.isError && " · dato anterior"}
-          </DetailBadge>
-        )
-      }
-      tabs={[
-        { id: "operation", label: "Operación & Servicios" },
-        ...(admin && !probe?.revoked_at
-          ? [{ id: "install", label: "Despliegue & Docker" }]
-          : []),
-        ...(admin ? [{ id: "administration", label: "Seguridad & Tokens" }] : []),
-      ]}
-      activeTab={tab}
-      onTabChange={(value) => {
-        setToken("");
-        setAction(null);
-        setTab(value);
-      }}
-    >
-      <div className="space-y-5 text-sm min-w-0">
-        {query.isError && <ReadFailure stale={!!probe} retry={query.refetch} />}
-        {!probe && !query.isError && (
-          <div className="flex items-center justify-center py-12 text-text-muted gap-2">
-            <Loader2 size={18} className="animate-spin text-accent-green" />
-            <span>Consultando estado del agente...</span>
-          </div>
-        )}
-        <ActionFeedback>{message}</ActionFeedback>
-
-        {probe && tab === "operation" && (
-          <Senti9Operation
-            probe={probe}
-            queryFailed={query.isError}
-            canCreateMonitor={canCreateMonitor}
-            onNavigate={onClose}
-          />
-        )}
-
-        {tab === "install" && admin && !probe?.revoked_at && (
-          <div className="space-y-4">
-            <PlatformPicker value={platform} onChange={setPlatform} />
-            <div className="p-3.5 rounded-xl bg-bg-dark/60 border border-white/5 text-xs text-text-muted">
-              Usa el archivo de token seguro que guardaste al crear la sonda. Consultar estas instrucciones no altera el token activo en el host. Conserva el volumen persistente{" "}
-              <code className="text-accent-green font-mono">{installation.data?.volume_name || "senti9-data"}</code> al actualizar o migrar de contenedor.
-            </div>
-            {installation.isError && (
-              <ReadFailure retry={installation.refetch} />
-            )}
-            {installation.data && (
-              <>
-                <InstallationInstructions
-                  key={installation.data.platform}
-                  profile={installation.data}
-                  verificationHint="Al completar la ejecución en el host remoto, Sentinel detectará automáticamente los latidos entrantes en menos de 10 segundos."
-                />
-                <button
-                  type="button"
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-accent-green text-bg-dark hover:bg-accent-green-hover transition-colors"
-                  onClick={() => {
-                    setTab("operation");
-                    void query.refetch();
-                  }}
-                >
-                  Verificar conexión operativa
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {probe && tab === "administration" && admin && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-text-main">
-                  Gestión de Seguridad & Tokens
-                </h3>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Rotación de credenciales criptográficas y retiro controlado de agentes.
-                </p>
-              </div>
-            </div>
-
-            {probe.revoked_at ? (
-              <div className="p-4 rounded-xl border border-zinc-700 bg-zinc-800/30 text-xs text-zinc-400">
-                Guardián revocado el {date(probe.revoked_at)}. El historial operativo y las asignaciones se conservan para auditoría, pero el token anterior ha sido destruido de forma irreversible.
-              </div>
-            ) : (
-              <div className="p-4 rounded-xl border border-white/10 bg-bg-dark/60 space-y-3">
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Para rotar el token de forma segura, asegúrate de tener acceso al host para actualizar la variable de entorno o archivo montado una vez emitido el nuevo secreto.
-                </p>
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-text-main transition-colors"
-                    onClick={() => {
-                      setToken("");
-                      setAction("rotate");
-                    }}
-                  >
-                    <RotateCw size={14} />
-                    <span>Rotar Token</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-colors"
-                    onClick={() => {
-                      setToken("");
-                      setAction("revoke");
-                    }}
-                  >
-                    <ShieldAlert size={14} />
-                    <span>Retirar / Revocar Guardián</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {action && (
-              <form
-                className="p-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void apply();
-                }}
-              >
-                <div className="flex items-center gap-2 text-amber-300 font-semibold text-sm">
-                  <AlertTriangle size={16} />
-                  <h4>
-                    {action === "revoke"
-                      ? "Confirmar Revocación Definitiva"
-                      : "Confirmar Rotación de Token"}
-                  </h4>
-                </div>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {action === "revoke"
-                    ? `Se pausarán ${probe.impact?.to_pause ?? 0} monitor(es) LAN asignados. El token quedará invalidado y la sonda no podrá volver a conectarse.`
-                    : "El token previo dejará de ser admitido inmediatamente. Deberás copiar el nuevo token en el host antes del siguiente ciclo de latidos."}
-                </p>
-
-                {action === "revoke" && (
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-medium text-text-main">
-                      Motivo del retiro (requerido para bitácora ISO 27001):
-                    </span>
-                    <textarea
-                      required
-                      minLength={3}
-                      maxLength={500}
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      placeholder="Ej. Servidor desmantelado por migración de infraestructura a la nube..."
-                      className="w-full min-h-[90px] rounded-xl bg-bg-dark border border-white/10 p-3 text-xs text-text-main focus:border-accent-green focus:outline-none"
-                    />
-                  </label>
-                )}
-
-                <div className="flex items-center gap-2.5 pt-1">
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${action === "revoke"
-                      ? "bg-rose-500 text-white hover:bg-rose-600"
-                      : "bg-accent-green text-bg-dark hover:bg-accent-green-hover"
-                      } disabled:opacity-50`}
-                  >
-                    {busy
-                      ? "Procesando..."
-                      : action === "revoke"
-                        ? "Revocar y Pausar Monitores"
-                        : "Generar Nuevo Token"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setAction(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-medium text-text-muted hover:text-text-main bg-white/5 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {token && (
-              <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-3">
-                <p className="text-xs text-emerald-400 font-semibold">
-                  Nuevo token emitido exitosamente. Solo se mostrará una vez.
-                </p>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-accent-green text-bg-dark hover:bg-accent-green-hover transition-colors"
-                  onClick={() => {
-                    try {
-                      const url = URL.createObjectURL(
-                        new Blob([token], { type: "text/plain" }),
-                      );
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `senti9-${id.slice(0, 8)}-token.txt`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch {
-                      setMessage("No se pudo descargar el archivo. Cópialo manualmente.");
-                    }
-                  }}
-                >
-                  <Download size={15} />
-                  <span>Descargar archivo de token</span>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </NOCDrawer>
-  );
-}
+import type { AgentProbe } from "../types/agent_probe";
 
 export default function Senti9Page() {
   const navigate = useNavigate();
@@ -399,11 +43,51 @@ export default function Senti9Page() {
   const admin = !!(user?.is_staff || user?.is_superuser);
   const canCreateMonitor = useCapability("monitoring.create");
   const [viewMode, setViewMode] = usePersistentViewMode("senti9", "table");
+
+  // Unified filters & table state (preserved across List <-> Card switch)
   const [search, setSearch] = useState("");
-  const [lifecycleFilter, setLifecycle] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [versionFilter, setVersionFilter] = useState("all");
+  const [signalRangeFilter, setSignalRangeFilter] =
+    useState<GuardianSignalRange>("all");
+  const [groupBy, setGroupBy] = useState<GuardianGroupBy>("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const [sortField, setSortField] = useState<GuardianSortField>("status");
+  const [sortAsc, setSortAsc] = useState(true);
+  const [density, setDensity] = useState<GuardianDensity>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sentinel_senti9_density");
+      if (saved === "compact" || saved === "comfortable") return saved;
+    }
+    return "compact";
+  });
+
+  const handleDensityChange = (next: GuardianDensity) => {
+    setDensity(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sentinel_senti9_density", next);
+    }
+  };
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSortChange = (field: GuardianSortField) => {
+    if (sortField === field) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
   const [selected, setSelected] = useState<{
     id: string;
-    tab: "operation" | "install";
+    section: GuardianActionSection;
   } | null>(null);
   const [panel, setPanel] = useState<"create" | "guide" | null>(null);
 
@@ -413,48 +97,49 @@ export default function Senti9Page() {
   const directory = useConnectivityDirectory<AgentProbe>(
     "agent-probes/",
     "agent-probes",
-    { search, lifecycle: lifecycleFilter === "all" ? "" : lifecycleFilter },
+    { search },
     refresh.refetchInterval,
     { pollMs: refresh.enabled ? 15000 : undefined },
   );
 
   const probes = directory.data || [];
 
-  // Métricas para los KPIs
-  const totalProbes = directory.meta?.total ?? probes.length;
-  const onlineCount = useMemo(
-    () => probes.filter((p) => p.is_online && !p.revoked_at).length,
-    [probes],
-  );
-  const offlineCount = useMemo(
-    () => probes.filter((p) => !p.is_online && p.last_heartbeat && !p.revoked_at).length,
-    [probes],
-  );
-  const pendingCount = useMemo(
-    () => probes.filter((p) => !p.last_heartbeat && !p.revoked_at).length,
-    [probes],
-  );
-  const revokedCount = useMemo(
-    () => probes.filter((p) => !!p.revoked_at).length,
-    [probes],
-  );
+  const { summary, availableVersions, sortedProbes, groupedProbes } =
+    useGuardians({
+      probes,
+      statusFilter,
+      platformFilter,
+      versionFilter,
+      signalRangeFilter,
+      sortField,
+      sortAsc,
+      groupBy,
+    });
 
-  const statusPills: NOCStatusPill[] = [
-    { id: "all", label: "Todos", count: totalProbes, variant: "all" },
-    { id: "connected", label: "Conectados", count: onlineCount, variant: "success" },
-    { id: "disconnected", label: "Desconectados", count: offlineCount, variant: "danger" },
-    { id: "pending_connection", label: "Esperando Señal", count: pendingCount, variant: "warning" },
-    { id: "revoked", label: "Revocados", count: revokedCount, variant: "neutral" },
-  ];
+  const hasFilters =
+    Boolean(search) ||
+    statusFilter !== "all" ||
+    platformFilter !== "all" ||
+    versionFilter !== "all" ||
+    signalRangeFilter !== "all";
+
+  const clearAllFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setPlatformFilter("all");
+    setVersionFilter("all");
+    setSignalRangeFilter("all");
+    setGroupBy("none");
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* 1. Header Oficial NOC */}
+    <div className="compact-workspace space-y-4 animate-in fade-in duration-200">
+      {/* 1. Unified Header: Consistent "Guardián" vocabulary & concise subtitle */}
       <NOCPageHeader
         title="Guardianes Senti9"
         badgeText="RED PRIVADA & ON-PREMISE"
-        description="Sondas satélite ligeras para monitoreo continuo de servicios LAN, bases de datos y VPCs sin apertura de puertos entrantes."
-        icon={<Radio size={24} className="text-accent-green" />}
+        description="Monitorea servicios dentro de tu red sin abrir puertos."
+        icon={<Radio size={22} className="text-accent-green" />}
         autoRefresh={{
           enabled: refresh.enabled,
           countdown: refresh.countdown,
@@ -464,134 +149,212 @@ export default function Senti9Page() {
           blockedReason: refresh.blockedReason,
         }}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {quota && <Senti9Quota quota={quota} />}
+
             <button
               type="button"
               onClick={() => setPanel("guide")}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-text-muted hover:text-text-main bg-white/5 hover:bg-white/10 border border-white/5 transition-colors"
+              title="Requisitos y guía de instalación de guardianes"
+              aria-label="Requisitos y guía de instalación"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-text-muted hover:text-text-main bg-bg-dark/80 hover:bg-bg-card-hover border border-border-base transition-colors cursor-pointer"
             >
               <BookOpen size={14} />
-              <span>Requisitos & Guía</span>
+              <span className="hidden sm:inline">Guía</span>
             </button>
 
             {admin && (
               <button
                 type="button"
                 onClick={() => setPanel("create")}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-accent-green hover:bg-accent-green-hover text-bg-dark transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-accent-green hover:bg-accent-green/90 text-black transition-all shadow-md shadow-accent-green/20 cursor-pointer"
               >
-                <Plus size={15} />
-                <span>Registrar Senti9</span>
+                <Plus size={16} />
+                <span>Registrar guardián</span>
               </button>
             )}
           </div>
         }
       />
 
-      {/* 2. Toolbar Operativo & Filtros por Estado */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <NOCToolbar
-              searchTerm={search}
-              onSearchChange={setSearch}
-              searchPlaceholder="Buscar guardián por nombre, host, IP o versión..."
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              statusPills={statusPills}
-              selectedStatus={lifecycleFilter}
-              onStatusChange={(statusId) => setLifecycle(statusId)}
-              extraFilters={quota ? <Senti9Quota quota={quota} /> : undefined}
-            />
-          </div>
-        </div>
+      {/* 2. Single-Row Unified Toolbar */}
+      <Senti9Toolbar
+        summary={summary}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        platformFilter={platformFilter}
+        onPlatformFilterChange={setPlatformFilter}
+        versionFilter={versionFilter}
+        onVersionFilterChange={setVersionFilter}
+        availableVersions={availableVersions}
+        signalRangeFilter={signalRangeFilter}
+        onSignalRangeFilterChange={setSignalRangeFilter}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        density={density}
+        onDensityChange={handleDensityChange}
+        search={search}
+        onSearchChange={setSearch}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
-        {/* 4. Mensaje de Error en Lectura */}
-        {directory.isError && (
+      {/* 3. Read Error Banner */}
+      {directory.isError && (
+        <div className="w-full max-w-[1400px] mx-auto">
           <ReadFailure stale={!!directory.data} retry={directory.refetch} />
-        )}
+        </div>
+      )}
 
-        {/* 5. Lista / Grid de Guardianes */}
-        <section aria-label="Directorio de Guardianes Senti9" className="min-w-0">
-          {directory.isLoading && !directory.data ? (
-            <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-white/5 bg-bg-card text-text-muted gap-3">
-              <Loader2 size={26} className="animate-spin text-accent-green" />
-              <p className="text-xs font-mono">Consultando catálogo de guardianes LAN...</p>
-            </div>
-          ) : probes.length > 0 ? (
-            viewMode === "table" ? (
-              <Senti9TableView
-                probes={probes}
-                onSelectProbe={(probe, initialTab) =>
-                  setSelected({ id: probe.id, tab: initialTab || "operation" })
-                }
-                onCreateMonitor={(id) => navigate(`/monitoring?create=1&agent=${id}`)}
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {probes.map((probe) => (
-                  <Senti9AgentCard
-                    key={probe.id}
-                    probe={probe}
-                    stale={directory.isError}
-                    admin={admin}
-                    canCreateMonitor={canCreateMonitor}
-                    onDetail={() =>
-                      setSelected({ id: probe.id, tab: "operation" })
-                    }
-                    onInstall={() =>
-                      setSelected({ id: probe.id, tab: "install" })
-                    }
-                  />
-                ))}
-              </div>
-            )
+      {/* 4. Main Directory: Table vs Status-Wall Cards vs Guided Empty State */}
+      <section aria-label="Directorio de Guardianes Senti9" className="min-w-0">
+        {directory.isLoading && !directory.data ? (
+          <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center justify-center py-20 rounded-2xl border border-border-base bg-bg-card text-text-muted gap-3">
+            <Loader2 size={26} className="animate-spin text-accent-green" />
+            <p className="text-xs font-mono">
+              Consultando guardianes Senti9...
+            </p>
+          </div>
+        ) : sortedProbes.length > 0 ? (
+          viewMode === "table" ? (
+            <Senti9TableView
+              sortedProbes={sortedProbes}
+              groupedProbes={groupedProbes}
+              collapsedGroups={collapsedGroups}
+              onToggleGroup={toggleGroup}
+              density={density}
+              sortField={sortField}
+              sortAsc={sortAsc}
+              onSortChange={handleSortChange}
+              admin={admin}
+              canCreateMonitor={canCreateMonitor}
+              onSelectProbe={(probe, section = "operation") =>
+                setSelected({ id: probe.id, section })
+              }
+              onCreateMonitor={(id) =>
+                navigate(`/monitoring?create=1&agent=${id}`)
+              }
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 px-6 rounded-2xl border border-white/5 bg-bg-card text-center space-y-3">
-              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-text-muted">
-                <Server size={32} />
-              </div>
-              <h3 className="text-base font-semibold text-text-main">
-                {search || lifecycleFilter !== "all"
-                  ? "No se encontraron guardianes con estos filtros"
-                  : "No hay guardianes Senti9 registrados aún"}
+            <Senti9CardGridView
+              sortedProbes={sortedProbes}
+              groupedProbes={groupedProbes}
+              collapsedGroups={collapsedGroups}
+              onToggleGroup={toggleGroup}
+              density={density}
+              admin={admin}
+              canCreateMonitor={canCreateMonitor}
+              onSelectProbe={(probe, section = "operation") =>
+                setSelected({ id: probe.id, section })
+              }
+              onCreateMonitor={(id) =>
+                navigate(`/monitoring?create=1&agent=${id}`)
+              }
+            />
+          )
+        ) : hasFilters ? (
+          <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center justify-center py-16 px-6 rounded-2xl border border-border-base bg-bg-card text-center space-y-3">
+            <div className="p-3 rounded-2xl bg-bg-dark border border-border-base text-text-muted">
+              <Server size={28} />
+            </div>
+            <h3 className="text-base font-semibold text-text-main">
+              No se encontraron guardianes con estos filtros
+            </h3>
+            <p className="text-xs text-text-muted max-w-md">
+              Ajusta la búsqueda, estado, plataforma o versión para ver el resto
+              del directorio.
+            </p>
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-bg-dark border border-border-base hover:border-accent-green text-text-main transition-colors cursor-pointer"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        ) : (
+          /* Guided Step-by-Step Empty State */
+          <div className="w-full max-w-[1400px] mx-auto rounded-2xl border border-border-base bg-bg-card p-8 space-y-6">
+            <div className="max-w-xl space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-accent-green">
+                <Radio size={12} />
+                Primeros pasos
+              </span>
+              <h3 className="text-lg font-bold text-text-main">
+                Conecta tu primer guardián Senti9
               </h3>
-              <p className="text-xs text-text-muted max-w-md leading-relaxed">
-                {search || lifecycleFilter !== "all"
-                  ? "Intenta modificar el término de búsqueda o selecciona otro filtro de estado."
-                  : "Despliega tu primer agente Senti9 en un servidor local, máquina virtual o contenedor Docker para monitorear servicios privados sin exponer puertos."}
+              <p className="text-xs text-text-muted leading-relaxed">
+                Despliega un contenedor ligero dentro de tu LAN o VPC para
+                monitorear bases de datos, APIs internas y puertos privados sin
+                exponer tu red a Internet.
               </p>
-              {search || lifecycleFilter !== "all" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setLifecycle("all");
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-text-main transition-colors mt-2"
-                >
-                  Restablecer filtros
-                </button>
-              ) : admin ? (
+            </div>
+
+            <ol className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+              <li className="rounded-xl border border-border-base bg-bg-dark/60 p-4 space-y-1.5">
+                <div className="flex items-center gap-2 font-semibold text-text-main">
+                  <Server size={15} className="text-sky-400 shrink-0" />
+                  <span>1. Requisitos mínimos</span>
+                </div>
+                <p className="text-text-muted leading-relaxed">
+                  Un host Linux o Windows con Docker y salida HTTPS (puerto 443)
+                  hacia Sentinel. No requiere puertos entrantes.
+                </p>
+              </li>
+              <li className="rounded-xl border border-border-base bg-bg-dark/60 p-4 space-y-1.5">
+                <div className="flex items-center gap-2 font-semibold text-text-main">
+                  <Terminal size={15} className="text-emerald-400 shrink-0" />
+                  <span>2. Ejecuta el comando Docker</span>
+                </div>
+                <p className="text-text-muted leading-relaxed">
+                  Al registrar el guardián recibirás su token único y el comando
+                  listo para copiar y pegar en tu servidor.
+                </p>
+              </li>
+              <li className="rounded-xl border border-border-base bg-bg-dark/60 p-4 space-y-1.5">
+                <div className="flex items-center gap-2 font-semibold text-text-main">
+                  <CheckCircle2
+                    size={15}
+                    className="text-accent-green shrink-0"
+                  />
+                  <span>3. Espera la primera señal</span>
+                </div>
+                <p className="text-text-muted leading-relaxed">
+                  En menos de 15 segundos aparecerá conectado y podrás asignarle
+                  tus monitores internos desde Uptime.
+                </p>
+              </li>
+            </ol>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              {admin && (
                 <button
                   type="button"
                   onClick={() => setPanel("create")}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-accent-green hover:bg-accent-green-hover text-bg-dark transition-colors mt-2"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-accent-green hover:bg-accent-green/90 text-black transition-all shadow-md shadow-accent-green/20 cursor-pointer"
                 >
-                  Registrar mi primer Senti9
+                  <Plus size={16} />
+                  <span>Registrar guardián</span>
                 </button>
-              ) : null}
+              )}
+              <button
+                type="button"
+                onClick={() => setPanel("guide")}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-medium text-text-muted hover:text-text-main border border-border-base bg-bg-dark hover:bg-bg-card-hover transition-colors cursor-pointer"
+              >
+                <BookOpen size={14} />
+                <span>Ver requisitos completos</span>
+              </button>
             </div>
-          )}
-
-          {/* 6. Paginación */}
-          <div className="pt-4">
-            <DirectoryPagination directory={directory} />
           </div>
-        </section>
-      </div>
+        )}
 
-      {/* 7. Diálogos y Drawers Modales */}
+        <div className="pt-4 w-full max-w-[1400px] mx-auto">
+          <DirectoryPagination directory={directory} />
+        </div>
+      </section>
+
+      {/* 5. Modals & Slide-Over Detail Drawer */}
       {panel === "guide" && (
         <Senti9InstallGuide
           onClose={() => setPanel(null)}
@@ -604,12 +367,20 @@ export default function Senti9Page() {
       )}
 
       {selected && (
-        <ProbeDetail
-          key={selected.id}
-          id={selected.id}
-          initialTab={selected.tab}
-          onClose={() => setSelected(null)}
+        <Senti9DetailDrawer
+          key={`${selected.id}-${selected.section}`}
+          probeId={selected.id}
+          probes={sortedProbes}
+          initialSection={selected.section}
           admin={admin}
+          canCreateMonitor={canCreateMonitor}
+          onSelectProbeId={(nextId) =>
+            setSelected({ id: nextId, section: "operation" })
+          }
+          onCreateMonitor={(id) =>
+            navigate(`/monitoring?create=1&agent=${id}`)
+          }
+          onClose={() => setSelected(null)}
         />
       )}
     </div>

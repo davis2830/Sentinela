@@ -6,6 +6,7 @@ import {
   TARGET_TYPE_ICONS,
   getTargetHistorySlots,
   getTargetStatusKind,
+  isTargetGuardianOffline,
   type TargetDensity,
   type TargetGroup,
   type TargetSortField,
@@ -80,6 +81,17 @@ export default function TargetTableView({
 
   const renderStatus = (target: MonitoringTarget) => {
     const kind = getTargetStatusKind(target);
+    if (isTargetGuardianOffline(target)) {
+      return (
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0"
+          title={`Sin datos: guardián Senti9 (${target.agent_probe_name || "LAN"}) desconectado`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          Sin datos
+        </span>
+      );
+    }
     if (kind === "paused") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
@@ -287,6 +299,17 @@ export default function TargetTableView({
                 <span className="truncate max-w-[70px]">
                   {target.owner_team_name}
                 </span>
+              </span>
+            )}
+
+            {/* Guardian offline callout (so it doesn't look like a service outage) */}
+            {isTargetGuardianOffline(target) && (
+              <span
+                title={`El guardián Senti9 (${target.agent_probe_name || "LAN"}) está desconectado; no se reporta como caída del servicio.`}
+                className="shrink-0 text-[11px] text-amber-300 font-mono inline-flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/25"
+              >
+                <Server size={10} className="text-amber-400 shrink-0" />
+                <span>guardián desconectado</span>
               </span>
             )}
 
