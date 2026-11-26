@@ -1,5 +1,6 @@
-import { AlertTriangle, Check, Layers, Link2 } from "lucide-react";
-import type { SSLCertificate } from "../../types/ssl";
+import { Link } from "react-router-dom";
+import { AlertTriangle, Check, Clock, Layers, Link2 } from "lucide-react";
+import type { SSLCertificate, SSLLinkedTarget } from "../../types/ssl";
 import {
   healthPalette,
   hasMeasurement,
@@ -11,6 +12,7 @@ import SSLCertificateRowActions from "./SSLCertificateRowActions";
 import type { SSLDrawerSection } from "./SSLCertificateTableView";
 import {
   SSL_STATE_META,
+  formatExpiredAgo,
   formatSSLDate,
   formatTLSVersion,
   getCertRemainingPercent,
@@ -34,6 +36,8 @@ interface SSLCertificateCardProps {
   onScan: (cert: SSLCertificate) => void;
   onEdit: (cert: SSLCertificate) => void;
   onDelete: (cert: SSLCertificate) => void;
+  onLinkTarget?: (cert: SSLCertificate, target: SSLLinkedTarget) => void;
+  isLinking?: boolean;
 }
 
 export default function SSLCertificateCard({
@@ -48,6 +52,8 @@ export default function SSLCertificateCard({
   onScan,
   onEdit,
   onDelete,
+  onLinkTarget,
+  isLinking = false,
 }: SSLCertificateCardProps) {
   const state = getSSLHealthState(cert, thresholds);
   const meta = SSL_STATE_META[state];
@@ -59,6 +65,7 @@ export default function SSLCertificateCard({
   const sanCount = cert.san_domains?.length || 1;
   const remainingPct = getCertRemainingPercent(cert);
   const linked = cert.linked_targets || [];
+  const suggested = cert.suggested_targets || [];
 
   const gradeMeasured =
     hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid;
@@ -86,13 +93,14 @@ export default function SSLCertificateCard({
           ? "text-amber-400"
           : "text-slate-400";
 
+  // Neutral metric text when healthy; reserve color strictly for warning (amber) & critical/expired/problem (rose)
   const metricColorClass =
     state === "expired" || state === "problem" || state === "critical"
       ? "text-rose-400"
       : state === "expiring"
         ? "text-amber-400"
         : state === "valid"
-          ? "text-emerald-400"
+          ? "text-text-main"
           : "text-text-dim";
 
   const barFillClass =
@@ -200,6 +208,7 @@ export default function SSLCertificateCard({
             variant="card"
             isScanning={isScanning}
             onScan={onScan}
+            onViewChain={(c) => onSelectCert(c, "chain")}
             onEdit={onEdit}
             onDelete={onDelete}
           />
@@ -231,7 +240,7 @@ export default function SSLCertificateCard({
           )}
         </div>
 
-        {/* Optional Line 3: Problem diagnostic OR Linked Uptime target */}
+        {/* Optional Line 3: Problem diagnostic OR Clickable Linked / Suggested Uptime target */}
         {problemReason ? (
           <div
             className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center gap-1.5 text-[11px] font-mono text-rose-300 truncate`}
@@ -241,12 +250,36 @@ export default function SSLCertificateCard({
             <span className="truncate">{problemReason}</span>
           </div>
         ) : linked.length > 0 ? (
-          <div
-            className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center gap-1 text-[11px] text-text-dim truncate`}
-            title={`Vinculado a target de Uptime: ${linked.map((t) => t.name).join(", ")}`}
-          >
-            <Link2 size={10} className="text-accent-green/80 shrink-0" />
-            <span className="truncate">Vinculado a: {linked[0].name}</span>
+          <div className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center`}>
+            <Link
+              to={`/monitoring?target=${linked[0].id}`}
+              onClick={(e) => e.stopPropagation()}
+              title={`Vinculado al target ${linked.map((t) => t.name).join(", ")}`}
+              className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-accent-green hover:underline underline-offset-2 truncate transition-colors"
+            >
+              <Link2 size={10} className="text-accent-green/80 shrink-0" />
+              <span className="truncate">Vinculado a: {linked[0].name}</span>
+            </Link>
+          </div>
+        ) : suggested.length > 0 && onLinkTarget ? (
+          <div className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center`}>
+            <button
+              type="button"
+              disabled={isLinking}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLinkTarget(cert, suggested[0]);
+              }}
+              title={`Target coincidente encontrado en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
+              className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-accent-green hover:underline underline-offset-2 truncate transition-colors cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
+            >
+              <Link2 size={10} className="shrink-0" />
+              <span className="truncate">
+                {isLinking
+                  ? "Vinculando..."
+                  : `Vincular a: ${suggested[0].name}`}
+              </span>
+            </button>
           </div>
         ) : null}
       </div>
@@ -279,7 +312,7 @@ export default function SSLCertificateCard({
               </span>
             ) : (
               <span className="font-mono text-sm font-medium text-text-dim leading-none">
-                Sin chequeo
+                Sin datos
               </span>
             )}
           </div>
@@ -327,20 +360,30 @@ export default function SSLCertificateCard({
           )}
         </div>
 
-        {/* Footer: Unambiguous Expiry Date + Relative Last Checked */}
+        {/* Footer: Unambiguous Expiry Date + Explicit "Revisado hace X" */}
         <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-text-dim">
-          <span className="truncate">
-            {cert.expiration_date
-              ? days !== null && days !== undefined && days <= 0
-                ? `Venció ${formatSSLDate(cert.expiration_date)}`
-                : `Vence ${formatSSLDate(cert.expiration_date)}`
-              : "Fecha sin medir"}
+          <span
+            className={`truncate ${
+              days !== null && days !== undefined && days <= 0
+                ? "text-rose-400 font-medium"
+                : ""
+            }`}
+          >
+            {days !== null && days !== undefined && days <= 0
+              ? formatExpiredAgo(days)
+              : cert.expiration_date
+                ? `Vence ${formatSSLDate(cert.expiration_date)}`
+                : "Sin datos de vigencia"}
           </span>
-          <RelativeTime
-            value={cert.last_scanned_at}
-            emptyLabel="Sin chequeo"
-            className="text-[10px] text-text-dim shrink-0"
-          />
+          <span className="inline-flex items-center gap-1 text-[10px] text-text-dim shrink-0">
+            <Clock size={10} className="shrink-0 opacity-75" />
+            <RelativeTime
+              value={cert.last_scanned_at}
+              prefix="Revisado"
+              emptyLabel="Sin revisar"
+              className="text-[10px] text-text-dim"
+            />
+          </span>
         </div>
       </div>
     </div>

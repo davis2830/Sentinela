@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowUpRight,
   Download,
   LayoutGrid,
   List,
@@ -230,7 +231,7 @@ export default function SSLToolbar({
                     ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
                     : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
               }`}
-              title={`Filtrar por certificados por expirar (≤ ${thresholds.warningDays} días)`}
+              title={`Por expirar: menos de ${thresholds.warningDays} días (crítico ≤ ${thresholds.criticalDays} d) · configurable en Filtros`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -272,20 +273,29 @@ export default function SSLToolbar({
             </button>
           </div>
 
-          {/* Inline Next Expiration Metric (the most actionable KPI in SSL monitoring) */}
+          {/* Inline Next Expiration Link (opens that certificate directly) */}
           {nextExp && (
-            <button
-              type="button"
-              onClick={() => onSelectCert(nextExp.cert)}
-              className="hidden lg:inline-flex items-center gap-1.5 pl-2.5 ml-1 border-l border-border-base/80 font-mono text-[11px] text-text-dim hover:text-text-main transition-colors whitespace-nowrap shrink-0 cursor-pointer !min-h-0 !min-w-0"
-              title={`Abrir detalle del próximo vencimiento: ${nextExp.cert.domain} (en ${nextExp.days} días)`}
-            >
-              <span>Próximo:</span>
-              <span className="font-semibold text-text-main max-w-[170px] truncate">
-                {nextExp.cert.domain}
-              </span>
-              <span className={nextExpToneClass}>en {nextExp.days} d</span>
-            </button>
+            <div className="hidden lg:flex items-center pl-2.5 ml-1 border-l border-border-base/80 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  if (e.detail > 0) e.currentTarget.blur();
+                  onSelectCert(nextExp.cert);
+                }}
+                className="group/next inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono text-[11px] text-text-dim hover:text-text-main hover:bg-white/[0.04] transition-colors whitespace-nowrap cursor-pointer !min-h-0 !min-w-0"
+                title={`Abrir detalle del próximo vencimiento: ${nextExp.cert.domain} (en ${nextExp.days} días)`}
+              >
+                <span>Próximo:</span>
+                <span className="font-semibold text-text-main group-hover/next:text-accent-green group-hover/next:underline underline-offset-2 max-w-[170px] truncate">
+                  {nextExp.cert.domain}
+                </span>
+                <span className={nextExpToneClass}>en {nextExp.days} d</span>
+                <ArrowUpRight
+                  size={11}
+                  className="text-text-dim opacity-60 group-hover/next:opacity-100 group-hover/next:text-accent-green shrink-0"
+                />
+              </button>
+            </div>
           )}
         </div>
 
@@ -581,7 +591,10 @@ export default function SSLToolbar({
           >
             <button
               type="button"
-              onClick={() => onViewModeChange("grid")}
+              onClick={(e) => {
+                if (e.detail > 0) e.currentTarget.blur();
+                onViewModeChange("grid");
+              }}
               className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${
                 viewMode === "grid"
                   ? "bg-accent-green text-bg-dark"
@@ -594,7 +607,10 @@ export default function SSLToolbar({
             </button>
             <button
               type="button"
-              onClick={() => onViewModeChange("table")}
+              onClick={(e) => {
+                if (e.detail > 0) e.currentTarget.blur();
+                onViewModeChange("table");
+              }}
               className={`p-1 rounded transition-colors cursor-pointer !min-h-0 !min-w-0 ${
                 viewMode === "table"
                   ? "bg-accent-green text-bg-dark"

@@ -66,6 +66,7 @@ export default function SSLCertificatesPage() {
     selectedIds,
     setSelectedIds,
     scanningId,
+    linkingCertId,
     bulkBusy,
     showModal,
     editingCert,
@@ -92,6 +93,7 @@ export default function SSLCertificatesPage() {
     updateMutation,
     scanMutation,
     deleteMutation,
+    linkTargetMutation,
     handleToggleSelect,
     handleSelectAllToggle,
     handleBulkScan,
@@ -248,6 +250,10 @@ export default function SSLCertificatesPage() {
               onScan={(cert) => scanMutation.mutate(cert.id)}
               onEdit={handleOpenEdit}
               onDelete={(cert) => setDeleteTarget(cert)}
+              onLinkTarget={(cert, target) =>
+                linkTargetMutation.mutate({ cert, target })
+              }
+              linkingCertId={linkingCertId}
             />
           ) : (
             <SSLCertificateTableView
@@ -268,6 +274,10 @@ export default function SSLCertificatesPage() {
               scanningId={scanningId}
               onEdit={handleOpenEdit}
               onDelete={(cert) => setDeleteTarget(cert)}
+              onLinkTarget={(cert, target) =>
+                linkTargetMutation.mutate({ cert, target })
+              }
+              linkingCertId={linkingCertId}
             />
           )
         ) : (
@@ -316,6 +326,10 @@ export default function SSLCertificatesPage() {
           onScan={(cert) => scanMutation.mutate(cert.id)}
           onEdit={(cert) => handleOpenEdit(cert)}
           onDelete={(cert) => setDeleteTarget(cert)}
+          onLinkTarget={(cert, target) =>
+            linkTargetMutation.mutate({ cert, target })
+          }
+          isLinking={linkingCertId === selectedCert.id}
           onClose={() => setSelectedCert(null)}
         />
       )}

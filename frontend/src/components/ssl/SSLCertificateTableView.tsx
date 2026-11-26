@@ -9,16 +9,21 @@ import {
   Layers,
   Link2,
 } from "lucide-react";
-import type { SSLCertificate } from "../../types/ssl";
+import type { SSLCertificate, SSLLinkedTarget } from "../../types/ssl";
 import {
   healthPalette,
   hasMeasurement,
   sslGradeTone,
 } from "../../utils/healthPresentation";
+import {
+  formatExactDate,
+  formatRelativeAgo,
+} from "../common/connectivity/RelativeTime";
 import StatusPill from "../common/connectivity/StatusPill";
 import SSLCertificateRowActions from "./SSLCertificateRowActions";
 import {
   SSL_STATE_META,
+  formatExpiredAgo,
   formatSSLDate,
   formatTLSVersion,
   getSSLGradeTooltip,
@@ -51,6 +56,8 @@ export interface SSLCertificateTableViewProps {
   scanningId: string | null;
   onEdit: (cert: SSLCertificate) => void;
   onDelete: (cert: SSLCertificate) => void;
+  onLinkTarget?: (cert: SSLCertificate, target: SSLLinkedTarget) => void;
+  linkingCertId?: string | null;
 }
 
 export default function SSLCertificateTableView({
@@ -71,6 +78,8 @@ export default function SSLCertificateTableView({
   scanningId,
   onEdit,
   onDelete,
+  onLinkTarget,
+  linkingCertId,
 }: SSLCertificateTableViewProps) {
   const allSelected =
     sortedCertificates.length > 0 &&
@@ -88,6 +97,7 @@ export default function SSLCertificateTableView({
     const days = cert.days_remaining;
     const sanCount = cert.san_domains?.length || 1;
     const linked = cert.linked_targets || [];
+    const suggested = cert.suggested_targets || [];
     const gradeMeasured =
       hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid;
     const gradeTone = sslGradeTone(cert.security_grade, gradeMeasured);
@@ -103,14 +113,19 @@ export default function SSLCertificateTableView({
           ? "bg-amber-500/[0.04] border-l-2 border-l-amber-400 hover:bg-amber-500/[0.08]"
           : "hover:bg-white/[0.03]";
 
+    // Neutral text when healthy; reserve color strictly for warning (amber) & critical/expired/problem (rose)
     const expiryTextClass =
       state === "expired" || state === "critical" || state === "problem"
         ? "text-rose-400 font-semibold"
         : state === "expiring"
           ? "text-amber-400 font-semibold"
           : state === "valid"
-            ? "text-emerald-400 font-semibold"
+            ? "text-text-main font-semibold"
             : "text-text-dim";
+
+    const lastCheckedTooltip = cert.last_scanned_at
+      ? `Revisado ${formatRelativeAgo(cert.last_scanned_at)} (${formatExactDate(cert.last_scanned_at)})`
+      : "Sin comprobación todavía";
 
     return (
       <tr
@@ -208,17 +223,35 @@ export default function SSLCertificateTableView({
               <ExternalLink size={11} />
             </a>
 
-            {linked.length > 0 && (
+            {linked.length > 0 ? (
               <Link
                 to={`/monitoring?target=${linked[0].id}`}
                 onClick={(e) => e.stopPropagation()}
-                title={`Vinculado al target de Uptime: ${linked.map((t) => t.name).join(", ")}`}
+                title={`Vinculado al target ${linked.map((t) => t.name).join(", ")}`}
                 className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-dark border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors max-w-[160px]"
               >
                 <Link2 size={10} className="shrink-0 text-accent-green/80" />
                 <span className="truncate">{linked[0].name}</span>
               </Link>
-            )}
+            ) : suggested.length > 0 && onLinkTarget ? (
+              <button
+                type="button"
+                disabled={linkingCertId === cert.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLinkTarget(cert, suggested[0]);
+                }}
+                title={`Target coincidente encontrado en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
+                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-transparent border border-dashed border-border-base text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors max-w-[175px] cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
+              >
+                <Link2 size={10} className="shrink-0" />
+                <span className="truncate">
+                  {linkingCertId === cert.id
+                    ? "Vinculando..."
+                    : `Vincular: ${suggested[0].name}`}
+                </span>
+              </button>
+            ) : null}
 
             {problemReason && (
               <span
@@ -232,22 +265,28 @@ export default function SSLCertificateTableView({
           </div>
         </td>
 
-        {/* 4. Emisor · Grado · TLS */}
+        {/* 4. Emisor (CA) */}
+        <td className={`${paddingY} px-3 whitespace-nowrap`}>
+          <span
+            className="block truncate text-xs text-text-muted"
+            title={cert.issuer || "Sin emisor"}
+          >
+            {issuerClean}
+          </span>
+        </td>
+
+        {/* 5. Seguridad (Grado ordenable + TLS) */}
         <td className={`${paddingY} px-3 whitespace-nowrap`}>
           <div className="flex items-center gap-1.5 min-w-0 text-xs">
-            <span
-              className="truncate text-text-muted max-w-[118px]"
-              title={cert.issuer || "Sin emisor"}
-            >
-              {issuerClean}
-            </span>
-            {cert.security_grade && gradeMeasured && (
+            {cert.security_grade && gradeMeasured ? (
               <span
                 className={`shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border ${healthPalette[gradeTone].badge}`}
                 title={getSSLGradeTooltip(cert)}
               >
                 {cert.security_grade}
               </span>
+            ) : (
+              <span className="font-mono text-[11px] text-text-dim">—</span>
             )}
             {tlsClean && (
               <span
@@ -260,40 +299,41 @@ export default function SSLCertificateTableView({
           </div>
         </td>
 
-        {/* 5. Vence (single consolidated column: "en 30 días" + "26 dic 2026") */}
+        {/* 6. Vence (single consolidated column: "en 30 d · 26 dic 2026" or "venció hace 3 d") */}
         <td className={`${paddingY} px-3 whitespace-nowrap`}>
           {days !== null && days !== undefined ? (
             <div
               className="flex items-center gap-1.5 font-mono text-xs"
-              title={
+              title={`${
                 cert.expiration_date
-                  ? `Expira el ${formatSSLDate(cert.expiration_date)}${
-                      cert.issued_at
-                        ? ` · Emitido el ${formatSSLDate(cert.issued_at)}`
-                        : ""
-                    }`
-                  : undefined
-              }
+                  ? `Expira el ${formatSSLDate(cert.expiration_date)}`
+                  : "Fecha de expiración sin registrar"
+              }${
+                cert.issued_at
+                  ? ` · Emitido el ${formatSSLDate(cert.issued_at)}`
+                  : ""
+              }\n${lastCheckedTooltip}`}
             >
               <span className={expiryTextClass}>
-                {days <= 0
-                  ? days === 0
-                    ? "Hoy"
-                    : `hace ${Math.abs(days)} d`
-                  : `en ${days} d`}
+                {days <= 0 ? formatExpiredAgo(days, true) : `en ${days} d`}
               </span>
-              {cert.expiration_date && (
+              {cert.expiration_date && days > 0 && (
                 <span className="text-[11px] text-text-dim">
                   · {formatSSLDate(cert.expiration_date)}
                 </span>
               )}
             </div>
           ) : (
-            <span className="font-mono text-[11px] text-text-dim">Sin datos</span>
+            <span
+              className="font-mono text-[11px] text-text-dim"
+              title={lastCheckedTooltip}
+            >
+              Sin datos
+            </span>
           )}
         </td>
 
-        {/* 6. SANs (clickable -> opens SANs section in drawer) */}
+        {/* 7. SANs (clickable -> opens SANs section in drawer) */}
         <td
           className={`${paddingY} px-2.5 whitespace-nowrap`}
           onClick={(e) => e.stopPropagation()}
@@ -315,7 +355,7 @@ export default function SSLCertificateTableView({
           </button>
         </td>
 
-        {/* 7. Acciones (transparent bg matching row, visible on hover/focus/touch) */}
+        {/* 8. Acciones (transparent bg matching row, visible on hover/focus/touch) */}
         <td
           className={`${paddingY} px-3 text-right whitespace-nowrap bg-transparent`}
           onClick={(e) => e.stopPropagation()}
@@ -325,6 +365,7 @@ export default function SSLCertificateTableView({
             variant="table"
             isScanning={scanningId === cert.id}
             onScan={onScan}
+            onViewChain={(c) => onSelectCert(c, "chain")}
             onEdit={onEdit}
             onDelete={onDelete}
           />
@@ -339,15 +380,16 @@ export default function SSLCertificateTableView({
       className="connectivity-directory-table w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[940px] table-fixed text-left text-xs text-text-main border-collapse">
+        <table className="w-full min-w-[980px] table-fixed text-left text-xs text-text-main border-collapse">
           <colgroup>
             <col className="w-[38px]" />
-            <col className="w-[140px]" />
+            <col className="w-[138px]" />
             <col />
-            <col className="w-[225px]" />
-            <col className="w-[172px]" />
-            <col className="w-[88px]" />
-            <col className="w-[128px]" />
+            <col className="w-[148px]" />
+            <col className="w-[120px]" />
+            <col className="w-[168px]" />
+            <col className="w-[84px]" />
+            <col className="w-[148px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
             <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
@@ -431,6 +473,31 @@ export default function SSLCertificateTableView({
               <th
                 scope="col"
                 aria-sort={
+                  sortField === "grade"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                onClick={() => onSortChange("grade")}
+                title="Ordenar por grado de seguridad TLS"
+              >
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span>Seguridad</span>
+                  <ArrowUpDown
+                    size={11}
+                    className={
+                      sortField === "grade"
+                        ? "text-accent-green"
+                        : "text-text-dim"
+                    }
+                  />
+                </div>
+              </th>
+              <th
+                scope="col"
+                aria-sort={
                   sortField === "expiry"
                     ? sortAsc
                       ? "ascending"
@@ -479,7 +546,7 @@ export default function SSLCertificateTableView({
                     onClick={() => onToggleGroup(group.key)}
                     className="bg-bg-dark/70 hover:bg-bg-dark cursor-pointer transition-colors border-y border-border-base/60 select-none"
                   >
-                    <td colSpan={7} className="py-1.5 px-3">
+                    <td colSpan={8} className="py-1.5 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {isCollapsed ? (

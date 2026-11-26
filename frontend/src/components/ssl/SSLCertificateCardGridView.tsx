@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { SSLCertificate } from "../../types/ssl";
+import type { SSLCertificate, SSLLinkedTarget } from "../../types/ssl";
 import SSLCertificateCard from "./SSLCertificateCard";
 import type { SSLDrawerSection } from "./SSLCertificateTableView";
 import type {
@@ -22,6 +22,8 @@ interface SSLCertificateCardGridViewProps {
   onScan: (cert: SSLCertificate) => void;
   onEdit: (cert: SSLCertificate) => void;
   onDelete: (cert: SSLCertificate) => void;
+  onLinkTarget?: (cert: SSLCertificate, target: SSLLinkedTarget) => void;
+  linkingCertId?: string | null;
 }
 
 export default function SSLCertificateCardGridView({
@@ -38,6 +40,8 @@ export default function SSLCertificateCardGridView({
   onScan,
   onEdit,
   onDelete,
+  onLinkTarget,
+  linkingCertId,
 }: SSLCertificateCardGridViewProps) {
   const hasAnySelection = selectedIds.length > 0;
   const gridClass =
@@ -59,6 +63,8 @@ export default function SSLCertificateCardGridView({
       onScan={onScan}
       onEdit={onEdit}
       onDelete={onDelete}
+      onLinkTarget={onLinkTarget}
+      isLinking={linkingCertId === cert.id}
     />
   );
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Check, Copy, GitBranch, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { useCapability } from "../../hooks/useCapability";
 import type { SSLCertificate } from "../../types/ssl";
 
@@ -8,13 +8,14 @@ interface SSLCertificateRowActionsProps {
   variant?: "table" | "card";
   isScanning: boolean;
   onScan: (cert: SSLCertificate) => void;
+  onViewChain: (cert: SSLCertificate) => void;
   onEdit: (cert: SSLCertificate) => void;
   onDelete: (cert: SSLCertificate) => void;
 }
 
 /**
  * Shared SSL row & card actions (homologated with Uptime & Guardianes):
- * - Revalidar ahora, Copiar huella SHA-256, Editar dominio, Eliminar
+ * - Revalidar ahora, Ver cadena, Copiar huella SHA-256, Editar dominio, Eliminar
  * - Visible on hover, keyboard focus-within, and always on touch devices
  * - Floating non-shifting overlay pill in cards.
  */
@@ -23,6 +24,7 @@ export default function SSLCertificateRowActions({
   variant = "table",
   isScanning,
   onScan,
+  onViewChain,
   onEdit,
   onDelete,
 }: SSLCertificateRowActionsProps) {
@@ -65,6 +67,16 @@ export default function SSLCertificateRowActions({
           <RefreshCw size={13} className={isScanning ? "animate-spin text-accent-green" : ""} />
         </button>
       )}
+
+      <button
+        type="button"
+        onClick={() => onViewChain(cert)}
+        title="Ver cadena de certificación"
+        aria-label={`Ver cadena de certificación de ${cert.domain}`}
+        className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-emerald-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+      >
+        <GitBranch size={13} />
+      </button>
 
       {cert.fingerprint && (
         <button

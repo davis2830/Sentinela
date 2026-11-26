@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useCapability } from "../../hooks/useCapability";
 import { useDialogFocus } from "../../hooks/useDialogFocus";
-import type { SSLCertificate } from "../../types/ssl";
+import type { SSLCertificate, SSLLinkedTarget } from "../../types/ssl";
 import {
   healthPalette,
   hasMeasurement,
@@ -36,6 +36,7 @@ import StatusPill, { StatusShapeIcon } from "../common/connectivity/StatusPill";
 import type { SSLDrawerSection } from "./SSLCertificateTableView";
 import {
   SSL_STATE_META,
+  formatExpiredAgo,
   formatSSLDate,
   formatShortFingerprint,
   formatTLSVersion,
@@ -58,6 +59,8 @@ interface SSLDetailDrawerProps {
   onScan: (cert: SSLCertificate) => void;
   onEdit: (cert: SSLCertificate) => void;
   onDelete: (cert: SSLCertificate) => void;
+  onLinkTarget?: (cert: SSLCertificate, target: SSLLinkedTarget) => void;
+  isLinking?: boolean;
   onClose: () => void;
 }
 
@@ -71,6 +74,8 @@ export default function SSLDetailDrawer({
   onScan,
   onEdit,
   onDelete,
+  onLinkTarget,
+  isLinking = false,
   onClose,
 }: SSLDetailDrawerProps) {
   const drawerRef = useDialogFocus(true, cert.id);
@@ -131,6 +136,7 @@ export default function SSLDetailDrawer({
     (s) => !sanSearch || s.toLowerCase().includes(sanSearch.toLowerCase()),
   );
   const linked = cert.linked_targets || [];
+  const suggested = cert.suggested_targets || [];
 
   const gradeMeasured =
     hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid;
@@ -301,10 +307,11 @@ export default function SSLDetailDrawer({
                   <span>{isScanning ? "Revalidando..." : "Revalidar ahora"}</span>
                 </button>
               )}
-              {linked.length > 0 && (
+              {linked.length > 0 ? (
                 <Link
                   to={`/monitoring?target=${linked[0].id}`}
                   onClick={onClose}
+                  title={`Vinculado al target ${linked[0].name}`}
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-bg-card border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors"
                 >
                   <Link2 size={12} />
@@ -312,7 +319,22 @@ export default function SSLDetailDrawer({
                     {linked[0].name}
                   </span>
                 </Link>
-              )}
+              ) : suggested.length > 0 && onLinkTarget ? (
+                <button
+                  type="button"
+                  disabled={isLinking}
+                  onClick={() => onLinkTarget(cert, suggested[0])}
+                  title={`Vincular con el target ${suggested[0].name} en Uptime`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-bg-card border border-dashed border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/50 transition-colors cursor-pointer disabled:opacity-50 !min-h-0"
+                >
+                  <Link2 size={12} />
+                  <span className="truncate max-w-[160px]">
+                    {isLinking
+                      ? "Vinculando..."
+                      : `Vincular: ${suggested[0].name}`}
+                  </span>
+                </button>
+              ) : null}
             </div>
 
             <div className="flex items-center gap-1">
@@ -371,9 +393,9 @@ export default function SSLDetailDrawer({
               <span className={`text-sm font-bold ${expiryTextClass}`}>
                 {days !== null && days !== undefined
                   ? days <= 0
-                    ? `Vencido hace ${Math.abs(days)} d`
+                    ? formatExpiredAgo(days)
                     : `Vence en ${days} ${days === 1 ? "día" : "días"}`
-                  : "Vigencia sin medir"}
+                  : "Sin datos de vigencia"}
               </span>
               <span className="text-[11px] text-text-muted">
                 {cert.expiration_date ? formatSSLDate(cert.expiration_date) : "—"}
@@ -413,7 +435,13 @@ export default function SSLDetailDrawer({
           </section>
 
           {/* Cadena de Confianza */}
-          <section className="rounded-xl border border-border-base bg-bg-dark/50 p-3.5 space-y-2">
+          <section
+            className={`rounded-xl border bg-bg-dark/50 p-3.5 space-y-2 ${
+              initialSection === "chain"
+                ? "border-accent-green/60 ring-1 ring-accent-green/30"
+                : "border-border-base"
+            }`}
+          >
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold text-text-main inline-flex items-center gap-1.5">
                 <ShieldCheck size={14} className="text-accent-green shrink-0" />

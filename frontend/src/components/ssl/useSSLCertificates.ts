@@ -61,7 +61,7 @@ export type SSLHealthState =
   | "valid"
   | "pending";
 
-export type SSLSortField = "expiry" | "status" | "domain";
+export type SSLSortField = "expiry" | "status" | "domain" | "grade";
 export type SSLGroupBy = "none" | "expiry_bucket" | "issuer" | "tls" | "origin";
 export type SSLDensity = "compact" | "comfortable";
 export type SSLOriginFilter = "all" | "linked" | "manual";
@@ -239,11 +239,29 @@ export const SSL_STATE_META: Record<
     shape: "check",
   },
   pending: {
-    label: "Sin chequeo",
-    shortLabel: "Sin chequeo",
+    label: "Sin datos",
+    shortLabel: "Sin datos",
     tone: "muted",
     shape: "clock",
   },
+};
+
+export function formatExpiredAgo(days: number, short = false): string {
+  if (days >= 0) return "venció hoy";
+  const abs = Math.abs(days);
+  if (short) return `venció hace ${abs} d`;
+  return `venció hace ${abs} ${abs === 1 ? "día" : "días"}`;
+}
+
+const GRADE_RANK: Record<string, number> = {
+  "A+": 0,
+  A: 1,
+  "A-": 2,
+  B: 3,
+  C: 4,
+  D: 5,
+  E: 6,
+  F: 7,
 };
 
 /**
@@ -511,6 +529,13 @@ export function useSSLCertificates({
         const aDays = a.days_remaining ?? Number.POSITIVE_INFINITY;
         const bDays = b.days_remaining ?? Number.POSITIVE_INFINITY;
         if (aDays !== bDays) return aDays - bDays;
+        return a.domain.localeCompare(b.domain);
+      }
+
+      if (sortField === "grade") {
+        const aRank = GRADE_RANK[(a.security_grade || "").toUpperCase()] ?? 99;
+        const bRank = GRADE_RANK[(b.security_grade || "").toUpperCase()] ?? 99;
+        if (aRank !== bRank) return sortAsc ? aRank - bRank : bRank - aRank;
         return a.domain.localeCompare(b.domain);
       }
 

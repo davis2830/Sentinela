@@ -27,6 +27,7 @@ export interface SSLCertificate {
   san_domains?: string[];
   tls_version?: string;
   linked_targets?: SSLLinkedTarget[];
+  suggested_targets?: SSLLinkedTarget[];
   created_at: string;
   updated_at: string;
 }

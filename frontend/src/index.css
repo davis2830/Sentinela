@@ -387,7 +387,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dashboard-health-options { gap:0; }
 .dashboard-priority-preview { padding:12px; }
 
-/* Focus is shared. Control dimensions belong to the component that renders them. */
+/* Focus is shared (keyboard :focus-visible only; never persists on pointer clicks). */
+:focus:not(:focus-visible) {
+  outline: none;
+}
 button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline:2px solid rgb(var(--sentinel-accent-green)); outline-offset:3px;
+  outline: 2px solid rgb(var(--sentinel-accent-green));
+  outline-offset: 2px;
 }

@@ -15,7 +15,7 @@ export default function SidebarFrame({ sections, collapsed, onToggle, onNavigate
   useEffect(() => { if (activeGroup) setOpen(previous => ({ ...previous, [activeGroup]: true })); }, [activeGroup]);
   function entry(item: SidebarEntry, nested = false) {
     const Icon = item.icon;
-    return <Link key={item.to} to={item.to} onClick={onNavigate} title={item.label} aria-label={item.label} aria-current={item.active ? 'page' : undefined}
+    return <Link key={item.to} to={item.to} onClick={(e) => { if (e.detail > 0) e.currentTarget.blur(); onNavigate?.(); }} title={item.label} aria-label={item.label} aria-current={item.active ? 'page' : undefined}
       className={`flex min-h-11 items-center rounded-lg border-l-2 font-medium transition-colors ${nested ? 'text-xs' : 'text-sm'} ${collapsed ? 'justify-center px-0' : nested ? 'gap-2.5 px-2.5' : 'gap-3 px-3'} ${item.active ? 'border-accent-green bg-bg-card text-accent-green' : 'border-transparent text-text-muted hover:bg-bg-card-hover hover:text-text-main'}`}>
       <Icon size={nested ? 15 : 19} className="shrink-0" aria-hidden="true" />{!collapsed && <span>{item.label}</span>}
     </Link>;

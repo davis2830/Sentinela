@@ -8,6 +8,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
     """Serializer for SSLCertificate model."""
 
     linked_targets = serializers.SerializerMethodField()
+    suggested_targets = serializers.SerializerMethodField()
 
     def get_linked_targets(self, instance):
         # Use prefetched targetcoverage_set when available to avoid N+1 queries
@@ -31,6 +32,36 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
                     }
                 )
         return result
+
+    def get_suggested_targets(self, instance):
+        if self.get_linked_targets(instance):
+            return []
+        from monitoring.models import MonitoringTarget
+        from monitoring.coverage import matches
+
+        # Reuse cached org HTTPS targets when serializing a list
+        cache = self.context.setdefault("_ssl_org_targets", {})
+        org_id = instance.organization_id
+        if org_id not in cache:
+            cache[org_id] = list(
+                MonitoringTarget.objects.filter(
+                    organization_id=org_id,
+                    target_type__in=("http", "https"),
+                    runner_type="cloud",
+                    agent_probe__isnull=True,
+                ).only("id", "organization_id", "name", "endpoint", "target_type", "runner_type", "agent_probe_id")
+            )
+        suggestions = []
+        for target in cache[org_id]:
+            if matches(target, "ssl", instance):
+                suggestions.append(
+                    {
+                        "id": str(target.pk),
+                        "name": target.name,
+                        "endpoint": target.endpoint,
+                    }
+                )
+        return suggestions
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -63,6 +94,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "san_domains",
             "tls_version",
             "linked_targets",
+            "suggested_targets",
             "created_at",
             "updated_at",
         )
@@ -85,6 +117,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "san_domains",
             "tls_version",
             "linked_targets",
+            "suggested_targets",
             "created_at",
             "updated_at",
         )

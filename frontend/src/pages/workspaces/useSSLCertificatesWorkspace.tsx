@@ -14,6 +14,7 @@ import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
 import type {
   CreateSSLCertificateData,
   SSLCertificate,
+  SSLLinkedTarget,
   SSLTestConnectionResult,
 } from "../../types/ssl";
 import type { SSLDrawerSection } from "../../components/ssl/SSLCertificateTableView";
@@ -86,6 +87,7 @@ export function useSSLCertificatesWorkspace() {
   // Selection & scanning
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const [linkingCertId, setLinkingCertId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
   // Modals & Drawer State
@@ -247,6 +249,40 @@ export function useSSLCertificatesWorkspace() {
         setSelectedCert(null);
       }
       setDeleteTarget(null);
+    },
+  });
+
+  const linkTargetMutation = useMutation({
+    mutationFn: async ({
+      cert,
+      target,
+    }: {
+      cert: SSLCertificate;
+      target: SSLLinkedTarget;
+    }) => {
+      setLinkingCertId(cert.id);
+      await api.patch(`monitoring/${target.id}/coverage/`, {
+        ssl: [cert.id],
+      });
+      return { cert, target };
+    },
+    onSuccess: ({ cert, target }) => {
+      directory.setMessage(
+        `${cert.domain} vinculado al target ${target.name} en Uptime.`,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["ssl-certificates", organizationId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["monitoring-targets", organizationId],
+      });
+      setLinkingCertId(null);
+    },
+    onError: () => {
+      directory.setMessage(
+        "No se pudo vincular el certificado con el target en Uptime.",
+      );
+      setLinkingCertId(null);
     },
   });
 
@@ -442,6 +478,7 @@ export function useSSLCertificatesWorkspace() {
     selectedIds,
     setSelectedIds,
     scanningId,
+    linkingCertId,
     bulkBusy,
     showModal,
     editingCert,
@@ -468,6 +505,7 @@ export function useSSLCertificatesWorkspace() {
     updateMutation,
     scanMutation,
     deleteMutation,
+    linkTargetMutation,
     handleToggleSelect,
     handleSelectAllToggle,
     handleBulkScan,
