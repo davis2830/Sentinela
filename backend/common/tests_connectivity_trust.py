@@ -246,7 +246,7 @@ class ConnectivityTrustTests(TestCase):
         task.delay.return_value = SimpleNamespace(id="configuration-fixture")
         admitted = enqueue_scan(target, task)
         MonitoringTarget.objects.filter(pk=target.pk).update(endpoint="https://new.example.test")
-        with patch("monitoring.tasks.safe_http.request") as transport:
+        with patch("monitoring.runners.safe_http.request") as transport:
             result = run_monitoring_check.run(str(target.pk), scan_token=admitted.execution_id)
         self.assertEqual(result["reason"], "configuration_changed")
         transport.assert_not_called()

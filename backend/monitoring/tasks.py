@@ -43,9 +43,19 @@ def run_monitoring_check(self, target_id):
     logger.info("Running check for target: %s (%s)", target.name, target.target_type)
 
     try:
-        from .runners import run_target_check
-        result = run_target_check(target)
-        status, latency, details = result.status, result.latency, result.details
+        if target.target_type in ("http", "https", "api"):
+            status, latency, details = _run_http_check(target)
+        elif target.target_type == "tcp":
+            status, latency, details = _run_tcp_check(target)
+        elif target.target_type == "dns":
+            status, latency, details = _run_dns_check(target)
+        elif target.target_type == "ssl":
+            status, latency, details = _run_ssl_check(target)
+        else:
+            from .runners import run_target_check
+
+            result = run_target_check(target)
+            status, latency, details = result.status, result.latency, result.details
 
         MonitoringService.record_check(
             target_id=target.id,

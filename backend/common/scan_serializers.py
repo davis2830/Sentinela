@@ -4,7 +4,7 @@ import math
 from datetime import timedelta
 
 from django.apps import apps
-from django.db.models import Prefetch, QuerySet, Window, F
+from django.db.models import Count, F, Prefetch, Q, QuerySet, Window
 from django.db.models.functions import RowNumber
 from django.utils import timezone
 from rest_framework import serializers
@@ -57,7 +57,18 @@ class AvailabilityListSerializer(serializers.ListSerializer):
         if isinstance(data, QuerySet):
             data = data.select_related("organization")
             if data.model._meta.label_lower == "monitoring.monitoringtarget":
-                data = data.select_related("owner_team", "agent_probe")
+                data = data.select_related("owner_team", "agent_probe", "coverage", "coverage__ssl")
+                if "coverage__dns" not in data._prefetch_related_lookups:
+                    data = data.prefetch_related("coverage__dns")
+                if "checks_24h_total" not in data.query.annotations:
+                    since_24h = timezone.now() - timedelta(hours=24)
+                    data = data.annotate(
+                        checks_24h_total=Count("checks", filter=Q(checks__checked_at__gte=since_24h)),
+                        checks_24h_up=Count(
+                            "checks",
+                            filter=Q(checks__checked_at__gte=since_24h, checks__status__in=["up", "slow"]),
+                        ),
+                    )
                 if not any(
                     getattr(lookup, "to_attr", None) == "prefetched_recent_checks"
                     for lookup in data._prefetch_related_lookups

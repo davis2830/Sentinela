@@ -110,7 +110,7 @@ class CloudHTTPContracts(SimpleTestCase):
         resolved = (target.endpoint, 'probe.example.test', self.server.server_port, ('127.0.0.1',))
         with patch('common.safe_http.resolve_safe_public_url', return_value=resolved) as resolve:
             if elapsed:
-                with patch('monitoring.tasks.perf_counter', side_effect=elapsed):
+                with patch('monitoring.runners.perf_counter', side_effect=elapsed):
                     result = _run_http_check(target)
             else:
                 result = _run_http_check(target)
@@ -154,7 +154,7 @@ class CloudTCPContracts(SimpleTestCase):
         target = SimpleNamespace(endpoint='tcp.example.test:5432', max_latency_ms=500)
         addresses = [(2, 1, 6, '', ('8.8.8.8', 5432))]
         with patch('common.security.socket.getaddrinfo', return_value=addresses) as dns, \
-             patch('monitoring.tasks.socket.create_connection') as connect:
+             patch('monitoring.runners.socket.create_connection') as connect:
             self.assertEqual(_run_tcp_check(target)[0], 'up')
             connect.assert_called_once_with(('8.8.8.8', 5432), timeout=10)
             dns.assert_called_once()
@@ -162,7 +162,7 @@ class CloudTCPContracts(SimpleTestCase):
     def test_rejects_mixed_public_private_resolution_without_connecting(self):
         addresses = [(2, 1, 6, '', ('8.8.8.8', 5432)), (2, 1, 6, '', ('10.0.0.1', 5432))]
         with patch('common.security.socket.getaddrinfo', return_value=addresses), \
-             patch('monitoring.tasks.socket.create_connection') as connect:
+             patch('monitoring.runners.socket.create_connection') as connect:
             with self.assertRaises(ValidationError):
                 _run_tcp_check(SimpleNamespace(endpoint='changing.example.test:5432', max_latency_ms=500))
             connect.assert_not_called()
