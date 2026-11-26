@@ -127,14 +127,25 @@ class SSLMonitorService:
                 "error_message": "",
             }
 
-        except ssl_mod.SSLCertVerificationError:
+        except ssl_mod.SSLCertVerificationError as exc:
+            verify_msg = (getattr(exc, "verify_message", "") or str(exc)).lower()
+            if "self-signed" in verify_msg or "self signed" in verify_msg:
+                reason = "Certificado autofirmado no confiable."
+            elif "hostname" in verify_msg or "match" in verify_msg:
+                reason = "El nombre de dominio no coincide con el certificado."
+            elif "expired" in verify_msg:
+                reason = "Certificado vencido."
+            elif "local issuer" in verify_msg or "issuer" in verify_msg or "chain" in verify_msg:
+                reason = "Cadena de certificados incompleta."
+            else:
+                reason = "El certificado no superó la validación TLS."
             return {
                 "domain": clean_domain,
                 "port": port,
                 "is_valid": False,
                 "security_grade": "",
                 "error_code": "INVALID_CERTIFICATE",
-                "error_message": "El certificado no superó la validación TLS.",
+                "error_message": reason,
             }
         except ssl_mod.SSLError as exc:
             logger.warning("SSL Error connecting to %s:%d: %s", clean_domain, port, exc)
@@ -174,8 +185,14 @@ class SSLMonitorService:
 
     @staticmethod
     def list_certificates(organization_id):
-        """Return all SSL certificates for an organization."""
-        return SSLCertificate.objects.filter(organization_id=organization_id).order_by("-created_at")
+        """Return all SSL certificates for an organization (soonest expiring first)."""
+        from django.db.models import F
+
+        return (
+            SSLCertificate.objects.filter(organization_id=organization_id)
+            .prefetch_related("targetcoverage_set__target")
+            .order_by(F("days_remaining").asc(nulls_last=True), "-created_at")
+        )
 
     @staticmethod
     def get_certificate(certificate_id, organization_id):

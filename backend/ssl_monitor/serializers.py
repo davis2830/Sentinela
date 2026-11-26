@@ -7,6 +7,31 @@ from .models import SSLCertificate
 class SSLCertificateSerializer(ScanAvailabilitySerializer):
     """Serializer for SSLCertificate model."""
 
+    linked_targets = serializers.SerializerMethodField()
+
+    def get_linked_targets(self, instance):
+        # Use prefetched targetcoverage_set when available to avoid N+1 queries
+        coverages = getattr(instance, "_prefetched_objects_cache", {}).get("targetcoverage_set")
+        if coverages is None:
+            from monitoring.models import TargetCoverage
+
+            coverages = TargetCoverage.objects.filter(
+                ssl=instance,
+                target__organization_id=instance.organization_id,
+            ).select_related("target")
+        result = []
+        for cov in coverages:
+            target = getattr(cov, "target", None)
+            if target is not None and target.organization_id == instance.organization_id:
+                result.append(
+                    {
+                        "id": str(target.pk),
+                        "name": target.name,
+                        "endpoint": target.endpoint,
+                    }
+                )
+        return result
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if not instance.last_scanned_at or instance.error_message:
@@ -37,6 +62,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "error_message",
             "san_domains",
             "tls_version",
+            "linked_targets",
             "created_at",
             "updated_at",
         )
@@ -58,6 +84,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "error_message",
             "san_domains",
             "tls_version",
+            "linked_targets",
             "created_at",
             "updated_at",
         )

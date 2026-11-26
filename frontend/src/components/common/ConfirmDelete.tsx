@@ -5,6 +5,7 @@ import ModalSurface from "./ModalSurface";
 interface ConfirmDeleteProps {
   title?: string;
   itemName: string;
+  warning?: string;
   isOpen: boolean;
   isDeleting?: boolean;
   onConfirm: () => void;
@@ -14,6 +15,7 @@ interface ConfirmDeleteProps {
 export default function ConfirmDelete({
   title = "Confirmar Eliminación",
   itemName,
+  warning,
   isOpen,
   isDeleting = false,
   onConfirm,
@@ -39,11 +41,16 @@ export default function ConfirmDelete({
           </div>
           <h2 className="text-lg font-bold text-text-main">{title}</h2>
         </div>
-        <p className="text-text-muted text-sm mb-6 leading-relaxed">
+        <p className="text-text-muted text-sm mb-4 leading-relaxed">
           ¿Seguro que deseas eliminar{" "}
           <strong className="text-text-main font-semibold">{itemName}</strong>?
           Esta acción no se puede deshacer.
         </p>
+        {warning && (
+          <div className="mb-5 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-200 leading-relaxed">
+            {warning}
+          </div>
+        )}
         <div className="flex gap-3">
           <button
             type="button"

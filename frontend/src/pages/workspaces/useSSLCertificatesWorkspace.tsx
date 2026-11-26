@@ -1,58 +1,102 @@
-import { sslStatus } from "../../utils/healthPresentation";
+import React, { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
-import { bulkOutcome } from "../../utils/bulkOutcome";
-import { apiFailure } from "../../services/errors";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
+import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
 import { useLinkedResource } from "../../hooks/useLinkedResource";
+import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
 import { useUrlFilter } from "../../hooks/useUrlFilter";
-import { useAuthStore } from "../../store/authStore";
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../services/api";
+import { apiFailure } from "../../services/errors";
+import { useAuthStore } from "../../store/authStore";
+import { bulkOutcome } from "../../utils/bulkOutcome";
 import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
 import type {
-  SSLCertificate,
   CreateSSLCertificateData,
-  SSLStats,
+  SSLCertificate,
   SSLTestConnectionResult,
 } from "../../types/ssl";
-import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
-import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
+import type { SSLDrawerSection } from "../../components/ssl/SSLCertificateTableView";
+import {
+  loadSSLThresholds,
+  saveSSLThresholds,
+  useSSLCertificates,
+  type SSLDensity,
+  type SSLGroupBy,
+  type SSLOriginFilter,
+  type SSLSortField,
+  type SSLThresholds,
+} from "../../components/ssl/useSSLCertificates";
 
-/** Data, mutations and transient workflow state; rendering stays in the page. */
+/** Data, filters, thresholds, mutations and transient workflow state for SSL & TLS. */
 export function useSSLCertificatesWorkspace() {
   const organizationId = useAuthStore((state) => state.user?.organization?.id);
-
   const queryClient = useQueryClient();
 
-  // State
-  const [filter, setFilter] = useUrlFilter("status", [
+  // Status filter (URL-synced) + search + facet filters
+  const [statusFilter, setStatusFilter] = useUrlFilter("status", [
     "all",
-    "expiring",
     "expired",
+    "problem",
+    "expiring",
+    "valid",
   ] as const);
   const [searchTerm, setSearchTerm] = useState("");
-  // Persistent viewMode: remembers table or grid across refreshes and updates
+  const [issuerFilter, setIssuerFilter] = useState("all");
+  const [tlsFilter, setTlsFilter] = useState("all");
+  const [gradeFilter, setGradeFilter] = useState("all");
+  const [originFilter, setOriginFilter] = useState<SSLOriginFilter>("all");
+  const [groupBy, setGroupBy] = useState<SSLGroupBy>("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Default order: soonest expiration first (with expired & problems above healthy)
+  const [sortField, setSortField] = useState<SSLSortField>("expiry");
+  const [sortAsc, setSortAsc] = useState(true);
+
+  // Configurable thresholds (default: amber <= 14d, red <= 7d for Let's Encrypt)
+  const [thresholds, setThresholdsState] = useState<SSLThresholds>(() =>
+    loadSSLThresholds(),
+  );
+  const setThresholds = (next: SSLThresholds) => {
+    setThresholdsState(next);
+    saveSSLThresholds(next);
+  };
+
+  // Persistent viewMode & density
   const [viewMode, setViewMode] = usePersistentViewMode(
     "ssl_certificates",
     "table",
   );
+  const [density, setDensityState] = useState<SSLDensity>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sentinel_ssl_density");
+      if (saved === "compact" || saved === "comfortable") return saved;
+    }
+    return "compact";
+  });
+  const setDensity = (next: SSLDensity) => {
+    setDensityState(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sentinel_ssl_density", next);
+    }
+  };
+
+  // Selection & scanning
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Modals & Drawer State
   const [showModal, setShowModal] = useState(false);
   const [editingCert, setEditingCert] = useState<SSLCertificate | null>(null);
   const [selectedCert, setSelectedCert] = useState<SSLCertificate | null>(null);
+  const [drawerSection, setDrawerSection] =
+    useState<SSLDrawerSection>("overview");
   const [domainInput, setDomainInput] = useState("");
   const [portInput, setPortInput] = useState<number>(443);
   const [deleteTarget, setDeleteTarget] = useState<SSLCertificate | null>(null);
-  const [copiedFingerprint, setCopiedFingerprint] = useState(false);
-  const [drawerTab, setDrawerTab] = useState<"overview" | "sans" | "technical">(
-    "overview",
-  );
-  const [sanSearchTerm, setSanSearchTerm] = useState("");
-  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Live Test Connection State
   const diagnostic = useConfigurationDiagnostic();
@@ -64,35 +108,81 @@ export function useSSLCertificatesWorkspace() {
   // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
 
-  const { data: stats } = useQuery<SSLStats>({
-    queryKey: ["ssl-stats", organizationId],
-    queryFn: async () => {
-      const response = await api.get("ssl-certificates/stats/");
-      return (response.data?.data || {}) as SSLStats;
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
-
   const directory = useConnectivityDirectory<SSLCertificate>(
     "ssl-certificates/",
     "ssl-certificates",
-    { search: searchTerm, status: filter },
+    { search: searchTerm, ordering: "days_remaining" },
     autoRefresh.refetchInterval,
   );
   const { data: certificates, isLoading, isError, refetch } = directory;
   const selectionScope = JSON.stringify(directory.params);
   useEffect(() => setSelectedIds([]), [selectionScope]);
 
+  const allCerts = certificates || [];
+
+  // Keep selectedCert synced when background polling or scan updates the list
+  useEffect(() => {
+    if (!selectedCert) return;
+    const fresh = allCerts.find((c) => c.id === selectedCert.id);
+    if (fresh && fresh !== selectedCert) {
+      setSelectedCert(fresh);
+    }
+  }, [allCerts, selectedCert]);
+
+  // Unified client-side summary, threshold-aware status, facets, sorting & grouping
+  const { summary, facets, sortedCertificates, groupedCertificates } =
+    useSSLCertificates({
+      certificates: allCerts,
+      thresholds,
+      statusFilter,
+      issuerFilter,
+      tlsFilter,
+      gradeFilter,
+      originFilter,
+      search: searchTerm,
+      sortField,
+      sortAsc,
+      groupBy,
+    });
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSortChange = (field: SSLSortField) => {
+    if (sortField === field) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const hasFilters =
+    Boolean(searchTerm) ||
+    statusFilter !== "all" ||
+    issuerFilter !== "all" ||
+    tlsFilter !== "all" ||
+    gradeFilter !== "all" ||
+    originFilter !== "all";
+
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setIssuerFilter("all");
+    setTlsFilter("all");
+    setGradeFilter("all");
+    setOriginFilter("all");
+    setGroupBy("none");
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: CreateSSLCertificateData) => {
       await api.post("ssl-certificates/", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["ssl-certificates", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["ssl-stats", organizationId],
       });
       handleCloseModal();
     },
@@ -111,11 +201,8 @@ export function useSSLCertificatesWorkspace() {
       await api.patch(`ssl-certificates/${id}/`, { domain, port });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["ssl-certificates", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["ssl-stats", organizationId],
       });
       handleCloseModal();
     },
@@ -135,11 +222,8 @@ export function useSSLCertificatesWorkspace() {
       );
     },
     onSuccess: (updatedCert) => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["ssl-certificates", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["ssl-stats", organizationId],
       });
       if (selectedCert && updatedCert && selectedCert.id === updatedCert.id) {
         setSelectedCert(updatedCert);
@@ -156,11 +240,8 @@ export function useSSLCertificatesWorkspace() {
       await api.delete(`ssl-certificates/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ["ssl-certificates", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["ssl-stats", organizationId],
       });
       if (selectedCert?.id === deleteTarget?.id) {
         setSelectedCert(null);
@@ -169,7 +250,6 @@ export function useSSLCertificatesWorkspace() {
     },
   });
 
-  // Bulk Actions via backend endpoint
   const handleToggleSelect = (cert: SSLCertificate) => {
     setSelectedIds((prev) =>
       prev.includes(cert.id)
@@ -179,11 +259,32 @@ export function useSSLCertificatesWorkspace() {
   };
 
   const handleSelectAllToggle = () => {
-    if (!filteredCertificates) return;
-    if (selectedIds.length === filteredCertificates.length) {
+    if (sortedCertificates.length === 0) return;
+    if (selectedIds.length === sortedCertificates.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredCertificates.map((c) => c.id));
+      setSelectedIds(sortedCertificates.map((c) => c.id));
+    }
+  };
+
+  const handleBulkScan = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const response = await api.post("ssl-certificates/bulk-action/", {
+        action: "scan",
+        certificate_ids: selectedIds,
+      });
+      const outcome = bulkOutcome(response.data.data, selectedIds);
+      setSelectedIds(outcome.pending);
+      directory.setMessage(outcome.message);
+      void queryClient.invalidateQueries({
+        queryKey: ["ssl-certificates", organizationId],
+      });
+    } catch {
+      directory.setMessage("No se pudo revalidar la selección.");
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -191,11 +292,11 @@ export function useSSLCertificatesWorkspace() {
     if (selectedIds.length === 0) return;
     if (
       !(await directory.confirmDelete(
-        `¿Deseas eliminar permanentemente los ${selectedIds.length} certificados seleccionados?`,
+        `¿Deseas eliminar permanentemente los ${selectedIds.length} certificados seleccionados? Los que estén vinculados a Uptime se desvincularán.`,
       ))
     )
       return;
-    setBulkDeleting(true);
+    setBulkBusy(true);
     try {
       const response = await api.post("ssl-certificates/bulk-action/", {
         action: "delete",
@@ -208,18 +309,16 @@ export function useSSLCertificatesWorkspace() {
       directory.setMessage(
         "No se pudo eliminar la selección. Puedes volver a intentarlo.",
       );
-      setBulkDeleting(false);
+      setBulkBusy(false);
       return;
     }
 
-    setBulkDeleting(false);
-    queryClient.invalidateQueries({
+    setBulkBusy(false);
+    void queryClient.invalidateQueries({
       queryKey: ["ssl-certificates", organizationId],
     });
-    queryClient.invalidateQueries({ queryKey: ["ssl-stats", organizationId] });
   };
 
-  // Test SSL Connection in Modal
   const handleTestConnection = async () => {
     if (!domainInput.trim()) return;
     setIsTestingConnection(true);
@@ -256,10 +355,8 @@ export function useSSLCertificatesWorkspace() {
     }
   };
 
-  // Export CSV Report
   const handleExportCSV = () => void directory.exportCSV();
 
-  // Modal Handlers
   const handleOpenCreate = () => {
     setEditingCert(null);
     setDomainInput("");
@@ -268,8 +365,7 @@ export function useSSLCertificatesWorkspace() {
     setShowModal(true);
   };
 
-  const handleOpenEdit = (cert: SSLCertificate, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleOpenEdit = (cert: SSLCertificate) => {
     setEditingCert(cert);
     setDomainInput(cert.domain);
     setPortInput(cert.port || 443);
@@ -306,57 +402,65 @@ export function useSSLCertificatesWorkspace() {
     }
   };
 
-  const handleCopyFingerprint = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedFingerprint(true);
-    setTimeout(() => setCopiedFingerprint(false), 2000);
+  const handleSelectCert = (
+    cert: SSLCertificate,
+    section: SSLDrawerSection = "overview",
+  ) => {
+    setDrawerSection(section);
+    setSelectedCert(cert);
   };
 
-  const getStatusType = sslStatus;
-
-  // KPI Calculations
-  const allCerts = certificates || [];
-  const totalCount = stats?.total ?? "—";
-  const validCount = stats?.valid ?? "—";
-  const expiringCount = stats?.expiring_30d ?? "—";
-  const expiredCount = stats?.expired ?? "—";
-  const filteredCertificates = allCerts;
-
   useLinkedResource(certificates, selectedCert, setSelectedCert);
+
   return {
     directory,
-    filter,
-    setFilter,
+    statusFilter,
+    setStatusFilter,
     searchTerm,
     setSearchTerm,
+    issuerFilter,
+    setIssuerFilter,
+    tlsFilter,
+    setTlsFilter,
+    gradeFilter,
+    setGradeFilter,
+    originFilter,
+    setOriginFilter,
+    groupBy,
+    setGroupBy,
+    collapsedGroups,
+    toggleGroup,
+    sortField,
+    sortAsc,
+    handleSortChange,
+    thresholds,
+    setThresholds,
     viewMode,
     setViewMode,
+    density,
+    setDensity,
     selectedIds,
     setSelectedIds,
     scanningId,
+    bulkBusy,
     showModal,
     editingCert,
     selectedCert,
     setSelectedCert,
+    drawerSection,
+    handleSelectCert,
     domainInput,
     setDomainInput,
     portInput,
     setPortInput,
     deleteTarget,
     setDeleteTarget,
-    copiedFingerprint,
-    drawerTab,
-    setDrawerTab,
-    sanSearchTerm,
-    setSanSearchTerm,
-    bulkDeleting,
     diagnostic,
     isTestingConnection,
     testResult,
     setTestResult,
     autoRefresh,
-    stats,
-    certificates,
+    certificates: allCerts,
     isLoading,
     isError,
     refetch,
@@ -366,6 +470,7 @@ export function useSSLCertificatesWorkspace() {
     deleteMutation,
     handleToggleSelect,
     handleSelectAllToggle,
+    handleBulkScan,
     handleBulkDelete,
     handleTestConnection,
     handleExportCSV,
@@ -373,12 +478,11 @@ export function useSSLCertificatesWorkspace() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmitModal,
-    handleCopyFingerprint,
-    getStatusType,
-    totalCount,
-    validCount,
-    expiringCount,
-    expiredCount,
-    filteredCertificates,
+    hasFilters,
+    clearAllFilters,
+    summary,
+    facets,
+    sortedCertificates,
+    groupedCertificates,
   };
 }

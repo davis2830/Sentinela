@@ -1,3 +1,9 @@
+export interface SSLLinkedTarget {
+  id: string;
+  name: string;
+  endpoint: string;
+}
+
 export interface SSLCertificate {
   last_error_code?: string;
   last_successful_at?: string | null;
@@ -20,6 +26,7 @@ export interface SSLCertificate {
   error_message: string | null;
   san_domains?: string[];
   tls_version?: string;
+  linked_targets?: SSLLinkedTarget[];
   created_at: string;
   updated_at: string;
 }

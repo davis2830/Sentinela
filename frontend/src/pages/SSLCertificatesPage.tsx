@@ -1,96 +1,84 @@
-import ResourceActionButtons from "../components/common/ResourceActionButtons";
-import SelectionCheckbox from "../components/common/SelectionCheckbox";
+import { createPortal } from "react-dom";
 import {
-  healthPalette,
-  expirationTone,
-  hasMeasurement,
-  sslExpiryTone,
-  sslGradeTone,
-} from "../utils/healthPresentation";
-import MeasurementStatus from "../components/common/MeasurementStatus";
+  Check,
+  Loader2,
+  Lock,
+  Plus,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
 import { useCompactViewport } from "../hooks/useCompactViewport";
 import {
-  DirectoryPagination,
   ActionFeedback,
+  DirectoryPagination,
+  ReadFailure,
 } from "../components/common/DirectoryState";
-import { useSSLCertificatesWorkspace } from "./workspaces/useSSLCertificatesWorkspace";
-import ModalSurface from "../components/common/ModalSurface";
-import ConfigurationDiagnosticNotice from "../components/common/ConfigurationDiagnosticNotice";
+import { NOCBulkActionBar, NOCPageHeader } from "../components/common/noc";
 import AdminButton from "../components/common/AdminButton";
-import ScanAction from "../components/common/ScanAction";
-import { createPortal } from "react-dom";
-import type { SSLCertificate } from "../types/ssl";
-import StatusBadge from "../components/common/StatusBadge";
-import EmptyState from "../components/common/EmptyState";
+import ConfigurationDiagnosticNotice from "../components/common/ConfigurationDiagnosticNotice";
 import ConfirmDelete from "../components/common/ConfirmDelete";
+import EmptyState from "../components/common/EmptyState";
+import ModalSurface from "../components/common/ModalSurface";
+import SSLToolbar from "../components/ssl/SSLToolbar";
 import SSLCertificateTableView from "../components/ssl/SSLCertificateTableView";
+import SSLCertificateCardGridView from "../components/ssl/SSLCertificateCardGridView";
+import SSLDetailDrawer from "../components/ssl/SSLDetailDrawer";
 import {
-  NOCPageHeader,
-  NOCToolbar,
-  NOCBulkActionBar,
-  NOCDrawer,
-} from "../components/common/noc";
-import {
-  ShieldCheck,
-  Plus,
-  Loader2,
-  Trash2,
-  Calendar,
-  Building2,
-  X,
-  Lock,
-  Pencil,
-  Copy,
-  Check,
-  Clock,
-  ExternalLink,
-  ShieldAlert,
-  Globe,
-  Zap,
-  Download,
-  Search,
-} from "lucide-react";
-
-type FilterType = "all" | "expiring" | "expired";
-
-function parseIssuerName(issuerStr: string | null): string {
-  if (!issuerStr) return "Desconocido";
-  const orgMatch = issuerStr.match(/organizationName=([^,]+)/i);
-  if (orgMatch && orgMatch[1]) return orgMatch[1].trim();
-  const cnMatch = issuerStr.match(/commonName=([^,]+)/i);
-  if (cnMatch && cnMatch[1]) return cnMatch[1].trim();
-  return issuerStr.split(",")[0].replace("CN=", "");
-}
+  formatSSLDate,
+  formatTLSVersion,
+  parseIssuerOrganization,
+} from "../components/ssl/useSSLCertificates";
+import { healthPalette } from "../utils/healthPresentation";
+import { useSSLCertificatesWorkspace } from "./workspaces/useSSLCertificatesWorkspace";
 
 export default function SSLCertificatesPage() {
   const compact = useCompactViewport();
   const {
     directory,
-    filter,
-    setFilter,
+    statusFilter,
+    setStatusFilter,
     searchTerm,
     setSearchTerm,
+    issuerFilter,
+    setIssuerFilter,
+    tlsFilter,
+    setTlsFilter,
+    gradeFilter,
+    setGradeFilter,
+    originFilter,
+    setOriginFilter,
+    groupBy,
+    setGroupBy,
+    collapsedGroups,
+    toggleGroup,
+    sortField,
+    sortAsc,
+    handleSortChange,
+    thresholds,
+    setThresholds,
     viewMode,
     setViewMode,
+    density,
+    setDensity,
     selectedIds,
     setSelectedIds,
     scanningId,
+    bulkBusy,
     showModal,
     editingCert,
     selectedCert,
     setSelectedCert,
+    drawerSection,
+    handleSelectCert,
     domainInput,
     setDomainInput,
     portInput,
     setPortInput,
     deleteTarget,
     setDeleteTarget,
-    copiedFingerprint,
-    drawerTab,
-    setDrawerTab,
-    sanSearchTerm,
-    setSanSearchTerm,
-    bulkDeleting,
     diagnostic,
     isTestingConnection,
     testResult,
@@ -106,6 +94,7 @@ export default function SSLCertificatesPage() {
     deleteMutation,
     handleToggleSelect,
     handleSelectAllToggle,
+    handleBulkScan,
     handleBulkDelete,
     handleTestConnection,
     handleExportCSV,
@@ -113,25 +102,32 @@ export default function SSLCertificatesPage() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmitModal,
-    handleCopyFingerprint,
-    getStatusType,
-    totalCount,
-    expiringCount,
-    expiredCount,
-    filteredCertificates,
+    hasFilters,
+    clearAllFilters,
+    summary,
+    facets,
+    sortedCertificates,
+    groupedCertificates,
   } = useSSLCertificatesWorkspace();
 
+  const linkedDeleteWarning =
+    deleteTarget?.linked_targets && deleteTarget.linked_targets.length > 0
+      ? `Este certificado está vinculado a ${deleteTarget.linked_targets
+          .map((t) => t.name)
+          .join(", ")} en Uptime. Al eliminarlo se desvinculará de esos targets.`
+      : undefined;
+
   return (
-    <div className="compact-workspace space-y-4 animate-in fade-in duration-300 font-sans">
+    <div className="compact-workspace space-y-4 animate-in fade-in duration-200 font-sans">
       <ActionFeedback>{directory.message}</ActionFeedback>
       {directory.confirmation}
 
-      {/* 1. TOP HEADER (Standard NOC Header) */}
+      {/* 1. Unified Header: Plain language subtitle & sentence-case CTA */}
       <NOCPageHeader
         title="Certificados SSL & TLS"
         badgeText="CERT GUARD"
-        description="Supervisa la validez, cadena criptográfica, emisor y vencimiento de tus certificados SSL/TLS con alertas preventivas."
-        icon={<Lock size={26} />}
+        description="Te avisamos antes de que venzan tus certificados."
+        icon={<Lock size={22} className="text-accent-green" />}
         autoRefresh={{
           enabled: autoRefresh.enabled,
           countdown: autoRefresh.countdown,
@@ -141,697 +137,190 @@ export default function SSLCertificatesPage() {
           blockedReason: autoRefresh.blockedReason,
         }}
         actions={
-          <>
-            <AdminButton
-              capability="ssl_monitor.create"
-              type="button"
-              onClick={handleOpenCreate}
-              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>Nuevo Certificado</span>
-            </AdminButton>
-          </>
+          <AdminButton
+            capability="ssl_monitor.create"
+            type="button"
+            onClick={handleOpenCreate}
+            className="inline-flex items-center gap-1.5 bg-accent-green text-black font-semibold px-4 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Agregar dominio</span>
+          </AdminButton>
         }
       />
 
-      {/* 3. TOOLBAR: Omnibar Search + Status Pills + Persistent Grid/Table Switcher */}
-      <NOCToolbar
-        layout="inline"
-        countsScope="total de la organización"
-        utilities={[
-          {
-            label: "Exportar resultados filtrados",
-            icon: <Download size={16} />,
-            onClick: () => void handleExportCSV(),
-            disabled: !certificates?.length,
-          },
-        ]}
-        searchTerm={searchTerm}
+      {/* 2. Single-Row Unified Toolbar with Next Expiration, Thresholds & Export */}
+      <SSLToolbar
+        summary={summary}
+        thresholds={thresholds}
+        onThresholdsChange={setThresholds}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(val) =>
+          setStatusFilter(
+            val as "all" | "expired" | "problem" | "expiring" | "valid",
+          )
+        }
+        issuerFilter={issuerFilter}
+        onIssuerFilterChange={setIssuerFilter}
+        tlsFilter={tlsFilter}
+        onTlsFilterChange={setTlsFilter}
+        gradeFilter={gradeFilter}
+        onGradeFilterChange={setGradeFilter}
+        originFilter={originFilter}
+        onOriginFilterChange={setOriginFilter}
+        facets={facets}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        density={density}
+        onDensityChange={setDensity}
+        search={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por dominio, autoridad emisora (CA), SANs o algoritmo..."
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        statusPills={[
-          {
-            id: "all",
-            label: "Todos",
-            count: isError ? undefined : totalCount,
-            variant: "all",
-          },
-          {
-            id: "expiring",
-            label: "Por expirar",
-            count: isError ? undefined : expiringCount,
-            variant: "warning",
-          },
-          {
-            id: "expired",
-            label: "Vencidos",
-            count: isError ? undefined : expiredCount,
-            variant: "danger",
-          },
-        ]}
-        selectedStatus={filter}
-        onStatusChange={(st) => setFilter(st as FilterType)}
+        onSelectCert={(cert) => handleSelectCert(cert, "overview")}
+        onExportCSV={handleExportCSV}
+        canExport={certificates.length > 0}
       />
 
-      {/* 4. FLOATING BULK ACTIONS BAR */}
+      {/* 3. Floating Bulk Actions Bar */}
       <NOCBulkActionBar
         selectedCount={selectedIds.length}
         onClearSelection={() => setSelectedIds([])}
         itemLabel="certificados"
         actions={
-          <>
+          <div className="flex items-center gap-2">
+            <AdminButton
+              capability="ssl_monitor.scan"
+              type="button"
+              onClick={() => void handleBulkScan()}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-green/15 border border-accent-green/40 text-accent-green font-semibold rounded-full text-xs hover:bg-accent-green hover:text-black transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw
+                size={12}
+                className={bulkBusy ? "animate-spin" : ""}
+              />
+              <span>Revalidar</span>
+            </AdminButton>
             <AdminButton
               capability="ssl_monitor.delete"
               type="button"
-              onClick={handleBulkDelete}
-              disabled={bulkDeleting}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+              onClick={() => void handleBulkDelete()}
+              disabled={bulkBusy}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-accent-red text-white font-semibold rounded-full text-xs hover:bg-accent-red/90 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Trash2 size={13} />
-              {bulkDeleting ? "Eliminando..." : "Eliminar"}
+              <span>{bulkBusy ? "Procesando..." : "Eliminar"}</span>
             </AdminButton>
-          </>
+          </div>
         }
       />
 
-      {/* 5. MAIN CONTENT: DUAL VIEW (GRID OR COMPACT TABLE) */}
+      {/* 4. Read Error Banner */}
       {isError && (
-        <section
-          role="alert"
-          className="rounded-2xl border border-accent-yellow/40 bg-bg-card p-5 text-sm text-text-main"
-        >
-          <p>
-            No pudimos consultar los certificados. Esto no significa que se
-            hayan eliminado.
-          </p>
-          <button className="mt-2 text-accent-green" onClick={() => refetch()}>
-            Reintentar consulta de certificados
-          </button>
-        </section>
-      )}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-accent-green" size={32} />
+        <div className="w-full max-w-[1400px] mx-auto">
+          <ReadFailure stale={certificates.length > 0} retry={refetch} />
         </div>
-      ) : filteredCertificates && filteredCertificates.length > 0 ? (
-        viewMode === "grid" || compact ? (
-          /* Grid View (Cards) */
-          <div className="connectivity-card-grid">
-            {filteredCertificates.map((cert: SSLCertificate) => {
-              const status = getStatusType(cert);
-              const expiryTone = sslExpiryTone(cert);
-              const issuerClean = parseIssuerName(cert.issuer);
-              const days = cert.days_remaining;
-              const isSelected = selectedIds.includes(cert.id);
-
-              let percentUsed: number | null = null;
-              if (cert.issued_at && cert.expiration_date) {
-                const start = new Date(cert.issued_at).getTime();
-                const end = new Date(cert.expiration_date).getTime();
-                const now = Date.now();
-                if (end > start) {
-                  percentUsed = Math.min(
-                    100,
-                    Math.max(
-                      0,
-                      Math.round(((now - start) / (end - start)) * 100),
-                    ),
-                  );
-                }
-              }
-
-              return (
-                <div
-                  data-testid="connectivity-card"
-                  key={cert.id}
-                  onClick={() => setSelectedCert(cert)}
-                  className={`bg-bg-card border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
-                    isSelected
-                      ? "border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40"
-                      : "border-border-base/70"
-                  }`}
-                >
-                  <div>
-                    {/* Top Bar: Checkbox, Icon, Domain, Port & Status */}
-                    <div className="flex items-start justify-between gap-2 mb-4">
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        {/* Checkbox */}
-
-                        <div className="w-9 h-9 rounded-xl bg-bg-dark border border-border-base flex items-center justify-center shrink-0 text-accent-green group-hover:border-accent-green/40 transition-colors">
-                          <Lock size={16} />
-                        </div>
-                        <div className="overflow-hidden">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h3
-                              className="font-bold text-text-main truncate text-base group-hover:text-accent-green transition-colors font-sans"
-                              title={cert.domain}
-                            >
-                              {cert.domain}
-                            </h3>
-                            {cert.port && cert.port !== 443 && (
-                              <span className="font-mono text-xs px-1.5 py-0.2 bg-bg-dark border border-border-base rounded text-accent-blue">
-                                :{cert.port}
-                              </span>
-                            )}
-                          </div>
-                          {cert.issuer && (
-                            <span className="text-xs font-medium text-text-dim truncate block max-w-[200px]">
-                              {issuerClean}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Radar & Status */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {cert.is_valid && (
-                          <span className="relative flex h-2 w-2 mr-0.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                          </span>
-                        )}
-                        <StatusBadge status={status} />
-                      </div>
-                    </div>
-
-                    {/* Card Content Details */}
-                    <div className="space-y-2 text-xs text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40">
-                      <div className="flex items-center justify-between border-b border-border-base/40 pb-1.5">
-                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
-                          <Building2 size={13} /> Emisor:
-                        </span>
-                        <span
-                          className="font-mono text-text-main font-semibold truncate max-w-[180px]"
-                          title={cert.issuer || ""}
-                        >
-                          {issuerClean}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-b border-border-base/40 pb-1.5">
-                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
-                          <Calendar size={13} /> Expiración:
-                        </span>
-                        <span className="font-mono text-text-main">
-                          {cert.expiration_date
-                            ? new Date(cert.expiration_date).toLocaleDateString(
-                                "es-ES",
-                              )
-                            : "N/A"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
-                          <Clock size={13} /> Vigencia:
-                        </span>
-                        <div className="text-right">
-                          <span
-                            className={`font-mono font-bold ${healthPalette[expiryTone].text}`}
-                          >
-                            {days !== null
-                              ? days <= 0
-                                ? "Expirado"
-                                : `${days} días`
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Timeline Bar in Card */}
-                      {percentUsed !== null && expiryTone !== "muted" && (
-                        <div
-                          className="w-full bg-bg-dark border border-border-base rounded-full h-1.5 overflow-hidden mt-1.5"
-                          title={`Vida consumida: ${percentUsed}%`}
-                        >
-                          <div
-                            className={`h-full rounded-full ${healthPalette[expiryTone].fill}`}
-                            style={{ width: `${percentUsed}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Footer: Grade + Algorithm + Actions */}
-                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim relative pl-11">
-                    <div
-                      data-card-selection
-                      className="absolute bottom-0 left-0"
-                    >
-                      <SelectionCheckbox
-                        checked={isSelected}
-                        label={`Seleccionar ${cert.domain}`}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggleSelect(cert);
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`font-mono text-xs font-bold px-2 py-0.5 rounded-full border ${healthPalette[sslGradeTone(cert.security_grade, hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid)].badge}`}
-                      >
-                        {cert.security_grade || "—"}
-                      </span>
-                      <span className="font-mono text-xs bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50">
-                        {cert.tls_version || "—"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <ResourceActionButtons
-                        label={`Acciones de ${cert.domain}`}
-                        actions={[
-                          {
-                            label: "Editar dominio",
-                            onClick: (e) => handleOpenEdit(cert, e),
-                            capability: "ssl_monitor.update",
-                            icon: (
-                              <>
-                                <Pencil size={14} />
-                              </>
-                            ),
-                          },
-                          {
-                            label: "Eliminar certificado",
-                            onClick: (e) => {
-                              e.stopPropagation();
-                              setDeleteTarget(cert);
-                            },
-                            capability: "ssl_monitor.delete",
-                            danger: true,
-                            icon: (
-                              <>
-                                <Trash2 size={14} />
-                              </>
-                            ),
-                          },
-                        ]}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* Compact NOC Table View */
-          <SSLCertificateTableView
-            certificates={filteredCertificates}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAllToggle}
-            onSelectCert={(c) => setSelectedCert(c)}
-            onScan={(id, e) => {
-              e.stopPropagation();
-              scanMutation.mutate(id);
-            }}
-            scanningId={scanningId}
-            onEdit={handleOpenEdit}
-            onDelete={(cert, e) => {
-              if (e) e.stopPropagation();
-              setDeleteTarget(cert);
-            }}
-          />
-        )
-      ) : (
-        !isError && (
-          <EmptyState
-            capability={
-              searchTerm || filter !== "all" ? undefined : "ssl_monitor.create"
-            }
-            showAddIcon={!searchTerm && filter === "all"}
-            title={
-              searchTerm || filter !== "all"
-                ? "Sin coincidencias para estos filtros"
-                : "No hay certificados SSL registrados"
-            }
-            description={
-              searchTerm || filter !== "all"
-                ? "Prueba con otro dominio, emisor o estado."
-                : "Agrega un dominio para obtener su primera medición TLS. Configura después regla y canal para recibir avisos."
-            }
-            actionLabel={
-              searchTerm || filter !== "all"
-                ? "Limpiar filtros"
-                : "Monitorear primer certificado"
-            }
-            onAction={() => {
-              if (searchTerm || filter !== "all") {
-                setSearchTerm("");
-                setFilter("all");
-              } else handleOpenCreate();
-            }}
-          />
-        )
       )}
 
-      {/* 6. SLIDE-OVER TECHNICAL DRAWER */}
-      <NOCDrawer
-        isOpen={!!selectedCert}
-        onClose={() => setSelectedCert(null)}
-        title={
-          selectedCert
-            ? `${selectedCert.domain}${selectedCert.port && selectedCert.port !== 443 ? `:${selectedCert.port}` : ""}`
-            : ""
-        }
-        subtitle="Auditoría Criptográfica & Cadena de Confianza SSL/TLS"
-        statusBadge={
-          selectedCert ? (
-            <div className="flex items-center gap-2">
-              <span
-                className={`font-mono font-bold text-xs px-2.5 py-0.5 rounded-full border ${healthPalette[sslGradeTone(selectedCert.security_grade, hasMeasurement(selectedCert.last_scanned_at) && !selectedCert.error_message && selectedCert.is_valid)].badge}`}
-              >
-                Grado {selectedCert.security_grade || "—"}
-              </span>
-              <StatusBadge status={getStatusType(selectedCert)} />
-            </div>
-          ) : undefined
-        }
-        headerActions={
-          selectedCert && (
-            <div className="flex items-center gap-2">
-              <ScanAction
-                resource={selectedCert}
-                route="ssl-certificates"
-                pending={scanMutation.isPending}
-                onScan={() => scanMutation.mutateAsync(selectedCert.id)}
+      {/* 5. Main Directory: Compact Table vs Compact Status-Wall Cards */}
+      <section aria-label="Directorio de Certificados SSL" className="min-w-0">
+        {isLoading && certificates.length === 0 ? (
+          <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center justify-center py-20 rounded-2xl border border-border-base bg-bg-card text-text-muted gap-3">
+            <Loader2 className="animate-spin text-accent-green" size={26} />
+            <p className="text-xs font-mono">
+              Consultando certificados SSL/TLS...
+            </p>
+          </div>
+        ) : sortedCertificates.length > 0 ? (
+          viewMode === "grid" || compact ? (
+            <SSLCertificateCardGridView
+              sortedCertificates={sortedCertificates}
+              groupedCertificates={groupedCertificates}
+              collapsedGroups={collapsedGroups}
+              onToggleGroup={toggleGroup}
+              thresholds={thresholds}
+              density={density}
+              selectedIds={selectedIds}
+              scanningId={scanningId}
+              onToggleSelect={handleToggleSelect}
+              onSelectCert={handleSelectCert}
+              onScan={(cert) => scanMutation.mutate(cert.id)}
+              onEdit={handleOpenEdit}
+              onDelete={(cert) => setDeleteTarget(cert)}
+            />
+          ) : (
+            <SSLCertificateTableView
+              sortedCertificates={sortedCertificates}
+              groupedCertificates={groupedCertificates}
+              collapsedGroups={collapsedGroups}
+              onToggleGroup={toggleGroup}
+              thresholds={thresholds}
+              density={density}
+              sortField={sortField}
+              sortAsc={sortAsc}
+              onSortChange={handleSortChange}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onSelectAll={handleSelectAllToggle}
+              onSelectCert={handleSelectCert}
+              onScan={(cert) => scanMutation.mutate(cert.id)}
+              scanningId={scanningId}
+              onEdit={handleOpenEdit}
+              onDelete={(cert) => setDeleteTarget(cert)}
+            />
+          )
+        ) : (
+          !isError && (
+            <div className="w-full max-w-[1400px] mx-auto">
+              <EmptyState
+                capability={hasFilters ? undefined : "ssl_monitor.create"}
+                showAddIcon={!hasFilters}
+                title={
+                  hasFilters
+                    ? "Sin coincidencias para estos filtros"
+                    : "No hay certificados SSL registrados"
+                }
+                description={
+                  hasFilters
+                    ? "Ajusta la búsqueda, emisor, protocolo TLS o estado para ver el resto."
+                    : "Agrega un dominio para vigilar su vigencia, cadena TLS y recibir avisos antes de que venza."
+                }
+                actionLabel={
+                  hasFilters ? "Limpiar filtros" : "Agregar primer dominio"
+                }
+                onAction={() => {
+                  if (hasFilters) clearAllFilters();
+                  else handleOpenCreate();
+                }}
               />
-              <a
-                href={`https://${selectedCert.domain}${selectedCert.port && selectedCert.port !== 443 ? `:${selectedCert.port}` : ""}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 rounded-full bg-bg-dark border border-border-base text-text-dim hover:text-text-main transition-colors"
-                title="Abrir endpoint en nueva pestaña"
-              >
-                <ExternalLink size={14} />
-              </a>
             </div>
           )
-        }
-        tabs={[
-          {
-            id: "overview",
-            label: `Vigencia & Estado (${selectedCert?.days_remaining ?? "—"}d)`,
-          },
-          {
-            id: "sans",
-            label: `Dominios SANs (${selectedCert?.san_domains?.length ?? 0})`,
-          },
-          { id: "technical", label: "Criptografía & TLS" },
-        ]}
-        activeTab={drawerTab}
-        onTabChange={(tab) => setDrawerTab(tab as typeof drawerTab)}
-      >
-        {selectedCert && (
-          <MeasurementStatus snapshot={selectedCert.scan_availability} />
-        )}
-        {selectedCert && (
-          <p className="text-sm text-text-muted p-3">
-            El grado resume TLS y vigencia observados; no es una auditoría
-            completa del servidor.{" "}
-            {selectedCert.error_message
-              ? `Último intento: ${selectedCert.error_message}`
-              : ""}
-          </p>
-        )}
-        {selectedCert && drawerTab === "overview" && (
-          <div className="space-y-4">
-            {/* Quick Lifetime Metric Strip */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-bg-dark/90 border border-border-base rounded-2xl p-3.5">
-                <span className="text-xs text-text-dim block mb-1">
-                  Días Restantes
-                </span>
-                <span
-                  className={`text-2xl font-bold font-mono ${
-                    healthPalette[sslExpiryTone(selectedCert)].text
-                  }`}
-                >
-                  {selectedCert.days_remaining !== null
-                    ? `${selectedCert.days_remaining}d`
-                    : "Sin datos"}
-                </span>
-              </div>
-              <div className="bg-bg-dark/90 border border-border-base rounded-2xl p-3.5">
-                <span className="text-xs text-text-dim block mb-1">
-                  Protocolo Activo
-                </span>
-                <span className="text-2xl font-bold font-mono text-accent-blue">
-                  {selectedCert.tls_version || "—"}
-                </span>
-              </div>
-            </div>
-
-            {/* Error or Success Alert */}
-            {selectedCert.error_message ? (
-              <div className="p-4 bg-accent-red/10 border border-accent-red/30 rounded-2xl flex items-start gap-3 text-accent-red">
-                <ShieldAlert size={22} className="shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-sm">
-                    Fallo en el Análisis SSL
-                  </h4>
-                  <p className="text-xs font-mono mt-1 opacity-90">
-                    {selectedCert.error_message}
-                  </p>
-                </div>
-              </div>
-            ) : selectedCert.is_valid &&
-              hasMeasurement(selectedCert.last_scanned_at) ? (
-              <div
-                className={`p-4 border rounded-2xl flex items-start gap-3 ${healthPalette.success.badge}`}
-              >
-                <ShieldCheck size={22} className="shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-sm">
-                    Certificado SSL Válido y Operativo
-                  </h4>
-                  <p className="text-xs font-sans mt-1 text-text-muted">
-                    El certificado responde correctamente en el puerto{" "}
-                    {selectedCert.port || 443} con una cadena de confianza
-                    intacta.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs">
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Emisor Principal (CA):
-                </span>
-                <span className="font-mono font-semibold text-text-main truncate max-w-[280px]">
-                  {parseIssuerName(selectedCert.issuer)}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Puerto de Escaneo:
-                </span>
-                <span className="font-mono text-accent-green font-bold">
-                  {selectedCert.port || 443}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Fecha de Emisión:
-                </span>
-                <span className="font-mono text-text-main">
-                  {selectedCert.issued_at
-                    ? new Date(selectedCert.issued_at).toLocaleDateString(
-                        "es-ES",
-                      )
-                    : selectedCert.created_at
-                      ? new Date(selectedCert.created_at).toLocaleDateString(
-                          "es-ES",
-                        )
-                      : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Fecha de Expiración:
-                </span>
-                <span className="font-mono font-bold text-text-main">
-                  {selectedCert.expiration_date
-                    ? new Date(selectedCert.expiration_date).toLocaleDateString(
-                        "es-ES",
-                      )
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-dim font-medium">
-                  Último Chequeo:
-                </span>
-                <span className="font-mono text-text-muted">
-                  {selectedCert.last_scanned_at
-                    ? new Date(selectedCert.last_scanned_at).toLocaleString(
-                        "es-ES",
-                      )
-                    : "Nunca"}
-                </span>
-              </div>
-            </div>
-          </div>
         )}
 
-        {selectedCert && drawerTab === "technical" && (
-          <div className="space-y-4">
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs font-mono">
-              <div>
-                <span className="text-text-dim font-sans font-medium block mb-1">
-                  Emisor Completo (Issuer DN):
-                </span>
-                <p className="text-text-main break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40">
-                  {selectedCert.issuer || "Desconocido"}
-                </p>
-              </div>
+        <div className="pt-4 w-full max-w-[1400px] mx-auto">
+          <DirectoryPagination directory={directory} />
+        </div>
+      </section>
 
-              <div>
-                <span className="text-text-dim font-sans font-medium block mb-1">
-                  Sujeto del Certificado (Subject):
-                </span>
-                <p className="text-text-main break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40">
-                  {selectedCert.subject || "Sin medición"}
-                </p>
-              </div>
+      {/* 6. Slide-Over Detail Drawer */}
+      {selectedCert && (
+        <SSLDetailDrawer
+          key={`${selectedCert.id}-${drawerSection}`}
+          cert={selectedCert}
+          certificates={sortedCertificates}
+          initialSection={drawerSection}
+          thresholds={thresholds}
+          isScanning={scanningId === selectedCert.id}
+          onSelectCert={(next) => handleSelectCert(next, "overview")}
+          onScan={(cert) => scanMutation.mutate(cert.id)}
+          onEdit={(cert) => handleOpenEdit(cert)}
+          onDelete={(cert) => setDeleteTarget(cert)}
+          onClose={() => setSelectedCert(null)}
+        />
+      )}
 
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <span className="text-text-dim font-sans font-medium block mb-1">
-                    Algoritmo:
-                  </span>
-                  <p className="text-text-main bg-bg-card p-2.5 rounded-xl border border-border-base/40">
-                    {selectedCert.algorithm || "Sin medición"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-text-dim font-sans font-medium block mb-1">
-                    Protocolo TLS:
-                  </span>
-                  <p className="text-accent-green bg-bg-card p-2.5 rounded-xl border border-border-base/40 font-bold">
-                    {selectedCert.tls_version || "—"}
-                  </p>
-                </div>
-              </div>
-
-              {selectedCert.fingerprint && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-text-dim font-sans font-medium">
-                      Huella Digital (Fingerprint SHA-256):
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleCopyFingerprint(selectedCert.fingerprint || "")
-                      }
-                      className="text-accent-green hover:underline flex items-center gap-1 text-xs cursor-pointer"
-                    >
-                      {copiedFingerprint ? (
-                        <Check size={12} />
-                      ) : (
-                        <Copy size={12} />
-                      )}
-                      {copiedFingerprint ? "Copiado" : "Copiar"}
-                    </button>
-                  </div>
-                  <p className="text-text-muted break-all leading-relaxed bg-bg-card p-3 rounded-xl border border-border-base/40 text-xs">
-                    {selectedCert.fingerprint}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {selectedCert && drawerTab === "sans" && (
-          <div className="space-y-4">
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
-                  <Globe size={14} className="text-accent-green" />
-                  Nombres Alternativos del Sujeto (SANs)
-                </h4>
-                <span className="font-mono text-xs text-text-dim">
-                  {selectedCert.san_domains?.length || 0} dominios
-                </span>
-              </div>
-
-              {/* SANs Search Bar */}
-              {selectedCert.san_domains &&
-                selectedCert.san_domains.length > 5 && (
-                  <div className="relative mb-3">
-                    <Search
-                      size={14}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Filtrar nombres SAN..."
-                      value={sanSearchTerm}
-                      onChange={(e) => setSanSearchTerm(e.target.value)}
-                      className="w-full bg-bg-card border border-border-base rounded-xl pl-9 pr-3 py-1.5 text-xs text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
-                    />
-                  </div>
-                )}
-
-              {selectedCert.san_domains &&
-              selectedCert.san_domains.length > 0 ? (
-                <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto pr-1">
-                  {selectedCert.san_domains
-                    .filter(
-                      (san) =>
-                        !sanSearchTerm ||
-                        san.toLowerCase().includes(sanSearchTerm.toLowerCase()),
-                    )
-                    .map((san, idx) => {
-                      const isWildcard = san.startsWith("*.");
-                      return (
-                        <span
-                          key={idx}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-mono flex items-center gap-1.5 ${
-                            isWildcard
-                              ? "bg-accent-purple/10 border border-accent-purple/30 text-accent-purple"
-                              : "bg-bg-card border border-border-base/60 text-text-main"
-                          }`}
-                        >
-                          <Lock
-                            size={11}
-                            className={
-                              isWildcard
-                                ? "text-accent-purple"
-                                : "text-accent-green"
-                            }
-                          />
-                          <span>{san}</span>
-                          {isWildcard && (
-                            <span className="text-xs font-sans opacity-80">
-                              (Wildcard)
-                            </span>
-                          )}
-                        </span>
-                      );
-                    })}
-                </div>
-              ) : (
-                <p className="text-xs text-text-dim font-mono">
-                  No se registraron dominios alternativos SANs para este
-                  certificado.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-      </NOCDrawer>
-
-      {/* 7. CREATE / EDIT FORM MODAL WITH LIVE TEST CONNECTION */}
+      {/* 7. Create / Edit Modal with Live Connection Test */}
       {showModal &&
         typeof document !== "undefined" &&
         createPortal(
@@ -840,26 +329,22 @@ export default function SSLCertificatesPage() {
             onClick={handleCloseModal}
           >
             <ModalSurface
-              label={
-                editingCert
-                  ? "Editar Certificado SSL"
-                  : "Monitorear Nuevo Certificado SSL"
-              }
+              label={editingCert ? "Editar dominio SSL" : "Agregar dominio SSL"}
               onClose={handleCloseModal}
               className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl"
             >
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold text-text-main flex items-center gap-2 font-sans">
-                  <Lock size={19} className="text-accent-green" />
-                  {editingCert
-                    ? "Editar Certificado SSL"
-                    : "Monitorear Nuevo Certificado SSL"}
+                  <Lock size={18} className="text-accent-green" />
+                  <span>
+                    {editingCert ? "Editar dominio" : "Agregar dominio"}
+                  </span>
                 </h2>
                 <button
                   type="button"
                   aria-label="Cerrar formulario SSL"
                   onClick={handleCloseModal}
-                  className="text-text-muted hover:text-text-main transition-colors p-1"
+                  className="text-text-muted hover:text-text-main transition-colors p-1 cursor-pointer"
                 >
                   <X size={20} />
                 </button>
@@ -907,18 +392,18 @@ export default function SSLCertificatesPage() {
                   Puertos comunes:{" "}
                   <span className="font-mono text-accent-green">443</span>{" "}
                   (HTTPS),{" "}
-                  <span className="font-mono text-accent-blue">8443</span>{" "}
+                  <span className="font-mono text-sky-400">8443</span>{" "}
                   (Paneles),{" "}
                   <span className="font-mono text-accent-purple">636</span>{" "}
                   (LDAPS).
                 </p>
 
-                {/* Test Connection Button */}
+                {/* Live TLS Connection Test */}
                 <div className="pt-1">
                   <AdminButton
                     capability="ssl_monitor.test"
                     type="button"
-                    onClick={handleTestConnection}
+                    onClick={() => void handleTestConnection()}
                     disabled={!domainInput.trim() || isTestingConnection}
                     className="w-full py-2 px-4 rounded-xl border border-border-base bg-bg-dark hover:bg-bg-dark/80 text-text-main text-xs font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                   >
@@ -932,8 +417,8 @@ export default function SSLCertificatesPage() {
                       </>
                     ) : (
                       <>
-                        <Zap size={14} className="text-accent-yellow" />
-                        <span>Probar configuración</span>
+                        <Zap size={14} className="text-amber-400" />
+                        <span>Probar conexión TLS</span>
                       </>
                     )}
                   </AdminButton>
@@ -943,7 +428,6 @@ export default function SSLCertificatesPage() {
                   />
                 </div>
 
-                {/* Test Result Live Preview */}
                 {testResult && (
                   <div
                     className={`p-3.5 rounded-2xl border text-xs animate-in fade-in duration-200 ${
@@ -958,31 +442,34 @@ export default function SSLCertificatesPage() {
                           <span
                             className={`font-bold flex items-center gap-1.5 ${healthPalette.success.text}`}
                           >
-                            <Check size={14} /> Conexión Exitosa &bull; Grado{" "}
+                            <Check size={14} /> Conexión exitosa · Grado{" "}
                             {testResult.security_grade}
                           </span>
                           <span className="font-mono text-xs text-text-dim">
-                            {testResult.tls_version}
+                            {formatTLSVersion(testResult.tls_version)}
                           </span>
                         </div>
                         <div className="text-xs text-text-muted">
                           <span>Emisor: </span>
                           <span className="font-mono text-text-main">
-                            {parseIssuerName(testResult.issuer || null)}
+                            {parseIssuerOrganization(testResult.issuer)}
                           </span>
                         </div>
                         <div className="text-xs text-text-muted">
                           <span>Vigencia: </span>
-                          <span
-                            className={`font-mono font-bold ${healthPalette[expirationTone(testResult.days_remaining)].text}`}
-                          >
+                          <span className="font-mono font-bold text-text-main">
                             {testResult.days_remaining != null
-                              ? `${testResult.days_remaining} días`
+                              ? `en ${testResult.days_remaining} días`
                               : "Sin datos"}
                           </span>
+                          {testResult.expiration_date && (
+                            <span className="ml-1.5 font-mono text-text-dim">
+                              ({formatSSLDate(testResult.expiration_date)})
+                            </span>
+                          )}
                           {testResult.san_domains && (
                             <span className="ml-2 font-mono text-text-dim">
-                              ({testResult.san_domains.length} SANs cubiertos)
+                              · {testResult.san_domains.length} SANs
                             </span>
                           )}
                         </div>
@@ -992,7 +479,7 @@ export default function SSLCertificatesPage() {
                         <ShieldAlert size={16} className="shrink-0 mt-0.5" />
                         <div>
                           <span className="font-bold block">
-                            Fallo en la prueba de conexión
+                            Fallo en la prueba TLS
                           </span>
                           <span className="text-xs font-mono opacity-90">
                             {testResult.error_message}
@@ -1024,9 +511,9 @@ export default function SSLCertificatesPage() {
                     {createMutation.isPending || updateMutation.isPending ? (
                       <Loader2 className="animate-spin" size={18} />
                     ) : editingCert ? (
-                      "Actualizar"
+                      "Guardar cambios"
                     ) : (
-                      "Guardar y Monitorear"
+                      "Agregar dominio"
                     )}
                   </AdminButton>
                 </div>
@@ -1036,19 +523,19 @@ export default function SSLCertificatesPage() {
           document.body,
         )}
 
-      {/* 8. DELETE CONFIRMATION MODAL */}
+      {/* 8. Delete Confirmation Modal (warns explicitly if linked to Uptime targets) */}
       <ConfirmDelete
         isOpen={!!deleteTarget}
         itemName={
           deleteTarget
-            ? `${deleteTarget.domain}:${deleteTarget.port || 443}`
+            ? `${deleteTarget.domain}${deleteTarget.port && deleteTarget.port !== 443 ? `:${deleteTarget.port}` : ""}`
             : "este certificado"
         }
+        warning={linkedDeleteWarning}
         isDeleting={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}
       />
-      <DirectoryPagination directory={directory} />
     </div>
   );
 }

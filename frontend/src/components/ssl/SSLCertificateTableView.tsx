@@ -1,295 +1,528 @@
-import ResourceActionButtons from "../common/ResourceActionButtons";
-import SelectionCheckbox from "../common/SelectionCheckbox";
+import { Link } from "react-router-dom";
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Layers,
+  Link2,
+} from "lucide-react";
+import type { SSLCertificate } from "../../types/ssl";
 import {
   healthPalette,
   hasMeasurement,
-  sslExpiryTone,
   sslGradeTone,
-  sslStatus,
 } from "../../utils/healthPresentation";
+import StatusPill from "../common/connectivity/StatusPill";
+import SSLCertificateRowActions from "./SSLCertificateRowActions";
+import {
+  SSL_STATE_META,
+  formatSSLDate,
+  formatTLSVersion,
+  getSSLGradeTooltip,
+  getSSLHealthState,
+  getSSLProblemReason,
+  parseIssuerOrganization,
+  type SSLDensity,
+  type SSLGroup,
+  type SSLSortField,
+  type SSLThresholds,
+} from "./useSSLCertificates";
 
-import React from "react";
-import type { SSLCertificate } from "../../types/ssl";
-import StatusBadge from "../common/StatusBadge";
-import { Pencil, Trash2, ExternalLink, Lock, Layers } from "lucide-react";
+export type SSLDrawerSection = "overview" | "chain" | "sans";
 
 export interface SSLCertificateTableViewProps {
-  certificates: SSLCertificate[];
+  sortedCertificates: SSLCertificate[];
+  groupedCertificates: SSLGroup[] | null;
+  collapsedGroups: Record<string, boolean>;
+  onToggleGroup: (key: string) => void;
+  thresholds: SSLThresholds;
+  density: SSLDensity;
+  sortField: SSLSortField;
+  sortAsc: boolean;
+  onSortChange: (field: SSLSortField) => void;
   selectedIds: string[];
   onToggleSelect: (cert: SSLCertificate) => void;
   onSelectAll: () => void;
-  onSelectCert: (cert: SSLCertificate) => void;
-  onScan: (id: string, e: React.MouseEvent) => void;
+  onSelectCert: (cert: SSLCertificate, section?: SSLDrawerSection) => void;
+  onScan: (cert: SSLCertificate) => void;
   scanningId: string | null;
-  onEdit: (cert: SSLCertificate, e: React.MouseEvent) => void;
-  onDelete: (cert: SSLCertificate, e: React.MouseEvent) => void;
-}
-
-function parseIssuerClean(issuerStr: string | null): string {
-  if (!issuerStr) return "Desconocido";
-  const orgMatch = issuerStr.match(/organizationName=([^,]+)/i);
-  if (orgMatch && orgMatch[1]) return orgMatch[1].trim();
-  const cnMatch = issuerStr.match(/commonName=([^,]+)/i);
-  if (cnMatch && cnMatch[1]) return cnMatch[1].trim();
-  return issuerStr.split(",")[0].replace("CN=", "");
+  onEdit: (cert: SSLCertificate) => void;
+  onDelete: (cert: SSLCertificate) => void;
 }
 
 export default function SSLCertificateTableView({
-  certificates,
+  sortedCertificates,
+  groupedCertificates,
+  collapsedGroups,
+  onToggleGroup,
+  thresholds,
+  density,
+  sortField,
+  sortAsc,
+  onSortChange,
   selectedIds,
   onToggleSelect,
   onSelectAll,
   onSelectCert,
+  onScan,
+  scanningId,
   onEdit,
   onDelete,
 }: SSLCertificateTableViewProps) {
   const allSelected =
-    certificates.length > 0 && selectedIds.length === certificates.length;
+    sortedCertificates.length > 0 &&
+    selectedIds.length === sortedCertificates.length;
+  const isCompact = density === "compact";
+  const paddingY = isCompact ? "py-2" : "py-3";
+
+  const renderRow = (cert: SSLCertificate) => {
+    const isSelected = selectedIds.includes(cert.id);
+    const state = getSSLHealthState(cert, thresholds);
+    const meta = SSL_STATE_META[state];
+    const problemReason = state === "problem" ? getSSLProblemReason(cert) : null;
+    const issuerClean = parseIssuerOrganization(cert.issuer);
+    const tlsClean = formatTLSVersion(cert.tls_version);
+    const days = cert.days_remaining;
+    const sanCount = cert.san_domains?.length || 1;
+    const linked = cert.linked_targets || [];
+    const gradeMeasured =
+      hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid;
+    const gradeTone = sslGradeTone(cert.security_grade, gradeMeasured);
+
+    const isUrgent = state === "expired" || state === "problem" || state === "critical";
+    const isWarning = state === "expiring";
+
+    const rowBgClass = isSelected
+      ? "bg-accent-green/5"
+      : isUrgent
+        ? "bg-[#1c1217] border-l-2 border-l-rose-500 hover:bg-[#25161e]"
+        : isWarning
+          ? "bg-amber-500/[0.04] border-l-2 border-l-amber-400 hover:bg-amber-500/[0.08]"
+          : "hover:bg-white/[0.03]";
+
+    const expiryTextClass =
+      state === "expired" || state === "critical" || state === "problem"
+        ? "text-rose-400 font-semibold"
+        : state === "expiring"
+          ? "text-amber-400 font-semibold"
+          : state === "valid"
+            ? "text-emerald-400 font-semibold"
+            : "text-text-dim";
+
+    return (
+      <tr
+        key={cert.id}
+        onClick={() => onSelectCert(cert, "overview")}
+        tabIndex={0}
+        aria-label={cert.domain}
+        onKeyDown={(e) => {
+          if (
+            e.target === e.currentTarget &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            onSelectCert(cert, "overview");
+          }
+        }}
+        className={`group cursor-pointer transition-colors border-b border-border-base/60 ${rowBgClass}`}
+      >
+        {/* 1. Checkbox */}
+        <td
+          className={`${paddingY} px-2.5 text-center`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-label={`Seleccionar ${cert.domain}`}
+            title={isSelected ? "Deseleccionar" : "Seleccionar"}
+            onClick={() => onToggleSelect(cert)}
+            className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
+          >
+            <span
+              className={`grid h-4 w-4 place-items-center rounded transition-colors ${
+                isSelected
+                  ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+                  : "border border-border-base/90 bg-bg-dark/80 text-transparent"
+              }`}
+            >
+              <Check
+                size={10}
+                strokeWidth={3}
+                className={isSelected ? "opacity-100" : "opacity-0"}
+              />
+            </span>
+          </button>
+        </td>
+
+        {/* 2. Estado (shape + pill, never static padlock) */}
+        <td className={`${paddingY} px-2.5 whitespace-nowrap`}>
+          <StatusPill
+            size="xs"
+            label={meta.label}
+            tone={meta.tone}
+            shape={meta.shape}
+            title={
+              problemReason
+                ? `Con problemas: ${problemReason}`
+                : state === "expiring" || state === "critical"
+                  ? `Por expirar (umbral: ≤ ${thresholds.warningDays} d / crítico ≤ ${thresholds.criticalDays} d)`
+                  : meta.label
+            }
+          />
+        </td>
+
+        {/* 3. Dominio (absorbs horizontal space, with linked Uptime badge & inline problem diagnostic) */}
+        <td className={`${paddingY} px-3 max-w-0`}>
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={`truncate font-semibold text-xs transition-colors ${
+                isUrgent
+                  ? "text-rose-300 font-bold"
+                  : "text-text-main group-hover:text-accent-green"
+              }`}
+              title={`${cert.domain}${cert.port && cert.port !== 443 ? `:${cert.port}` : ""}`}
+            >
+              {cert.domain}
+            </span>
+
+            {cert.port && cert.port !== 443 && (
+              <span className="shrink-0 font-mono text-[10px] px-1.5 py-0.5 bg-bg-dark border border-border-base rounded text-sky-400">
+                :{cert.port}
+              </span>
+            )}
+
+            <a
+              href={`https://${cert.domain}${cert.port && cert.port !== 443 ? `:${cert.port}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 text-text-dim hover:text-accent-green transition-opacity"
+              title="Abrir sitio HTTPS en nueva pestaña"
+              aria-label={`Abrir ${cert.domain} en nueva pestaña`}
+            >
+              <ExternalLink size={11} />
+            </a>
+
+            {linked.length > 0 && (
+              <Link
+                to={`/monitoring?target=${linked[0].id}`}
+                onClick={(e) => e.stopPropagation()}
+                title={`Vinculado al target de Uptime: ${linked.map((t) => t.name).join(", ")}`}
+                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-dark border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors max-w-[160px]"
+              >
+                <Link2 size={10} className="shrink-0 text-accent-green/80" />
+                <span className="truncate">{linked[0].name}</span>
+              </Link>
+            )}
+
+            {problemReason && (
+              <span
+                title={cert.error_message || problemReason}
+                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono bg-rose-500/10 border border-rose-500/25 text-rose-300"
+              >
+                <AlertTriangle size={10} className="text-rose-400 shrink-0" />
+                <span>{problemReason}</span>
+              </span>
+            )}
+          </div>
+        </td>
+
+        {/* 4. Emisor · Grado · TLS */}
+        <td className={`${paddingY} px-3 whitespace-nowrap`}>
+          <div className="flex items-center gap-1.5 min-w-0 text-xs">
+            <span
+              className="truncate text-text-muted max-w-[118px]"
+              title={cert.issuer || "Sin emisor"}
+            >
+              {issuerClean}
+            </span>
+            {cert.security_grade && gradeMeasured && (
+              <span
+                className={`shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border ${healthPalette[gradeTone].badge}`}
+                title={getSSLGradeTooltip(cert)}
+              >
+                {cert.security_grade}
+              </span>
+            )}
+            {tlsClean && (
+              <span
+                className="shrink-0 font-mono text-[11px] text-text-dim"
+                title={`Protocolo negociado: ${tlsClean}`}
+              >
+                {tlsClean}
+              </span>
+            )}
+          </div>
+        </td>
+
+        {/* 5. Vence (single consolidated column: "en 30 días" + "26 dic 2026") */}
+        <td className={`${paddingY} px-3 whitespace-nowrap`}>
+          {days !== null && days !== undefined ? (
+            <div
+              className="flex items-center gap-1.5 font-mono text-xs"
+              title={
+                cert.expiration_date
+                  ? `Expira el ${formatSSLDate(cert.expiration_date)}${
+                      cert.issued_at
+                        ? ` · Emitido el ${formatSSLDate(cert.issued_at)}`
+                        : ""
+                    }`
+                  : undefined
+              }
+            >
+              <span className={expiryTextClass}>
+                {days <= 0
+                  ? days === 0
+                    ? "Hoy"
+                    : `hace ${Math.abs(days)} d`
+                  : `en ${days} d`}
+              </span>
+              {cert.expiration_date && (
+                <span className="text-[11px] text-text-dim">
+                  · {formatSSLDate(cert.expiration_date)}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="font-mono text-[11px] text-text-dim">Sin datos</span>
+          )}
+        </td>
+
+        {/* 6. SANs (clickable -> opens SANs section in drawer) */}
+        <td
+          className={`${paddingY} px-2.5 whitespace-nowrap`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => onSelectCert(cert, "sans")}
+            title={
+              cert.san_domains && cert.san_domains.length > 0
+                ? `Ver SANs (${cert.san_domains.length}): ${cert.san_domains.slice(0, 6).join(", ")}${cert.san_domains.length > 6 ? "…" : ""}`
+                : "Ver dominios SAN"
+            }
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer !min-h-0 !min-w-0"
+          >
+            <Layers size={10} className="text-sky-400 shrink-0" />
+            <span>
+              {sanCount} {sanCount === 1 ? "SAN" : "SANs"}
+            </span>
+          </button>
+        </td>
+
+        {/* 7. Acciones (transparent bg matching row, visible on hover/focus/touch) */}
+        <td
+          className={`${paddingY} px-3 text-right whitespace-nowrap bg-transparent`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SSLCertificateRowActions
+            cert={cert}
+            variant="table"
+            isScanning={scanningId === cert.id}
+            onScan={onScan}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div
       data-testid="connectivity-table"
-      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans"
+      className="connectivity-directory-table w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-border-base text-text-muted text-xs bg-bg-dark/80">
-              <th scope="col" className="py-3 px-3.5 w-10">
-                <SelectionCheckbox
-                  checked={allSelected}
-                  label="Seleccionar todos los recursos de esta página"
-                  onChange={onSelectAll}
-                />
+        <table className="w-full min-w-[940px] table-fixed text-left text-xs text-text-main border-collapse">
+          <colgroup>
+            <col className="w-[38px]" />
+            <col className="w-[140px]" />
+            <col />
+            <col className="w-[225px]" />
+            <col className="w-[172px]" />
+            <col className="w-[88px]" />
+            <col className="w-[128px]" />
+          </colgroup>
+          <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
+            <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
+              <th scope="col" className="py-2 px-2.5 text-center">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={allSelected}
+                  aria-label="Seleccionar todos los certificados de esta página"
+                  onClick={onSelectAll}
+                  className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
+                >
+                  <span
+                    className={`grid h-4 w-4 place-items-center rounded transition-colors ${
+                      allSelected
+                        ? "bg-accent-green text-black ring-1 ring-accent-green/40"
+                        : "border border-border-base/90 bg-bg-dark/80 text-transparent"
+                    }`}
+                  >
+                    <Check
+                      size={10}
+                      strokeWidth={3}
+                      className={allSelected ? "opacity-100" : "opacity-0"}
+                    />
+                  </span>
+                </button>
               </th>
-              <th scope="col" className="py-3 px-4">
-                Dominio Certificado
+              <th
+                scope="col"
+                aria-sort={
+                  sortField === "status"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-2.5 whitespace-nowrap cursor-pointer hover:text-text-main"
+                onClick={() => onSortChange("status")}
+                title="Ordenar por estado (problemas y vencidos primero)"
+              >
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span>Estado</span>
+                  <ArrowUpDown
+                    size={11}
+                    className={
+                      sortField === "status"
+                        ? "text-accent-green"
+                        : "text-text-dim"
+                    }
+                  />
+                </div>
               </th>
-              <th scope="col" className="py-3 px-3">
-                Autoridad Emisora (CA)
+              <th
+                scope="col"
+                aria-sort={
+                  sortField === "domain"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                onClick={() => onSortChange("domain")}
+                title="Ordenar por dominio"
+              >
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span>Dominio</span>
+                  <ArrowUpDown
+                    size={11}
+                    className={
+                      sortField === "domain"
+                        ? "text-accent-green"
+                        : "text-text-dim"
+                    }
+                  />
+                </div>
               </th>
-              <th scope="col" className="py-3 px-3">
-                Seguridad
+              <th scope="col" className="py-2 px-3 whitespace-nowrap">
+                Emisor
               </th>
-              <th scope="col" className="py-3 px-3">
-                Estado
+              <th
+                scope="col"
+                aria-sort={
+                  sortField === "expiry"
+                    ? sortAsc
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                onClick={() => onSortChange("expiry")}
+                title="Ordenar por vencimiento más próximo"
+              >
+                <div className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span>Vence</span>
+                  <ArrowUpDown
+                    size={11}
+                    className={
+                      sortField === "expiry"
+                        ? "text-accent-green"
+                        : "text-text-dim"
+                    }
+                  />
+                </div>
               </th>
-              <th scope="col" className="py-3 px-3">
-                Vigencia & Timeline
-              </th>
-              <th scope="col" className="py-3 px-3">
-                Expiración
-              </th>
-              <th scope="col" className="py-3 px-3">
+              <th scope="col" className="py-2 px-2.5 whitespace-nowrap">
                 SANs
               </th>
-              <th scope="col" className="py-3 px-4 text-right">
+              <th
+                scope="col"
+                className="py-2 px-3 text-right whitespace-nowrap bg-transparent"
+              >
                 Acciones
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border-base/40 font-sans">
-            {certificates.map((cert) => {
-              const isSelected = selectedIds.includes(cert.id);
-              const statusType = sslStatus(cert);
-              const expiryTone = sslExpiryTone(cert);
-              const days = cert.days_remaining;
 
-              // Calculate lifetime progress percentage
-              let percentUsed: number | null = null;
-              if (cert.issued_at && cert.expiration_date) {
-                const start = new Date(cert.issued_at).getTime();
-                const end = new Date(cert.expiration_date).getTime();
-                const now = Date.now();
-                if (end > start) {
-                  percentUsed = Math.min(
-                    100,
-                    Math.max(
-                      0,
-                      Math.round(((now - start) / (end - start)) * 100),
-                    ),
-                  );
-                }
-              }
+          {groupedCertificates ? (
+            groupedCertificates.map((group) => {
+              const isCollapsed = Boolean(collapsedGroups[group.key]);
+              const GroupIcon = group.icon;
 
               return (
-                <tr
-                  key={cert.id}
-                  onClick={() => onSelectCert(cert)}
-                  tabIndex={0}
-                  aria-label={cert.domain}
-                  onKeyDown={(e) => {
-                    if (
-                      e.target === e.currentTarget &&
-                      (e.key === "Enter" || e.key === " ")
-                    ) {
-                      e.preventDefault();
-                      onSelectCert(cert);
-                    }
-                  }}
-                  className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                    isSelected ? "bg-accent-green/[0.03]" : ""
-                  }`}
+                <tbody
+                  key={group.key}
+                  className="border-b border-border-base/50"
                 >
-                  {/* Row Checkbox */}
-                  <td
-                    className="py-3 px-3.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelect(cert);
-                    }}
+                  <tr
+                    onClick={() => onToggleGroup(group.key)}
+                    className="bg-bg-dark/70 hover:bg-bg-dark cursor-pointer transition-colors border-y border-border-base/60 select-none"
                   >
-                    <SelectionCheckbox
-                      checked={isSelected}
-                      label={`Seleccionar ${cert.domain}`}
-                      onChange={() => onToggleSelect(cert)}
-                    />
-                  </td>
-
-                  {/* Domain & Port */}
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <Lock size={14} className="text-accent-green shrink-0" />
-                      <span className="font-bold text-text-main group-hover:text-accent-green transition-colors text-sm font-sans">
-                        {cert.domain}
-                      </span>
-                      {cert.port && cert.port !== 443 && (
-                        <span className="font-mono text-xs px-1.5 py-0.2 bg-bg-dark border border-border-base rounded text-accent-blue">
-                          :{cert.port}
-                        </span>
-                      )}
-                      <a
-                        href={`https://${cert.domain}${cert.port && cert.port !== 443 ? `:${cert.port}` : ""}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-text-dim hover:text-accent-green shrink-0"
-                        title="Abrir endpoint seguro"
-                      >
-                        <ExternalLink size={11} />
-                      </a>
-                    </div>
-                  </td>
-
-                  {/* Issuer */}
-                  <td className="py-3 px-3 text-text-muted text-xs font-sans">
-                    {parseIssuerClean(cert.issuer)}
-                  </td>
-
-                  {/* Security Grade & TLS */}
-                  <td className="py-3 px-3">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`font-mono font-bold text-xs px-2 py-0.5 rounded-full border ${healthPalette[sslGradeTone(cert.security_grade, hasMeasurement(cert.last_scanned_at) && !cert.error_message && cert.is_valid)].badge}`}
-                        title={`Grado de seguridad SSL: ${cert.security_grade || "—"}`}
-                      >
-                        {cert.security_grade || "—"}
-                      </span>
-                      <span className="font-mono text-xs text-text-dim">
-                        {cert.tls_version || "—"}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Status Badge */}
-                  <td className="py-3 px-3">
-                    <StatusBadge status={statusType} />
-                  </td>
-
-                  {/* Vigencia & Mini-Timeline */}
-                  <td className="py-3 px-3 font-mono text-xs">
-                    <div className="space-y-1">
-                      {days !== null ? (
+                    <td colSpan={7} className="py-1.5 px-3">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span
-                            className={`font-bold px-2 py-0.5 rounded-full border ${healthPalette[expiryTone].badge}`}
-                          >
-                            {days <= 0 ? "Expirado" : `${days} días`}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-text-dim">-</span>
-                      )}
-
-                      {/* Timeline Bar */}
-                      {percentUsed !== null && expiryTone !== "muted" && (
-                        <div
-                          className="w-24 bg-bg-dark border border-border-base rounded-full h-1.5 overflow-hidden"
-                          title={`Vida del certificado: ${percentUsed}% transcurrido`}
-                        >
-                          <div
-                            className={`h-full rounded-full transition-all ${healthPalette[expiryTone].fill}`}
-                            style={{ width: `${percentUsed}%` }}
+                          {isCollapsed ? (
+                            <ChevronRight size={13} className="text-text-dim" />
+                          ) : (
+                            <ChevronDown
+                              size={13}
+                              className="text-accent-green"
+                            />
+                          )}
+                          <GroupIcon
+                            size={13}
+                            className="text-sky-400 shrink-0"
                           />
+                          <span className="font-semibold text-text-main text-xs">
+                            {group.label}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-bg-card border border-border-base text-text-muted">
+                            {group.certs.length}{" "}
+                            {group.certs.length === 1
+                              ? "certificado"
+                              : "certificados"}
+                          </span>
+                          {group.urgentCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 border border-rose-500/30 text-rose-400">
+                              {group.urgentCount} urgente
+                              {group.urgentCount === 1 ? "" : "s"}
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Expiration Date */}
-                  <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
-                    {cert.expiration_date
-                      ? new Date(cert.expiration_date).toLocaleDateString(
-                          "es-ES",
-                        )
-                      : "N/A"}
-                  </td>
-
-                  {/* SANs Count */}
-                  <td className="py-3 px-3">
-                    {cert.san_domains && cert.san_domains.length > 0 ? (
-                      <span
-                        className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 rounded-md bg-bg-dark border border-border-base text-text-muted"
-                        title={cert.san_domains.join(", ")}
-                      >
-                        <Layers size={11} className="text-accent-blue" />
-                        <span>{cert.san_domains.length} SANs</span>
-                      </span>
-                    ) : (
-                      <span className="text-text-dim font-mono text-xs">
-                        1 SAN
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Inline Actions */}
-                  <td className="py-3 px-4 text-right">
-                    <div
-                      className="flex items-center justify-end gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ResourceActionButtons
-                        label={`Acciones de ${cert.domain}`}
-                        actions={[
-                          {
-                            label: "Editar dominio",
-                            onClick: (e) => onEdit(cert, e),
-                            capability: "ssl_monitor.update",
-                            icon: (
-                              <>
-                                <Pencil size={14} />
-                              </>
-                            ),
-                          },
-                          {
-                            label: "Eliminar certificado",
-                            onClick: (e) => onDelete(cert, e),
-                            capability: "ssl_monitor.delete",
-                            danger: true,
-                            icon: (
-                              <>
-                                <Trash2 size={14} />
-                              </>
-                            ),
-                          },
-                        ]}
-                      />
-                    </div>
-                  </td>
-                </tr>
+                        <span className="text-[10px] text-text-dim">
+                          {isCollapsed ? "Expandir" : "Colapsar"}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                  {!isCollapsed && group.certs.map(renderRow)}
+                </tbody>
               );
-            })}
-          </tbody>
+            })
+          ) : (
+            <tbody>{sortedCertificates.map(renderRow)}</tbody>
+          )}
         </table>
       </div>
     </div>
