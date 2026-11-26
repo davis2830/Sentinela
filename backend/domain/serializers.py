@@ -362,3 +362,4 @@ class DomainInfoCreateSerializer(serializers.Serializer):
 
     domain = serializers.CharField(max_length=500)
     manual_expiration_date = serializers.DateField(required=False, allow_null=True)
+    auto_renew = serializers.BooleanField(required=False, allow_null=True, default=None)

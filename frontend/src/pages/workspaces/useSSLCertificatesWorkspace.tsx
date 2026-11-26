@@ -11,7 +11,13 @@ import { api } from "../../services/api";
 import { apiFailure } from "../../services/errors";
 import { useAuthStore } from "../../store/authStore";
 import { bulkOutcome } from "../../utils/bulkOutcome";
-import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
+import {
+  emitScanFeedback,
+  waitForFreshScan,
+  type QueuedScan,
+} from "../../utils/scanPolling";
+import type { SSLModalSubmitPayload } from "../../components/ssl/SSLAddModal";
+import { extractRegistrableDomain } from "../../utils/hostInput";
 import type {
   CreateSSLCertificateData,
   SSLCertificate,
@@ -396,12 +402,17 @@ export function useSSLCertificatesWorkspace() {
     });
   };
 
-  const handleTestConnection = async () => {
-    if (!domainInput.trim()) return;
+  const handleTestConnection = async (
+    overrideDomain?: string,
+    overridePort?: number,
+  ) => {
+    const rawDomain = (overrideDomain ?? domainInput).trim();
+    if (!rawDomain) return;
+    const effectivePort = overridePort ?? (portInput || 443);
     setIsTestingConnection(true);
     setTestResult(null);
 
-    let cleanDomain = domainInput.trim().toLowerCase();
+    let cleanDomain = rawDomain.toLowerCase();
     cleanDomain = cleanDomain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (cleanDomain.includes(":")) {
       cleanDomain = cleanDomain.split(":")[0];
@@ -412,7 +423,7 @@ export function useSSLCertificatesWorkspace() {
         "ssl-certificates/test-connection/",
         {
           domain: cleanDomain,
-          port: portInput || 443,
+          port: effectivePort,
         },
       );
       setTestResult(response.data?.data as SSLTestConnectionResult);
@@ -421,7 +432,7 @@ export function useSSLCertificatesWorkspace() {
       if (diagnostic.isLimit(err)) return;
       setTestResult({
         domain: cleanDomain,
-        port: portInput || 443,
+        port: effectivePort,
         is_valid: false,
         error_message:
           err.response?.data?.message ||
@@ -458,25 +469,130 @@ export function useSSLCertificatesWorkspace() {
     setTestResult(null);
   };
 
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+
+  const handleSubmitSSLModal = async (payload: SSLModalSubmitPayload) => {
+    if (payload.items.length === 0) return;
+    setIsSubmittingModal(true);
+    try {
+      if (editingCert) {
+        const first = payload.items[0];
+        const res = await api.patch(`ssl-certificates/${editingCert.id}/`, {
+          domain: first.domain,
+          port: first.port,
+        });
+        const updated = res.data?.data as SSLCertificate | undefined;
+        void queryClient.invalidateQueries({
+          queryKey: ["ssl-certificates", organizationId],
+        });
+        handleCloseModal();
+        emitScanFeedback({
+          message: `Certificado actualizado · ${first.domain}`,
+          tone: "success",
+          actionLabel: updated ? "Ver" : undefined,
+          onAction: updated
+            ? () => handleSelectCert(updated, "overview")
+            : undefined,
+        });
+        return;
+      }
+
+      const createdList: SSLCertificate[] = [];
+      for (const item of payload.items) {
+        const res = await api.post("ssl-certificates/", {
+          domain: item.domain,
+          port: item.port,
+        });
+        const created = res.data?.data as SSLCertificate | undefined;
+        if (created) createdList.push(created);
+      }
+
+      const firstCreated = createdList[0];
+      if (firstCreated && payload.linkTargetId) {
+        try {
+          await api.patch(`monitoring/${payload.linkTargetId}/coverage/`, {
+            ssl: [firstCreated.id],
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ["monitoring-targets", organizationId],
+          });
+        } catch {
+          // Non-fatal: certificate was already created
+        }
+      }
+
+      if (firstCreated && payload.alsoWatchDns) {
+        try {
+          await api.post("dns-records/", {
+            domain: firstCreated.domain,
+            record_type: "A",
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ["dns-records", organizationId],
+          });
+        } catch {
+          // Non-fatal companion creation
+        }
+      }
+
+      if (firstCreated && payload.alsoWatchDomain) {
+        try {
+          const apex = extractRegistrableDomain(firstCreated.domain);
+          if (apex) {
+            await api.post("domains/", { domain: apex });
+            void queryClient.invalidateQueries({
+              queryKey: ["domains", organizationId],
+            });
+          }
+        } catch {
+          // Non-fatal companion creation
+        }
+      }
+
+      void queryClient.invalidateQueries({
+        queryKey: ["ssl-certificates", organizationId],
+      });
+
+      if (payload.keepOpen) {
+        setDomainInput("");
+        setPortInput(443);
+        setTestResult(null);
+      } else {
+        handleCloseModal();
+      }
+
+      if (createdList.length === 1 && firstCreated) {
+        emitScanFeedback({
+          message: `Certificado agregado · ${firstCreated.domain}`,
+          tone: "success",
+          actionLabel: "Ver",
+          onAction: () => handleSelectCert(firstCreated, "overview"),
+        });
+      } else if (createdList.length > 1) {
+        emitScanFeedback({
+          message: `${createdList.length} certificados agregados`,
+          tone: "success",
+        });
+      }
+    } catch (caughtError: unknown) {
+      const err = apiFailure(caughtError);
+      emitScanFeedback({
+        message:
+          err.response?.data?.message ||
+          "No se pudo guardar el certificado. Intenta de nuevo.",
+        tone: "danger",
+      });
+    } finally {
+      setIsSubmittingModal(false);
+    }
+  };
+
   const handleSubmitModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
-
-    let cleanDomain = domainInput.trim().toLowerCase();
-    cleanDomain = cleanDomain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    let port = portInput || 443;
-
-    if (cleanDomain.includes(":")) {
-      const parts = cleanDomain.split(":");
-      cleanDomain = parts[0];
-      port = parseInt(parts[1], 10) || 443;
-    }
-
-    if (editingCert) {
-      updateMutation.mutate({ id: editingCert.id, domain: cleanDomain, port });
-    } else {
-      createMutation.mutate({ domain: cleanDomain, port });
-    }
+    void handleSubmitSSLModal({
+      items: [{ domain: domainInput.trim(), port: portInput || 443 }],
+    });
   };
 
   const handleSelectCert = (
@@ -557,6 +673,8 @@ export function useSSLCertificatesWorkspace() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmitModal,
+    handleSubmitSSLModal,
+    isSubmittingModal,
     hasFilters,
     clearAllFilters,
     summary,

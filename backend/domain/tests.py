@@ -187,6 +187,19 @@ class DomainModuleTests(TestCase):
         self.assertEqual(eff["steps"], [60, 30, 14, 7])
         self.assertEqual(eff["source"], "rules")
 
+    def test_create_domain_persists_auto_renew(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        resp = client.post(
+            "/api/v1/domains/",
+            {"domain": "empresa.com.gt", "auto_renew": True},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        payload = resp.json()["data"]
+        self.assertEqual(payload["domain"], "empresa.com.gt")
+        self.assertIs(payload["auto_renew"], True)
+
     def test_manual_expiration_fallback_for_unsupported_tld(self):
         gt_domain = DomainInfo.objects.create(
             organization=self.org,

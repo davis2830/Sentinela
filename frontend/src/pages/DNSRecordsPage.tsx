@@ -1,18 +1,10 @@
-import { createPortal } from "react-dom";
 import {
-  AlertTriangle,
-  Check,
   Globe,
   Loader2,
   Plus,
   RefreshCw,
-  Shield,
   Trash2,
-  X,
-  Zap,
 } from "lucide-react";
-import ModalSurface from "../components/common/ModalSurface";
-import { healthPalette } from "../utils/healthPresentation";
 import { useCompactViewport } from "../hooks/useCompactViewport";
 import {
   ActionFeedback,
@@ -20,9 +12,7 @@ import {
   ReadFailure,
 } from "../components/common/DirectoryState";
 import { useDNSRecordsWorkspace } from "./workspaces/useDNSRecordsWorkspace";
-import ConfigurationDiagnosticNotice from "../components/common/ConfigurationDiagnosticNotice";
 import AdminButton from "../components/common/AdminButton";
-import type { DNSRecordType, DNSReferenceMode } from "../types/dns";
 import EmptyState from "../components/common/EmptyState";
 import ConfirmDelete from "../components/common/ConfirmDelete";
 import { NOCBulkActionBar, NOCPageHeader } from "../components/common/noc";
@@ -30,24 +20,8 @@ import DNSToolbar from "../components/dns/DNSToolbar";
 import DNSTableView from "../components/dns/DNSTableView";
 import DNSCardGridView from "../components/dns/DNSCardGridView";
 import DNSDetailDrawer from "../components/dns/DNSDetailDrawer";
-import {
-  formatDNSLatency,
-  formatDNSTTL,
-  useDNSRecords,
-} from "../components/dns/useDNSRecords";
-
-const RECORD_TYPES: DNSRecordType[] = [
-  "A",
-  "AAAA",
-  "CNAME",
-  "MX",
-  "TXT",
-  "NS",
-  "SOA",
-  "SRV",
-  "PTR",
-  "CAA",
-];
+import DNSAddModal from "../components/dns/DNSAddModal";
+import { useDNSRecords } from "../components/dns/useDNSRecords";
 
 export default function DNSRecordsPage() {
   const compact = useCompactViewport();
@@ -91,8 +65,6 @@ export default function DNSRecordsPage() {
     isLoading,
     history,
     isLoadingHistory,
-    createMutation,
-    updateMutation,
     scanMutation,
     acceptReferenceMutation,
     linkTargetMutation,
@@ -105,7 +77,8 @@ export default function DNSRecordsPage() {
     handleOpenCreate,
     handleOpenEdit,
     handleCloseModal,
-    handleSubmit,
+    handleSubmitDNSModal,
+    isSubmittingModal,
   } = useDNSRecordsWorkspace();
 
   const {
@@ -356,270 +329,30 @@ export default function DNSRecordsPage() {
         />
       )}
 
-      {/* 6. CREATE / EDIT FORM MODAL WITH LIVE TEST RESOLUTION */}
-      {showModal &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-            onClick={handleCloseModal}
-          >
-            <ModalSurface
-              label={
-                editingRecord ? "Editar registro DNS" : "Agregar registro DNS"
-              }
-              onClose={handleCloseModal}
-              className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-text-main flex items-center gap-2 font-sans">
-                  <Globe size={19} className="text-accent-green" />
-                  {editingRecord
-                    ? "Editar registro DNS"
-                    : "Agregar registro DNS"}
-                </h2>
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  aria-label="Cerrar ventana"
-                  className="text-text-muted hover:text-text-main transition-colors p-1 cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-1">
-                    <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                      Tipo
-                    </label>
-                    <select
-                      value={recordTypeInput}
-                      onChange={(e) => {
-                        setRecordTypeInput(e.target.value as DNSRecordType);
-                        setTestResult(null);
-                      }}
-                      className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono cursor-pointer"
-                    >
-                      {RECORD_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                      Dominio o host (FQDN)
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="ej. api.empresa.com o mail.empresa.com"
-                      value={domainInput}
-                      onChange={(e) => {
-                        setDomainInput(e.target.value);
-                        setTestResult(null);
-                      }}
-                      className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
-                    />
-                  </div>
-                </div>
-
-                <details
-                  open={Boolean(expectedInput.trim())}
-                  className="border border-border-base rounded-xl p-3 bg-bg-dark/40"
-                >
-                  <summary className="text-xs font-semibold text-text-muted cursor-pointer select-none">
-                    Referencia esperada (opcional)
-                  </summary>
-                  <div className="space-y-2.5 mt-2.5">
-                    <div>
-                      <label className="block text-[11px] font-medium text-text-muted mb-1">
-                        Modo de comparación
-                      </label>
-                      <select
-                        value={referenceModeInput}
-                        onChange={(e) =>
-                          setReferenceModeInput(
-                            e.target.value as DNSReferenceMode,
-                          )
-                        }
-                        className="w-full bg-bg-dark border border-border-base rounded-lg px-2.5 py-1.5 text-xs text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
-                      >
-                        <option value="exact">
-                          Valores exactos (IPs o registros exactos)
-                        </option>
-                        <option value="cidr">
-                          Rango CIDR (ej. 216.198.79.0/24 — ideal para CDN)
-                        </option>
-                        <option value="provider">
-                          Mismo proveedor / prefijo (/24 IPv4, /48 IPv6)
-                        </option>
-                      </select>
-                    </div>
-                    <label className="block space-y-1.5">
-                      <span className="text-[11px] text-text-dim">
-                        Un valor o rango por línea (el orden no importa en
-                        round-robin)
-                      </span>
-                      <textarea
-                        value={expectedInput}
-                        onChange={(e) => setExpectedInput(e.target.value)}
-                        placeholder={
-                          referenceModeInput === "cidr"
-                            ? "216.198.79.0/24\n64.29.17.0/24"
-                            : "104.21.91.196\n172.67.197.121"
-                        }
-                        className="w-full min-h-20 p-2.5 bg-bg-dark border border-border-base rounded-xl text-xs font-mono text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
-                      />
-                      <span className="block text-text-dim text-[11px]">
-                        Solo alerta si el cambio persiste tras el TTL y los
-                        resolvers coinciden fuera de esta referencia.
-                      </span>
-                    </label>
-                  </div>
-                </details>
-
-                {/* Test Resolution Button */}
-                <div className="pt-1">
-                  <AdminButton
-                    capability="dns_monitor.test"
-                    type="button"
-                    onClick={handleTestResolution}
-                    disabled={!domainInput.trim() || isTestingResolution}
-                    className="w-full py-2 px-4 rounded-xl border border-border-base bg-bg-dark hover:bg-bg-card-hover text-text-main text-xs font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {isTestingResolution ? (
-                      <>
-                        <Loader2
-                          className="animate-spin text-accent-green"
-                          size={14}
-                        />
-                        <span>Consultando 1.1.1.1 y 8.8.8.8...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Zap size={14} className="text-accent-yellow" />
-                        <span>Probar resolución pública</span>
-                      </>
-                    )}
-                  </AdminButton>
-                </div>
-                <ConfigurationDiagnosticNotice
-                  notice={diagnostic.notice}
-                  remaining={diagnostic.remaining}
-                />
-
-                {/* Test Result Live Preview */}
-                {testResult && (
-                  <div
-                    className={`p-3.5 rounded-2xl border text-xs animate-in fade-in duration-200 ${
-                      testResult.success
-                        ? healthPalette.success.badge
-                        : healthPalette.danger.badge
-                    }`}
-                  >
-                    {testResult.success ? (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`font-bold flex items-center gap-1.5 ${healthPalette.success.text}`}
-                          >
-                            <Check size={14} /> Resuelto (
-                            {formatDNSLatency(testResult.response_time_ms)})
-                          </span>
-                          <span className="font-mono text-[11px] text-text-dim">
-                            TTL {formatDNSTTL(testResult.ttl)}
-                            {testResult.resolver
-                              ? ` · ${testResult.resolver}`
-                              : ""}
-                          </span>
-                        </div>
-                        <div className="font-mono text-xs bg-bg-dark/70 p-2 rounded-xl border border-border-base/50 space-y-1">
-                          {testResult.values.map((v, i) => (
-                            <div key={i} className="truncate" title={v}>
-                              {v}
-                            </div>
-                          ))}
-                        </div>
-                        {testResult.propagation_status === "propagating" && (
-                          <div className="text-[11px] text-amber-300">
-                            Aviso: 1.1.1.1 y 8.8.8.8 devolvieron valores
-                            distintos (propagación en curso).
-                          </div>
-                        )}
-                        {testResult.spf_info && (
-                          <div
-                            className={`text-xs flex items-center gap-1 mt-1 ${healthPalette.success.text}`}
-                          >
-                            <Shield size={12} />
-                            <span>
-                              SPF detectado ({testResult.spf_info.policy})
-                            </span>
-                          </div>
-                        )}
-                        {testResult.dmarc_info && (
-                          <div className="text-xs text-accent-purple flex items-center gap-1 mt-1">
-                            <Shield size={12} />
-                            <span>
-                              DMARC: {testResult.dmarc_info.policy}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <div className="font-bold flex items-center gap-1.5">
-                          <AlertTriangle size={14} />
-                          <span>
-                            Error de resolución ({testResult.error_type || "DNS"})
-                          </span>
-                        </div>
-                        <p className="text-xs font-mono opacity-90">
-                          {testResult.error_message}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-4 border-t border-border-base">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <AdminButton
-                    capability={
-                      editingRecord
-                        ? "dns_monitor.update"
-                        : "dns_monitor.create"
-                    }
-                    type="submit"
-                    disabled={
-                      createMutation.isPending || updateMutation.isPending
-                    }
-                    className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
-                  >
-                    {createMutation.isPending || updateMutation.isPending ? (
-                      <Loader2 className="animate-spin" size={18} />
-                    ) : editingRecord ? (
-                      "Guardar cambios"
-                    ) : (
-                      "Agregar registro"
-                    )}
-                  </AdminButton>
-                </div>
-              </form>
-            </ModalSurface>
-          </div>,
-          document.body,
-        )}
+      {/* 6. CREATE / EDIT FORM MODAL (shared ResourceAddModal with multi-type chips & CIDR reference) */}
+      {showModal && (
+        <DNSAddModal
+          editingRecord={editingRecord}
+          existingRecords={records || []}
+          domainInput={domainInput}
+          onDomainInputChange={setDomainInput}
+          recordTypeInput={recordTypeInput}
+          onRecordTypeInputChange={setRecordTypeInput}
+          expectedInput={expectedInput}
+          onExpectedInputChange={setExpectedInput}
+          referenceModeInput={referenceModeInput}
+          onReferenceModeInputChange={setReferenceModeInput}
+          isTesting={isTestingResolution}
+          testResult={testResult}
+          onClearTestResult={() => setTestResult(null)}
+          onTest={(dom, rt) => void handleTestResolution(dom, rt)}
+          diagnostic={diagnostic}
+          isSubmitting={isSubmittingModal}
+          onSubmitPayload={handleSubmitDNSModal}
+          onSelectExisting={(rec) => setSelectedRecord(rec)}
+          onClose={handleCloseModal}
+        />
+      )}
 
       {/* 7. DELETE CONFIRMATION MODAL (with Uptime unlink warning) */}
       <ConfirmDelete

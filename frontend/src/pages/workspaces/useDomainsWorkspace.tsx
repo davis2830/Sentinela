@@ -7,7 +7,12 @@ import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnost
 import { useLinkedResource } from "../../hooks/useLinkedResource";
 import { useAuthStore } from "../../store/authStore";
 import { api } from "../../services/api";
-import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
+import {
+  emitScanFeedback,
+  waitForFreshScan,
+  type QueuedScan,
+} from "../../utils/scanPolling";
+import type { DomainModalSubmitPayload } from "../../components/domains/DomainAddModal";
 import type {
   CreateDomainInfoData,
   DomainInfo,
@@ -414,12 +419,13 @@ export function useDomainsWorkspace() {
   };
 
   // Live Test RDAP/WHOIS Query in Modal
-  const handleTestWhois = async () => {
-    if (!domainInput.trim()) return;
+  const handleTestWhois = async (overrideDomain?: string) => {
+    const rawDomain = (overrideDomain ?? domainInput).trim();
+    if (!rawDomain) return;
     setIsTestingWhois(true);
     setTestResult(null);
 
-    let cleanDomain = domainInput.trim().toLowerCase();
+    let cleanDomain = rawDomain.toLowerCase();
     cleanDomain = cleanDomain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (cleanDomain.includes(":")) {
       cleanDomain = cleanDomain.split(":")[0];
@@ -473,28 +479,121 @@ export function useDomainsWorkspace() {
     setTestResult(null);
   };
 
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+
+  const handleSubmitDomainModal = async (payload: DomainModalSubmitPayload) => {
+    if (payload.items.length === 0) return;
+    setIsSubmittingModal(true);
+    try {
+      if (editingDomain) {
+        const first = payload.items[0];
+        const res = await api.patch(`domains/${editingDomain.id}/`, {
+          domain: first.domain,
+          manual_expiration_date: first.manual_expiration_date,
+          ...(first.auto_renew !== null ? { auto_renew: first.auto_renew } : {}),
+        });
+        const updated = res.data?.data as DomainInfo | undefined;
+        invalidateDomains();
+        if (selectedDomain && updated && selectedDomain.id === updated.id) {
+          setSelectedDomain(updated);
+        }
+        handleCloseModal();
+        emitScanFeedback({
+          message: `Dominio actualizado · ${first.domain}`,
+          tone: "success",
+          actionLabel: updated ? "Ver" : undefined,
+          onAction: updated ? () => setSelectedDomain(updated) : undefined,
+        });
+        return;
+      }
+
+      const createdList: DomainInfo[] = [];
+      for (const item of payload.items) {
+        const res = await api.post("domains/", {
+          domain: item.domain,
+          manual_expiration_date: item.manual_expiration_date,
+          auto_renew: item.auto_renew,
+        });
+        const created = res.data?.data as DomainInfo | undefined;
+        if (created) createdList.push(created);
+      }
+
+      const first = createdList[0];
+      if (first && payload.alsoWatchSsl) {
+        try {
+          await api.post("ssl-certificates/", {
+            domain: first.domain,
+            port: 443,
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ["ssl-certificates", organizationId],
+          });
+        } catch {
+          // Non-fatal companion creation
+        }
+      }
+      if (first && payload.alsoWatchDns) {
+        try {
+          await api.post("dns-records/", {
+            domain: first.domain,
+            record_type: "A",
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ["dns-records", organizationId],
+          });
+        } catch {
+          // Non-fatal companion creation
+        }
+      }
+
+      invalidateDomains();
+      if (payload.keepOpen) {
+        setDomainInput("");
+        setManualExpirationInput("");
+        setTestResult(null);
+      } else {
+        handleCloseModal();
+      }
+
+      if (createdList.length === 1 && first) {
+        emitScanFeedback({
+          message: `Dominio agregado · ${first.domain}`,
+          tone: "success",
+          actionLabel: "Ver",
+          onAction: () => setSelectedDomain(first),
+        });
+      } else if (createdList.length > 1) {
+        emitScanFeedback({
+          message: `${createdList.length} dominios agregados`,
+          tone: "success",
+          actionLabel: first ? "Ver" : undefined,
+          onAction: first ? () => setSelectedDomain(first) : undefined,
+        });
+      }
+    } catch (caughtError: unknown) {
+      const err = apiFailure(caughtError);
+      emitScanFeedback({
+        message:
+          err.response?.data?.message || "No se pudo guardar el dominio.",
+        tone: "danger",
+      });
+    } finally {
+      setIsSubmittingModal(false);
+    }
+  };
+
   const handleSubmitModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
-
-    let cleanDomain = domainInput.trim().toLowerCase();
-    cleanDomain = cleanDomain.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    if (cleanDomain.includes(":")) {
-      cleanDomain = cleanDomain.split(":")[0];
-    }
-
-    if (editingDomain) {
-      updateMutation.mutate({
-        id: editingDomain.id,
-        domain: cleanDomain,
-        manual_expiration_date: manualExpirationInput || null,
-      });
-    } else {
-      createMutation.mutate({
-        domain: cleanDomain,
-        manual_expiration_date: manualExpirationInput || null,
-      });
-    }
+    void handleSubmitDomainModal({
+      items: [
+        {
+          domain: domainInput.trim(),
+          manual_expiration_date: manualExpirationInput || null,
+          auto_renew: null,
+        },
+      ],
+    });
   };
 
   useLinkedResource(domains, selectedDomain, setSelectedDomain);
@@ -553,5 +652,7 @@ export function useDomainsWorkspace() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmitModal,
+    handleSubmitDomainModal,
+    isSubmittingModal,
   };
 }

@@ -22,7 +22,7 @@ export default function ModalSurface({
       aria-modal="true"
       aria-label={label}
       tabIndex={-1}
-      className={className}
+      className={`${className} focus:outline-none focus-visible:outline-none`}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (event.key === "Escape") {

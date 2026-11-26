@@ -64,6 +64,7 @@ class DomainListView(APIView):
                 organization_id=org_id,
                 domain=serializer.validated_data["domain"],
                 manual_expiration_date=serializer.validated_data.get("manual_expiration_date"),
+                auto_renew=serializer.validated_data.get("auto_renew"),
             )
 
             response_serializer = DomainInfoSerializer(domain_info, context={"request": request})

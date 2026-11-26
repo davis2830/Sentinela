@@ -31,7 +31,7 @@ export function useDialogFocus(open: boolean, focusKey?: string | number) {
       });
     (
       root.querySelector<HTMLElement>(
-        "input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+        '[data-autofocus]:not([disabled]), input:not([disabled]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea:not([disabled]), select:not([disabled])',
       ) ||
       controls()[0] ||
       root

@@ -9,7 +9,12 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../services/api";
-import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
+import {
+  emitScanFeedback,
+  waitForFreshScan,
+  type QueuedScan,
+} from "../../utils/scanPolling";
+import type { DNSModalSubmitPayload } from "../../components/dns/DNSAddModal";
 import type {
   DNSRecord,
   DNSRecordType,
@@ -376,13 +381,17 @@ export function useDNSRecordsWorkspace() {
   };
 
   // Test DNS Resolution in Modal
-  const handleTestResolution = async () => {
-    if (!domainInput.trim()) return;
+  const handleTestResolution = async (
+    overrideDomain?: string,
+    overrideType?: DNSRecordType,
+  ) => {
+    const rawDomain = (overrideDomain ?? domainInput).trim();
+    if (!rawDomain) return;
+    const effectiveType = overrideType ?? recordTypeInput;
     setIsTestingResolution(true);
     setTestResult(null);
 
-    let cleanDomain = domainInput
-      .trim()
+    let cleanDomain = rawDomain
       .replace(/^https?:\/\//i, "")
       .replace(/\/.*$/, "");
     if (cleanDomain.includes(":")) {
@@ -392,7 +401,7 @@ export function useDNSRecordsWorkspace() {
     try {
       const response = await diagnostic.run("dns-records/test-resolution/", {
         domain: cleanDomain,
-        record_type: recordTypeInput,
+        record_type: effectiveType,
         expected_values: expectedInput
           .split("\n")
           .map((x) => x.trim())
@@ -405,7 +414,7 @@ export function useDNSRecordsWorkspace() {
       setTestResult({
         success: false,
         domain: cleanDomain,
-        record_type: recordTypeInput,
+        record_type: effectiveType,
         values: [],
         error_message:
           err.response?.data?.message || "Error al resolver la consulta DNS.",
@@ -449,32 +458,104 @@ export function useDNSRecordsWorkspace() {
     setTestResult(null);
   };
 
+  const [isSubmittingModal, setIsSubmittingModal] = useState(false);
+
+  const handleSubmitDNSModal = async (payload: DNSModalSubmitPayload) => {
+    if (payload.items.length === 0) return;
+    setIsSubmittingModal(true);
+    try {
+      if (editingRecord) {
+        const first = payload.items[0];
+        const res = await api.patch(`dns-records/${editingRecord.id}/`, {
+          domain: first.domain,
+          record_type: first.record_type,
+          expected_values: (first.expected_value || "")
+            .split("\n")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          reference_mode: first.reference_mode,
+        });
+        const updated = res.data?.data as DNSRecord | undefined;
+        invalidateDNS();
+        if (selectedRecord && updated && selectedRecord.id === updated.id) {
+          setSelectedRecord(updated);
+        }
+        handleCloseModal();
+        emitScanFeedback({
+          message: `Registro DNS actualizado · ${first.record_type} ${first.domain}`,
+          tone: "success",
+          actionLabel: updated ? "Ver" : undefined,
+          onAction: updated ? () => setSelectedRecord(updated) : undefined,
+        });
+        return;
+      }
+
+      const createdList: DNSRecord[] = [];
+      for (const item of payload.items) {
+        const res = await api.post("dns-records/", {
+          domain: item.domain,
+          record_type: item.record_type,
+          expected_values: (item.expected_value || "")
+            .split("\n")
+            .map((x) => x.trim())
+            .filter(Boolean),
+          reference_mode: item.reference_mode,
+        });
+        const created = res.data?.data as DNSRecord | undefined;
+        if (created) createdList.push(created);
+      }
+
+      invalidateDNS();
+      if (payload.keepOpen) {
+        setDomainInput("");
+        setExpectedInput("");
+        setTestResult(null);
+      } else {
+        handleCloseModal();
+      }
+
+      const first = createdList[0];
+      if (createdList.length === 1 && first) {
+        emitScanFeedback({
+          message: `Registro DNS agregado · ${first.record_type} ${first.domain}`,
+          tone: "success",
+          actionLabel: "Ver",
+          onAction: () => setSelectedRecord(first),
+        });
+      } else if (createdList.length > 1) {
+        emitScanFeedback({
+          message: `${createdList.length} registros DNS agregados`,
+          tone: "success",
+          actionLabel: first ? "Ver" : undefined,
+          onAction: first ? () => setSelectedRecord(first) : undefined,
+        });
+      }
+    } catch (caughtError: unknown) {
+      const err = apiFailure(caughtError);
+      emitScanFeedback({
+        message:
+          err.response?.data?.message ||
+          "No se pudo guardar el registro DNS.",
+        tone: "danger",
+      });
+    } finally {
+      setIsSubmittingModal(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
-    let cleanDomain = domainInput
-      .trim()
-      .replace(/^https?:\/\//i, "")
-      .replace(/\/.*$/, "");
-    if (cleanDomain.includes(":")) {
-      cleanDomain = cleanDomain.split(":")[0];
-    }
-
-    const payload: CreateDNSRecordData = {
-      domain: cleanDomain,
-      record_type: recordTypeInput,
-      expected_values: expectedInput
-        .split("\n")
-        .map((x) => x.trim())
-        .filter(Boolean),
-      reference_mode: referenceModeInput,
-    };
-
-    if (editingRecord) {
-      updateMutation.mutate({ id: editingRecord.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
-    }
+    void handleSubmitDNSModal({
+      items: [
+        {
+          domain: domainInput.trim(),
+          record_type: recordTypeInput,
+          expected_value: expectedInput,
+          reference_mode: referenceModeInput,
+        },
+      ],
+    });
   };
 
   useLinkedResource(records, selectedRecord, setSelectedRecord);
@@ -534,5 +615,7 @@ export function useDNSRecordsWorkspace() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmit,
+    handleSubmitDNSModal,
+    isSubmittingModal,
   };
 }

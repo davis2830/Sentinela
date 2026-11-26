@@ -1,14 +1,9 @@
-import { createPortal } from "react-dom";
 import {
-  Check,
   Loader2,
   Lock,
   Plus,
   RefreshCw,
-  ShieldAlert,
   Trash2,
-  X,
-  Zap,
 } from "lucide-react";
 import { useCompactViewport } from "../hooks/useCompactViewport";
 import {
@@ -18,20 +13,13 @@ import {
 } from "../components/common/DirectoryState";
 import { NOCBulkActionBar, NOCPageHeader } from "../components/common/noc";
 import AdminButton from "../components/common/AdminButton";
-import ConfigurationDiagnosticNotice from "../components/common/ConfigurationDiagnosticNotice";
 import ConfirmDelete from "../components/common/ConfirmDelete";
 import EmptyState from "../components/common/EmptyState";
-import ModalSurface from "../components/common/ModalSurface";
 import SSLToolbar from "../components/ssl/SSLToolbar";
 import SSLCertificateTableView from "../components/ssl/SSLCertificateTableView";
 import SSLCertificateCardGridView from "../components/ssl/SSLCertificateCardGridView";
 import SSLDetailDrawer from "../components/ssl/SSLDetailDrawer";
-import {
-  formatSSLDate,
-  formatTLSVersion,
-  parseIssuerOrganization,
-} from "../components/ssl/useSSLCertificates";
-import { healthPalette } from "../utils/healthPresentation";
+import SSLAddModal from "../components/ssl/SSLAddModal";
 import { useSSLCertificatesWorkspace } from "./workspaces/useSSLCertificatesWorkspace";
 
 export default function SSLCertificatesPage() {
@@ -89,8 +77,6 @@ export default function SSLCertificatesPage() {
     isLoading,
     isError,
     refetch,
-    createMutation,
-    updateMutation,
     scanMutation,
     deleteMutation,
     linkTargetMutation,
@@ -103,7 +89,8 @@ export default function SSLCertificatesPage() {
     handleOpenCreate,
     handleOpenEdit,
     handleCloseModal,
-    handleSubmitModal,
+    handleSubmitSSLModal,
+    isSubmittingModal,
     hasFilters,
     clearAllFilters,
     summary,
@@ -146,7 +133,7 @@ export default function SSLCertificatesPage() {
             className="inline-flex items-center gap-1.5 bg-accent-green text-black font-semibold px-4 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
           >
             <Plus size={16} />
-            <span>Agregar dominio</span>
+            <span>Agregar certificado</span>
           </AdminButton>
         }
       />
@@ -297,7 +284,7 @@ export default function SSLCertificatesPage() {
                     : "Agrega un dominio para vigilar su vigencia, cadena TLS y recibir avisos antes de que venza."
                 }
                 actionLabel={
-                  hasFilters ? "Limpiar filtros" : "Agregar primer dominio"
+                  hasFilters ? "Limpiar filtros" : "Agregar primer certificado"
                 }
                 onAction={() => {
                   if (hasFilters) clearAllFilters();
@@ -334,208 +321,26 @@ export default function SSLCertificatesPage() {
         />
       )}
 
-      {/* 7. Create / Edit Modal with Live Connection Test */}
-      {showModal &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-            onClick={handleCloseModal}
-          >
-            <ModalSurface
-              label={editingCert ? "Editar dominio SSL" : "Agregar dominio SSL"}
-              onClose={handleCloseModal}
-              className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl"
-            >
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-text-main flex items-center gap-2 font-sans">
-                  <Lock size={18} className="text-accent-green" />
-                  <span>
-                    {editingCert ? "Editar dominio" : "Agregar dominio"}
-                  </span>
-                </h2>
-                <button
-                  type="button"
-                  aria-label="Cerrar formulario SSL"
-                  onClick={handleCloseModal}
-                  className="text-text-muted hover:text-text-main transition-colors p-1 cursor-pointer"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmitModal} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <div className="sm:col-span-3">
-                    <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                      Dominio o FQDN
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      id="ssl-domain"
-                      aria-label="Dominio o FQDN"
-                      placeholder="ej. api.tuempresa.com"
-                      value={domainInput}
-                      onChange={(e) => {
-                        setDomainInput(e.target.value);
-                        setTestResult(null);
-                      }}
-                      className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
-                    />
-                  </div>
-                  <div className="sm:col-span-1">
-                    <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                      Puerto
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={65535}
-                      aria-label="Puerto"
-                      value={portInput}
-                      onChange={(e) => {
-                        setPortInput(parseInt(e.target.value, 10) || 443);
-                        setTestResult(null);
-                      }}
-                      className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono text-center"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-text-dim">
-                  Puertos comunes:{" "}
-                  <span className="font-mono text-accent-green">443</span>{" "}
-                  (HTTPS),{" "}
-                  <span className="font-mono text-sky-400">8443</span>{" "}
-                  (Paneles),{" "}
-                  <span className="font-mono text-accent-purple">636</span>{" "}
-                  (LDAPS).
-                </p>
-
-                {/* Live TLS Connection Test */}
-                <div className="pt-1">
-                  <AdminButton
-                    capability="ssl_monitor.test"
-                    type="button"
-                    onClick={() => void handleTestConnection()}
-                    disabled={!domainInput.trim() || isTestingConnection}
-                    className="w-full py-2 px-4 rounded-xl border border-border-base bg-bg-dark hover:bg-bg-dark/80 text-text-main text-xs font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {isTestingConnection ? (
-                      <>
-                        <Loader2
-                          className="animate-spin text-accent-green"
-                          size={14}
-                        />
-                        <span>Probando conexión TLS con el host...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Zap size={14} className="text-amber-400" />
-                        <span>Probar conexión TLS</span>
-                      </>
-                    )}
-                  </AdminButton>
-                  <ConfigurationDiagnosticNotice
-                    notice={diagnostic.notice}
-                    remaining={diagnostic.remaining}
-                  />
-                </div>
-
-                {testResult && (
-                  <div
-                    className={`p-3.5 rounded-2xl border text-xs animate-in fade-in duration-200 ${
-                      testResult.is_valid
-                        ? healthPalette.success.badge
-                        : healthPalette.danger.badge
-                    }`}
-                  >
-                    {testResult.is_valid ? (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`font-bold flex items-center gap-1.5 ${healthPalette.success.text}`}
-                          >
-                            <Check size={14} /> Conexión exitosa · Grado{" "}
-                            {testResult.security_grade}
-                          </span>
-                          <span className="font-mono text-xs text-text-dim">
-                            {formatTLSVersion(testResult.tls_version)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-text-muted">
-                          <span>Emisor: </span>
-                          <span className="font-mono text-text-main">
-                            {parseIssuerOrganization(testResult.issuer)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-text-muted">
-                          <span>Vigencia: </span>
-                          <span className="font-mono font-bold text-text-main">
-                            {testResult.days_remaining != null
-                              ? `en ${testResult.days_remaining} días`
-                              : "Sin datos"}
-                          </span>
-                          {testResult.expiration_date && (
-                            <span className="ml-1.5 font-mono text-text-dim">
-                              ({formatSSLDate(testResult.expiration_date)})
-                            </span>
-                          )}
-                          {testResult.san_domains && (
-                            <span className="ml-2 font-mono text-text-dim">
-                              · {testResult.san_domains.length} SANs
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2">
-                        <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-bold block">
-                            Fallo en la prueba TLS
-                          </span>
-                          <span className="text-xs font-mono opacity-90">
-                            {testResult.error_message}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-4 border-t border-border-base">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="flex-1 py-2.5 border border-border-base rounded-full text-sm text-text-muted hover:bg-bg-dark transition-colors cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <AdminButton
-                    capability={
-                      editingCert ? "ssl_monitor.update" : "ssl_monitor.create"
-                    }
-                    type="submit"
-                    disabled={
-                      createMutation.isPending || updateMutation.isPending
-                    }
-                    className="flex-1 py-2.5 bg-accent-green text-black font-semibold rounded-full text-sm hover:bg-accent-green/90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
-                  >
-                    {createMutation.isPending || updateMutation.isPending ? (
-                      <Loader2 className="animate-spin" size={18} />
-                    ) : editingCert ? (
-                      "Guardar cambios"
-                    ) : (
-                      "Agregar dominio"
-                    )}
-                  </AdminButton>
-                </div>
-              </form>
-            </ModalSurface>
-          </div>,
-          document.body,
-        )}
+      {/* 7. Create / Edit Modal (shared ResourceAddModal) */}
+      {showModal && (
+        <SSLAddModal
+          editingCert={editingCert}
+          existingCertificates={certificates}
+          domainInput={domainInput}
+          onDomainInputChange={setDomainInput}
+          portInput={portInput}
+          onPortInputChange={setPortInput}
+          isTesting={isTestingConnection}
+          testResult={testResult}
+          onClearTestResult={() => setTestResult(null)}
+          onTest={(host, port) => void handleTestConnection(host, port)}
+          diagnostic={diagnostic}
+          isSubmitting={isSubmittingModal}
+          onSubmitPayload={handleSubmitSSLModal}
+          onSelectExisting={(cert) => handleSelectCert(cert, "overview")}
+          onClose={handleCloseModal}
+        />
+      )}
 
       {/* 8. Delete Confirmation Modal (warns explicitly if linked to Uptime targets) */}
       <ConfirmDelete

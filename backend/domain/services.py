@@ -343,7 +343,7 @@ class DomainService:
     @staticmethod
     @transaction.atomic
     @beta_creation("domains")
-    def create_domain(organization_id, domain, manual_expiration_date=None):
+    def create_domain(organization_id, domain, manual_expiration_date=None, auto_renew=None):
         """Create a new domain info record and trigger immediate RDAP/WHOIS scan."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
         parsed_manual = _parse_manual_date(manual_expiration_date)
@@ -355,14 +355,23 @@ class DomainService:
                 "manual_expiration_date": parsed_manual,
                 "days_until_expiration": manual_days,
                 "data_source": "manual" if parsed_manual else "",
+                "auto_renew": auto_renew,
             },
         )
         if not created:
+            updated_fields = []
             if parsed_manual is not None:
                 domain_info.manual_expiration_date = parsed_manual
+                updated_fields.append("manual_expiration_date")
                 if not domain_info.expiration_date:
                     domain_info.days_until_expiration = manual_days
-                domain_info.save(update_fields=["manual_expiration_date", "days_until_expiration", "updated_at"])
+                    updated_fields.append("days_until_expiration")
+            if auto_renew is not None:
+                domain_info.auto_renew = auto_renew
+                updated_fields.append("auto_renew")
+            if updated_fields:
+                updated_fields.append("updated_at")
+                domain_info.save(update_fields=updated_fields)
             return domain_info
         from .tasks import scan_whois
         from common.executions import initial_scan
