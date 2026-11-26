@@ -5,11 +5,12 @@ on:
     tags:
       - 'v*.*.*'
       - 'senti9-v*.*.*'
-    branches:
-      - main
-      - master
   workflow_dispatch:
     inputs:
+      build_images:
+        description: 'Build and push backend, frontend & gateway images to GHCR'
+        default: true
+        type: boolean
       deploy_production:
         description: 'Deploy this exact revision after successful CI and environment approval'
         default: false
@@ -56,7 +57,7 @@ jobs:
   # -------------------------------------------------------------
   build-and-publish:
     name: Build & Push Production Images
-    if: "!startsWith(github.ref, 'refs/tags/senti9-v')"
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && (inputs.build_images || inputs.deploy_production))
     runs-on: ubuntu-latest
     permissions:
       contents: read
