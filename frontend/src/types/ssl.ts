@@ -5,6 +5,35 @@ export interface SSLLinkedTarget {
   enabled?: boolean;
 }
 
+export interface SSLIssuanceEntry {
+  fingerprint: string;
+  issuer?: string;
+  issued_at?: string | null;
+  expiration_date?: string | null;
+  key_info?: string;
+  detected_at?: string | null;
+}
+
+export interface SSLAlertRuleSummary {
+  id: string;
+  name: string;
+  condition: string;
+  threshold: number;
+  severity: string;
+  snoozed_until?: string | null;
+}
+
+export interface SSLAlertDestinationSummary {
+  id: string;
+  name: string;
+  channel_type: string;
+}
+
+export interface SSLAlertSummary {
+  rules: SSLAlertRuleSummary[];
+  destinations: SSLAlertDestinationSummary[];
+}
+
 export interface SSLCertificate {
   last_error_code?: string;
   last_successful_at?: string | null;
@@ -18,6 +47,7 @@ export interface SSLCertificate {
   issued_at?: string | null;
   expiration_date: string | null;
   algorithm: string | null;
+  key_info?: string | null;
   fingerprint: string | null;
   days_remaining: number | null;
   percentage_used?: number | null;
@@ -26,9 +56,11 @@ export interface SSLCertificate {
   last_scanned_at: string | null;
   error_message: string | null;
   san_domains?: string[];
+  issuance_history?: SSLIssuanceEntry[];
   tls_version?: string;
   linked_targets?: SSLLinkedTarget[];
   suggested_targets?: SSLLinkedTarget[];
+  alert_summary?: SSLAlertSummary;
   created_at: string;
   updated_at: string;
 }

@@ -202,7 +202,7 @@ export default function SSLCertificatesPage() {
                 size={12}
                 className={bulkBusy ? "animate-spin" : ""}
               />
-              <span>Revalidar</span>
+              <span>Comprobar</span>
             </AdminButton>
             <AdminButton
               capability="ssl_monitor.delete"

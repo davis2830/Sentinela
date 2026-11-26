@@ -43,6 +43,7 @@ def scan_ssl_certificate(self, certificate_id):
             subject=res.get("subject", ""),
             expiration_date=res.get("expiration_date"),
             algorithm=res.get("algorithm", "SHA-256"),
+            key_info=res.get("key_info", ""),
             fingerprint=res.get("fingerprint", ""),
             days_remaining=res.get("days_remaining"),
             is_valid=True,

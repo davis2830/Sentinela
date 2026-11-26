@@ -95,6 +95,34 @@ class SSLMonitorService:
 
             fingerprint = hashlib.sha256(cert_der).hexdigest() if cert_der else ""
             algorithm = "SHA-256"
+            key_info = ""
+            if cert_der:
+                try:
+                    from cryptography import x509
+                    from cryptography.hazmat.primitives.asymmetric import ec, rsa, ed25519, ed448
+
+                    parsed_cert = x509.load_der_x509_certificate(cert_der)
+                    sig_hash = parsed_cert.signature_hash_algorithm
+                    if sig_hash and getattr(sig_hash, "name", None):
+                        raw_hash = sig_hash.name.upper()
+                        algorithm = raw_hash.replace("SHA", "SHA-") if raw_hash.startswith("SHA") and "-" not in raw_hash else raw_hash
+                    pub = parsed_cert.public_key()
+                    if isinstance(pub, rsa.RSAPublicKey):
+                        key_info = f"RSA {pub.key_size}"
+                    elif isinstance(pub, ec.EllipticCurvePublicKey):
+                        curve_name = getattr(pub.curve, "name", "")
+                        curve_map = {
+                            "secp256r1": "P-256",
+                            "secp384r1": "P-384",
+                            "secp521r1": "P-521",
+                        }
+                        key_info = f"ECDSA {curve_map.get(curve_name, curve_name)}"
+                    elif isinstance(pub, ed25519.Ed25519PublicKey):
+                        key_info = "Ed25519"
+                    elif isinstance(pub, ed448.Ed448PublicKey):
+                        key_info = "Ed448"
+                except Exception:
+                    pass
 
             # Compute Security Grade (A+, A, B, C, F)
             if not expiration_date or (days_remaining is not None and days_remaining <= 0):
@@ -119,6 +147,7 @@ class SSLMonitorService:
                 "days_remaining": days_remaining,
                 "percentage_used": percentage_used,
                 "algorithm": algorithm,
+                "key_info": key_info,
                 "fingerprint": fingerprint,
                 "san_domains": san_domains,
                 "tls_version": tls_version,
@@ -265,8 +294,9 @@ class SSLMonitorService:
         security_grade="A",
         port=443,
         error_code="",
+        key_info="",
     ):
-        """Update a certificate with scan results."""
+        """Update a certificate with scan results and track issuance/renewal history."""
         cert = SSLCertificate.objects.get(id=certificate_id)
         from common.execution_context import assert_current
 
@@ -277,21 +307,44 @@ class SSLMonitorService:
             cert.last_scanned_at = timezone.now()
             cert.save(update_fields=["last_error_code", "error_message", "last_scanned_at", "updated_at"])
             return cert
-        cert.last_successful_at = timezone.now()
+        now = timezone.now()
+        cert.last_successful_at = now
         cert.issuer = issuer
         cert.subject = subject
         cert.expiration_date = expiration_date
         cert.algorithm = algorithm
+        cert.key_info = key_info or cert.key_info
         cert.fingerprint = fingerprint
         cert.days_remaining = days_remaining
         cert.is_valid = is_valid
-        cert.last_scanned_at = timezone.now()
+        cert.last_scanned_at = now
         cert.error_message = error_message
         cert.san_domains = san_domains or []
         cert.tls_version = tls_version
         cert.issued_at = issued_at
         cert.security_grade = security_grade
         cert.port = port
+
+        # Record issuance history whenever fingerprint changes (or first valid scan)
+        if fingerprint:
+            history = list(cert.issuance_history or [])
+            if not history or history[0].get("fingerprint") != fingerprint:
+                history.insert(
+                    0,
+                    {
+                        "fingerprint": fingerprint,
+                        "issuer": issuer,
+                        "issued_at": issued_at.isoformat() if issued_at else None,
+                        "expiration_date": expiration_date.isoformat() if expiration_date else None,
+                        "key_info": cert.key_info,
+                        "detected_at": now.isoformat(),
+                    },
+                )
+                cert.issuance_history = history[:15]
+            elif cert.key_info and not history[0].get("key_info"):
+                history[0]["key_info"] = cert.key_info
+                cert.issuance_history = history
+
         cert.save()
         return cert
 

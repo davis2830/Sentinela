@@ -9,6 +9,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
 
     linked_targets = serializers.SerializerMethodField()
     suggested_targets = serializers.SerializerMethodField()
+    alert_summary = serializers.SerializerMethodField()
 
     def get_linked_targets(self, instance):
         # Use prefetched targetcoverage_set when available to avoid N+1 queries
@@ -83,6 +84,51 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
                 )
         return suggestions
 
+    def get_alert_summary(self, instance):
+        from alerts.models import AlertRule
+        from notifications.models import NotificationChannel
+
+        org_id = instance.organization_id
+        rules_cache = self.context.setdefault("_ssl_org_rules", {})
+        if org_id not in rules_cache:
+            rules_cache[org_id] = list(
+                AlertRule.objects.filter(
+                    organization_id=org_id,
+                    target_type=AlertRule.TargetType.SSL,
+                    enabled=True,
+                ).only("id", "name", "condition", "threshold", "severity", "target_id", "snoozed_until")
+            )
+        channels_cache = self.context.setdefault("_ssl_org_channels", {})
+        if org_id not in channels_cache:
+            channels_cache[org_id] = list(
+                NotificationChannel.objects.filter(
+                    organization_id=org_id,
+                    enabled=True,
+                ).only("id", "name", "channel_type")
+            )
+
+        matched_rules = [
+            {
+                "id": str(r.pk),
+                "name": r.name,
+                "condition": r.condition,
+                "threshold": r.threshold,
+                "severity": r.severity,
+                "snoozed_until": r.snoozed_until.isoformat() if r.snoozed_until else None,
+            }
+            for r in rules_cache[org_id]
+            if r.target_id is None or str(r.target_id) == str(instance.pk)
+        ]
+        destinations = [
+            {
+                "id": str(ch.pk),
+                "name": ch.name,
+                "channel_type": ch.channel_type,
+            }
+            for ch in channels_cache[org_id]
+        ]
+        return {"rules": matched_rules, "destinations": destinations}
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if not instance.last_scanned_at or instance.error_message:
@@ -104,6 +150,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "expiration_date",
             "security_grade",
             "algorithm",
+            "key_info",
             "fingerprint",
             "days_remaining",
             "is_valid",
@@ -112,9 +159,11 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "last_error_code",
             "error_message",
             "san_domains",
+            "issuance_history",
             "tls_version",
             "linked_targets",
             "suggested_targets",
+            "alert_summary",
             "created_at",
             "updated_at",
         )
@@ -127,6 +176,7 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "expiration_date",
             "security_grade",
             "algorithm",
+            "key_info",
             "fingerprint",
             "days_remaining",
             "is_valid",
@@ -135,9 +185,11 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
             "last_error_code",
             "error_message",
             "san_domains",
+            "issuance_history",
             "tls_version",
             "linked_targets",
             "suggested_targets",
+            "alert_summary",
             "created_at",
             "updated_at",
         )

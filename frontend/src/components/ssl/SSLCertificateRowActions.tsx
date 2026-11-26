@@ -139,8 +139,8 @@ export default function SSLCertificateRowActions({
             if (e.detail > 0) e.currentTarget.blur();
             onScan(cert);
           }}
-          title="Revalidar certificado ahora"
-          aria-label={`Revalidar ${cert.domain}`}
+          title="Comprobar certificado ahora"
+          aria-label={`Comprobar ${cert.domain} ahora`}
           className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60 transition-colors cursor-pointer !min-h-0 !min-w-0"
         >
           <RefreshCw

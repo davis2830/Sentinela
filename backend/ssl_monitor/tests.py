@@ -124,3 +124,63 @@ class SSLCertificateSerializerAndOrderingTests(TestCase):
         self.assertFalse(data["linked_targets"][0]["enabled"])
         self.assertEqual(len(data["suggested_targets"]), 1)
         self.assertEqual(data["suggested_targets"][0]["id"], str(active_target.id))
+
+    def test_issuance_history_tracks_fingerprint_changes_and_alert_summary(self):
+        from alerts.models import AlertRule
+        from notifications.models import NotificationChannel
+
+        now = timezone.now()
+        cert = SSLCertificate.objects.create(organization=self.org, domain="renew.example.com", port=443)
+        SSLMonitorService.update_certificate_scan(
+            certificate_id=cert.id,
+            issuer="organizationName=Let's Encrypt, commonName=R11",
+            subject="commonName=renew.example.com",
+            expiration_date=now + timedelta(days=60),
+            algorithm="SHA-256",
+            key_info="ECDSA P-256",
+            fingerprint="aa" * 32,
+            days_remaining=60,
+            is_valid=True,
+            issued_at=now - timedelta(days=30),
+            tls_version="TLSv1.3",
+            security_grade="A+",
+        )
+        # Re-scanning with a new fingerprint records a second issuance entry
+        SSLMonitorService.update_certificate_scan(
+            certificate_id=cert.id,
+            issuer="organizationName=Google Trust Services, commonName=WE1",
+            subject="commonName=renew.example.com",
+            expiration_date=now + timedelta(days=90),
+            algorithm="SHA-256",
+            key_info="RSA 2048",
+            fingerprint="bb" * 32,
+            days_remaining=90,
+            is_valid=True,
+            issued_at=now,
+            tls_version="TLSv1.3",
+            security_grade="A+",
+        )
+        cert.refresh_from_db()
+        self.assertEqual(cert.key_info, "RSA 2048")
+        self.assertEqual(len(cert.issuance_history), 2)
+        self.assertEqual(cert.issuance_history[0]["fingerprint"], "bb" * 32)
+        self.assertEqual(cert.issuance_history[1]["fingerprint"], "aa" * 32)
+
+        AlertRule.objects.create(
+            organization=self.org,
+            name="SSL 14d",
+            target_type=AlertRule.TargetType.SSL,
+            condition=AlertRule.ConditionType.SSL_EXPIRING,
+            threshold=14,
+            severity=AlertRule.Severity.WARNING,
+            enabled=True,
+        )
+        NotificationChannel.objects.create(
+            organization=self.org,
+            name="Alertas Ops",
+            channel_type=NotificationChannel.ChannelType.EMAIL,
+            enabled=True,
+        )
+        data = SSLCertificateSerializer(cert, context={}).data
+        self.assertEqual(len(data["alert_summary"]["rules"]), 1)
+        self.assertEqual(data["alert_summary"]["destinations"][0]["name"], "Alertas Ops")

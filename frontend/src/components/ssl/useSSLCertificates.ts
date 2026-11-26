@@ -290,25 +290,46 @@ export function getCertRemainingPercent(cert: SSLCertificate): number | null {
 export function getSSLGradeTooltip(cert: SSLCertificate): string {
   const grade = cert.security_grade || "—";
   const tls = formatTLSVersion(cert.tls_version) || "TLS sin medir";
+  const key = cert.key_info ? `, clave (${cert.key_info})` : "";
   const days =
     cert.days_remaining !== null && cert.days_remaining !== undefined
       ? cert.days_remaining <= 0
-        ? "certificado vencido"
-        : `${cert.days_remaining} días restantes`
+        ? "vencido"
+        : `${cert.days_remaining} d restantes`
       : "vigencia sin medir";
-  return `Grado ${grade} — Evalúa protocolo (${tls}), vigencia (${days}) y validación de la cadena de confianza. No sustituye una auditoría completa de cifrados del servidor.`;
+  return `Grado ${grade} — Evalúa protocolo (${tls})${key}, cadena de confianza y vigencia (${days}). Baja si hay TLS antiguo (1.0/1.1), cadena incompleta, clave débil o vencimiento próximo.`;
+}
+
+export interface SSLChainStep {
+  label: string;
+  tooltip: string;
 }
 
 export function getCertificateChainSteps(cert: SSLCertificate): {
-  steps: string[];
+  steps: SSLChainStep[];
   complete: boolean;
 } {
   const leaf = cert.domain;
   const intermediate = parseIssuerCommonName(cert.issuer);
   const org = parseIssuerOrganization(cert.issuer);
-  const steps: string[] = [leaf];
+  const expiryNote = cert.expiration_date
+    ? ` · válido hasta ${formatSSLDate(cert.expiration_date)}`
+    : "";
+
+  const steps: SSLChainStep[] = [
+    {
+      label: leaf,
+      tooltip: `Certificado hoja del dominio ${leaf}${expiryNote}`,
+    },
+  ];
   if (intermediate && intermediate.toLowerCase() !== leaf.toLowerCase()) {
-    steps.push(intermediate);
+    steps.push({
+      label: intermediate,
+      tooltip:
+        org && org !== "Desconocido"
+          ? `${org} ${intermediate} (certificado intermedio)`
+          : `${intermediate} (certificado intermedio)`,
+    });
   }
   if (
     org &&
@@ -316,17 +337,65 @@ export function getCertificateChainSteps(cert: SSLCertificate): {
     org.toLowerCase() !== intermediate.toLowerCase() &&
     org.toLowerCase() !== leaf.toLowerCase()
   ) {
-    // Map Let's Encrypt to ISRG Root X1 for clarity when intermediate is present
-    const rootLabel =
-      org.toLowerCase().includes("let's encrypt") && intermediate
-        ? "ISRG Root X1 (Let's Encrypt)"
-        : org;
-    steps.push(rootLabel);
+    const isLE = org.toLowerCase().includes("let's encrypt");
+    const rootLabel = isLE && intermediate ? "ISRG Root X1" : org;
+    steps.push({
+      label: rootLabel,
+      tooltip: isLE
+        ? "ISRG Root X1 · Autoridad raíz de confianza de Let's Encrypt"
+        : `${org} · Autoridad certificadora raíz`,
+    });
   }
   const complete = Boolean(
     cert.last_scanned_at && cert.is_valid && !cert.error_message && !cert.last_error_code,
   );
   return { steps, complete };
+}
+
+/**
+ * Estimates expected automatic renewal window for short-lived (~90d) ACME certificates
+ * (e.g. Let's Encrypt, Google Trust Services, ZeroSSL) which renew ~30 days before expiry.
+ */
+export function getExpectedRenewalInfo(cert: SSLCertificate): {
+  label: string;
+  tooltip: string;
+} | null {
+  if (!cert.expiration_date || !cert.is_valid || cert.days_remaining == null || cert.days_remaining <= 0) {
+    return null;
+  }
+  const org = parseIssuerOrganization(cert.issuer).toLowerCase();
+  const isAutoCA =
+    org.includes("let's encrypt") ||
+    org.includes("google trust") ||
+    org.includes("zerossl") ||
+    org.includes("buypass");
+
+  let totalDays: number | null = null;
+  if (cert.issued_at) {
+    const start = Date.parse(cert.issued_at);
+    const end = Date.parse(cert.expiration_date);
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      totalDays = Math.round((end - start) / 86400000);
+    }
+  }
+
+  if (!isAutoCA && (totalDays === null || totalDays > 100)) {
+    return null;
+  }
+
+  const endMs = Date.parse(cert.expiration_date);
+  const renewMs = endMs - 30 * 86400000;
+  const renewDateStr = formatSSLDate(new Date(renewMs).toISOString());
+  if (cert.days_remaining > 30) {
+    return {
+      label: `Renovación esperada ~${renewDateStr}`,
+      tooltip: `Los certificados de ${totalDays ?? 90} días (${parseIssuerOrganization(cert.issuer)}) suelen renovarse automáticamente ~30 días antes del vencimiento.`,
+    };
+  }
+  return {
+    label: "Ventana de renovación automática",
+    tooltip: `Ya dentro de los últimos 30 días de un certificado de ${totalDays ?? 90} días; si no se renueva automáticamente pronto, revisa el agente ACME/Certbot.`,
+  };
 }
 
 export function formatShortFingerprint(fp: string | null | undefined): string {
