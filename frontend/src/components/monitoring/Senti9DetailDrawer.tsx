@@ -425,7 +425,7 @@ export default function Senti9DetailDrawer({
                   {menuOpen && (
                     <div
                       role="menu"
-                      className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-border-base bg-bg-dark/98 backdrop-blur-md p-1 shadow-2xl text-xs"
+                      className="absolute right-0 top-8 z-30 w-48 rounded-xl border border-border-accent/70 bg-bg-dark p-1 shadow-2xl text-xs"
                     >
                       <button
                         type="button"

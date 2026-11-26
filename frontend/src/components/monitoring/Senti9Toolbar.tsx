@@ -340,7 +340,7 @@ export default function Senti9Toolbar({
               <div
                 role="dialog"
                 aria-label="Filtros de guardianes Senti9"
-                className="absolute right-0 top-9 z-40 w-72 rounded-2xl border border-border-base bg-bg-card/98 backdrop-blur-md p-3.5 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-100"
+                className="absolute right-0 top-9 z-40 w-72 rounded-2xl border border-border-accent/70 bg-bg-card p-3.5 shadow-2xl space-y-3 animate-in fade-in zoom-in-95 duration-100"
               >
                 <div className="flex items-center justify-between border-b border-border-base/70 pb-2">
                   <span className="text-xs font-semibold text-text-main">

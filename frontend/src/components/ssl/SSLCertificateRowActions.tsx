@@ -177,7 +177,7 @@ export default function SSLCertificateRowActions({
             aria-label={`Acciones de ${cert.domain}`}
             style={{ top: menuPos.top, left: menuPos.left }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-[70] w-52 rounded-xl border border-border-base bg-bg-dark/98 backdrop-blur-md p-1 shadow-2xl text-xs text-left animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[70] w-52 rounded-xl border border-border-accent/70 bg-bg-dark p-1 shadow-2xl text-xs text-left animate-in fade-in zoom-in-95 duration-100"
           >
             <button
               type="button"
