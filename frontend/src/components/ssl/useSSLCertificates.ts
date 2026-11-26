@@ -327,8 +327,8 @@ export function getCertificateChainSteps(cert: SSLCertificate): {
       label: intermediate,
       tooltip:
         org && org !== "Desconocido"
-          ? `${org} ${intermediate} (certificado intermedio)`
-          : `${intermediate} (certificado intermedio)`,
+          ? `${org} ${intermediate} (intermedio)`
+          : `${intermediate} (intermedio)`,
     });
   }
   if (
@@ -356,14 +356,19 @@ export function getCertificateChainSteps(cert: SSLCertificate): {
  * Estimates expected automatic renewal window for short-lived (~90d) ACME certificates
  * (e.g. Let's Encrypt, Google Trust Services, ZeroSSL) which renew ~30 days before expiry.
  */
-export function getExpectedRenewalInfo(cert: SSLCertificate): {
+export function getExpectedRenewalInfo(
+  cert: SSLCertificate,
+  thresholds: SSLThresholds = DEFAULT_SSL_THRESHOLDS,
+): {
   label: string;
+  tone: "muted" | "info" | "warning";
   tooltip: string;
 } | null {
   if (!cert.expiration_date || !cert.is_valid || cert.days_remaining == null || cert.days_remaining <= 0) {
     return null;
   }
-  const org = parseIssuerOrganization(cert.issuer).toLowerCase();
+  const orgName = parseIssuerOrganization(cert.issuer);
+  const org = orgName.toLowerCase();
   const isAutoCA =
     org.includes("let's encrypt") ||
     org.includes("google trust") ||
@@ -383,18 +388,32 @@ export function getExpectedRenewalInfo(cert: SSLCertificate): {
     return null;
   }
 
+  const state = getSSLHealthState(cert, thresholds);
   const endMs = Date.parse(cert.expiration_date);
   const renewMs = endMs - 30 * 86400000;
   const renewDateStr = formatSSLDate(new Date(renewMs).toISOString());
+
   if (cert.days_remaining > 30) {
     return {
       label: `Renovación esperada ~${renewDateStr}`,
-      tooltip: `Los certificados de ${totalDays ?? 90} días (${parseIssuerOrganization(cert.issuer)}) suelen renovarse automáticamente ~30 días antes del vencimiento.`,
+      tone: "muted",
+      tooltip: `Los certificados de ${totalDays ?? 90} días (${orgName}) suelen renovarse automáticamente ~30 días antes del vencimiento.`,
     };
   }
+
+  // Within <= 30 days: match visual tone with active threshold state so there is never a contradiction
+  if (state === "valid") {
+    return {
+      label: "Renovación automática prevista",
+      tone: "info",
+      tooltip: `Dentro de la ventana habitual de renovación automática de ${orgName} (≤ 30 d). Escalará a aviso ámbar si llega a ≤ ${thresholds.warningDays} d sin renovarse.`,
+    };
+  }
+
   return {
-    label: "Ventana de renovación automática",
-    tooltip: `Ya dentro de los últimos 30 días de un certificado de ${totalDays ?? 90} días; si no se renueva automáticamente pronto, revisa el agente ACME/Certbot.`,
+    label: "Sin renovación automática aún · revisar ACME",
+    tone: "warning",
+    tooltip: `El certificado ya alcanzó tu umbral de aviso (≤ ${thresholds.warningDays} d) sin renovarse automáticamente. Verifica Certbot/ACME en el servidor.`,
   };
 }
 

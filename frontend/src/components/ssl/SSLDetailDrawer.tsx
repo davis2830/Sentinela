@@ -148,7 +148,7 @@ export default function SSLDetailDrawer({
   const days = cert.days_remaining;
   const remainingPct = getCertRemainingPercent(cert);
   const chain = getCertificateChainSteps(cert);
-  const renewalInfo = getExpectedRenewalInfo(cert);
+  const renewalInfo = getExpectedRenewalInfo(cert, thresholds);
   const sans =
     cert.san_domains && cert.san_domains.length > 0
       ? cert.san_domains
@@ -526,7 +526,13 @@ export default function SSLDetailDrawer({
               </span>
               {renewalInfo && (
                 <span
-                  className="text-text-muted cursor-help"
+                  className={`cursor-help ${
+                    renewalInfo.tone === "info"
+                      ? "text-sky-400"
+                      : renewalInfo.tone === "warning"
+                        ? "text-amber-300"
+                        : "text-text-muted"
+                  }`}
                   title={renewalInfo.tooltip}
                 >
                   {renewalInfo.label}
@@ -696,118 +702,128 @@ export default function SSLDetailDrawer({
             </div>
           </section>
 
-          {/* 4. Collapsed Secondary Accordions (Alertas, Historial de emisiones, DN) */}
+          {/* 4. Actionable "No notification destination" callout OUTSIDE accordion when unconfigured */}
+          {!hasRealNotifications && (
+            <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0 text-amber-200">
+                <AlertTriangle size={14} className="text-amber-400 shrink-0" />
+                <span className="truncate font-medium">
+                  Nadie será notificado cuando venza
+                </span>
+              </div>
+              <Link
+                to={alertDestinations.length === 0 ? "/notifications" : "/alerts"}
+                onClick={onClose}
+                className="inline-flex items-center gap-1 font-semibold text-amber-300 hover:text-amber-200 hover:underline shrink-0 whitespace-nowrap"
+              >
+                <span>
+                  {alertDestinations.length === 0
+                    ? "Agregar destino"
+                    : "Agregar regla"}
+                </span>
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+          )}
+
+          {/* 5. Collapsed Secondary Accordions (Alertas, Historial only if >1 issuance, DN) */}
           <div className="space-y-2">
-            {/* Alertas: real state + destinations or "Nadie será notificado" */}
-            <details className="group rounded-xl border border-border-base bg-bg-dark/40 overflow-hidden">
-              <summary className="flex items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none hover:bg-white/[0.02]">
-                <span className="inline-flex items-center gap-2 min-w-0 font-semibold text-text-main">
-                  <ChevronRight
-                    size={14}
-                    className="text-text-dim group-open:rotate-90 transition-transform shrink-0"
-                  />
-                  <Bell size={13} className="text-amber-400 shrink-0" />
-                  <span className="shrink-0">Alertas</span>
-                  <span className="font-mono font-normal text-[11px] text-text-dim truncate">
-                    · aviso {thresholds.warningDays} d · crítico{" "}
-                    {thresholds.criticalDays} d
+            {/* Alertas: only shown as accordion when destinations exist (or collapsed summary with real destinations) */}
+            {hasRealNotifications && (
+              <details className="group rounded-xl border border-border-base bg-bg-dark/40 overflow-hidden">
+                <summary className="flex items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none hover:bg-white/[0.02]">
+                  <span className="inline-flex items-center gap-2 min-w-0 font-semibold text-text-main">
+                    <ChevronRight
+                      size={14}
+                      className="text-text-dim group-open:rotate-90 transition-transform shrink-0"
+                    />
+                    <Bell size={13} className="text-amber-400 shrink-0" />
+                    <span className="shrink-0">Alertas</span>
+                    <span className="font-mono font-normal text-[11px] text-text-dim truncate">
+                      · aviso {thresholds.warningDays} d · crítico{" "}
+                      {thresholds.criticalDays} d
+                    </span>
                   </span>
-                </span>
-                <span
-                  className={`font-mono text-[11px] shrink-0 ${
-                    hasRealNotifications ? "text-emerald-400" : "text-amber-400"
-                  }`}
-                >
-                  {hasRealNotifications
-                    ? `${alertDestinations.length} ${
-                        alertDestinations.length === 1 ? "destino" : "destinos"
-                      }`
-                    : "Nadie será notificado"}
-                </span>
-              </summary>
-
-              <div className="px-3.5 pb-3 pt-2 border-t border-border-base/50 space-y-2.5 text-[11px]">
-                {hasRealNotifications ? (
-                  <>
-                    <div className="flex flex-wrap items-center gap-1.5 text-text-muted">
-                      <span>Destinos activos:</span>
-                      {alertDestinations.map((ch) => (
-                        <span
-                          key={ch.id}
-                          className="px-2 py-0.5 rounded-full bg-bg-card border border-border-base font-mono text-text-main"
-                        >
-                          {ch.name}
-                        </span>
-                      ))}
-                    </div>
-                    <ul className="space-y-1 font-mono text-text-muted">
-                      {alertRules.map((rule) => (
-                        <li
-                          key={rule.id}
-                          className="flex items-center justify-between gap-2"
-                        >
-                          <span className="truncate text-text-main">
-                            {rule.name}
-                          </span>
-                          <span className="text-text-dim shrink-0">
-                            {rule.condition === "ssl_expiring"
-                              ? `≤ ${Math.round(rule.threshold)} d`
-                              : rule.condition}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p className="text-amber-300/90">
-                    {alertRules.length === 0 && alertDestinations.length === 0
-                      ? "Nadie será notificado: aún no hay reglas SSL ni canales de notificación activos."
-                      : alertRules.length === 0
-                        ? "Nadie será notificado: no hay reglas de alerta SSL activas."
-                        : "Nadie será notificado: no hay canales de notificación habilitados."}
-                  </p>
-                )}
-
-                <div className="flex items-center gap-3 pt-0.5">
-                  <Link
-                    to="/alerts"
-                    onClick={onClose}
-                    className="inline-flex items-center gap-1 font-semibold text-accent-green hover:underline"
+                  <span
+                    className="font-mono text-[11px] text-emerald-400 truncate max-w-[165px] shrink-0"
+                    title={alertDestinations.map((d) => d.name).join(", ")}
                   >
-                    <span>Configurar reglas</span>
-                    <ArrowRight size={11} />
-                  </Link>
-                  {alertDestinations.length === 0 && (
+                    {alertDestinations
+                      .slice(0, 2)
+                      .map((d) => d.name)
+                      .join(", ")}
+                    {alertDestinations.length > 2
+                      ? ` +${alertDestinations.length - 2}`
+                      : ""}
+                  </span>
+                </summary>
+
+                <div className="px-3.5 pb-3 pt-2 border-t border-border-base/50 space-y-2.5 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-1.5 text-text-muted">
+                    <span>Destinos:</span>
+                    {alertDestinations.map((ch) => (
+                      <span
+                        key={ch.id}
+                        className="px-2 py-0.5 rounded-full bg-bg-card border border-border-base font-mono text-text-main"
+                      >
+                        {ch.name}
+                      </span>
+                    ))}
+                  </div>
+                  <ul className="space-y-1 font-mono text-text-muted">
+                    {alertRules.map((rule) => (
+                      <li
+                        key={rule.id}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="truncate text-text-main">
+                          {rule.name}
+                        </span>
+                        <span className="text-text-dim shrink-0">
+                          {rule.condition === "ssl_expiring"
+                            ? `≤ ${Math.round(rule.threshold)} d`
+                            : rule.condition}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="flex items-center gap-3 pt-0.5">
                     <Link
-                      to="/notifications"
+                      to="/alerts"
                       onClick={onClose}
-                      className="inline-flex items-center gap-1 font-semibold text-text-muted hover:text-text-main hover:underline"
+                      className="inline-flex items-center gap-1 font-semibold text-accent-green hover:underline"
                     >
-                      <span>Configurar canales</span>
+                      <span>Configurar reglas</span>
                       <ArrowRight size={11} />
                     </Link>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </details>
+              </details>
+            )}
 
-            {/* Historial de emisiones / renovaciones */}
-            <details className="group rounded-xl border border-border-base bg-bg-dark/40 overflow-hidden">
-              <summary className="flex items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none font-semibold text-text-main hover:bg-white/[0.02]">
-                <span className="inline-flex items-center gap-2">
-                  <ChevronRight
-                    size={14}
-                    className="text-text-dim group-open:rotate-90 transition-transform"
-                  />
-                  <History size={13} className="text-sky-400" />
-                  <span>Historial de emisiones ({historyEntries.length})</span>
-                </span>
-                <span className="text-[11px] font-mono font-normal text-text-dim">
-                  {historyEntries.length > 1 ? "Renovaciones detectadas" : "Actual"}
-                </span>
-              </summary>
-              <div className="px-3.5 pb-3 pt-2 border-t border-border-base/50">
-                {historyEntries.length > 0 ? (
+            {/* Historial de emisiones: accordion ONLY when > 1 issuance exists (otherwise a clean single line at bottom) */}
+            {historyEntries.length > 1 && (
+              <details className="group rounded-xl border border-border-base bg-bg-dark/40 overflow-hidden">
+                <summary className="flex items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none font-semibold text-text-main hover:bg-white/[0.02]">
+                  <span className="inline-flex items-center gap-2">
+                    <ChevronRight
+                      size={14}
+                      className="text-text-dim group-open:rotate-90 transition-transform"
+                    />
+                    <History size={13} className="text-sky-400" />
+                    <span>Historial de emisiones ({historyEntries.length})</span>
+                  </span>
+                  <span className="text-[11px] font-mono font-normal text-text-dim">
+                    {parseIssuerOrganization(historyEntries[0].issuer) !==
+                    parseIssuerOrganization(historyEntries[1].issuer) ? (
+                      <span className="text-amber-300">Cambió emisor</span>
+                    ) : (
+                      "Renovaciones detectadas"
+                    )}
+                  </span>
+                </summary>
+                <div className="px-3.5 pb-3 pt-2 border-t border-border-base/50">
                   <ul className="space-y-2">
                     {historyEntries.map((entry, idx) => {
                       const prev = historyEntries[idx + 1];
@@ -870,14 +886,9 @@ export default function SSLDetailDrawer({
                       );
                     })}
                   </ul>
-                ) : (
-                  <p className="text-[11px] text-text-dim">
-                    Aún no hay emisiones registradas. Se guardará cada cambio de
-                    huella o autoridad emisora automáticamente.
-                  </p>
-                )}
-              </div>
-            </details>
+                </div>
+              </details>
+            )}
 
             {/* Emisor y sujeto (DN) — collapsed by default, purely technical */}
             <details className="group rounded-xl border border-border-base bg-bg-dark/40 overflow-hidden">
@@ -911,8 +922,8 @@ export default function SSLDetailDrawer({
             </details>
           </div>
 
-          {/* 5. Single-line footer replacing the MeasurementStatus card */}
-          <footer className="pt-2 border-t border-border-base/60 flex items-center justify-between gap-2 text-[11px] font-mono text-text-dim">
+          {/* 6. Single-line footer: first issuance (when only 1) + last real check */}
+          <footer className="pt-2 border-t border-border-base/60 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-text-dim">
             <span>
               Último chequeo{" "}
               <RelativeTime
@@ -922,6 +933,16 @@ export default function SSLDetailDrawer({
               />{" "}
               · origen cloud
             </span>
+            {historyEntries.length === 1 &&
+              (historyEntries[0].issued_at || historyEntries[0].detected_at) && (
+                <span>
+                  Primera emisión:{" "}
+                  {formatSSLDate(
+                    historyEntries[0].issued_at ||
+                      historyEntries[0].detected_at,
+                  )}
+                </span>
+              )}
           </footer>
         </div>
       </div>
