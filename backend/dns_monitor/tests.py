@@ -151,6 +151,23 @@ class DNSMonitorServicesTest(TestCase):
         self.assertEqual(cidr_accepted.expected_values, ["216.198.79.0/24", "64.29.17.0/24"])
         self.assertTrue(cidr_accepted.matches_expected)
 
+        # Even if 1.1.1.1 and 8.8.8.8 return different edge IPs in the same /24 ranges,
+        # CIDR reference treats them as consistent rather than perpetual propagation.
+        consistent_cidr = DNSMonitorService.update_record_scan(
+            rotating.id,
+            new_value="216.198.79.1\n64.29.17.1",
+            ttl=300,
+            response_time_ms=42.0,
+            resolver="1.1.1.1",
+            resolver_results=[
+                {"resolver": "1.1.1.1", "label": "Cloudflare", "success": True, "values": ["216.198.79.1", "64.29.17.1"]},
+                {"resolver": "8.8.8.8", "label": "Google", "success": True, "values": ["216.198.79.65", "64.29.17.65"]},
+            ],
+            propagation_status="propagating",
+        )
+        self.assertEqual(consistent_cidr.propagation_status, "consistent")
+        self.assertTrue(consistent_cidr.matches_expected)
+
         # An IP outside both /24 ranges must fail CIDR match
         drifted = DNSMonitorService.update_record_scan(
             rotating.id,

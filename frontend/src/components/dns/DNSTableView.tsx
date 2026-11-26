@@ -48,6 +48,7 @@ import {
 interface DNSTableViewProps {
   groups: DNSRecordGroup[];
   allVisibleRecords: DNSRecord[];
+  activeRecordId?: string | null;
   selectedIds: string[];
   onToggleSelect: (record: DNSRecord) => void;
   onToggleSelectAll: () => void;
@@ -69,6 +70,7 @@ interface DNSTableViewProps {
 export default function DNSTableView({
   groups,
   allVisibleRecords,
+  activeRecordId = null,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -111,6 +113,7 @@ export default function DNSTableView({
 
   const renderRow = (record: DNSRecord) => {
     const isSelected = selectedIds.includes(record.id);
+    const isActive = activeRecordId === record.id;
     const state = getDNSHealthState(record);
     const meta = DNS_STATE_META[state];
     const stateLabel = getDNSStateLabel(record, state);
@@ -152,6 +155,10 @@ export default function DNSTableView({
         rrSummary ||
           "Cambio reciente dentro de la ventana de TTL o propagación entre resolvers",
       );
+    } else if (state === "rotating") {
+      stateTooltipParts.push(
+        "El proveedor rota IPs periódicamente (mismo rango /24). Define una referencia en modo Rango CIDR para silenciar cambios.",
+      );
     } else if (record.resolver) {
       stateTooltipParts.push(`Resuelto vía ${record.resolver}`);
     }
@@ -184,13 +191,15 @@ export default function DNSTableView({
         }}
         onClick={() => onSelectRecord(record)}
         className={`group ${rowHeightClass} transition-colors cursor-pointer hover:bg-bg-card-hover/70 focus:outline-none focus-visible:bg-bg-card-hover/80 ${
-          isSelected
-            ? "bg-accent-green/[0.04]"
-            : state === "error" || state === "mismatch"
-              ? "bg-rose-500/[0.025]"
-              : state === "propagating"
-                ? "bg-amber-500/[0.02]"
-                : ""
+          isActive
+            ? "bg-accent-green/[0.08] ring-1 ring-inset ring-accent-green/35"
+            : isSelected
+              ? "bg-accent-green/[0.04]"
+              : state === "error" || state === "mismatch"
+                ? "bg-rose-500/[0.025]"
+                : state === "propagating"
+                  ? "bg-amber-500/[0.02]"
+                  : ""
         }`}
       >
         {/* Checkbox with mr-3 spacing before Estado */}
@@ -238,8 +247,8 @@ export default function DNSTableView({
           </span>
         </td>
 
-        {/* Dominio (fixed sensible width with truncate) */}
-        <td className={`${TABLE_CELL} max-w-0`}>
+        {/* Dominio (flexible w-full max-w-0 so full domain + Uptime chip stay visible) */}
+        <td className={`${TABLE_CELL} w-full max-w-0`}>
           <div className="flex items-center gap-2 min-w-0">
             <span
               className="font-semibold text-text-main group-hover:text-accent-green transition-colors text-[13px] truncate"
@@ -257,7 +266,7 @@ export default function DNSTableView({
                     ? `Vinculado al target ${linkedTarget.name} en Uptime`
                     : `Vinculado a ${linkedTarget.name} (target pausado en Uptime)`
                 }
-                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[130px] transition-colors ${
+                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[150px] transition-colors ${
                   linkedTarget.enabled
                     ? "bg-bg-dark border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40"
                     : "bg-amber-500/10 border-amber-500/35 text-amber-300 hover:bg-amber-500/20"
@@ -280,7 +289,7 @@ export default function DNSTableView({
                   onLinkTarget(record, suggestedTarget);
                 }}
                 title={`Vincular con el target ${suggestedTarget.name} en Uptime`}
-                className="compact-btn hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[140px] cursor-pointer"
+                className="compact-btn hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[145px] cursor-pointer"
               >
                 <Link2 size={10} className="shrink-0" />
                 <span className="truncate">Vincular: {suggestedTarget.name}</span>
@@ -289,8 +298,8 @@ export default function DNSTableView({
           </div>
         </td>
 
-        {/* Resuelve a (absorbs flexible width) */}
-        <td className={`${TABLE_CELL} w-full max-w-0`}>
+        {/* Resuelve a (fixed right-aligned column — no 330px void before TTL) */}
+        <td className={`${TABLE_CELL} max-w-0`}>
           {values.length > 0 ? (
             <div
               className="flex items-center gap-1.5 min-w-0 font-mono text-xs"
@@ -403,14 +412,14 @@ export default function DNSTableView({
         <table className="w-full table-fixed text-left text-xs border-collapse">
           <colgroup>
             <col className="w-11" />
-            <col className="w-[172px]" />
-            <col className="w-[64px]" />
-            <col className="w-[270px]" />
+            <col className="w-[168px]" />
+            <col className="w-[60px]" />
             <col className="w-full" />
-            <col className="w-[72px]" />
-            <col className="w-[82px]" />
-            <col className="w-[104px]" />
-            <col className="w-[116px]" />
+            <col className="w-[250px]" />
+            <col className="w-[68px]" />
+            <col className="w-[78px]" />
+            <col className="w-[96px]" />
+            <col className="w-[112px]" />
           </colgroup>
           <thead>
             <tr

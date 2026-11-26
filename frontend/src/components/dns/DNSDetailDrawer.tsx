@@ -97,15 +97,20 @@ export default function DNSDetailDrawer({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedValues, setCopiedValues] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // Resolvers accordion collapsed by default; auto-open ONLY when resolvers disagree
-  const [resolversOpen, setResolversOpen] = useState(
-    record.propagation_status === "propagating",
+  const [historyOpen, setHistoryOpen] = useState(
+    state === "rotating" || state === "propagating",
   );
+  // Resolvers accordion strictly collapsed by default; auto-open ONLY when resolvers truly disagree
+  const resolversDisagree =
+    state === "propagating" && record.propagation_status === "propagating";
+  const [resolversOpen, setResolversOpen] = useState(resolversDisagree);
 
   useEffect(() => {
-    setHistoryOpen(false);
-    setResolversOpen(record.propagation_status === "propagating");
+    const nextState = getDNSHealthState(record);
+    setHistoryOpen(nextState === "rotating" || nextState === "propagating");
+    setResolversOpen(
+      nextState === "propagating" && record.propagation_status === "propagating",
+    );
     setMenuOpen(false);
     setCopiedValues(false);
   }, [record.id, record.propagation_status]);
@@ -166,7 +171,7 @@ export default function DNSDetailDrawer({
   const suggestedTarget = record.suggested_targets?.[0];
 
   const expectedDiff =
-    state === "mismatch"
+    expectedValues.length > 0 && record.matches_expected === false
       ? computeDNSDiff(expectedValues.join("\n"), values.join("\n"))
       : null;
 
@@ -177,10 +182,13 @@ export default function DNSDetailDrawer({
       )
     : null;
 
+  const activeDiff = expectedDiff || latestDiff;
+
   const canDefineReference = canEdit && values.length > 0;
   const showRotatingSubnetHint =
-    state === "mismatch" &&
-    sameProviderSubnetHint(values, expectedValues);
+    (state === "mismatch" || state === "rotating" || state === "propagating") &&
+    (sameProviderSubnetHint(values, expectedValues) ||
+      (state === "rotating" && hasIPv4Values(values)));
   const supportsCidr = hasIPv4Values(values);
 
   const isTxt = record.record_type === "TXT";
@@ -205,17 +213,14 @@ export default function DNSDetailDrawer({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/65 backdrop-blur-[2px] animate-in fade-in duration-150"
-      onClick={onClose}
-    >
+    <div className="pointer-events-none fixed inset-0 z-40 flex justify-end">
       <aside
         ref={drawerRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-label={`Detalle de ${record.record_type} ${record.domain}`}
         onClick={(e) => e.stopPropagation()}
-        className="relative flex h-full w-full max-w-[540px] flex-col border-l border-border-base bg-bg-card shadow-2xl animate-in slide-in-from-right duration-200"
+        className="pointer-events-auto relative flex h-full w-full max-w-[540px] flex-col border-l border-border-accent/70 bg-bg-card shadow-[-12px_0_40px_rgba(0,0,0,0.55)] animate-in slide-in-from-right duration-200"
       >
         {/* 1. STICKY HEADER */}
         <header className="shrink-0 border-b border-border-base/80 bg-bg-dark/90 px-5 pt-4 pb-3.5 space-y-2.5">
@@ -520,7 +525,7 @@ export default function DNSDetailDrawer({
           )}
 
           {state === "propagating" && (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5">
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
               <div className="flex items-center gap-1.5 font-semibold text-amber-300">
                 <AlertTriangle size={14} className="shrink-0" />
                 <span>
@@ -529,14 +534,139 @@ export default function DNSDetailDrawer({
                     : "Cambio reciente dentro de la ventana de TTL"}
                 </span>
               </div>
-              <p className="text-amber-200/90 text-[11px]">
+              <p className="text-amber-200/90 text-[11px] leading-relaxed">
                 {record.propagation_status === "propagating"
-                  ? "Los resolvers consultados aún no devuelven el mismo conjunto de respuestas. Revisa Resolvers consultados abajo."
-                  : `El registro cambió hace menos de ${formatDNSTTL(record.ttl || 300)}. Pasará a Fuera de referencia solo si el valor persiste tras cumplirse el TTL.`}
+                  ? "Los resolvers consultados aún devuelven conjuntos de respuestas distintos. Revisa Resolvers consultados abajo."
+                  : `El registro cambió hace menos de ${formatDNSTTL(record.ttl || 300)}. Pasará a Fuera de referencia solo si persiste tras el TTL.`}
               </p>
-              {latestDiff?.summary && (
-                <div className="font-mono text-[11px] text-amber-200 bg-bg-dark/60 px-2.5 py-1.5 rounded-lg border border-amber-500/25 break-all">
-                  {latestDiff.summary}
+              {activeDiff &&
+                (activeDiff.removed.length > 0 || activeDiff.added.length > 0) && (
+                  <div className="space-y-1 font-mono text-[11px]">
+                    {activeDiff.removed.map((v, i) => (
+                      <div
+                        key={`prop-rem-${i}`}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 break-all"
+                      >
+                        <span className="font-bold select-none">−</span>
+                        <span>{v}</span>
+                        <span className="ml-auto text-[10px] font-sans opacity-80 shrink-0">
+                          {expectedDiff ? "Esperado" : "Anterior"}
+                        </span>
+                      </div>
+                    ))}
+                    {activeDiff.added.map((v, i) => (
+                      <div
+                        key={`prop-add-${i}`}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 break-all"
+                      >
+                        <span className="font-bold select-none">+</span>
+                        <span>{v}</span>
+                        <span className="ml-auto text-[10px] font-sans opacity-80 shrink-0">
+                          Actual
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              {canDefineReference && (
+                <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                  <button
+                    type="button"
+                    disabled={isAcceptingRef}
+                    onClick={() => onAcceptReference(record, "exact")}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-dark border border-border-accent text-text-main hover:border-accent-green hover:text-accent-green font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                  >
+                    <CheckCircle2 size={12} className="text-emerald-400" />
+                    <span>Definir como referencia</span>
+                  </button>
+                  {supportsCidr && (
+                    <button
+                      type="button"
+                      disabled={isAcceptingRef}
+                      onClick={() => onAcceptReference(record, "cidr")}
+                      title="Guarda los rangos /24 de las IPs actuales para absorber rotaciones del proveedor"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/35 text-sky-300 hover:bg-sky-500/20 font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                    >
+                      <Network size={12} />
+                      <span>Aceptar como rango /24</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {state === "rotating" && (
+            <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-sky-200 inline-flex items-center gap-1.5">
+                  <Network size={14} className="text-sky-400 shrink-0" />
+                  <span>Rotación de IPs del proveedor detectada</span>
+                </span>
+                {(record.changes_last_hour ?? 0) > 0 && (
+                  <span className="font-mono text-[10px] text-sky-300/90">
+                    {record.changes_last_hour} cambios/h
+                  </span>
+                )}
+              </div>
+              <p className="text-sky-200/85 text-[11px] leading-relaxed">
+                Las IPs alternan dentro de los mismos rangos{" "}
+                <span className="font-mono">/24</span> (comportamiento normal de
+                CDN o balanceador). Guarda la referencia en modo{" "}
+                <strong>Rango CIDR (/24)</strong> para marcarlo como Resuelto y
+                evitar alertas repetitivas.
+              </p>
+              {activeDiff &&
+                (activeDiff.removed.length > 0 || activeDiff.added.length > 0) && (
+                  <div className="space-y-1 font-mono text-[11px]">
+                    {activeDiff.removed.map((v, i) => (
+                      <div
+                        key={`rot-rem-${i}`}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-dark/70 border border-border-base/70 text-text-muted break-all"
+                      >
+                        <span className="font-bold select-none text-rose-300">−</span>
+                        <span>{v}</span>
+                        <span className="ml-auto text-[10px] font-sans opacity-75 shrink-0">
+                          {expectedDiff ? "Ref." : "Anterior"}
+                        </span>
+                      </div>
+                    ))}
+                    {activeDiff.added.map((v, i) => (
+                      <div
+                        key={`rot-add-${i}`}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-dark/70 border border-border-base/70 text-text-main break-all"
+                      >
+                        <span className="font-bold select-none text-sky-300">+</span>
+                        <span>{v}</span>
+                        <span className="ml-auto text-[10px] font-sans opacity-75 shrink-0">
+                          Actual
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              {canDefineReference && (
+                <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                  {supportsCidr && (
+                    <button
+                      type="button"
+                      disabled={isAcceptingRef}
+                      onClick={() => onAcceptReference(record, "cidr")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-green text-black hover:bg-accent-green/90 font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                    >
+                      <Network size={12} />
+                      <span>Aceptar como rango /24</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isAcceptingRef}
+                    onClick={() => onAcceptReference(record, "exact")}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-dark border border-border-base text-text-muted hover:text-text-main hover:border-border-accent font-medium text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                  >
+                    <CheckCircle2 size={12} />
+                    <span>Guardar IPs exactas</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -714,6 +844,21 @@ export default function DNSDetailDrawer({
                 </span>
               )}
             </section>
+          ) : expectedValues.length > 0 && record.matches_expected === false ? (
+            /* Compact 1-row reference summary while Propagando / Rotando (diff already shown above) */
+            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 min-w-0 text-text-muted">
+                <span className="font-semibold text-text-main shrink-0">
+                  Referencia
+                </span>
+                <span className="font-mono text-[11px] truncate" title={expectedValues.join(", ")}>
+                  {expectedValues.join(", ")}
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-bg-card border border-border-base font-mono text-[10px] text-text-dim shrink-0">
+                {getDNSReferenceModeLabel(record.reference_mode)}
+              </span>
+            </section>
           ) : (
             /* Compact 1-row prompt when no reference is defined yet */
             <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap">
@@ -878,9 +1023,9 @@ export default function DNSDetailDrawer({
               </span>
               <span className="font-mono text-[11px] text-text-dim">
                 {resolverResults.length > 0
-                  ? record.propagation_status === "propagating"
+                  ? resolversDisagree
                     ? "En desacuerdo"
-                    : `${resolverResults.length} consistentes`
+                    : resolverResults.map((r) => r.resolver).join(", ")
                   : record.resolver || "Sin datos"}
               </span>
             </button>

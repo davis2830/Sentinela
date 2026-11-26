@@ -10,16 +10,18 @@ import type {
 } from "../common/connectivity/StatusPill";
 
 /**
- * 4 unified operational DNS states (+ pending before first scan):
+ * Unified operational DNS states (+ pending before first scan):
  * - error: Error de resolución (NXDOMAIN, SERVFAIL, Timeout)
  * - mismatch: Fuera de referencia (persists outside TTL window / resolvers agree)
- * - propagating: Propagando (changed < 1 TTL ago or resolvers disagree)
+ * - propagating: Propagando (changed < 1 TTL ago and not rotating perpetually)
+ * - rotating: Rotando (provider edge IPs rotating repeatedly / >2 changes in 1h)
  * - resolved: Resuelto (matches reference or stable)
  */
 export type DNSHealthState =
   | "error"
   | "mismatch"
   | "propagating"
+  | "rotating"
   | "resolved"
   | "pending";
 
@@ -66,11 +68,20 @@ export const DNS_STATE_META: Record<DNSHealthState, DNSStateMeta> = {
     borderClass: "border-amber-500/45",
     badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/35",
   },
+  rotating: {
+    label: "Rotando",
+    tone: "neutral",
+    shape: "clock",
+    severityRank: 3,
+    textClass: "text-sky-300",
+    borderClass: "border-sky-500/35",
+    badgeClass: "bg-sky-500/10 text-sky-300 border-sky-500/30",
+  },
   resolved: {
     label: "Resuelto",
     tone: "success",
     shape: "check",
-    severityRank: 3,
+    severityRank: 4,
     textClass: "text-emerald-400",
     borderClass: "border-border-base/80",
     badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -79,7 +90,7 @@ export const DNS_STATE_META: Record<DNSHealthState, DNSStateMeta> = {
     label: "Sin medición",
     tone: "muted",
     shape: "clock",
-    severityRank: 4,
+    severityRank: 5,
     textClass: "text-text-dim",
     borderClass: "border-border-base/70",
     badgeClass: "bg-bg-dark text-text-dim border-border-base",
@@ -151,6 +162,63 @@ export function isWithinTTLWindow(record: DNSRecord): boolean {
   return Date.now() - changeMs < ttlSec * 1000;
 }
 
+const IPV4_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+export function hasIPv4Values(values: string[]): boolean {
+  return values.length > 0 && values.every((v) => IPV4_REGEX.test(v.trim()));
+}
+
+export function ipv4To24Prefix(ip: string): string | null {
+  const clean = ip.trim();
+  if (!IPV4_REGEX.test(clean)) return null;
+  const parts = clean.split(".");
+  return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
+}
+
+export function sameProviderSubnetHint(
+  resolved: string[],
+  expected: string[],
+): boolean {
+  if (!hasIPv4Values(resolved) || expected.length === 0) return false;
+  const expPrefixes = new Set(
+    expected
+      .map((e) => {
+        const clean = e.trim();
+        if (clean.includes("/")) return clean;
+        return ipv4To24Prefix(clean);
+      })
+      .filter(Boolean),
+  );
+  if (expPrefixes.size === 0) return false;
+  return resolved.every((ip) => {
+    const p = ipv4To24Prefix(ip);
+    return p !== null && expPrefixes.has(p);
+  });
+}
+
+/**
+ * Checks whether all succeeding resolvers return IPv4s belonging to the same /24 provider ranges
+ * (e.g., Cloudflare 1.1.1.1 sees 216.198.79.1 while Google 8.8.8.8 sees 216.198.79.65).
+ */
+export function resolversShareProviderSubnets(record: DNSRecord): boolean {
+  const succeeded = (record.resolver_results || []).filter(
+    (rr) => rr.success && rr.values.length > 0,
+  );
+  if (succeeded.length < 2) return false;
+  const first = succeeded[0].values;
+  if (!hasIPv4Values(first)) return false;
+  const basePrefixes = new Set(first.map(ipv4To24Prefix).filter(Boolean));
+  if (basePrefixes.size === 0) return false;
+  return succeeded.slice(1).every(
+    (rr) =>
+      hasIPv4Values(rr.values) &&
+      rr.values.every((ip) => {
+        const p = ipv4To24Prefix(ip);
+        return p !== null && basePrefixes.has(p);
+      }),
+  );
+}
+
 export function getDNSHealthState(record: DNSRecord): DNSHealthState {
   const hasValue = Boolean(record.value && record.value.trim().length > 0);
   const hasScanned = Boolean(record.last_scanned_at);
@@ -166,20 +234,46 @@ export function getDNSHealthState(record: DNSRecord): DNSHealthState {
     return "error";
   }
 
+  // If reference matches (including CIDR / provider mode), record is cleanly resolved
+  if (record.matches_expected === true) {
+    return "resolved";
+  }
+
+  const changesLastHour = record.changes_last_hour ?? 0;
   const resolversDisagree = record.propagation_status === "propagating";
   const withinTtl = isWithinTTLWindow(record);
+  const values = parseDNSValues(record.value);
+  const expected = record.expected_values || [];
+
+  // Detect provider IP rotation (vaivén): >= 3 changes in the last hour OR
+  // resolvers returning different edge IPs within the exact same /24 provider subnets
+  const isRotating =
+    changesLastHour >= 3 ||
+    (resolversDisagree && resolversShareProviderSubnets(record)) ||
+    (withinTtl &&
+      changesLastHour >= 2 &&
+      sameProviderSubnetHint(values, expected));
+
+  if (isRotating) {
+    return "rotating";
+  }
+
+  // "Propagando" strictly expires after 1 TTL window (never gets stuck in amber)
+  if (withinTtl) {
+    return "propagating";
+  }
 
   if (resolversDisagree) {
-    return "propagating";
+    // Only treat as propagating if no change timestamp yet or still recent;
+    // once > 1 TTL has elapsed without stabilizing, mark as rotating instead of perpetual amber
+    if (!record.last_change_at) {
+      return "propagating";
+    }
+    return "rotating";
   }
 
   if (record.matches_expected === false) {
-    // Only turn red if mismatch persists beyond TTL window; inside TTL window -> Propagando
-    return withinTtl ? "propagating" : "mismatch";
-  }
-
-  if (withinTtl && record.matches_expected !== true) {
-    return "propagating";
+    return "mismatch";
   }
 
   return "resolved";
@@ -217,40 +311,6 @@ export function parseDNSValues(value: string | null | undefined): string[] {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-}
-
-const IPV4_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/;
-
-export function hasIPv4Values(values: string[]): boolean {
-  return values.length > 0 && values.every((v) => IPV4_REGEX.test(v.trim()));
-}
-
-export function ipv4To24Prefix(ip: string): string | null {
-  const clean = ip.trim();
-  if (!IPV4_REGEX.test(clean)) return null;
-  const parts = clean.split(".");
-  return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
-}
-
-export function sameProviderSubnetHint(
-  resolved: string[],
-  expected: string[],
-): boolean {
-  if (!hasIPv4Values(resolved) || expected.length === 0) return false;
-  const expPrefixes = new Set(
-    expected
-      .map((e) => {
-        const clean = e.trim();
-        if (clean.includes("/")) return clean;
-        return ipv4To24Prefix(clean);
-      })
-      .filter(Boolean),
-  );
-  if (expPrefixes.size === 0) return false;
-  return resolved.every((ip) => {
-    const p = ipv4To24Prefix(ip);
-    return p !== null && expPrefixes.has(p);
-  });
 }
 
 export function getDNSReferenceModeLabel(
@@ -374,6 +434,7 @@ export interface DNSSummaryMetrics {
   errorCount: number;
   mismatchCount: number;
   propagatingCount: number;
+  rotatingCount: number;
   resolvedCount: number;
   avgLatencyMs: number | null;
 }
@@ -384,7 +445,8 @@ export interface DNSRecordGroup {
   records: DNSRecord[];
 }
 
-const DENSITY_STORAGE_KEY = "sentinela_dns_density";
+// v2 key ensures existing sessions pick up the standardized 48px compact default
+const DENSITY_STORAGE_KEY = "sentinela_dns_density_v2";
 
 export function useDNSRecords(
   records: DNSRecord[],
@@ -424,11 +486,11 @@ export function useDNSRecords(
     }
   };
 
-  // Summary metrics across all loaded records matching the 4 unified states
   const summary: DNSSummaryMetrics = useMemo(() => {
     let errorCount = 0;
     let mismatchCount = 0;
     let propagatingCount = 0;
+    let rotatingCount = 0;
     let resolvedCount = 0;
     let latencySum = 0;
     let latencyCount = 0;
@@ -441,6 +503,8 @@ export function useDNSRecords(
         mismatchCount += 1;
       } else if (state === "propagating") {
         propagatingCount += 1;
+      } else if (state === "rotating") {
+        rotatingCount += 1;
       } else if (state === "resolved") {
         resolvedCount += 1;
       }
@@ -455,6 +519,7 @@ export function useDNSRecords(
       errorCount,
       mismatchCount,
       propagatingCount,
+      rotatingCount,
       resolvedCount,
       avgLatencyMs:
         latencyCount > 0 ? Math.round(latencySum / latencyCount) : null,

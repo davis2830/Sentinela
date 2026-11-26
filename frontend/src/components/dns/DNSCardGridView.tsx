@@ -10,6 +10,7 @@ import type { DNSRecordGroup } from "./useDNSRecords";
 
 interface DNSCardGridViewProps {
   groups: DNSRecordGroup[];
+  activeRecordId?: string | null;
   selectedIds: string[];
   scanningId: string | null;
   acceptingRefId: string | null;
@@ -25,6 +26,7 @@ interface DNSCardGridViewProps {
 
 export default function DNSCardGridView({
   groups,
+  activeRecordId = null,
   selectedIds,
   scanningId,
   acceptingRefId,
@@ -73,6 +75,7 @@ export default function DNSCardGridView({
                   <DNSCard
                     key={record.id}
                     record={record}
+                    isActive={activeRecordId === record.id}
                     isSelected={selectedIds.includes(record.id)}
                     isScanning={scanningId === record.id}
                     isAcceptingRef={acceptingRefId === record.id}

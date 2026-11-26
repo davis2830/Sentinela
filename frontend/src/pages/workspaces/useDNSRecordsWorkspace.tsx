@@ -174,9 +174,11 @@ export function useDNSRecordsWorkspace() {
               tone:
                 st === "resolved"
                   ? "success"
-                  : st === "propagating"
-                    ? "warning"
-                    : "danger",
+                  : st === "rotating"
+                    ? "info"
+                    : st === "propagating"
+                      ? "warning"
+                      : "danger",
             };
           },
           onView: (rec) => setSelectedRecord(rec),

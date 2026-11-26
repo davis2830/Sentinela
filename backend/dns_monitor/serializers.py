@@ -8,6 +8,7 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
     """Serializer for DNSRecord model."""
 
     latest_change = serializers.SerializerMethodField()
+    changes_last_hour = serializers.SerializerMethodField()
     linked_targets = serializers.SerializerMethodField()
     suggested_targets = serializers.SerializerMethodField()
 
@@ -26,6 +27,19 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "new_value": latest.new_value,
             "changed_at": latest.changed_at.isoformat() if latest.changed_at else None,
         }
+
+    def get_changes_last_hour(self, instance):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        since = timezone.now() - timedelta(hours=1)
+        cache = getattr(instance, "_prefetched_objects_cache", {})
+        if "change_history" in cache:
+            return sum(
+                1 for item in cache["change_history"]
+                if item.changed_at and item.changed_at >= since
+            )
+        return instance.change_history.filter(changed_at__gte=since).count()
 
     def get_linked_targets(self, instance):
         linked_cache = self.context.setdefault("_dns_linked_targets", {})
@@ -134,6 +148,7 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "reference_updated_at",
             "matches_expected",
             "latest_change",
+            "changes_last_hour",
             "linked_targets",
             "suggested_targets",
             "created_at",
@@ -159,6 +174,7 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "reference_updated_at",
             "matches_expected",
             "latest_change",
+            "changes_last_hour",
             "linked_targets",
             "suggested_targets",
             "created_at",

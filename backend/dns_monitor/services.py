@@ -502,6 +502,23 @@ class DNSMonitorService:
             record.expected_values,
             record.reference_mode,
         )
+        # If reference uses CIDR/provider mode and every succeeding resolver satisfies it,
+        # treat resolver edge-IP variation as consistent rather than perpetual propagation.
+        if (
+            record.reference_mode in (DNSRecord.ReferenceMode.CIDR, DNSRecord.ReferenceMode.PROVIDER)
+            and record.expected_values
+            and resolver_results
+        ):
+            succeeded_rr = [rr for rr in resolver_results if rr.get("success") and rr.get("values")]
+            if succeeded_rr and all(
+                DNSMonitorService._evaluate_reference_match(
+                    rr["values"],
+                    record.expected_values,
+                    record.reference_mode,
+                )
+                for rr in succeeded_rr
+            ):
+                record.propagation_status = "consistent"
         # Compare sets so round-robin IP ordering never triggers false mutations
         value_changed = bool(old_set) and (old_set != new_set)
 

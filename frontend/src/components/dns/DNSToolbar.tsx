@@ -241,6 +241,27 @@ export default function DNSToolbar({
               <span>{summary.propagatingCount} propagando</span>
             </button>
 
+            {/* 3b. Rotando (only shown when provider IP rotation is active) */}
+            {summary.rotatingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => toggleChip("rotating")}
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap !min-h-0 !min-w-0 ${
+                  statusFilter === "rotating"
+                    ? "bg-sky-500 text-black ring-2 ring-sky-500/40"
+                    : "bg-sky-500/15 border border-sky-500/35 text-sky-300 hover:bg-sky-500/25"
+                }`}
+                title="Rotando: el proveedor alterna IPs del mismo rango; considera definir referencia por rango /24"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    statusFilter === "rotating" ? "bg-black" : "bg-sky-400"
+                  }`}
+                />
+                <span>{summary.rotatingCount} rotando</span>
+              </button>
+            )}
+
             {/* 4. Resuelto */}
             <button
               type="button"

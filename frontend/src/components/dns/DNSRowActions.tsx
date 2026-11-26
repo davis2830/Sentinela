@@ -129,7 +129,7 @@ export default function DNSRowActions({
   const visibilityClass =
     isScanning || menuOpen
       ? "opacity-100 pointer-events-auto"
-      : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto transition-opacity duration-150";
+      : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto transition-opacity duration-100";
 
   const wrapperClass =
     variant === "card"
@@ -148,7 +148,7 @@ export default function DNSRowActions({
           }}
           title="Comprobar ahora"
           aria-label={`Comprobar ${record.record_type} ${record.domain} ahora`}
-          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60`}
+          className={`${TABLE_ACTION_BTN} text-text-muted hover:text-accent-green hover:bg-white/10 disabled:opacity-60`}
         >
           <RefreshCw
             size={16}
@@ -165,9 +165,9 @@ export default function DNSRowActions({
             if (e.detail > 0) e.currentTarget.blur();
             onAcceptReference(record);
           }}
-          title="Definir valor actual como referencia"
+          title="Definir como referencia"
           aria-label={`Definir valor actual de ${record.domain} como referencia`}
-          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-emerald-400 hover:bg-white/10 disabled:opacity-60`}
+          className={`${TABLE_ACTION_BTN} text-text-muted hover:text-emerald-400 hover:bg-white/10 disabled:opacity-60`}
         >
           <CheckCircle2 size={16} />
         </button>
@@ -184,7 +184,7 @@ export default function DNSRowActions({
         aria-expanded={menuOpen}
         aria-label={`Más acciones para ${record.record_type} ${record.domain}`}
         title="Más acciones (definir referencia, copiar valores, editar, eliminar)"
-        className={`${TABLE_ACTION_BTN} text-text-dim hover:text-text-main hover:bg-white/10 ${
+        className={`${TABLE_ACTION_BTN} text-text-muted hover:text-text-main hover:bg-white/10 ${
           menuOpen ? "bg-white/10 text-text-main" : ""
         }`}
       >

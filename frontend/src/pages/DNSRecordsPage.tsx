@@ -256,6 +256,7 @@ export default function DNSRecordsPage() {
           <DNSTableView
             groups={groupedRecords}
             allVisibleRecords={sortedRecords}
+            activeRecordId={selectedRecord?.id ?? null}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onToggleSelectAll={handleToggleSelectAllVisible}
@@ -280,6 +281,7 @@ export default function DNSRecordsPage() {
         ) : (
           <DNSCardGridView
             groups={groupedRecords}
+            activeRecordId={selectedRecord?.id ?? null}
             selectedIds={selectedIds}
             scanningId={scanningId}
             acceptingRefId={acceptingRefId}

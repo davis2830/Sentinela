@@ -67,6 +67,7 @@ export interface DNSRecord {
   reference_updated_at?: string | null;
   matches_expected?: boolean | null;
   latest_change?: DNSLatestChange | null;
+  changes_last_hour?: number;
   linked_targets?: DNSLinkedTarget[];
   suggested_targets?: DNSLinkedTarget[];
   created_at: string;

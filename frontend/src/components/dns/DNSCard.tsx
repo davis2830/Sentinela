@@ -26,6 +26,7 @@ import {
 
 interface DNSCardProps {
   record: DNSRecord;
+  isActive?: boolean;
   isSelected: boolean;
   isScanning: boolean;
   isAcceptingRef: boolean;
@@ -48,6 +49,7 @@ interface DNSCardProps {
  */
 export default function DNSCard({
   record,
+  isActive = false,
   isSelected,
   isScanning,
   isAcceptingRef,
@@ -91,9 +93,11 @@ export default function DNSCard({
         }
       }}
       className={`group relative flex flex-col justify-between rounded-2xl border bg-bg-card px-3.5 py-3 transition-all cursor-pointer hover:border-accent-green/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 shadow-sm ${
-        isSelected
-          ? "border-accent-green bg-accent-green/[0.03] ring-1 ring-accent-green/40"
-          : meta.borderClass
+        isActive
+          ? "border-accent-green bg-accent-green/[0.06] ring-1 ring-accent-green/50"
+          : isSelected
+            ? "border-accent-green bg-accent-green/[0.03] ring-1 ring-accent-green/40"
+            : meta.borderClass
       }`}
     >
       <div className="space-y-1.5">
@@ -326,6 +330,10 @@ export default function DNSCard({
                     {record.propagation_status === "propagating"
                       ? "Resolvers en desacuerdo (propagando)"
                       : "Cambio reciente (dentro del TTL)"}
+                  </span>
+                ) : state === "rotating" ? (
+                  <span className="text-sky-300 truncate">
+                    IPs rotativas del proveedor · usa rango /24
                   </span>
                 ) : expectedValues.length > 0 && record.matches_expected ? (
                   <span className="inline-flex items-center gap-1 text-text-muted truncate">
