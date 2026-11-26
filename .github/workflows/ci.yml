@@ -174,7 +174,7 @@ jobs:
           Journal('/data/ci.sqlite3'); assert os.statvfs('/app').f_flag & os.ST_RDONLY"
 
       - name: Scan Senti9 runtime image with Trivy
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: senti9-runtime:ci
@@ -202,7 +202,7 @@ jobs:
           pip-audit -r backend/requirements/base.txt --desc
 
       - name: Scan Dockerfile with Trivy
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: 'config'
           scan-ref: '.'
@@ -247,7 +247,7 @@ jobs:
           docker build -t sentinel-gateway-ci ./docker/nginx
 
       - name: Scan backend image with Trivy
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: sentinel-backend-ci
@@ -255,7 +255,7 @@ jobs:
           exit-code: '1'
 
       - name: Scan frontend image with Trivy
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: sentinel-frontend-ci
@@ -271,7 +271,7 @@ jobs:
             sentinel-gateway-ci nginx -t
 
       - name: Scan gateway image with Trivy
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: sentinel-gateway-ci

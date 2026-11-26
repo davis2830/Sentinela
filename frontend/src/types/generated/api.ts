@@ -50,10 +50,13 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                active_targets_count?: unknown;
                                 assigned_targets_count?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 delivery?: unknown;
+                                down_targets_count?: unknown;
+                                enabled?: boolean;
                                 hostname?: string;
                                 /** Format: uuid */
                                 id?: string;
@@ -61,9 +64,11 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                latest_version?: unknown;
                                 lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                revocation_reason?: string;
                                 /** Format: date-time */
                                 revoked_at?: string | null;
                                 /** @enum {string} */
@@ -129,10 +134,13 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                active_targets_count?: unknown;
                                 assigned_targets_count?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 delivery?: unknown;
+                                down_targets_count?: unknown;
+                                enabled?: boolean;
                                 hostname?: string;
                                 /** Format: uuid */
                                 id?: string;
@@ -140,9 +148,11 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                latest_version?: unknown;
                                 lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                revocation_reason?: string;
                                 /** Format: date-time */
                                 revoked_at?: string | null;
                                 /** @enum {string} */
@@ -168,10 +178,13 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                active_targets_count?: unknown;
                                 assigned_targets_count?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 delivery?: unknown;
+                                down_targets_count?: unknown;
+                                enabled?: boolean;
                                 hostname?: string;
                                 /** Format: uuid */
                                 id?: string;
@@ -179,9 +192,11 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                latest_version?: unknown;
                                 lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                revocation_reason?: string;
                                 /** Format: date-time */
                                 revoked_at?: string | null;
                                 /** @enum {string} */
@@ -463,7 +478,77 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /** AgentProbeDetailView.patch */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    probe_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                active_targets_count?: unknown;
+                                assigned_targets_count?: unknown;
+                                /** Format: date-time */
+                                created_at?: string;
+                                delivery?: unknown;
+                                down_targets_count?: unknown;
+                                enabled?: boolean;
+                                hostname?: string;
+                                /** Format: uuid */
+                                id?: string;
+                                ip_address?: string;
+                                is_online?: boolean;
+                                /** Format: date-time */
+                                last_heartbeat?: string | null;
+                                latest_version?: unknown;
+                                lifecycle?: unknown;
+                                name: string;
+                                os_info?: string;
+                                revocation_reason?: string;
+                                /** Format: date-time */
+                                revoked_at?: string | null;
+                                /** @enum {string} */
+                                status?: "online" | "offline";
+                                telemetry?: unknown;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                version?: unknown;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
         trace?: never;
     };
     "/api/v1/agent-probes/{probe_id}/detail/": {
@@ -493,10 +578,13 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                active_targets_count?: unknown;
                                 assigned_targets_count?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 delivery?: unknown;
+                                down_targets_count?: unknown;
+                                enabled?: boolean;
                                 hostname?: string;
                                 /** Format: uuid */
                                 id?: string;
@@ -504,9 +592,11 @@ export interface paths {
                                 is_online?: boolean;
                                 /** Format: date-time */
                                 last_heartbeat?: string | null;
+                                latest_version?: unknown;
                                 lifecycle?: unknown;
                                 name: string;
                                 os_info?: string;
+                                revocation_reason?: string;
                                 /** Format: date-time */
                                 revoked_at?: string | null;
                                 /** @enum {string} */
@@ -4734,6 +4824,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                changes_last_hour?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
@@ -4749,13 +4840,22 @@ export interface paths {
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
                                 matches_expected?: boolean | null;
                                 organization?: string;
+                                propagation_status?: string;
                                 /** @enum {string} */
                                 record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
                                 resolver?: string;
+                                resolver_results?: unknown;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
+                                suggested_targets?: unknown;
                                 ttl?: number | null;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -4804,6 +4904,8 @@ export interface paths {
                         expected_values?: string[];
                         /** @enum {string} */
                         record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                        /** @enum {string} */
+                        reference_mode?: "exact" | "cidr" | "provider";
                     };
                 };
             };
@@ -4816,6 +4918,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                changes_last_hour?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
@@ -4831,13 +4934,22 @@ export interface paths {
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
                                 matches_expected?: boolean | null;
                                 organization?: string;
+                                propagation_status?: string;
                                 /** @enum {string} */
                                 record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
                                 resolver?: string;
+                                resolver_results?: unknown;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
+                                suggested_targets?: unknown;
                                 ttl?: number | null;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -4859,6 +4971,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                changes_last_hour?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
@@ -4874,13 +4987,22 @@ export interface paths {
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
                                 matches_expected?: boolean | null;
                                 organization?: string;
+                                propagation_status?: string;
                                 /** @enum {string} */
                                 record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
                                 resolver?: string;
+                                resolver_results?: unknown;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
+                                suggested_targets?: unknown;
                                 ttl?: number | null;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5268,6 +5390,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                changes_last_hour?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
@@ -5283,13 +5406,22 @@ export interface paths {
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
                                 matches_expected?: boolean | null;
                                 organization?: string;
+                                propagation_status?: string;
                                 /** @enum {string} */
                                 record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
                                 resolver?: string;
+                                resolver_results?: unknown;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
+                                suggested_targets?: unknown;
                                 ttl?: number | null;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5376,6 +5508,8 @@ export interface paths {
                         expected_values?: string[];
                         /** @enum {string} */
                         record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                        /** @enum {string} */
+                        reference_mode?: "exact" | "cidr" | "provider";
                     };
                 };
             };
@@ -5388,6 +5522,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                changes_last_hour?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 domain: string;
@@ -5403,13 +5538,22 @@ export interface paths {
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
                                 matches_expected?: boolean | null;
                                 organization?: string;
+                                propagation_status?: string;
                                 /** @enum {string} */
                                 record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
                                 resolver?: string;
+                                resolver_results?: unknown;
                                 response_time_ms?: number | null;
                                 scan_availability?: unknown;
+                                suggested_targets?: unknown;
                                 ttl?: number | null;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -5432,6 +5576,154 @@ export interface paths {
                 500: components["responses"]["ApiError"];
             };
         };
+        trace?: never;
+    };
+    "/api/v1/dns-records/{record_id}/accept-reference/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** DNSRecordAcceptReferenceView.post */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    record_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                changes_last_hour?: unknown;
+                                /** Format: date-time */
+                                created_at?: string;
+                                domain: string;
+                                expected_values?: unknown;
+                                /** Format: uuid */
+                                id?: string;
+                                last_attempt_status?: string;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
+                                /** Format: date-time */
+                                last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
+                                matches_expected?: boolean | null;
+                                organization?: string;
+                                propagation_status?: string;
+                                /** @enum {string} */
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
+                                resolver?: string;
+                                resolver_results?: unknown;
+                                response_time_ms?: number | null;
+                                scan_availability?: unknown;
+                                suggested_targets?: unknown;
+                                ttl?: number | null;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                value?: string;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                changes_last_hour?: unknown;
+                                /** Format: date-time */
+                                created_at?: string;
+                                domain: string;
+                                expected_values?: unknown;
+                                /** Format: uuid */
+                                id?: string;
+                                last_attempt_status?: string;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
+                                last_error_code?: string;
+                                last_error_message?: string;
+                                /** Format: date-time */
+                                last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                latest_change?: unknown;
+                                linked_targets?: unknown;
+                                matches_expected?: boolean | null;
+                                organization?: string;
+                                propagation_status?: string;
+                                /** @enum {string} */
+                                record_type: "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+                                /** @enum {string} */
+                                reference_mode?: "exact" | "cidr" | "provider";
+                                /** Format: date-time */
+                                reference_updated_at?: string | null;
+                                resolver?: string;
+                                resolver_results?: unknown;
+                                response_time_ms?: number | null;
+                                scan_availability?: unknown;
+                                suggested_targets?: unknown;
+                                ttl?: number | null;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                value?: string;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/dns-records/{record_id}/history/": {
@@ -5632,33 +5924,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -5702,7 +6009,9 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        auto_renew?: boolean | null;
                         domain: string;
+                        manual_expiration_date?: string | null;
                     };
                 };
             };
@@ -5715,33 +6024,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -5762,33 +6086,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -5913,33 +6252,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -5996,33 +6350,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -6190,6 +6559,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/domains/suggestions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** DomainSuggestionsView.get */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: unknown;
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/domains/test-whois/": {
         parameters: {
             query?: never;
@@ -6289,33 +6708,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -6410,33 +6844,48 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
                                 /** Format: date-time */
                                 created_at?: string;
                                 /** Format: date-time */
                                 creation_date?: string | null;
                                 data_source?: string;
                                 days_until_expiration?: number | null;
+                                dependencies?: unknown;
                                 dnssec?: string;
                                 domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
                                 error_message?: string;
                                 /** Format: date-time */
                                 expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
                                 /** Format: date-time */
                                 last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
                                 name_servers?: string;
+                                ns_health?: unknown;
                                 organization?: string;
+                                recent_changes?: unknown;
                                 registrant_country?: string;
                                 registrar?: string;
                                 scan_availability?: unknown;
                                 source_url?: string;
                                 status?: string;
+                                suggested_targets?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
                                 whois_server?: string;
@@ -6458,6 +6907,235 @@ export interface paths {
                 500: components["responses"]["ApiError"];
             };
         };
+        trace?: never;
+    };
+    "/api/v1/domains/{domain_id}/acknowledge-changes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** DomainAcknowledgeChangesView.post */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    domain_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                creation_date?: string | null;
+                                data_source?: string;
+                                days_until_expiration?: number | null;
+                                dependencies?: unknown;
+                                dnssec?: string;
+                                domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
+                                error_message?: string;
+                                /** Format: date-time */
+                                expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
+                                /** Format: uuid */
+                                id?: string;
+                                is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
+                                /** Format: date-time */
+                                last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                /** Format: date-time */
+                                last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
+                                name_servers?: string;
+                                ns_health?: unknown;
+                                organization?: string;
+                                recent_changes?: unknown;
+                                registrant_country?: string;
+                                registrar?: string;
+                                scan_availability?: unknown;
+                                source_url?: string;
+                                status?: string;
+                                suggested_targets?: unknown;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                whois_server?: string;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                alert_summary?: unknown;
+                                auto_renew?: boolean | null;
+                                /** Format: date-time */
+                                changes_acknowledged_at?: string | null;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                creation_date?: string | null;
+                                data_source?: string;
+                                days_until_expiration?: number | null;
+                                dependencies?: unknown;
+                                dnssec?: string;
+                                domain: string;
+                                effective_days_until_expiration?: unknown;
+                                effective_expiration_date?: unknown;
+                                error_message?: string;
+                                /** Format: date-time */
+                                expiration_date?: string | null;
+                                has_unacknowledged_changes?: unknown;
+                                /** Format: uuid */
+                                id?: string;
+                                is_locked?: boolean | null;
+                                /** Format: date-time */
+                                last_change_at?: string | null;
+                                /** Format: date-time */
+                                last_scanned_at?: string | null;
+                                /** Format: date-time */
+                                last_successful_at?: string | null;
+                                /** Format: date-time */
+                                last_updated?: string | null;
+                                linked_targets?: unknown;
+                                manual_expiration_date?: string | null;
+                                name_servers?: string;
+                                ns_health?: unknown;
+                                organization?: string;
+                                recent_changes?: unknown;
+                                registrant_country?: string;
+                                registrar?: string;
+                                scan_availability?: unknown;
+                                source_url?: string;
+                                status?: string;
+                                suggested_targets?: unknown;
+                                /** Format: date-time */
+                                updated_at?: string;
+                                whois_server?: string;
+                            };
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/domains/{domain_id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** DomainChangeHistoryView.get */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    domain_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Respuesta del endpoint (datos dinámicos desconocidos requieren validación). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** Format: date-time */
+                                changed_at?: string;
+                                /** @enum {string} */
+                                field_name?: "registrar" | "name_servers" | "is_locked" | "status" | "expiration_date";
+                                /** Format: uuid */
+                                id?: string;
+                                new_value?: string;
+                                old_value?: string;
+                            }[];
+                            message?: string;
+                            meta?: {
+                                [key: string]: unknown;
+                            };
+                            success: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["ApiError"];
+                401: components["responses"]["ApiError"];
+                403: components["responses"]["ApiError"];
+                404: components["responses"]["ApiError"];
+                409: components["responses"]["ApiError"];
+                429: components["responses"]["LimitedError"];
+                500: components["responses"]["ApiError"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/domains/{domain_id}/scan/": {
@@ -9184,13 +9862,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -9202,7 +9884,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -9218,6 +9904,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             }[];
                             message?: string;
                             meta?: {
@@ -9291,13 +9978,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -9309,7 +10000,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -9325,6 +10020,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -9343,13 +10039,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -9361,7 +10061,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -9377,6 +10081,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -9870,13 +10575,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -9888,7 +10597,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -9904,6 +10617,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -10013,13 +10727,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -10031,7 +10749,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -10047,6 +10769,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -10656,13 +11379,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -10674,7 +11401,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -10690,6 +11421,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             }[];
                             message?: string;
                             meta?: {
@@ -10763,13 +11495,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -10781,7 +11517,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -10797,6 +11537,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -10815,13 +11556,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -10833,7 +11578,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -10849,6 +11598,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -11342,13 +12092,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -11360,7 +12114,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -11376,6 +12134,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -11485,13 +12244,17 @@ export interface paths {
                         "application/json": {
                             data: {
                                 agent_probe?: string | null;
+                                agent_probe_enabled?: boolean | null;
                                 agent_probe_name?: string | null;
                                 agent_probe_online?: boolean | null;
                                 agent_probe_status?: string | null;
+                                checks_24h?: unknown;
+                                coverage_24h_pct?: unknown;
                                 coverage_status?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 custom_headers?: unknown;
+                                down_since?: unknown;
                                 enabled?: boolean;
                                 endpoint: string;
                                 expected_status?: number;
@@ -11503,7 +12266,11 @@ export interface paths {
                                 last_checked_at?: string | null;
                                 last_latency?: number | null;
                                 last_status?: string | null;
+                                linked_dns_count?: unknown;
+                                linked_ssl_count?: unknown;
+                                linked_ssl_domain?: unknown;
                                 max_latency_ms?: number;
+                                monitored_minutes_24h?: unknown;
                                 name: string;
                                 organization?: string;
                                 owner_team?: string | null;
@@ -11519,6 +12286,7 @@ export interface paths {
                                 target_type?: "http" | "https" | "tcp" | "dns" | "api" | "ssl";
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                             };
                             message?: string;
                             meta?: {
@@ -18217,6 +18985,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -18229,20 +18998,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -18300,6 +19073,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -18312,20 +19086,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -18346,6 +19124,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -18358,20 +19137,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -18496,6 +19279,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -18508,20 +19292,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -18578,6 +19366,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -18590,20 +19379,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -18870,6 +19663,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -18882,20 +19676,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;
@@ -18990,6 +19788,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_summary?: unknown;
                                 algorithm?: string;
                                 /** Format: date-time */
                                 created_at?: string;
@@ -19002,20 +19801,24 @@ export interface paths {
                                 /** Format: uuid */
                                 id?: string;
                                 is_valid?: boolean;
+                                issuance_history?: unknown;
                                 /** Format: date-time */
                                 issued_at?: string | null;
                                 issuer?: string;
+                                key_info?: string;
                                 last_error_code?: string;
                                 /** Format: date-time */
                                 last_scanned_at?: string | null;
                                 /** Format: date-time */
                                 last_successful_at?: string | null;
+                                linked_targets?: unknown;
                                 organization?: string;
                                 port?: number;
                                 san_domains?: unknown;
                                 scan_availability?: unknown;
                                 security_grade?: string;
                                 subject?: string;
+                                suggested_targets?: unknown;
                                 tls_version?: string;
                                 /** Format: date-time */
                                 updated_at?: string;

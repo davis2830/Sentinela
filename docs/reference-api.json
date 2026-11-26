@@ -154,12 +154,17 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "active_targets_count": {},
                           "assigned_targets_count": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
                           },
                           "delivery": {},
+                          "down_targets_count": {},
+                          "enabled": {
+                            "type": "boolean"
+                          },
                           "hostname": {
                             "type": "string"
                           },
@@ -178,11 +183,15 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "latest_version": {},
                           "lifecycle": {},
                           "name": {
                             "type": "string"
                           },
                           "os_info": {
+                            "type": "string"
+                          },
+                          "revocation_reason": {
                             "type": "string"
                           },
                           "revoked_at": {
@@ -353,12 +362,17 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "active_targets_count": {},
                         "assigned_targets_count": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "delivery": {},
+                        "down_targets_count": {},
+                        "enabled": {
+                          "type": "boolean"
+                        },
                         "hostname": {
                           "type": "string"
                         },
@@ -377,11 +391,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_version": {},
                         "lifecycle": {},
                         "name": {
                           "type": "string"
                         },
                         "os_info": {
+                          "type": "string"
+                        },
+                        "revocation_reason": {
                           "type": "string"
                         },
                         "revoked_at": {
@@ -436,12 +454,17 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "active_targets_count": {},
                         "assigned_targets_count": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "delivery": {},
+                        "down_targets_count": {},
+                        "enabled": {
+                          "type": "boolean"
+                        },
                         "hostname": {
                           "type": "string"
                         },
@@ -460,11 +483,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_version": {},
                         "lifecycle": {},
                         "name": {
                           "type": "string"
                         },
                         "os_info": {
+                          "type": "string"
+                        },
+                        "revocation_reason": {
                           "type": "string"
                         },
                         "revoked_at": {
@@ -879,6 +906,152 @@
         "x-permission-classes": [
           "IsAuthenticated"
         ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "probe_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "active_targets_count": {},
+                        "assigned_targets_count": {},
+                        "created_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "delivery": {},
+                        "down_targets_count": {},
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "hostname": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "ip_address": {
+                          "type": "string"
+                        },
+                        "is_online": {
+                          "type": "boolean"
+                        },
+                        "last_heartbeat": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "latest_version": {},
+                        "lifecycle": {},
+                        "name": {
+                          "type": "string"
+                        },
+                        "os_info": {
+                          "type": "string"
+                        },
+                        "revocation_reason": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "online",
+                            "offline"
+                          ],
+                          "type": "string"
+                        },
+                        "telemetry": {},
+                        "updated_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "version": {}
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "AgentProbeDetailView.patch",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "monitoring.views.AgentProbeDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
       }
     },
     "/api/v1/agent-probes/{probe_id}/detail/": {
@@ -901,12 +1074,17 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "active_targets_count": {},
                         "assigned_targets_count": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "delivery": {},
+                        "down_targets_count": {},
+                        "enabled": {
+                          "type": "boolean"
+                        },
                         "hostname": {
                           "type": "string"
                         },
@@ -925,11 +1103,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_version": {},
                         "lifecycle": {},
                         "name": {
                           "type": "string"
                         },
                         "os_info": {
+                          "type": "string"
+                        },
+                        "revocation_reason": {
                           "type": "string"
                         },
                         "revoked_at": {
@@ -8768,6 +8950,7 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "changes_last_hour": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -8804,11 +8987,16 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "latest_change": {},
+                          "linked_targets": {},
                           "matches_expected": {
                             "nullable": true,
                             "type": "boolean"
                           },
                           "organization": {
+                            "type": "string"
+                          },
+                          "propagation_status": {
                             "type": "string"
                           },
                           "record_type": {
@@ -8826,14 +9014,29 @@
                             ],
                             "type": "string"
                           },
+                          "reference_mode": {
+                            "enum": [
+                              "exact",
+                              "cidr",
+                              "provider"
+                            ],
+                            "type": "string"
+                          },
+                          "reference_updated_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "resolver": {
                             "type": "string"
                           },
+                          "resolver_results": {},
                           "response_time_ms": {
                             "nullable": true,
                             "type": "number"
                           },
                           "scan_availability": {},
+                          "suggested_targets": {},
                           "ttl": {
                             "nullable": true,
                             "type": "integer"
@@ -8984,6 +9187,14 @@
                       "SRV"
                     ],
                     "type": "string"
+                  },
+                  "reference_mode": {
+                    "enum": [
+                      "exact",
+                      "cidr",
+                      "provider"
+                    ],
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -9004,6 +9215,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -9040,11 +9252,16 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_change": {},
+                        "linked_targets": {},
                         "matches_expected": {
                           "nullable": true,
                           "type": "boolean"
                         },
                         "organization": {
+                          "type": "string"
+                        },
+                        "propagation_status": {
                           "type": "string"
                         },
                         "record_type": {
@@ -9062,14 +9279,29 @@
                           ],
                           "type": "string"
                         },
+                        "reference_mode": {
+                          "enum": [
+                            "exact",
+                            "cidr",
+                            "provider"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_updated_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "resolver": {
                           "type": "string"
                         },
+                        "resolver_results": {},
                         "response_time_ms": {
                           "nullable": true,
                           "type": "number"
                         },
                         "scan_availability": {},
+                        "suggested_targets": {},
                         "ttl": {
                           "nullable": true,
                           "type": "integer"
@@ -9116,6 +9348,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -9152,11 +9385,16 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_change": {},
+                        "linked_targets": {},
                         "matches_expected": {
                           "nullable": true,
                           "type": "boolean"
                         },
                         "organization": {
+                          "type": "string"
+                        },
+                        "propagation_status": {
                           "type": "string"
                         },
                         "record_type": {
@@ -9174,14 +9412,29 @@
                           ],
                           "type": "string"
                         },
+                        "reference_mode": {
+                          "enum": [
+                            "exact",
+                            "cidr",
+                            "provider"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_updated_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "resolver": {
                           "type": "string"
                         },
+                        "resolver_results": {},
                         "response_time_ms": {
                           "nullable": true,
                           "type": "number"
                         },
                         "scan_availability": {},
+                        "suggested_targets": {},
                         "ttl": {
                           "nullable": true,
                           "type": "integer"
@@ -9816,6 +10069,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -9852,11 +10106,16 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_change": {},
+                        "linked_targets": {},
                         "matches_expected": {
                           "nullable": true,
                           "type": "boolean"
                         },
                         "organization": {
+                          "type": "string"
+                        },
+                        "propagation_status": {
                           "type": "string"
                         },
                         "record_type": {
@@ -9874,14 +10133,29 @@
                           ],
                           "type": "string"
                         },
+                        "reference_mode": {
+                          "enum": [
+                            "exact",
+                            "cidr",
+                            "provider"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_updated_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "resolver": {
                           "type": "string"
                         },
+                        "resolver_results": {},
                         "response_time_ms": {
                           "nullable": true,
                           "type": "number"
                         },
                         "scan_availability": {},
+                        "suggested_targets": {},
                         "ttl": {
                           "nullable": true,
                           "type": "integer"
@@ -9992,6 +10266,14 @@
                       "SRV"
                     ],
                     "type": "string"
+                  },
+                  "reference_mode": {
+                    "enum": [
+                      "exact",
+                      "cidr",
+                      "provider"
+                    ],
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -10011,6 +10293,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -10047,11 +10330,16 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "latest_change": {},
+                        "linked_targets": {},
                         "matches_expected": {
                           "nullable": true,
                           "type": "boolean"
                         },
                         "organization": {
+                          "type": "string"
+                        },
+                        "propagation_status": {
                           "type": "string"
                         },
                         "record_type": {
@@ -10069,14 +10357,29 @@
                           ],
                           "type": "string"
                         },
+                        "reference_mode": {
+                          "enum": [
+                            "exact",
+                            "cidr",
+                            "provider"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_updated_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "resolver": {
                           "type": "string"
                         },
+                        "resolver_results": {},
                         "response_time_ms": {
                           "nullable": true,
                           "type": "number"
                         },
                         "scan_availability": {},
+                        "suggested_targets": {},
                         "ttl": {
                           "nullable": true,
                           "type": "integer"
@@ -10144,6 +10447,329 @@
           "SentinelJWTAuthentication"
         ],
         "x-handler": "dns_monitor.views.DNSRecordDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/dns-records/{record_id}/accept-reference/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "changes_last_hour": {},
+                        "created_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "string"
+                        },
+                        "expected_values": {},
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "last_attempt_status": {
+                          "type": "string"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_error_code": {
+                          "type": "string"
+                        },
+                        "last_error_message": {
+                          "type": "string"
+                        },
+                        "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "latest_change": {},
+                        "linked_targets": {},
+                        "matches_expected": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "organization": {
+                          "type": "string"
+                        },
+                        "propagation_status": {
+                          "type": "string"
+                        },
+                        "record_type": {
+                          "enum": [
+                            "A",
+                            "AAAA",
+                            "MX",
+                            "TXT",
+                            "NS",
+                            "CNAME",
+                            "SOA",
+                            "PTR",
+                            "CAA",
+                            "SRV"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_mode": {
+                          "enum": [
+                            "exact",
+                            "cidr",
+                            "provider"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_updated_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "resolver": {
+                          "type": "string"
+                        },
+                        "resolver_results": {},
+                        "response_time_ms": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "scan_availability": {},
+                        "suggested_targets": {},
+                        "ttl": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "domain",
+                        "record_type"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "changes_last_hour": {},
+                        "created_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "string"
+                        },
+                        "expected_values": {},
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "last_attempt_status": {
+                          "type": "string"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_error_code": {
+                          "type": "string"
+                        },
+                        "last_error_message": {
+                          "type": "string"
+                        },
+                        "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "latest_change": {},
+                        "linked_targets": {},
+                        "matches_expected": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "organization": {
+                          "type": "string"
+                        },
+                        "propagation_status": {
+                          "type": "string"
+                        },
+                        "record_type": {
+                          "enum": [
+                            "A",
+                            "AAAA",
+                            "MX",
+                            "TXT",
+                            "NS",
+                            "CNAME",
+                            "SOA",
+                            "PTR",
+                            "CAA",
+                            "SRV"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_mode": {
+                          "enum": [
+                            "exact",
+                            "cidr",
+                            "provider"
+                          ],
+                          "type": "string"
+                        },
+                        "reference_updated_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "resolver": {
+                          "type": "string"
+                        },
+                        "resolver_results": {},
+                        "response_time_ms": {
+                          "nullable": true,
+                          "type": "number"
+                        },
+                        "scan_availability": {},
+                        "suggested_targets": {},
+                        "ttl": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "updated_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "domain",
+                        "record_type"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "DNSRecordAcceptReferenceView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "dns_monitor.views.DNSRecordAcceptReferenceView.post",
         "x-permission-classes": [
           "IsAuthenticated"
         ]
@@ -10485,6 +11111,16 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
+                          "auto_renew": {
+                            "nullable": true,
+                            "type": "boolean"
+                          },
+                          "changes_acknowledged_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -10501,12 +11137,15 @@
                             "nullable": true,
                             "type": "integer"
                           },
+                          "dependencies": {},
                           "dnssec": {
                             "type": "string"
                           },
                           "domain": {
                             "type": "string"
                           },
+                          "effective_days_until_expiration": {},
+                          "effective_expiration_date": {},
                           "error_message": {
                             "type": "string"
                           },
@@ -10515,6 +11154,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "has_unacknowledged_changes": {},
                           "id": {
                             "format": "uuid",
                             "type": "string"
@@ -10522,6 +11162,11 @@
                           "is_locked": {
                             "nullable": true,
                             "type": "boolean"
+                          },
+                          "last_change_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
                           },
                           "last_scanned_at": {
                             "format": "date-time",
@@ -10538,12 +11183,19 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_targets": {},
+                          "manual_expiration_date": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "name_servers": {
                             "type": "string"
                           },
+                          "ns_health": {},
                           "organization": {
                             "type": "string"
                           },
+                          "recent_changes": {},
                           "registrant_country": {
                             "type": "string"
                           },
@@ -10557,6 +11209,7 @@
                           "status": {
                             "type": "string"
                           },
+                          "suggested_targets": {},
                           "updated_at": {
                             "format": "date-time",
                             "type": "string"
@@ -10679,7 +11332,15 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "auto_renew": {
+                    "nullable": true,
+                    "type": "boolean"
+                  },
                   "domain": {
+                    "type": "string"
+                  },
+                  "manual_expiration_date": {
+                    "nullable": true,
                     "type": "string"
                   }
                 },
@@ -10700,6 +11361,16 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
+                        "auto_renew": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "changes_acknowledged_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -10716,12 +11387,15 @@
                           "nullable": true,
                           "type": "integer"
                         },
+                        "dependencies": {},
                         "dnssec": {
                           "type": "string"
                         },
                         "domain": {
                           "type": "string"
                         },
+                        "effective_days_until_expiration": {},
+                        "effective_expiration_date": {},
                         "error_message": {
                           "type": "string"
                         },
@@ -10730,6 +11404,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "has_unacknowledged_changes": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -10737,6 +11412,11 @@
                         "is_locked": {
                           "nullable": true,
                           "type": "boolean"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
                         },
                         "last_scanned_at": {
                           "format": "date-time",
@@ -10753,12 +11433,19 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
+                        "manual_expiration_date": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name_servers": {
                           "type": "string"
                         },
+                        "ns_health": {},
                         "organization": {
                           "type": "string"
                         },
+                        "recent_changes": {},
                         "registrant_country": {
                           "type": "string"
                         },
@@ -10772,6 +11459,7 @@
                         "status": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
@@ -10813,6 +11501,16 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
+                        "auto_renew": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "changes_acknowledged_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -10829,12 +11527,15 @@
                           "nullable": true,
                           "type": "integer"
                         },
+                        "dependencies": {},
                         "dnssec": {
                           "type": "string"
                         },
                         "domain": {
                           "type": "string"
                         },
+                        "effective_days_until_expiration": {},
+                        "effective_expiration_date": {},
                         "error_message": {
                           "type": "string"
                         },
@@ -10843,6 +11544,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "has_unacknowledged_changes": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -10850,6 +11552,11 @@
                         "is_locked": {
                           "nullable": true,
                           "type": "boolean"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
                         },
                         "last_scanned_at": {
                           "format": "date-time",
@@ -10866,12 +11573,19 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
+                        "manual_expiration_date": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name_servers": {
                           "type": "string"
                         },
+                        "ns_health": {},
                         "organization": {
                           "type": "string"
                         },
+                        "recent_changes": {},
                         "registrant_country": {
                           "type": "string"
                         },
@@ -10885,6 +11599,7 @@
                         "status": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
@@ -11066,6 +11781,16 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
+                          "auto_renew": {
+                            "nullable": true,
+                            "type": "boolean"
+                          },
+                          "changes_acknowledged_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -11082,12 +11807,15 @@
                             "nullable": true,
                             "type": "integer"
                           },
+                          "dependencies": {},
                           "dnssec": {
                             "type": "string"
                           },
                           "domain": {
                             "type": "string"
                           },
+                          "effective_days_until_expiration": {},
+                          "effective_expiration_date": {},
                           "error_message": {
                             "type": "string"
                           },
@@ -11096,6 +11824,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "has_unacknowledged_changes": {},
                           "id": {
                             "format": "uuid",
                             "type": "string"
@@ -11103,6 +11832,11 @@
                           "is_locked": {
                             "nullable": true,
                             "type": "boolean"
+                          },
+                          "last_change_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
                           },
                           "last_scanned_at": {
                             "format": "date-time",
@@ -11119,12 +11853,19 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_targets": {},
+                          "manual_expiration_date": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "name_servers": {
                             "type": "string"
                           },
+                          "ns_health": {},
                           "organization": {
                             "type": "string"
                           },
+                          "recent_changes": {},
                           "registrant_country": {
                             "type": "string"
                           },
@@ -11138,6 +11879,7 @@
                           "status": {
                             "type": "string"
                           },
+                          "suggested_targets": {},
                           "updated_at": {
                             "format": "date-time",
                             "type": "string"
@@ -11227,6 +11969,16 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
+                          "auto_renew": {
+                            "nullable": true,
+                            "type": "boolean"
+                          },
+                          "changes_acknowledged_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -11243,12 +11995,15 @@
                             "nullable": true,
                             "type": "integer"
                           },
+                          "dependencies": {},
                           "dnssec": {
                             "type": "string"
                           },
                           "domain": {
                             "type": "string"
                           },
+                          "effective_days_until_expiration": {},
+                          "effective_expiration_date": {},
                           "error_message": {
                             "type": "string"
                           },
@@ -11257,6 +12012,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "has_unacknowledged_changes": {},
                           "id": {
                             "format": "uuid",
                             "type": "string"
@@ -11264,6 +12020,11 @@
                           "is_locked": {
                             "nullable": true,
                             "type": "boolean"
+                          },
+                          "last_change_at": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
                           },
                           "last_scanned_at": {
                             "format": "date-time",
@@ -11280,12 +12041,19 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_targets": {},
+                          "manual_expiration_date": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "name_servers": {
                             "type": "string"
                           },
+                          "ns_health": {},
                           "organization": {
                             "type": "string"
                           },
+                          "recent_changes": {},
                           "registrant_country": {
                             "type": "string"
                           },
@@ -11299,6 +12067,7 @@
                           "status": {
                             "type": "string"
                           },
+                          "suggested_targets": {},
                           "updated_at": {
                             "format": "date-time",
                             "type": "string"
@@ -11561,6 +12330,70 @@
         ]
       }
     },
+    "/api/v1/domains/suggestions/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {},
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "DomainSuggestionsView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainSuggestionsView.get",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
     "/api/v1/domains/test-whois/": {
       "post": {
         "parameters": [],
@@ -11764,6 +12597,16 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
+                        "auto_renew": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "changes_acknowledged_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -11780,12 +12623,15 @@
                           "nullable": true,
                           "type": "integer"
                         },
+                        "dependencies": {},
                         "dnssec": {
                           "type": "string"
                         },
                         "domain": {
                           "type": "string"
                         },
+                        "effective_days_until_expiration": {},
+                        "effective_expiration_date": {},
                         "error_message": {
                           "type": "string"
                         },
@@ -11794,6 +12640,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "has_unacknowledged_changes": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -11801,6 +12648,11 @@
                         "is_locked": {
                           "nullable": true,
                           "type": "boolean"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
                         },
                         "last_scanned_at": {
                           "format": "date-time",
@@ -11817,12 +12669,19 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
+                        "manual_expiration_date": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name_servers": {
                           "type": "string"
                         },
+                        "ns_health": {},
                         "organization": {
                           "type": "string"
                         },
+                        "recent_changes": {},
                         "registrant_country": {
                           "type": "string"
                         },
@@ -11836,6 +12695,7 @@
                         "status": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
@@ -11931,6 +12791,16 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
+                        "auto_renew": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "changes_acknowledged_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -11947,12 +12817,15 @@
                           "nullable": true,
                           "type": "integer"
                         },
+                        "dependencies": {},
                         "dnssec": {
                           "type": "string"
                         },
                         "domain": {
                           "type": "string"
                         },
+                        "effective_days_until_expiration": {},
+                        "effective_expiration_date": {},
                         "error_message": {
                           "type": "string"
                         },
@@ -11961,6 +12834,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "has_unacknowledged_changes": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -11968,6 +12842,11 @@
                         "is_locked": {
                           "nullable": true,
                           "type": "boolean"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
                         },
                         "last_scanned_at": {
                           "format": "date-time",
@@ -11984,12 +12863,19 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
+                        "manual_expiration_date": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "name_servers": {
                           "type": "string"
                         },
+                        "ns_health": {},
                         "organization": {
                           "type": "string"
                         },
+                        "recent_changes": {},
                         "registrant_country": {
                           "type": "string"
                         },
@@ -12003,6 +12889,7 @@
                         "status": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
@@ -12065,6 +12952,454 @@
           "SentinelJWTAuthentication"
         ],
         "x-handler": "domain.views.DomainDetailView.patch",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/{domain_id}/acknowledge-changes/": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "alert_summary": {},
+                        "auto_renew": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "changes_acknowledged_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "creation_date": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "data_source": {
+                          "type": "string"
+                        },
+                        "days_until_expiration": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "dependencies": {},
+                        "dnssec": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "string"
+                        },
+                        "effective_days_until_expiration": {},
+                        "effective_expiration_date": {},
+                        "error_message": {
+                          "type": "string"
+                        },
+                        "expiration_date": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "has_unacknowledged_changes": {},
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "is_locked": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_updated": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "linked_targets": {},
+                        "manual_expiration_date": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name_servers": {
+                          "type": "string"
+                        },
+                        "ns_health": {},
+                        "organization": {
+                          "type": "string"
+                        },
+                        "recent_changes": {},
+                        "registrant_country": {
+                          "type": "string"
+                        },
+                        "registrar": {
+                          "type": "string"
+                        },
+                        "scan_availability": {},
+                        "source_url": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "suggested_targets": {},
+                        "updated_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "whois_server": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "domain"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {
+                        "alert_summary": {},
+                        "auto_renew": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "changes_acknowledged_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "creation_date": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "data_source": {
+                          "type": "string"
+                        },
+                        "days_until_expiration": {
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "dependencies": {},
+                        "dnssec": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "string"
+                        },
+                        "effective_days_until_expiration": {},
+                        "effective_expiration_date": {},
+                        "error_message": {
+                          "type": "string"
+                        },
+                        "expiration_date": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "has_unacknowledged_changes": {},
+                        "id": {
+                          "format": "uuid",
+                          "type": "string"
+                        },
+                        "is_locked": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
+                        "last_change_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_scanned_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_successful_at": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "last_updated": {
+                          "format": "date-time",
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "linked_targets": {},
+                        "manual_expiration_date": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name_servers": {
+                          "type": "string"
+                        },
+                        "ns_health": {},
+                        "organization": {
+                          "type": "string"
+                        },
+                        "recent_changes": {},
+                        "registrant_country": {
+                          "type": "string"
+                        },
+                        "registrar": {
+                          "type": "string"
+                        },
+                        "scan_availability": {},
+                        "source_url": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "suggested_targets": {},
+                        "updated_at": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "whois_server": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "domain"
+                      ],
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "DomainAcknowledgeChangesView.post",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainAcknowledgeChangesView.post",
+        "x-permission-classes": [
+          "IsAuthenticated"
+        ]
+      }
+    },
+    "/api/v1/domains/{domain_id}/history/": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "properties": {
+                          "changed_at": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "field_name": {
+                            "enum": [
+                              "registrar",
+                              "name_servers",
+                              "is_locked",
+                              "status",
+                              "expiration_date"
+                            ],
+                            "type": "string"
+                          },
+                          "id": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "new_value": {
+                            "type": "string"
+                          },
+                          "old_value": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Respuesta del endpoint (datos dinámicos desconocidos requieren validación)."
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "429": {
+            "$ref": "#/components/responses/LimitedError"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        },
+        "summary": "DomainChangeHistoryView.get",
+        "x-authentication-classes": [
+          "SentinelAPITokenAuthentication",
+          "SentinelJWTAuthentication"
+        ],
+        "x-handler": "domain.views.DomainChangeHistoryView.get",
         "x-permission-classes": [
           "IsAuthenticated"
         ]
@@ -18167,6 +19502,10 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "agent_probe_enabled": {
+                            "nullable": true,
+                            "type": "boolean"
+                          },
                           "agent_probe_name": {
                             "nullable": true,
                             "type": "string"
@@ -18179,12 +19518,15 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "checks_24h": {},
+                          "coverage_24h_pct": {},
                           "coverage_status": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
                           },
                           "custom_headers": {},
+                          "down_since": {},
                           "enabled": {
                             "type": "boolean"
                           },
@@ -18217,9 +19559,13 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_dns_count": {},
+                          "linked_ssl_count": {},
+                          "linked_ssl_domain": {},
                           "max_latency_ms": {
                             "type": "integer"
                           },
+                          "monitored_minutes_24h": {},
                           "name": {
                             "type": "string"
                           },
@@ -18265,7 +19611,8 @@
                           "updated_at": {
                             "format": "date-time",
                             "type": "string"
-                          }
+                          },
+                          "uptime_24h": {}
                         },
                         "required": [
                           "name",
@@ -18481,6 +19828,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -18493,12 +19844,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -18531,9 +19885,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -18579,7 +19937,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -18619,6 +19978,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -18631,12 +19994,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -18669,9 +20035,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -18717,7 +20087,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -19545,6 +20916,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -19557,12 +20932,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -19595,9 +20973,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -19643,7 +21025,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -19797,6 +21180,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -19809,12 +21196,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -19847,9 +21237,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -19895,7 +21289,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -20952,6 +22347,10 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "agent_probe_enabled": {
+                            "nullable": true,
+                            "type": "boolean"
+                          },
                           "agent_probe_name": {
                             "nullable": true,
                             "type": "string"
@@ -20964,12 +22363,15 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "checks_24h": {},
+                          "coverage_24h_pct": {},
                           "coverage_status": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
                           },
                           "custom_headers": {},
+                          "down_since": {},
                           "enabled": {
                             "type": "boolean"
                           },
@@ -21002,9 +22404,13 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_dns_count": {},
+                          "linked_ssl_count": {},
+                          "linked_ssl_domain": {},
                           "max_latency_ms": {
                             "type": "integer"
                           },
+                          "monitored_minutes_24h": {},
                           "name": {
                             "type": "string"
                           },
@@ -21050,7 +22456,8 @@
                           "updated_at": {
                             "format": "date-time",
                             "type": "string"
-                          }
+                          },
+                          "uptime_24h": {}
                         },
                         "required": [
                           "name",
@@ -21266,6 +22673,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -21278,12 +22689,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -21316,9 +22730,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -21364,7 +22782,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -21404,6 +22823,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -21416,12 +22839,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -21454,9 +22880,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -21502,7 +22932,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -22330,6 +23761,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -22342,12 +23777,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -22380,9 +23818,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -22428,7 +23870,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -22582,6 +24025,10 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_probe_enabled": {
+                          "nullable": true,
+                          "type": "boolean"
+                        },
                         "agent_probe_name": {
                           "nullable": true,
                           "type": "string"
@@ -22594,12 +24041,15 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "checks_24h": {},
+                        "coverage_24h_pct": {},
                         "coverage_status": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
                         },
                         "custom_headers": {},
+                        "down_since": {},
                         "enabled": {
                           "type": "boolean"
                         },
@@ -22632,9 +24082,13 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_dns_count": {},
+                        "linked_ssl_count": {},
+                        "linked_ssl_domain": {},
                         "max_latency_ms": {
                           "type": "integer"
                         },
+                        "monitored_minutes_24h": {},
                         "name": {
                           "type": "string"
                         },
@@ -22680,7 +24134,8 @@
                         "updated_at": {
                           "format": "date-time",
                           "type": "string"
-                        }
+                        },
+                        "uptime_24h": {}
                       },
                       "required": [
                         "name",
@@ -35618,6 +37073,7 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
                           "algorithm": {
                             "type": "string"
                           },
@@ -35650,12 +37106,16 @@
                           "is_valid": {
                             "type": "boolean"
                           },
+                          "issuance_history": {},
                           "issued_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
                           },
                           "issuer": {
+                            "type": "string"
+                          },
+                          "key_info": {
                             "type": "string"
                           },
                           "last_error_code": {
@@ -35671,6 +37131,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_targets": {},
                           "organization": {
                             "type": "string"
                           },
@@ -35685,6 +37146,7 @@
                           "subject": {
                             "type": "string"
                           },
+                          "suggested_targets": {},
                           "tls_version": {
                             "type": "string"
                           },
@@ -35831,6 +37293,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "algorithm": {
                           "type": "string"
                         },
@@ -35863,12 +37326,16 @@
                         "is_valid": {
                           "type": "boolean"
                         },
+                        "issuance_history": {},
                         "issued_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
                         },
                         "issuer": {
+                          "type": "string"
+                        },
+                        "key_info": {
                           "type": "string"
                         },
                         "last_error_code": {
@@ -35884,6 +37351,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
                         "organization": {
                           "type": "string"
                         },
@@ -35898,6 +37366,7 @@
                         "subject": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "tls_version": {
                           "type": "string"
                         },
@@ -35939,6 +37408,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "algorithm": {
                           "type": "string"
                         },
@@ -35971,12 +37441,16 @@
                         "is_valid": {
                           "type": "boolean"
                         },
+                        "issuance_history": {},
                         "issued_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
                         },
                         "issuer": {
+                          "type": "string"
+                        },
+                        "key_info": {
                           "type": "string"
                         },
                         "last_error_code": {
@@ -35992,6 +37466,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
                         "organization": {
                           "type": "string"
                         },
@@ -36006,6 +37481,7 @@
                         "subject": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "tls_version": {
                           "type": "string"
                         },
@@ -36187,6 +37663,7 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
                           "algorithm": {
                             "type": "string"
                           },
@@ -36219,12 +37696,16 @@
                           "is_valid": {
                             "type": "boolean"
                           },
+                          "issuance_history": {},
                           "issued_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
                           },
                           "issuer": {
+                            "type": "string"
+                          },
+                          "key_info": {
                             "type": "string"
                           },
                           "last_error_code": {
@@ -36240,6 +37721,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_targets": {},
                           "organization": {
                             "type": "string"
                           },
@@ -36254,6 +37736,7 @@
                           "subject": {
                             "type": "string"
                           },
+                          "suggested_targets": {},
                           "tls_version": {
                             "type": "string"
                           },
@@ -36343,6 +37826,7 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
                           "algorithm": {
                             "type": "string"
                           },
@@ -36375,12 +37859,16 @@
                           "is_valid": {
                             "type": "boolean"
                           },
+                          "issuance_history": {},
                           "issued_at": {
                             "format": "date-time",
                             "nullable": true,
                             "type": "string"
                           },
                           "issuer": {
+                            "type": "string"
+                          },
+                          "key_info": {
                             "type": "string"
                           },
                           "last_error_code": {
@@ -36396,6 +37884,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "linked_targets": {},
                           "organization": {
                             "type": "string"
                           },
@@ -36410,6 +37899,7 @@
                           "subject": {
                             "type": "string"
                           },
+                          "suggested_targets": {},
                           "tls_version": {
                             "type": "string"
                           },
@@ -36875,6 +38365,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "algorithm": {
                           "type": "string"
                         },
@@ -36907,12 +38398,16 @@
                         "is_valid": {
                           "type": "boolean"
                         },
+                        "issuance_history": {},
                         "issued_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
                         },
                         "issuer": {
+                          "type": "string"
+                        },
+                        "key_info": {
                           "type": "string"
                         },
                         "last_error_code": {
@@ -36928,6 +38423,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
                         "organization": {
                           "type": "string"
                         },
@@ -36942,6 +38438,7 @@
                         "subject": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "tls_version": {
                           "type": "string"
                         },
@@ -37037,6 +38534,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "algorithm": {
                           "type": "string"
                         },
@@ -37069,12 +38567,16 @@
                         "is_valid": {
                           "type": "boolean"
                         },
+                        "issuance_history": {},
                         "issued_at": {
                           "format": "date-time",
                           "nullable": true,
                           "type": "string"
                         },
                         "issuer": {
+                          "type": "string"
+                        },
+                        "key_info": {
                           "type": "string"
                         },
                         "last_error_code": {
@@ -37090,6 +38592,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "linked_targets": {},
                         "organization": {
                           "type": "string"
                         },
@@ -37104,6 +38607,7 @@
                         "subject": {
                           "type": "string"
                         },
+                        "suggested_targets": {},
                         "tls_version": {
                           "type": "string"
                         },
