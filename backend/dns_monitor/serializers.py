@@ -130,6 +130,8 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "resolver_results",
             "propagation_status",
             "expected_values",
+            "reference_mode",
+            "reference_updated_at",
             "matches_expected",
             "latest_change",
             "linked_targets",
@@ -153,6 +155,8 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "resolver_results",
             "propagation_status",
             "expected_values",
+            "reference_mode",
+            "reference_updated_at",
             "matches_expected",
             "latest_change",
             "linked_targets",
@@ -167,6 +171,11 @@ class DNSRecordCreateSerializer(serializers.Serializer):
 
     expected_values = serializers.ListField(
         child=serializers.CharField(max_length=2048), max_length=100, required=False
+    )
+    reference_mode = serializers.ChoiceField(
+        choices=DNSRecord.ReferenceMode.choices,
+        required=False,
+        default=DNSRecord.ReferenceMode.EXACT,
     )
     domain = serializers.CharField(max_length=500)
     record_type = serializers.ChoiceField(choices=DNSRecord.RecordType.choices)

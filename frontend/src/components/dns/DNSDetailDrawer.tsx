@@ -15,6 +15,7 @@ import {
   Link2,
   Loader2,
   MoreHorizontal,
+  Network,
   Pencil,
   RefreshCw,
   Server,
@@ -28,6 +29,7 @@ import type {
   DNSChangeHistory,
   DNSLinkedTarget,
   DNSRecord,
+  DNSReferenceMode,
 } from "../../types/dns";
 import RelativeTime from "../common/connectivity/RelativeTime";
 import StatusPill, { StatusShapeIcon } from "../common/connectivity/StatusPill";
@@ -39,10 +41,15 @@ import {
   formatDNSLatency,
   formatDNSTTL,
   formatResolverLabel,
+  getDNSErrorCodeLabel,
   getDNSHealthState,
   getDNSLatencyToneClass,
+  getDNSLatencyTooltip,
+  getDNSReferenceModeLabel,
   getDNSStateLabel,
+  hasIPv4Values,
   parseDNSValues,
+  sameProviderSubnetHint,
 } from "./useDNSRecords";
 
 interface DNSDetailDrawerProps {
@@ -55,7 +62,7 @@ interface DNSDetailDrawerProps {
   isLinking?: boolean;
   onSelectRecord: (record: DNSRecord) => void;
   onScan: (record: DNSRecord) => void;
-  onAcceptReference: (record: DNSRecord) => void;
+  onAcceptReference: (record: DNSRecord, mode?: DNSReferenceMode) => void;
   onEdit: (record: DNSRecord) => void;
   onDelete: (record: DNSRecord) => void;
   onLinkTarget?: (record: DNSRecord, target: DNSLinkedTarget) => void;
@@ -90,17 +97,18 @@ export default function DNSDetailDrawer({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedValues, setCopiedValues] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(state === "mutation");
-  const [resolversOpen, setResolversOpen] = useState(state === "propagating");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Resolvers accordion collapsed by default; auto-open ONLY when resolvers disagree
+  const [resolversOpen, setResolversOpen] = useState(
+    record.propagation_status === "propagating",
+  );
 
-  // Reset accordion defaults when switching records
   useEffect(() => {
-    const nextState = getDNSHealthState(record);
-    setHistoryOpen(nextState === "mutation");
-    setResolversOpen(nextState === "propagating");
+    setHistoryOpen(false);
+    setResolversOpen(record.propagation_status === "propagating");
     setMenuOpen(false);
     setCopiedValues(false);
-  }, [record.id]);
+  }, [record.id, record.propagation_status]);
 
   // Prev / Next navigation across sorted records
   const currentIdx = records.findIndex((r) => r.id === record.id);
@@ -157,6 +165,11 @@ export default function DNSDetailDrawer({
   const linkedTarget = record.linked_targets?.[0];
   const suggestedTarget = record.suggested_targets?.[0];
 
+  const expectedDiff =
+    state === "mismatch"
+      ? computeDNSDiff(expectedValues.join("\n"), values.join("\n"))
+      : null;
+
   const latestDiff = record.latest_change
     ? computeDNSDiff(
         record.latest_change.old_value,
@@ -164,17 +177,19 @@ export default function DNSDetailDrawer({
       )
     : null;
 
-  const expectedDiff =
-    state === "mismatch"
-      ? computeDNSDiff(expectedValues.join("\n"), values.join("\n"))
-      : null;
-
-  const canAcceptReference =
-    canEdit && values.length > 0 && record.matches_expected !== true;
+  const canDefineReference = canEdit && values.length > 0;
+  const showRotatingSubnetHint =
+    state === "mismatch" &&
+    sameProviderSubnetHint(values, expectedValues);
+  const supportsCidr = hasIPv4Values(values);
 
   const isTxt = record.record_type === "TXT";
   const hasSpf = isTxt && record.value.includes("v=spf1");
   const hasDmarc = isTxt && record.value.includes("v=DMARC1");
+
+  const refDefinedDate = formatDNSDateShort(
+    record.reference_updated_at || record.updated_at || record.created_at,
+  );
 
   const handleCopyAll = async () => {
     if (!record.value) return;
@@ -204,7 +219,7 @@ export default function DNSDetailDrawer({
       >
         {/* 1. STICKY HEADER */}
         <header className="shrink-0 border-b border-border-base/80 bg-bg-dark/90 px-5 pt-4 pb-3.5 space-y-2.5">
-          {/* Row 1: Domain + Status + Nav Arrows + Close */}
+          {/* Row 1: Status shape icon + Domain + Status pill + Nav + Close */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <StatusShapeIcon
@@ -269,7 +284,7 @@ export default function DNSDetailDrawer({
             </div>
           </div>
 
-          {/* Row 2: Technical Subtitle (Registro A · TTL 60 s · resolver 1.1.1.1 · 10 ms) */}
+          {/* Row 2: Technical Subtitle (single source of truth for resolver & latency) */}
           <div className="flex items-center gap-1.5 flex-wrap text-xs text-text-muted font-mono">
             <span
               title={
@@ -299,7 +314,10 @@ export default function DNSDetailDrawer({
                 <span aria-hidden="true" className="text-text-dim">
                   ·
                 </span>
-                <span className={getDNSLatencyToneClass(record.response_time_ms)}>
+                <span
+                  className={getDNSLatencyToneClass(record.response_time_ms)}
+                  title={getDNSLatencyTooltip(record)}
+                >
                   {formatDNSLatency(record.response_time_ms)}
                 </span>
               </>
@@ -363,74 +381,102 @@ export default function DNSDetailDrawer({
               )}
             </div>
 
-            {/* Overflow menu ⋯ (solid bg-bg-dark) */}
-            {(canEdit || canDelete) && (
-              <div ref={menuRef} className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((prev) => !prev)}
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  aria-label="Más acciones del registro"
-                  title="Editar o eliminar registro"
-                  className={`h-8 w-8 grid place-items-center rounded-full border border-border-base bg-bg-card text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0 !min-w-0 ${
-                    menuOpen ? "border-border-accent text-text-main" : ""
-                  }`}
-                >
-                  <MoreHorizontal size={15} />
-                </button>
+            {/* Overflow menu ⋯ (Definir como referencia, Copiar valores, Editar, Eliminar) */}
+            <div ref={menuRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label="Más acciones del registro"
+                title="Definir referencia, copiar valores, editar o eliminar"
+                className={`h-8 w-8 grid place-items-center rounded-full border border-border-base bg-bg-card text-text-muted hover:text-text-main hover:bg-bg-card-hover transition-colors cursor-pointer !min-h-0 !min-w-0 ${
+                  menuOpen ? "border-border-accent text-text-main" : ""
+                }`}
+              >
+                <MoreHorizontal size={15} />
+              </button>
 
-                {menuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute right-0 top-9 z-40 w-48 rounded-xl border border-border-accent/70 bg-bg-dark p-1 shadow-2xl text-xs animate-in fade-in zoom-in-95 duration-100"
-                  >
-                    {canEdit && (
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-9 z-40 w-56 rounded-xl border border-border-accent/70 bg-bg-dark p-1 shadow-2xl text-xs animate-in fade-in zoom-in-95 duration-100"
+                >
+                  {canDefineReference && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={isAcceptingRef}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onAcceptReference(record);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover disabled:opacity-50 cursor-pointer !min-h-0"
+                    >
+                      <CheckCircle2
+                        size={13}
+                        className="text-emerald-400 shrink-0"
+                      />
+                      <span>Definir como referencia</span>
+                    </button>
+                  )}
+
+                  {values.length > 0 && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void handleCopyAll();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
+                    >
+                      <Copy size={13} className="text-sky-400 shrink-0" />
+                      <span>Copiar valores</span>
+                    </button>
+                  )}
+
+                  {canEdit && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onEdit(record);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
+                    >
+                      <Pencil size={13} className="text-text-muted shrink-0" />
+                      <span>Editar registro</span>
+                    </button>
+                  )}
+
+                  {canDelete && (
+                    <>
+                      <div className="my-1 border-t border-border-base/70" />
                       <button
                         type="button"
                         role="menuitem"
                         onClick={() => {
                           setMenuOpen(false);
-                          onEdit(record);
+                          onDelete(record);
                         }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 cursor-pointer !min-h-0"
                       >
-                        <Pencil
-                          size={13}
-                          className="text-text-muted shrink-0"
-                        />
-                        <span>Editar registro</span>
+                        <Trash2 size={13} className="shrink-0" />
+                        <span>Eliminar registro</span>
                       </button>
-                    )}
-                    {canDelete && (
-                      <>
-                        {canEdit && (
-                          <div className="my-1 border-t border-border-base/70" />
-                        )}
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setMenuOpen(false);
-                            onDelete(record);
-                          }}
-                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 cursor-pointer !min-h-0"
-                        >
-                          <Trash2 size={13} className="shrink-0" />
-                          <span>Eliminar registro</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* 2. SCROLLABLE BODY */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5 text-xs">
-          {/* Paused linked target suggestion banner */}
+        {/* 2. SCROLLABLE BODY (zero repetition) */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 text-xs">
+          {/* Paused linked target suggestion */}
           {linkedTarget &&
             !linkedTarget.enabled &&
             suggestedTarget &&
@@ -451,12 +497,14 @@ export default function DNSDetailDrawer({
               </div>
             )}
 
-          {/* Contextual Error / Mismatch / Propagation / Mutation Banner */}
+          {/* Contextual Error / Propagating Banner */}
           {state === "error" && (
             <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-rose-300">
                 <AlertTriangle size={14} className="shrink-0" />
-                <span>Error de resolución · {stateLabel}</span>
+                <span>
+                  Error de resolución · {getDNSErrorCodeLabel(record)}
+                </span>
               </div>
               {record.last_error_message && (
                 <p className="text-rose-200/90 font-mono text-[11px] break-words">
@@ -465,125 +513,36 @@ export default function DNSDetailDrawer({
               )}
               {values.length > 0 && (
                 <p className="text-text-dim text-[11px]">
-                  Se conserva debajo el último valor válido obtenido anteriormente.
+                  Debajo se muestra el último valor válido obtenido anteriormente.
                 </p>
               )}
             </div>
           )}
 
-          {state === "mismatch" && (
-            <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 font-semibold text-rose-300">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  <span>Fuera de la referencia esperada</span>
-                </div>
-                {canAcceptReference && (
-                  <button
-                    type="button"
-                    disabled={isAcceptingRef}
-                    onClick={() => onAcceptReference(record)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-bg-dark border border-border-accent text-text-main hover:border-accent-green hover:text-accent-green font-semibold disabled:opacity-50 cursor-pointer !min-h-0"
-                  >
-                    <CheckCircle2 size={12} />
-                    <span>Aceptar como referencia</span>
-                  </button>
-                )}
+          {state === "propagating" && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-semibold text-amber-300">
+                <AlertTriangle size={14} className="shrink-0" />
+                <span>
+                  {record.propagation_status === "propagating"
+                    ? "Propagación en curso entre resolvers públicos"
+                    : "Cambio reciente dentro de la ventana de TTL"}
+                </span>
               </div>
-              {expectedDiff && (
-                <div className="space-y-1 font-mono text-[11px]">
-                  {expectedDiff.removed.map((v, i) => (
-                    <div
-                      key={`exp-rem-${i}`}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/15 text-rose-300 break-all"
-                    >
-                      <span className="font-bold select-none">−</span>
-                      <span>{v}</span>
-                      <span className="ml-auto text-[10px] font-sans opacity-80 shrink-0">
-                        Esperado
-                      </span>
-                    </div>
-                  ))}
-                  {expectedDiff.added.map((v, i) => (
-                    <div
-                      key={`exp-add-${i}`}
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/15 text-emerald-300 break-all"
-                    >
-                      <span className="font-bold select-none">+</span>
-                      <span>{v}</span>
-                      <span className="ml-auto text-[10px] font-sans opacity-80 shrink-0">
-                        Actual
-                      </span>
-                    </div>
-                  ))}
+              <p className="text-amber-200/90 text-[11px]">
+                {record.propagation_status === "propagating"
+                  ? "Los resolvers consultados aún no devuelven el mismo conjunto de respuestas. Revisa Resolvers consultados abajo."
+                  : `El registro cambió hace menos de ${formatDNSTTL(record.ttl || 300)}. Pasará a Fuera de referencia solo si el valor persiste tras cumplirse el TTL.`}
+              </p>
+              {latestDiff?.summary && (
+                <div className="font-mono text-[11px] text-amber-200 bg-bg-dark/60 px-2.5 py-1.5 rounded-lg border border-amber-500/25 break-all">
+                  {latestDiff.summary}
                 </div>
               )}
             </div>
           )}
 
-          {state === "propagating" && (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold text-amber-300">
-                <AlertTriangle size={14} className="shrink-0" />
-                <span>Propagación en curso entre resolvers públicos</span>
-              </div>
-              <p className="text-amber-200/90 text-[11px]">
-                Los resolvers consultados devolvieron conjuntos de respuestas
-                distintos. Revisa el detalle en Resolvers consultados.
-              </p>
-            </div>
-          )}
-
-          {state === "mutation" && latestDiff && (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 font-semibold text-amber-300">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  <span>Cambio detectado</span>
-                  {record.latest_change?.changed_at && (
-                    <RelativeTime
-                      value={record.latest_change.changed_at}
-                      className="font-mono text-[11px] text-amber-200/80 font-normal"
-                    />
-                  )}
-                </div>
-                {canAcceptReference && (
-                  <button
-                    type="button"
-                    disabled={isAcceptingRef}
-                    onClick={() => onAcceptReference(record)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-bg-dark border border-border-accent text-text-main hover:border-accent-green hover:text-accent-green font-semibold disabled:opacity-50 cursor-pointer !min-h-0"
-                  >
-                    <CheckCircle2 size={12} />
-                    <span>Aceptar como referencia</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-1 font-mono text-[11px]">
-                {latestDiff.removed.map((v, i) => (
-                  <div
-                    key={`mut-rem-${i}`}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/15 text-rose-300 break-all"
-                  >
-                    <span className="font-bold select-none">−</span>
-                    <span>{v}</span>
-                  </div>
-                ))}
-                {latestDiff.added.map((v, i) => (
-                  <div
-                    key={`mut-add-${i}`}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/15 text-emerald-300 break-all"
-                  >
-                    <span className="font-bold select-none">+</span>
-                    <span>{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 2A. RESOLVED VALUES CARD (immediately visible at top) */}
+          {/* 2A. RESOLVED VALUES CARD (shown ONCE at top) */}
           <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
             <div className="flex items-center justify-between px-3.5 py-2 border-b border-border-base/60">
               <div className="flex items-center gap-2">
@@ -631,8 +590,8 @@ export default function DNSDetailDrawer({
                 </div>
               )}
 
-              {/* Stability line (strictly neutral gray, NEVER amber for stable!) */}
-              <div className="pt-1.5 flex items-center justify-between text-[11px] text-text-dim">
+              {/* Single neutral stability + consensus summary line */}
+              <div className="pt-1.5 flex items-center justify-between gap-2 text-[11px] text-text-dim flex-wrap">
                 {record.last_change_at ? (
                   <span>
                     Último cambio{" "}
@@ -656,70 +615,148 @@ export default function DNSDetailDrawer({
             </div>
           </section>
 
-          {/* 2B. REFERENCE BASELINE ROW */}
-          <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 p-3.5 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold text-text-main">
-                Referencia esperada
-              </span>
-              {expectedValues.length > 0 ? (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                    record.matches_expected
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                      : "bg-rose-500/10 text-rose-400 border-rose-500/35"
-                  }`}
-                >
-                  {record.matches_expected ? "Coincide" : "No coincide"}
-                </span>
-              ) : (
-                <span className="text-text-dim text-[11px]">Sin configurar</span>
-              )}
-            </div>
-
-            {expectedValues.length > 0 ? (
-              <div className="space-y-1">
-                {expectedValues.map((ev, i) => (
-                  <div
-                    key={i}
-                    className="px-2.5 py-1 rounded-lg bg-bg-card border border-border-base/50 font-mono text-[11px] text-text-muted break-all"
-                  >
-                    {ev}
-                  </div>
-                ))}
-              </div>
-            ) : (
+          {/* 2B. REFERENCE SECTION: 1 compact line when matching; expanded diff ONLY when out of reference */}
+          {state === "mismatch" ? (
+            <section className="rounded-xl border border-rose-500/40 bg-bg-dark/70 p-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-[11px] text-text-dim">
-                  Fija el valor actual como referencia para recibir alertas solo
-                  cuando cambie respecto a lo esperado.
-                </span>
-                {canAcceptReference && (
+                <div className="flex items-center gap-1.5 font-semibold text-rose-300">
+                  <AlertTriangle size={14} className="shrink-0" />
+                  <span>Fuera de referencia</span>
+                  <span className="text-[11px] font-normal text-text-dim">
+                    · {getDNSReferenceModeLabel(record.reference_mode)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Rotating provider subnet hint */}
+              {showRotatingSubnetHint && (
+                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2 text-[11px] text-sky-200 leading-relaxed">
+                  Las IPs resueltas pertenecen a los mismos rangos{" "}
+                  <span className="font-mono">/24</span> que tu referencia
+                  (típico en proveedores con IPs rotativas). Puedes cambiar el
+                  modo a <strong>Rango CIDR (/24)</strong> para evitar falsos
+                  positivos.
+                </div>
+              )}
+
+              {/* Colored Diff: Expected (−) vs Resolved (+) */}
+              {expectedDiff && (
+                <div className="space-y-1 font-mono text-[11px]">
+                  {expectedDiff.removed.map((v, i) => (
+                    <div
+                      key={`exp-rem-${i}`}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 break-all"
+                    >
+                      <span className="font-bold select-none">−</span>
+                      <span>{v}</span>
+                      <span className="ml-auto text-[10px] font-sans opacity-80 shrink-0">
+                        Esperado
+                      </span>
+                    </div>
+                  ))}
+                  {expectedDiff.added.map((v, i) => (
+                    <div
+                      key={`exp-add-${i}`}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 break-all"
+                    >
+                      <span className="font-bold select-none">+</span>
+                      <span>{v}</span>
+                      <span className="ml-auto text-[10px] font-sans opacity-80 shrink-0">
+                        Actual
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Action buttons: accept exact OR accept as CIDR /24 range */}
+              {canDefineReference && (
+                <div className="flex items-center gap-2 flex-wrap pt-1">
                   <button
                     type="button"
                     disabled={isAcceptingRef}
-                    onClick={() => onAcceptReference(record)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border-accent bg-bg-card text-text-main hover:border-accent-green hover:text-accent-green font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                    onClick={() => onAcceptReference(record, "exact")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bg-card border border-border-accent text-text-main hover:border-accent-green hover:text-accent-green font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
                   >
                     <CheckCircle2 size={12} className="text-emerald-400" />
                     <span>Aceptar como referencia</span>
                   </button>
-                )}
+
+                  {supportsCidr && (
+                    <button
+                      type="button"
+                      disabled={isAcceptingRef}
+                      onClick={() => onAcceptReference(record, "cidr")}
+                      title="Guarda los rangos /24 de las IPs actuales para tolerar rotaciones dentro del mismo proveedor"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/35 text-sky-300 hover:bg-sky-500/20 font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                    >
+                      <Network size={12} />
+                      <span>Aceptar como rango /24</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          ) : expectedValues.length > 0 && record.matches_expected ? (
+            /* Single compact line when matching — NO duplicated IPs */
+            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 text-text-main">
+                <span className="font-semibold">Referencia</span>
+                <Check size={13} className="text-emerald-400 shrink-0" />
+                <span className="text-emerald-400 font-medium">coincide</span>
+                <span className="text-text-dim">
+                  · definida el {refDefinedDate}
+                </span>
               </div>
-            )}
-          </section>
+              {record.reference_mode && record.reference_mode !== "exact" && (
+                <span className="px-2 py-0.5 rounded-full bg-bg-card border border-border-base font-mono text-[10px] text-text-muted">
+                  {getDNSReferenceModeLabel(record.reference_mode)}
+                </span>
+              )}
+            </section>
+          ) : (
+            /* Compact 1-row prompt when no reference is defined yet */
+            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-text-dim">Sin referencia definida</span>
+              {canDefineReference && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={isAcceptingRef}
+                    onClick={() => onAcceptReference(record, "exact")}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border-accent bg-bg-card text-text-main hover:border-accent-green hover:text-accent-green font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                  >
+                    <CheckCircle2 size={12} className="text-emerald-400" />
+                    <span>Definir como referencia</span>
+                  </button>
+                  {supportsCidr && (
+                    <button
+                      type="button"
+                      disabled={isAcceptingRef}
+                      onClick={() => onAcceptReference(record, "cidr")}
+                      title="Guardar como rango CIDR /24 (ideal para CDN o IPs rotativas)"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border-base bg-bg-card text-text-muted hover:text-sky-300 hover:border-sky-500/40 text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                    >
+                      <Network size={11} />
+                      <span>/24</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 2C. SPF / DMARC SECURITY CARD (inline for TXT records) */}
           {(hasSpf || hasDmarc) && (
-            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 p-3.5 space-y-1.5">
+            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 p-3 space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 font-semibold text-text-main">
-                  <Shield size={14} className="text-emerald-400 shrink-0" />
+                  <Shield size={14} className="text-sky-400 shrink-0" />
                   <span>
                     {hasSpf ? "Política SPF detectada" : "Política DMARC detectada"}
                   </span>
                 </div>
-                <span className="px-2 py-0.5 rounded bg-bg-card border border-border-base font-mono text-[10px] text-emerald-400">
+                <span className="px-2 py-0.5 rounded bg-bg-card border border-border-base font-mono text-[10px] text-text-muted">
                   {hasSpf ? "v=spf1" : "v=DMARC1"}
                 </span>
               </div>
@@ -731,115 +768,99 @@ export default function DNSDetailDrawer({
             </section>
           )}
 
-          {/* 2D. COLLAPSIBLE CHANGE HISTORY */}
-          <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
-            {history.length === 0 && !isLoadingHistory ? (
-              <div className="flex items-center justify-between px-3.5 py-2.5 text-text-dim">
-                <span className="inline-flex items-center gap-2 font-medium text-text-muted">
-                  <History size={13} className="text-text-dim shrink-0" />
+          {/* 2D. COLLAPSIBLE CHANGE HISTORY (rendered ONLY when events exist) */}
+          {(history.length > 0 || isLoadingHistory) && (
+            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-bg-card-hover/50 transition-colors cursor-pointer !min-h-0"
+              >
+                <span className="inline-flex items-center gap-2 font-medium text-text-main">
+                  {historyOpen ? (
+                    <ChevronDown size={13} className="text-text-dim" />
+                  ) : (
+                    <ChevronRight size={13} className="text-text-dim" />
+                  )}
+                  <History size={13} className="text-sky-400 shrink-0" />
                   <span>Historial de cambios</span>
                 </span>
-                <span className="text-[11px]">
-                  Sin cambios desde su creación
+                <span className="font-mono text-[11px] text-text-dim">
+                  {isLoadingHistory ? "..." : `${history.length}`}
                 </span>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setHistoryOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-bg-card-hover/50 transition-colors cursor-pointer !min-h-0"
-                >
-                  <span className="inline-flex items-center gap-2 font-medium text-text-main">
-                    {historyOpen ? (
-                      <ChevronDown size={13} className="text-text-dim" />
-                    ) : (
-                      <ChevronRight size={13} className="text-text-dim" />
-                    )}
-                    <History size={13} className="text-sky-400 shrink-0" />
-                    <span>Historial de cambios</span>
-                  </span>
-                  <span className="font-mono text-[11px] text-text-dim">
-                    {isLoadingHistory ? "..." : `${history.length}`}
-                  </span>
-                </button>
+              </button>
 
-                {historyOpen && (
-                  <div className="border-t border-border-base/60 p-3 space-y-2.5">
-                    {isLoadingHistory ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2
-                          size={18}
-                          className="animate-spin text-accent-green"
-                        />
-                      </div>
-                    ) : (
-                      history.map((item) => {
-                        const diff = computeDNSDiff(
-                          item.old_value,
-                          item.new_value,
-                        );
-                        return (
-                          <div
-                            key={item.id}
-                            className="rounded-lg border border-border-base/70 bg-bg-card p-2.5 space-y-1.5"
-                          >
-                            <div className="flex items-center justify-between text-[11px] text-text-dim font-mono">
-                              <RelativeTime value={item.changed_at} />
-                              <span>
-                                {new Date(item.changed_at).toLocaleString(
-                                  "es-ES",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  },
-                                )}
-                              </span>
-                            </div>
-
-                            <div className="space-y-1 font-mono text-[11px]">
-                              {diff.removed.map((v, i) => (
-                                <div
-                                  key={`h-rem-${i}`}
-                                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-rose-500/10 border border-rose-500/25 text-rose-300 break-all"
-                                >
-                                  <span className="font-bold select-none">
-                                    −
-                                  </span>
-                                  <span>{v}</span>
-                                </div>
-                              ))}
-                              {diff.added.map((v, i) => (
-                                <div
-                                  key={`h-add-${i}`}
-                                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 break-all"
-                                >
-                                  <span className="font-bold select-none">
-                                    +
-                                  </span>
-                                  <span>{v}</span>
-                                </div>
-                              ))}
-                              {diff.removed.length === 0 &&
-                                diff.added.length === 0 && (
-                                  <div className="text-text-dim break-all">
-                                    {item.new_value}
-                                  </div>
-                                )}
-                            </div>
+              {historyOpen && (
+                <div className="border-t border-border-base/60 p-3 space-y-2.5">
+                  {isLoadingHistory ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2
+                        size={18}
+                        className="animate-spin text-accent-green"
+                      />
+                    </div>
+                  ) : (
+                    history.map((item) => {
+                      const diff = computeDNSDiff(
+                        item.old_value,
+                        item.new_value,
+                      );
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-border-base/70 bg-bg-card p-2.5 space-y-1.5"
+                        >
+                          <div className="flex items-center justify-between text-[11px] text-text-dim font-mono">
+                            <RelativeTime value={item.changed_at} />
+                            <span>
+                              {new Date(item.changed_at).toLocaleString(
+                                "es-ES",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )}
+                            </span>
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </section>
 
-          {/* 2E. COLLAPSIBLE PUBLIC RESOLVERS */}
+                          <div className="space-y-1 font-mono text-[11px]">
+                            {diff.removed.map((v, i) => (
+                              <div
+                                key={`h-rem-${i}`}
+                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-rose-500/10 border border-rose-500/25 text-rose-300 break-all"
+                              >
+                                <span className="font-bold select-none">−</span>
+                                <span>{v}</span>
+                              </div>
+                            ))}
+                            {diff.added.map((v, i) => (
+                              <div
+                                key={`h-add-${i}`}
+                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 break-all"
+                              >
+                                <span className="font-bold select-none">+</span>
+                                <span>{v}</span>
+                              </div>
+                            ))}
+                            {diff.removed.length === 0 &&
+                              diff.added.length === 0 && (
+                                <div className="text-text-dim break-all">
+                                  {item.new_value}
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 2E. COLLAPSIBLE PUBLIC RESOLVERS (collapsed by default; open only on disagreement) */}
           <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
             <button
               type="button"
@@ -857,7 +878,9 @@ export default function DNSDetailDrawer({
               </span>
               <span className="font-mono text-[11px] text-text-dim">
                 {resolverResults.length > 0
-                  ? `${resolverResults.length} públicos`
+                  ? record.propagation_status === "propagating"
+                    ? "En desacuerdo"
+                    : `${resolverResults.length} consistentes`
                   : record.resolver || "Sin datos"}
               </span>
             </button>
@@ -881,6 +904,11 @@ export default function DNSDetailDrawer({
                           {rr.label && (
                             <span className="text-text-dim font-sans font-normal">
                               ({rr.label})
+                            </span>
+                          )}
+                          {idx === 0 && (
+                            <span className="text-[10px] font-sans font-normal text-text-dim">
+                              · principal
                             </span>
                           )}
                         </span>
@@ -921,20 +949,15 @@ export default function DNSDetailDrawer({
           </section>
         </div>
 
-        {/* 3. SINGLE-LINE FOOTER (matching Uptime & SSL) */}
-        <footer className="shrink-0 border-t border-border-base/80 bg-bg-dark/80 px-5 py-2.5 text-[11px] text-text-dim font-mono flex items-center justify-between">
-          <span>
-            Último chequeo{" "}
-            <RelativeTime
-              value={record.last_scanned_at}
-              emptyLabel="nunca"
-              className="text-text-muted"
-            />{" "}
-            · origen cloud
-          </span>
-          {record.resolver && (
-            <span className="text-text-dim">via {record.resolver}</span>
-          )}
+        {/* 3. SINGLE-LINE FOOTER (no repeated resolver — already in subtitle) */}
+        <footer className="shrink-0 border-t border-border-base/80 bg-bg-dark/80 px-5 py-2.5 text-[11px] text-text-dim font-mono">
+          Último chequeo{" "}
+          <RelativeTime
+            value={record.last_scanned_at}
+            emptyLabel="nunca"
+            className="text-text-muted"
+          />{" "}
+          · origen cloud
         </footer>
       </aside>
     </div>,

@@ -79,7 +79,8 @@ class DNSMonitorServicesTest(TestCase):
     def test_accept_current_as_reference_adopts_values_and_silences_alert(self):
         self.record.expected_values = ["1.2.3.4"]
         self.record.matches_expected = False
-        self.record.last_change_at = timezone.now()
+        # Set last_change_at older than TTL so it is outside propagation window
+        self.record.last_change_at = timezone.now() - timezone.timedelta(hours=1)
         self.record.save()
 
         rule = AlertRule.objects.create(
@@ -90,15 +91,76 @@ class DNSMonitorServicesTest(TestCase):
             severity="warning",
             enabled=True,
         )
-        # Before accepting reference: mismatch triggers alert
+        # Before accepting reference: persistent mismatch triggers alert
         self.assertTrue(MetricEvaluators._check_dns_changed(rule))
 
         accepted = DNSMonitorService.accept_current_as_reference(self.record.id, self.org.id)
         self.assertEqual(accepted.expected_values, ["104.21.91.196", "172.67.197.121"])
         self.assertTrue(accepted.matches_expected)
+        self.assertIsNotNone(accepted.reference_updated_at)
 
         # After accepting reference: matches expected -> no alert
         self.assertFalse(MetricEvaluators._check_dns_changed(rule))
+
+    def test_ttl_propagation_window_prevents_premature_mismatch_alert(self):
+        self.record.expected_values = ["1.2.3.4"]
+        self.record.matches_expected = False
+        self.record.ttl = 300
+        # Changed 30 seconds ago (< 300s TTL) -> still propagating, should NOT alert yet
+        self.record.last_change_at = timezone.now() - timezone.timedelta(seconds=30)
+        self.record.save()
+
+        rule = AlertRule.objects.create(
+            organization=self.org,
+            name="DNS Drift TTL",
+            target_type="dns",
+            condition="dns_changed",
+            severity="warning",
+            enabled=True,
+        )
+        self.assertFalse(MetricEvaluators._check_dns_changed(rule))
+
+    def test_provider_and_cidr_reference_modes_handle_rotating_ips(self):
+        rotating = DNSRecord.objects.create(
+            organization=self.org,
+            domain="gctorque.com",
+            record_type="A",
+            value="216.198.79.1\n64.29.17.1",
+            expected_values=["216.198.79.65", "64.29.17.65"],
+            reference_mode="provider",
+            ttl=300,
+        )
+        # Provider /24 mode matches rotating IPs within the same /24 prefixes
+        updated = DNSMonitorService.update_record_scan(
+            rotating.id,
+            new_value="216.198.79.1\n64.29.17.1",
+            ttl=300,
+            response_time_ms=42.0,
+            resolver="1.1.1.1",
+            propagation_status="consistent",
+        )
+        self.assertTrue(updated.matches_expected)
+
+        # Accept as CIDR mode generates deduplicated /24 ranges
+        cidr_accepted = DNSMonitorService.accept_current_as_reference(
+            rotating.id,
+            self.org.id,
+            reference_mode="cidr",
+        )
+        self.assertEqual(cidr_accepted.reference_mode, "cidr")
+        self.assertEqual(cidr_accepted.expected_values, ["216.198.79.0/24", "64.29.17.0/24"])
+        self.assertTrue(cidr_accepted.matches_expected)
+
+        # An IP outside both /24 ranges must fail CIDR match
+        drifted = DNSMonitorService.update_record_scan(
+            rotating.id,
+            new_value="198.51.100.10",
+            ttl=300,
+            response_time_ms=40.0,
+            resolver="1.1.1.1",
+            propagation_status="consistent",
+        )
+        self.assertFalse(drifted.matches_expected)
 
     def test_accept_reference_api_endpoint(self):
         client = APIClient()

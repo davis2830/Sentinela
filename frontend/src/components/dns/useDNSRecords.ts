@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DNSRecord, DNSRecordType } from "../../types/dns";
+import type {
+  DNSRecord,
+  DNSRecordType,
+  DNSReferenceMode,
+} from "../../types/dns";
 import type {
   StatusIconShape,
   StatusTone,
 } from "../common/connectivity/StatusPill";
 
+/**
+ * 4 unified operational DNS states (+ pending before first scan):
+ * - error: Error de resolución (NXDOMAIN, SERVFAIL, Timeout)
+ * - mismatch: Fuera de referencia (persists outside TTL window / resolvers agree)
+ * - propagating: Propagando (changed < 1 TTL ago or resolvers disagree)
+ * - resolved: Resuelto (matches reference or stable)
+ */
 export type DNSHealthState =
   | "error"
   | "mismatch"
   | "propagating"
-  | "mutation"
   | "resolved"
   | "pending";
 
@@ -30,7 +40,7 @@ export interface DNSStateMeta {
 
 export const DNS_STATE_META: Record<DNSHealthState, DNSStateMeta> = {
   error: {
-    label: "Error",
+    label: "Error de resolución",
     tone: "danger",
     shape: "error",
     severityRank: 0,
@@ -39,7 +49,7 @@ export const DNS_STATE_META: Record<DNSHealthState, DNSStateMeta> = {
     badgeClass: "bg-rose-500/10 text-rose-400 border-rose-500/35",
   },
   mismatch: {
-    label: "Fuera de ref.",
+    label: "Fuera de referencia",
     tone: "danger",
     shape: "alert",
     severityRank: 1,
@@ -56,20 +66,11 @@ export const DNS_STATE_META: Record<DNSHealthState, DNSStateMeta> = {
     borderClass: "border-amber-500/45",
     badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/35",
   },
-  mutation: {
-    label: "Mutación",
-    tone: "warning",
-    shape: "alert",
-    severityRank: 3,
-    textClass: "text-amber-400",
-    borderClass: "border-amber-500/45",
-    badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/35",
-  },
   resolved: {
     label: "Resuelto",
     tone: "success",
     shape: "check",
-    severityRank: 4,
+    severityRank: 3,
     textClass: "text-emerald-400",
     borderClass: "border-border-base/80",
     badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -78,7 +79,7 @@ export const DNS_STATE_META: Record<DNSHealthState, DNSStateMeta> = {
     label: "Sin medición",
     tone: "muted",
     shape: "clock",
-    severityRank: 5,
+    severityRank: 4,
     textClass: "text-text-dim",
     borderClass: "border-border-base/70",
     badgeClass: "bg-bg-dark text-text-dim border-border-base",
@@ -113,36 +114,41 @@ const MULTIPART_TLDS = new Set([
   "co.jp",
 ]);
 
+/**
+ * Neutral type badges (slate / sky / indigo / violet).
+ * Green, amber and red are reserved strictly for operational state.
+ */
 export function getTypeBadgeClass(type: string): string {
   switch (type) {
     case "A":
-      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      return "bg-sky-500/10 text-sky-300 border-sky-500/30";
     case "AAAA":
-      return "bg-teal-500/10 text-teal-400 border-teal-500/30";
+      return "bg-indigo-500/10 text-indigo-300 border-indigo-500/30";
     case "CNAME":
-      return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+      return "bg-blue-500/10 text-blue-300 border-blue-500/30";
     case "MX":
-      return "bg-violet-500/10 text-violet-400 border-violet-500/30";
+      return "bg-violet-500/10 text-violet-300 border-violet-500/30";
     case "TXT":
-      return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+      return "bg-slate-700/40 text-slate-300 border-slate-600/60";
     case "NS":
-      return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+      return "bg-slate-700/40 text-slate-200 border-slate-600/60";
     case "SOA":
-      return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+      return "bg-purple-500/10 text-purple-300 border-purple-500/30";
     case "PTR":
-      return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+      return "bg-sky-500/10 text-sky-200 border-sky-500/25";
     case "CAA":
-      return "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
+      return "bg-indigo-500/10 text-indigo-200 border-indigo-500/25";
     default:
-      return "bg-zinc-800 text-zinc-300 border-zinc-700";
+      return "bg-slate-800/80 text-slate-300 border-slate-700";
   }
 }
 
-export function isRecentMutation(dateStr: string | null): boolean {
-  if (!dateStr) return false;
-  const changeTime = new Date(dateStr).getTime();
-  if (Number.isNaN(changeTime)) return false;
-  return Date.now() - changeTime < 24 * 60 * 60 * 1000;
+export function isWithinTTLWindow(record: DNSRecord): boolean {
+  if (!record.last_change_at) return false;
+  const changeMs = new Date(record.last_change_at).getTime();
+  if (Number.isNaN(changeMs)) return false;
+  const ttlSec = Math.max(record.ttl || 300, 60);
+  return Date.now() - changeMs < ttlSec * 1000;
 }
 
 export function getDNSHealthState(record: DNSRecord): DNSHealthState {
@@ -159,20 +165,27 @@ export function getDNSHealthState(record: DNSRecord): DNSHealthState {
   ) {
     return "error";
   }
-  if (record.matches_expected === false) {
-    return "mismatch";
-  }
-  if (record.propagation_status === "propagating") {
+
+  const resolversDisagree = record.propagation_status === "propagating";
+  const withinTtl = isWithinTTLWindow(record);
+
+  if (resolversDisagree) {
     return "propagating";
   }
-  // If user accepted the current value as expected reference, silence the 24h mutation flag
-  if (isRecentMutation(record.last_change_at) && record.matches_expected !== true) {
-    return "mutation";
+
+  if (record.matches_expected === false) {
+    // Only turn red if mismatch persists beyond TTL window; inside TTL window -> Propagando
+    return withinTtl ? "propagating" : "mismatch";
   }
+
+  if (withinTtl && record.matches_expected !== true) {
+    return "propagating";
+  }
+
   return "resolved";
 }
 
-export function getDNSErrorLabel(record: DNSRecord): string {
+export function getDNSErrorCodeLabel(record: DNSRecord): string {
   const code = (record.last_error_code || "").toUpperCase();
   switch (code) {
     case "NXDOMAIN":
@@ -181,21 +194,21 @@ export function getDNSErrorLabel(record: DNSRecord): string {
       return "SERVFAIL";
     case "TIMEOUT":
       return "Timeout";
+    case "NO_ANSWER":
     case "NOANSWER":
       return "Sin respuesta";
     case "INVALID_DOMAIN":
       return "Dominio inválido";
     default:
-      return code ? code : "Error DNS";
+      return code || "Error DNS";
   }
 }
 
-export function getDNSStateLabel(record: DNSRecord, state?: DNSHealthState): string {
-  const s = state ?? getDNSHealthState(record);
-  if (s === "error") {
-    return getDNSErrorLabel(record);
-  }
-  return DNS_STATE_META[s].label;
+export function getDNSStateLabel(
+  _record: DNSRecord,
+  state: DNSHealthState,
+): string {
+  return DNS_STATE_META[state].label;
 }
 
 export function parseDNSValues(value: string | null | undefined): string[] {
@@ -204,6 +217,53 @@ export function parseDNSValues(value: string | null | undefined): string[] {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+const IPV4_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+export function hasIPv4Values(values: string[]): boolean {
+  return values.length > 0 && values.every((v) => IPV4_REGEX.test(v.trim()));
+}
+
+export function ipv4To24Prefix(ip: string): string | null {
+  const clean = ip.trim();
+  if (!IPV4_REGEX.test(clean)) return null;
+  const parts = clean.split(".");
+  return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
+}
+
+export function sameProviderSubnetHint(
+  resolved: string[],
+  expected: string[],
+): boolean {
+  if (!hasIPv4Values(resolved) || expected.length === 0) return false;
+  const expPrefixes = new Set(
+    expected
+      .map((e) => {
+        const clean = e.trim();
+        if (clean.includes("/")) return clean;
+        return ipv4To24Prefix(clean);
+      })
+      .filter(Boolean),
+  );
+  if (expPrefixes.size === 0) return false;
+  return resolved.every((ip) => {
+    const p = ipv4To24Prefix(ip);
+    return p !== null && expPrefixes.has(p);
+  });
+}
+
+export function getDNSReferenceModeLabel(
+  mode?: DNSReferenceMode | string | null,
+): string {
+  switch (mode) {
+    case "cidr":
+      return "Rango CIDR";
+    case "provider":
+      return "Mismo proveedor (/24)";
+    default:
+      return "Valores exactos";
+  }
 }
 
 export function computeDNSDiff(
@@ -262,6 +322,25 @@ export function getDNSLatencyToneClass(ms: number | null | undefined): string {
   return "text-text-main";
 }
 
+export function getDNSLatencyTooltip(record: DNSRecord): string {
+  const results = record.resolver_results || [];
+  if (results.length > 0) {
+    const parts = results.map((rr, idx) => {
+      const ms = rr.latency_ms ?? rr.response_time_ms;
+      const msText = ms != null ? formatDNSLatency(ms) : "sin dato";
+      const label = rr.label ? `${rr.resolver} ${rr.label}` : rr.resolver;
+      return idx === 0
+        ? `Resolver principal (${label}): ${msText}`
+        : `${label}: ${msText}`;
+    });
+    return parts.join(" · ");
+  }
+  if (record.resolver) {
+    return `Latencia del resolver principal (${formatResolverLabel(record.resolver)})`;
+  }
+  return "Latencia de resolución DNS";
+}
+
 export function formatDNSDateShort(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -269,17 +348,6 @@ export function formatDNSDateShort(iso: string | null | undefined): string {
   return d.toLocaleDateString("es-ES", {
     day: "numeric",
     month: "short",
-  });
-}
-
-export function formatDNSDateFull(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
   });
 }
 
@@ -304,8 +372,9 @@ export function formatResolverLabel(resolver: string | null | undefined): string
 export interface DNSSummaryMetrics {
   total: number;
   errorCount: number;
-  mutationCount: number;
-  stableCount: number;
+  mismatchCount: number;
+  propagatingCount: number;
+  resolvedCount: number;
   avgLatencyMs: number | null;
 }
 
@@ -355,22 +424,25 @@ export function useDNSRecords(
     }
   };
 
-  // Summary metrics across all loaded records (before status chip filter)
+  // Summary metrics across all loaded records matching the 4 unified states
   const summary: DNSSummaryMetrics = useMemo(() => {
     let errorCount = 0;
-    let mutationCount = 0;
-    let stableCount = 0;
+    let mismatchCount = 0;
+    let propagatingCount = 0;
+    let resolvedCount = 0;
     let latencySum = 0;
     let latencyCount = 0;
 
     for (const rec of records) {
       const state = getDNSHealthState(rec);
-      if (state === "error" || state === "mismatch") {
+      if (state === "error") {
         errorCount += 1;
-      } else if (state === "mutation" || state === "propagating") {
-        mutationCount += 1;
+      } else if (state === "mismatch") {
+        mismatchCount += 1;
+      } else if (state === "propagating") {
+        propagatingCount += 1;
       } else if (state === "resolved") {
-        stableCount += 1;
+        resolvedCount += 1;
       }
       if (rec.response_time_ms != null && !Number.isNaN(rec.response_time_ms)) {
         latencySum += rec.response_time_ms;
@@ -381,8 +453,9 @@ export function useDNSRecords(
     return {
       total: records.length,
       errorCount,
-      mutationCount,
-      stableCount,
+      mismatchCount,
+      propagatingCount,
+      resolvedCount,
       avgLatencyMs:
         latencyCount > 0 ? Math.round(latencySum / latencyCount) : null,
     };
@@ -431,23 +504,7 @@ export function useDNSRecords(
       }
       if (statusFilter !== "all") {
         const state = getDNSHealthState(rec);
-        if (
-          statusFilter === "error" &&
-          state !== "error" &&
-          state !== "mismatch"
-        ) {
-          return false;
-        }
-        if (
-          statusFilter === "mutation" &&
-          state !== "mutation" &&
-          state !== "propagating"
-        ) {
-          return false;
-        }
-        if (statusFilter === "stable" && state !== "resolved") {
-          return false;
-        }
+        if (state !== statusFilter) return false;
       }
       return true;
     });

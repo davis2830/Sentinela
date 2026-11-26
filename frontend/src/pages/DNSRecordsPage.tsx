@@ -22,7 +22,7 @@ import {
 import { useDNSRecordsWorkspace } from "./workspaces/useDNSRecordsWorkspace";
 import ConfigurationDiagnosticNotice from "../components/common/ConfigurationDiagnosticNotice";
 import AdminButton from "../components/common/AdminButton";
-import type { DNSRecordType } from "../types/dns";
+import type { DNSRecordType, DNSReferenceMode } from "../types/dns";
 import EmptyState from "../components/common/EmptyState";
 import ConfirmDelete from "../components/common/ConfirmDelete";
 import { NOCBulkActionBar, NOCPageHeader } from "../components/common/noc";
@@ -54,6 +54,8 @@ export default function DNSRecordsPage() {
   const {
     expectedInput,
     setExpectedInput,
+    referenceModeInput,
+    setReferenceModeInput,
     directory,
     isError,
     refetch,
@@ -266,7 +268,9 @@ export default function DNSRecordsPage() {
             linkingRecordId={linkingRecordId}
             onSelectRecord={setSelectedRecord}
             onScan={(rec) => scanMutation.mutate(rec.id)}
-            onAcceptReference={(rec) => acceptReferenceMutation.mutate(rec)}
+            onAcceptReference={(rec, mode) =>
+              acceptReferenceMutation.mutate({ record: rec, mode })
+            }
             onEdit={(rec) => handleOpenEdit(rec)}
             onDelete={setDeleteTarget}
             onLinkTarget={(rec, target) =>
@@ -283,7 +287,9 @@ export default function DNSRecordsPage() {
             onToggleSelect={handleToggleSelect}
             onSelectRecord={setSelectedRecord}
             onScan={(rec) => scanMutation.mutate(rec.id)}
-            onAcceptReference={(rec) => acceptReferenceMutation.mutate(rec)}
+            onAcceptReference={(rec, mode) =>
+              acceptReferenceMutation.mutate({ record: rec, mode })
+            }
             onEdit={(rec) => handleOpenEdit(rec)}
             onDelete={setDeleteTarget}
             onLinkTarget={(rec, target) =>
@@ -336,7 +342,9 @@ export default function DNSRecordsPage() {
           isLinking={linkingRecordId === selectedRecord.id}
           onSelectRecord={setSelectedRecord}
           onScan={(rec) => scanMutation.mutate(rec.id)}
-          onAcceptReference={(rec) => acceptReferenceMutation.mutate(rec)}
+          onAcceptReference={(rec, mode) =>
+            acceptReferenceMutation.mutate({ record: rec, mode })
+          }
           onEdit={(rec) => handleOpenEdit(rec)}
           onDelete={setDeleteTarget}
           onLinkTarget={(rec, target) =>
@@ -425,21 +433,52 @@ export default function DNSRecordsPage() {
                   <summary className="text-xs font-semibold text-text-muted cursor-pointer select-none">
                     Referencia esperada (opcional)
                   </summary>
-                  <label className="block space-y-1.5 mt-2.5">
-                    <span className="text-[11px] text-text-dim">
-                      Un valor por línea (el orden no importa en round-robin)
-                    </span>
-                    <textarea
-                      value={expectedInput}
-                      onChange={(e) => setExpectedInput(e.target.value)}
-                      placeholder="104.21.91.196&#10;172.67.197.121"
-                      className="w-full min-h-20 p-2.5 bg-bg-dark border border-border-base rounded-xl text-xs font-mono text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
-                    />
-                    <span className="block text-text-dim text-[11px]">
-                      Si se define, solo recibirás alertas cuando la respuesta
-                      difiera de esta referencia.
-                    </span>
-                  </label>
+                  <div className="space-y-2.5 mt-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-muted mb-1">
+                        Modo de comparación
+                      </label>
+                      <select
+                        value={referenceModeInput}
+                        onChange={(e) =>
+                          setReferenceModeInput(
+                            e.target.value as DNSReferenceMode,
+                          )
+                        }
+                        className="w-full bg-bg-dark border border-border-base rounded-lg px-2.5 py-1.5 text-xs text-text-main focus:outline-none focus:border-accent-green cursor-pointer"
+                      >
+                        <option value="exact">
+                          Valores exactos (IPs o registros exactos)
+                        </option>
+                        <option value="cidr">
+                          Rango CIDR (ej. 216.198.79.0/24 — ideal para CDN)
+                        </option>
+                        <option value="provider">
+                          Mismo proveedor / prefijo (/24 IPv4, /48 IPv6)
+                        </option>
+                      </select>
+                    </div>
+                    <label className="block space-y-1.5">
+                      <span className="text-[11px] text-text-dim">
+                        Un valor o rango por línea (el orden no importa en
+                        round-robin)
+                      </span>
+                      <textarea
+                        value={expectedInput}
+                        onChange={(e) => setExpectedInput(e.target.value)}
+                        placeholder={
+                          referenceModeInput === "cidr"
+                            ? "216.198.79.0/24\n64.29.17.0/24"
+                            : "104.21.91.196\n172.67.197.121"
+                        }
+                        className="w-full min-h-20 p-2.5 bg-bg-dark border border-border-base rounded-xl text-xs font-mono text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
+                      />
+                      <span className="block text-text-dim text-[11px]">
+                        Solo alerta si el cambio persiste tras el TTL y los
+                        resolvers coinciden fuera de esta referencia.
+                      </span>
+                    </label>
+                  </div>
                 </details>
 
                 {/* Test Resolution Button */}

@@ -66,6 +66,7 @@ class DNSRecordListView(APIView):
                 domain=serializer.validated_data["domain"],
                 record_type=serializer.validated_data["record_type"],
                 expected_values=serializer.validated_data.get("expected_values"),
+                reference_mode=serializer.validated_data.get("reference_mode", "exact"),
             )
 
             response_serializer = DNSRecordSerializer(record, context={"request": request})
@@ -111,6 +112,7 @@ class DNSRecordDetailView(APIView):
                 domain=domain,
                 record_type=record_type,
                 expected_values=input_serializer.validated_data.get("expected_values"),
+                reference_mode=request.data.get("reference_mode"),
             )
             serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
@@ -158,8 +160,13 @@ class DNSRecordAcceptReferenceView(APIView):
 
     def post(self, request, record_id):
         org_id = request.user.organization_id
+        reference_mode = request.data.get("reference_mode") if isinstance(request.data, dict) else None
         try:
-            record = DNSMonitorService.accept_current_as_reference(record_id, org_id)
+            record = DNSMonitorService.accept_current_as_reference(
+                record_id,
+                org_id,
+                reference_mode=reference_mode,
+            )
             serializer = DNSRecordSerializer(record, context={"request": request})
             return success_response(serializer.data)
         except ObjectDoesNotExist:

@@ -1,18 +1,24 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Clock, Link2 } from "lucide-react";
-import type { DNSLinkedTarget, DNSRecord } from "../../types/dns";
+import { ArrowUpRight, Check, Clock, Link2 } from "lucide-react";
+import type {
+  DNSLinkedTarget,
+  DNSRecord,
+  DNSReferenceMode,
+} from "../../types/dns";
 import SelectionCheckbox from "../common/SelectionCheckbox";
 import RelativeTime from "../common/connectivity/RelativeTime";
-import StatusPill, { StatusShapeIcon } from "../common/connectivity/StatusPill";
+import { StatusShapeIcon } from "../common/connectivity/StatusPill";
 import DNSRowActions from "./DNSRowActions";
 import {
   DNS_STATE_META,
   DNS_TYPE_TOOLTIPS,
-  computeDNSDiff,
   formatDNSLatency,
   formatDNSTTL,
+  getDNSErrorCodeLabel,
   getDNSHealthState,
   getDNSLatencyToneClass,
+  getDNSLatencyTooltip,
+  getDNSReferenceModeLabel,
   getDNSStateLabel,
   getTypeBadgeClass,
   parseDNSValues,
@@ -27,12 +33,19 @@ interface DNSCardProps {
   onToggleSelect: (record: DNSRecord) => void;
   onSelect: (record: DNSRecord) => void;
   onScan: (record: DNSRecord) => void;
-  onAcceptReference: (record: DNSRecord) => void;
+  onAcceptReference: (record: DNSRecord, mode?: DNSReferenceMode) => void;
   onEdit: (record: DNSRecord) => void;
   onDelete: (record: DNSRecord) => void;
   onLinkTarget?: (record: DNSRecord, target: DNSLinkedTarget) => void;
 }
 
+/**
+ * Compact DNS status card (~165px, aligned with Uptime & SSL):
+ * - Top-left status shape icon swaps in-place with selection checkbox (no redundant pill on resolved).
+ * - Non-resolved cards show concise status text on top-right; hover actions float cleanly without shifting.
+ * - Mismatch cards keep red ONLY on card border, icon, and differing IPs inside a neutral box (showing BOTH full resolved & expected values).
+ * - Resolved cards use the same reference row to show "Referencia coincide" so both cards stay balanced.
+ */
 export default function DNSCard({
   record,
   isSelected,
@@ -51,15 +64,9 @@ export default function DNSCard({
   const meta = DNS_STATE_META[state];
   const stateLabel = getDNSStateLabel(record, state);
   const values = parseDNSValues(record.value);
-  const firstValue = values[0] || "";
-  const extraCount = values.length > 1 ? values.length - 1 : 0;
-
-  const latestDiff = record.latest_change
-    ? computeDNSDiff(
-        record.latest_change.old_value,
-        record.latest_change.new_value,
-      )
-    : null;
+  const expectedValues = record.expected_values || [];
+  const expectedLower = new Set(expectedValues.map((v) => v.toLowerCase()));
+  const resolvedLower = new Set(values.map((v) => v.toLowerCase()));
 
   const linkedTarget = record.linked_targets?.[0];
   const suggestedTarget = record.suggested_targets?.[0];
@@ -83,18 +90,16 @@ export default function DNSCard({
           onSelect(record);
         }
       }}
-      className={`group relative flex flex-col justify-between rounded-2xl border bg-bg-card p-3.5 transition-all cursor-pointer hover:border-accent-green/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 shadow-sm ${
+      className={`group relative flex flex-col justify-between rounded-2xl border bg-bg-card px-3.5 py-3 transition-all cursor-pointer hover:border-accent-green/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 shadow-sm ${
         isSelected
           ? "border-accent-green bg-accent-green/[0.03] ring-1 ring-accent-green/40"
           : meta.borderClass
       }`}
     >
-      {/* Top section */}
-      <div className="space-y-2">
-        {/* Line 1: In-place status/checkbox swap + Domain + Status pill / floating hover actions */}
+      <div className="space-y-1.5">
+        {/* Line 1: In-place status icon <-> checkbox + Domain + concise non-resolved label + floating actions */}
         <div className="relative flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            {/* Status icon <-> SelectionCheckbox in-place swap */}
             <div
               data-card-selection
               onClick={(e) => {
@@ -104,6 +109,7 @@ export default function DNSCard({
               className="relative h-5 w-5 shrink-0 flex items-center justify-center"
             >
               <span
+                title={stateLabel}
                 className={`transition-opacity ${
                   isSelected
                     ? "opacity-0 pointer-events-none"
@@ -139,16 +145,16 @@ export default function DNSCard({
             </h3>
           </div>
 
-          <div className="shrink-0">
-            <StatusPill
-              tone={meta.tone}
-              shape={meta.shape}
-              label={stateLabel}
-              size="xs"
-            />
-          </div>
+          {/* Only show state label when NOT resolved (avoids icon + pill duplication) */}
+          {state !== "resolved" && (
+            <span
+              className={`text-[11px] font-medium whitespace-nowrap shrink-0 ${meta.textClass}`}
+            >
+              {stateLabel}
+            </span>
+          )}
 
-          {/* Non-shifting hover actions overlay */}
+          {/* Floating non-shifting hover/focus/touch actions */}
           <DNSRowActions
             record={record}
             variant="card"
@@ -161,7 +167,7 @@ export default function DNSCard({
           />
         </div>
 
-        {/* Line 2: Type · TTL · Uptime Link */}
+        {/* Line 2: Neutral Type badge · TTL · Uptime Link */}
         <div className="flex items-center gap-1.5 text-[11px] text-text-dim min-w-0 flex-wrap">
           <span
             title={
@@ -225,76 +231,134 @@ export default function DNSCard({
           )}
         </div>
 
-        {/* Main Resolved Value */}
+        {/* Neutral Value & Reference Box (highlights only differing IPs on mismatch) */}
         <div
-          className="rounded-xl border border-border-base/60 bg-bg-dark/70 px-2.5 py-2 font-mono text-xs"
+          className="rounded-xl border border-border-base/70 bg-bg-dark/70 px-2.5 py-2 font-mono text-[11px] space-y-1"
           title={values.join("\n") || undefined}
         >
-          {firstValue ? (
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-semibold text-text-main truncate">
-                {firstValue}
-              </span>
-              {extraCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded bg-bg-card border border-border-base text-[10px] font-semibold text-text-dim shrink-0">
-                  +{extraCount}
+          {state === "mismatch" ? (
+            <>
+              {/* Full resolved values with differing IPs highlighted */}
+              <div className="flex items-start gap-1.5 min-w-0">
+                <span className="text-text-dim font-sans shrink-0 w-12">
+                  Actual
                 </span>
-              )}
-              {isSpf && (
-                <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold shrink-0">
-                  SPF
+                <div className="flex flex-wrap gap-1 min-w-0">
+                  {values.map((v, i) => {
+                    const differs = !expectedLower.has(v.toLowerCase());
+                    return (
+                      <span
+                        key={i}
+                        className={`break-all ${
+                          differs
+                            ? "text-rose-300 bg-rose-500/15 px-1 rounded font-semibold"
+                            : "text-text-main"
+                        }`}
+                      >
+                        {v}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Full expected values so user sees exactly what differs */}
+              <div className="flex items-start gap-1.5 min-w-0 pt-1 border-t border-border-base/50">
+                <span className="text-text-dim font-sans shrink-0 w-12">
+                  Ref.
                 </span>
-              )}
-              {isDmarc && (
-                <span className="px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30 text-[10px] font-bold shrink-0">
-                  DMARC
-                </span>
+                <div className="flex flex-wrap gap-1 min-w-0">
+                  {expectedValues.map((ev, i) => {
+                    const missing = !resolvedLower.has(ev.toLowerCase());
+                    return (
+                      <span
+                        key={i}
+                        className={`break-all ${
+                          missing
+                            ? "text-text-muted underline decoration-rose-400/70 decoration-dotted underline-offset-2"
+                            : "text-text-dim"
+                        }`}
+                      >
+                        {ev}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : state === "error" ? (
+            <div className="space-y-0.5">
+              <div className="text-rose-400 font-semibold">
+                {getDNSErrorCodeLabel(record)}
+              </div>
+              {record.last_error_message && (
+                <div className="text-text-dim font-sans truncate">
+                  {record.last_error_message}
+                </div>
               )}
             </div>
+          ) : values.length > 0 ? (
+            <>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-semibold text-text-main truncate">
+                  {values.length <= 2 ? values.join(", ") : values[0]}
+                </span>
+                {values.length > 2 && (
+                  <span className="px-1.5 py-0.2 rounded bg-bg-card border border-border-base text-[10px] font-semibold text-text-dim shrink-0">
+                    +{values.length - 1}
+                  </span>
+                )}
+                {isSpf && (
+                  <span className="px-1.5 py-0.2 rounded bg-slate-700/60 text-slate-200 border border-slate-600/80 text-[10px] font-bold shrink-0">
+                    SPF
+                  </span>
+                )}
+                {isDmarc && (
+                  <span className="px-1.5 py-0.2 rounded bg-violet-500/15 text-violet-300 border border-violet-500/35 text-[10px] font-bold shrink-0">
+                    DMARC
+                  </span>
+                )}
+              </div>
+
+              {/* Balanced reference / propagation line (same visual slot as mismatch Ref.) */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border-base/45 font-sans text-[11px]">
+                {state === "propagating" ? (
+                  <span className="text-amber-300 truncate">
+                    {record.propagation_status === "propagating"
+                      ? "Resolvers en desacuerdo (propagando)"
+                      : "Cambio reciente (dentro del TTL)"}
+                  </span>
+                ) : expectedValues.length > 0 && record.matches_expected ? (
+                  <span className="inline-flex items-center gap-1 text-text-muted truncate">
+                    <span>Referencia</span>
+                    <Check size={11} className="text-emerald-400 shrink-0" />
+                    <span className="text-emerald-400/90">coincide</span>
+                    {record.reference_mode &&
+                      record.reference_mode !== "exact" && (
+                        <span className="text-text-dim">
+                          · {getDNSReferenceModeLabel(record.reference_mode)}
+                        </span>
+                      )}
+                  </span>
+                ) : (
+                  <span className="text-text-dim truncate">
+                    Sin referencia configurada
+                  </span>
+                )}
+              </div>
+            </>
           ) : (
-            <span className={state === "error" ? "text-rose-400" : "text-text-dim"}>
-              {state === "error"
-                ? record.last_error_message || stateLabel
-                : "Sin medición registrada"}
+            <span className="text-text-dim font-sans">
+              Sin medición registrada
             </span>
           )}
         </div>
-
-        {/* Contextual alert / mutation diff line */}
-        {state === "mutation" && latestDiff?.summary && (
-          <div className="flex items-center justify-between gap-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1 font-mono">
-            <span className="truncate" title={latestDiff.summary}>
-              {latestDiff.summary}
-            </span>
-            {record.latest_change?.changed_at && (
-              <RelativeTime
-                value={record.latest_change.changed_at}
-                className="text-[10px] text-amber-200/80 shrink-0"
-              />
-            )}
-          </div>
-        )}
-
-        {state === "propagating" && (
-          <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1 truncate">
-            Resolvers con respuestas distintas (propagando)
-          </div>
-        )}
-
-        {state === "mismatch" && (
-          <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-2 py-1 font-mono truncate">
-            Esperado: {(record.expected_values || []).join(", ")}
-          </div>
-        )}
       </div>
 
-      {/* Footer: Latency + Checked RelativeTime */}
-      <div className="mt-3 pt-2 border-t border-border-base/50 flex items-center justify-between gap-2 text-[11px] font-mono">
+      {/* Footer: Latency (with clear resolver tooltip) + Revisado */}
+      <div className="mt-2.5 pt-2 border-t border-border-base/50 flex items-center justify-between gap-2 text-[11px] font-mono">
         <span
           className={`tabular-nums ${getDNSLatencyToneClass(record.response_time_ms)}`}
-          title={
-            record.resolver ? `Consultado vía ${record.resolver}` : undefined
-          }
+          title={getDNSLatencyTooltip(record)}
         >
           {formatDNSLatency(record.response_time_ms)}
         </span>

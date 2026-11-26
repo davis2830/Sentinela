@@ -22,6 +22,11 @@ class DNSRecord(OrganizationOwnedModel):
         CAA = "CAA", "CAA"
         SRV = "SRV", "SRV"
 
+    class ReferenceMode(models.TextChoices):
+        EXACT = "exact", "Valores exactos"
+        CIDR = "cidr", "Rango CIDR"
+        PROVIDER = "provider", "Mismo proveedor (/24)"
+
     domain = models.CharField(max_length=500)
     record_type = models.CharField(
         max_length=10,
@@ -40,6 +45,12 @@ class DNSRecord(OrganizationOwnedModel):
     resolver_results = models.JSONField(default=list, blank=True)
     propagation_status = models.CharField(max_length=20, blank=True, default="")
     expected_values = models.JSONField(default=list, blank=True)
+    reference_mode = models.CharField(
+        max_length=20,
+        choices=ReferenceMode.choices,
+        default=ReferenceMode.EXACT,
+    )
+    reference_updated_at = models.DateTimeField(null=True, blank=True)
     matches_expected = models.BooleanField(null=True, blank=True)
 
     class Meta:

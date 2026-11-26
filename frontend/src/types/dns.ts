@@ -42,6 +42,8 @@ export type DNSPropagationStatus =
   | "error"
   | "";
 
+export type DNSReferenceMode = "exact" | "cidr" | "provider";
+
 export interface DNSRecord {
   scan_availability?: import("./scan").ScanAvailability;
   id: string;
@@ -61,6 +63,8 @@ export interface DNSRecord {
   resolver_results?: DNSResolverResult[];
   propagation_status?: DNSPropagationStatus;
   expected_values?: string[];
+  reference_mode?: DNSReferenceMode;
+  reference_updated_at?: string | null;
   matches_expected?: boolean | null;
   latest_change?: DNSLatestChange | null;
   linked_targets?: DNSLinkedTarget[];
@@ -73,6 +77,7 @@ export interface CreateDNSRecordData {
   domain: string;
   record_type: DNSRecordType;
   expected_values?: string[];
+  reference_mode?: DNSReferenceMode;
 }
 
 export interface DNSChangeHistory {

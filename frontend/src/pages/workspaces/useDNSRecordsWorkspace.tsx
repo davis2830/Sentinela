@@ -12,6 +12,7 @@ import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
 import type {
   DNSRecord,
   DNSRecordType,
+  DNSReferenceMode,
   DNSLinkedTarget,
   CreateDNSRecordData,
   DNSChangeHistory,
@@ -29,6 +30,8 @@ export function useDNSRecordsWorkspace() {
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<DNSRecord | null>(null);
   const [expectedInput, setExpectedInput] = useState("");
+  const [referenceModeInput, setReferenceModeInput] =
+    useState<DNSReferenceMode>("exact");
   const [domainInput, setDomainInput] = useState("");
   const [recordTypeInput, setRecordTypeInput] = useState<DNSRecordType>("A");
   const [typeFilter, setTypeFilter] = useUrlFilter("type", [
@@ -174,10 +177,17 @@ export function useDNSRecordsWorkspace() {
   });
 
   const acceptReferenceMutation = useMutation({
-    mutationFn: async (record: DNSRecord) => {
+    mutationFn: async ({
+      record,
+      mode,
+    }: {
+      record: DNSRecord;
+      mode?: DNSReferenceMode;
+    }) => {
       setAcceptingRefId(record.id);
       const response = await api.post(
         `dns-records/${record.id}/accept-reference/`,
+        mode ? { reference_mode: mode } : {},
       );
       return response.data?.data as DNSRecord | undefined;
     },
@@ -192,7 +202,9 @@ export function useDNSRecordsWorkspace() {
       }
       directory.setMessage(
         updatedRecord
-          ? `Referencia actualizada para ${updatedRecord.record_type} ${updatedRecord.domain}.`
+          ? `Referencia actualizada para ${updatedRecord.record_type} ${updatedRecord.domain}${
+              updatedRecord.reference_mode === "cidr" ? " (rango /24)" : ""
+            }.`
           : "Referencia actualizada.",
       );
       setAcceptingRefId(null);
@@ -369,6 +381,7 @@ export function useDNSRecordsWorkspace() {
   const handleOpenCreate = () => {
     setEditingRecord(null);
     setExpectedInput("");
+    setReferenceModeInput("exact");
     setDomainInput("");
     setRecordTypeInput("A");
     setTestResult(null);
@@ -380,6 +393,7 @@ export function useDNSRecordsWorkspace() {
     setEditingRecord(record);
     setDomainInput(record.domain);
     setExpectedInput((record.expected_values || []).join("\n"));
+    setReferenceModeInput(record.reference_mode || "exact");
     setRecordTypeInput(record.record_type);
     setTestResult(null);
     setShowModal(true);
@@ -389,6 +403,7 @@ export function useDNSRecordsWorkspace() {
     setShowModal(false);
     setEditingRecord(null);
     setExpectedInput("");
+    setReferenceModeInput("exact");
     setDomainInput("");
     setRecordTypeInput("A");
     setTestResult(null);
@@ -412,6 +427,7 @@ export function useDNSRecordsWorkspace() {
         .split("\n")
         .map((x) => x.trim())
         .filter(Boolean),
+      reference_mode: referenceModeInput,
     };
 
     if (editingRecord) {
@@ -427,6 +443,8 @@ export function useDNSRecordsWorkspace() {
     directory,
     expectedInput,
     setExpectedInput,
+    referenceModeInput,
+    setReferenceModeInput,
     isError,
     refetch,
     showModal,

@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCapability } from "../../hooks/useCapability";
-import type { DNSRecord } from "../../types/dns";
+import type { DNSRecord, DNSReferenceMode } from "../../types/dns";
 
 interface DNSRowActionsProps {
   record: DNSRecord;
@@ -18,17 +18,17 @@ interface DNSRowActionsProps {
   isScanning: boolean;
   isAcceptingRef?: boolean;
   onScan: (record: DNSRecord) => void;
-  onAcceptReference: (record: DNSRecord) => void;
+  onAcceptReference: (record: DNSRecord, mode?: DNSReferenceMode) => void;
   onEdit: (record: DNSRecord) => void;
   onDelete: (record: DNSRecord) => void;
 }
 
 /**
- * Compact DNS actions component (homologated with SSL & Uptime):
- * - Direct button: Comprobar ahora (RefreshCw)
- * - Overflow menu (⋯) in a document.body Portal (solid bg-bg-dark, never clipped):
- *   Copiar valor, Aceptar como referencia, Editar registro, Eliminar registro (red).
- * - Visible on hover, keyboard focus-within, and always on touch devices.
+ * Compact DNS actions component:
+ * - Direct buttons (hover / keyboard focus-within / always visible on touch):
+ *   Comprobar ahora (RefreshCw) + Definir como referencia (CheckCircle2, when out of ref / unset)
+ * - Overflow menu (⋯) in a document.body Portal (solid bg-bg-dark):
+ *   Definir como referencia, Copiar valores, Editar registro, Eliminar registro (red).
  */
 export default function DNSRowActions({
   record,
@@ -53,10 +53,9 @@ export default function DNSRowActions({
   const canEdit = useCapability("dns_monitor.update");
   const canDelete = useCapability("dns_monitor.delete");
 
-  const canAcceptReference =
-    canEdit &&
-    Boolean(record.value && record.value.trim().length > 0) &&
-    record.matches_expected !== true;
+  const hasValues = Boolean(record.value && record.value.trim().length > 0);
+  const canDefineReference = canEdit && hasValues;
+  const needsReferenceAction = canDefineReference && record.matches_expected !== true;
 
   const openMenu = () => {
     if (menuOpen) {
@@ -65,8 +64,8 @@ export default function DNSRowActions({
     }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      const menuWidth = 220;
-      const estimatedHeight = 190;
+      const menuWidth = 224;
+      const estimatedHeight = 195;
       const openAbove =
         window.innerHeight - rect.bottom < estimatedHeight &&
         rect.top > estimatedHeight;
@@ -146,7 +145,7 @@ export default function DNSRowActions({
             if (e.detail > 0) e.currentTarget.blur();
             onScan(record);
           }}
-          title="Comprobar registro ahora"
+          title="Comprobar ahora"
           aria-label={`Comprobar ${record.record_type} ${record.domain} ahora`}
           className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60 transition-colors cursor-pointer !min-h-0 !min-w-0"
         >
@@ -154,6 +153,22 @@ export default function DNSRowActions({
             size={13}
             className={isScanning ? "animate-spin text-accent-green" : ""}
           />
+        </button>
+      )}
+
+      {needsReferenceAction && (
+        <button
+          type="button"
+          disabled={isAcceptingRef}
+          onClick={(e) => {
+            if (e.detail > 0) e.currentTarget.blur();
+            onAcceptReference(record);
+          }}
+          title="Definir valor actual como referencia"
+          aria-label={`Definir valor actual de ${record.domain} como referencia`}
+          className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-emerald-400 hover:bg-white/10 disabled:opacity-60 transition-colors cursor-pointer !min-h-0 !min-w-0"
+        >
+          <CheckCircle2 size={13} />
         </button>
       )}
 
@@ -167,7 +182,7 @@ export default function DNSRowActions({
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={`Más acciones para ${record.record_type} ${record.domain}`}
-        title="Más acciones (copiar valor, referencia, editar, eliminar)"
+        title="Más acciones (definir referencia, copiar valores, editar, eliminar)"
         className={`table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-text-main hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 ${
           menuOpen ? "bg-white/10 text-text-main" : ""
         }`}
@@ -186,23 +201,7 @@ export default function DNSRowActions({
             onClick={(e) => e.stopPropagation()}
             className="fixed z-[70] w-56 rounded-xl border border-border-accent/70 bg-bg-dark p-1 shadow-2xl text-xs text-left animate-in fade-in zoom-in-95 duration-100"
           >
-            {record.value && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => void handleCopyValue()}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
-              >
-                {copiedValue ? (
-                  <Check size={13} className="text-accent-green shrink-0" />
-                ) : (
-                  <Copy size={13} className="text-sky-400 shrink-0" />
-                )}
-                <span>{copiedValue ? "Valor copiado" : "Copiar valor"}</span>
-              </button>
-            )}
-
-            {canAcceptReference && (
+            {canDefineReference && (
               <button
                 type="button"
                 role="menuitem"
@@ -217,7 +216,23 @@ export default function DNSRowActions({
                   size={13}
                   className="text-emerald-400 shrink-0"
                 />
-                <span>Aceptar como referencia</span>
+                <span>Definir como referencia</span>
+              </button>
+            )}
+
+            {hasValues && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void handleCopyValue()}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover cursor-pointer !min-h-0"
+              >
+                {copiedValue ? (
+                  <Check size={13} className="text-accent-green shrink-0" />
+                ) : (
+                  <Copy size={13} className="text-sky-400 shrink-0" />
+                )}
+                <span>{copiedValue ? "Valores copiados" : "Copiar valores"}</span>
               </button>
             )}
 

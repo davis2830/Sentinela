@@ -268,9 +268,15 @@ class MetricEvaluators:
 
         triggered = False
         for record in records:
+            ttl_seconds = max(int(record.ttl or 300), 60)
+            within_ttl_window = bool(
+                record.last_change_at and (now - record.last_change_at).total_seconds() < ttl_seconds
+            )
+            is_propagating = record.propagation_status == "propagating" or within_ttl_window
+
             has_expected = bool(record.expected_values)
             if has_expected:
-                if record.matches_expected is False:
+                if record.matches_expected is False and not is_propagating:
                     AlertService.create_alert(
                         organization_id=rule.organization_id,
                         rule_id=rule.id,
@@ -288,7 +294,7 @@ class MetricEvaluators:
                         rule_id=rule.id,
                         target_id=record.id,
                     )
-            elif record.last_change_at and record.last_change_at >= recent:
+            elif record.last_change_at and record.last_change_at >= recent and not is_propagating:
                 AlertService.create_alert(
                     organization_id=rule.organization_id,
                     rule_id=rule.id,

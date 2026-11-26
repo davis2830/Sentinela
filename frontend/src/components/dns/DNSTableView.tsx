@@ -9,7 +9,11 @@ import {
   ChevronRight,
   Link2,
 } from "lucide-react";
-import type { DNSLinkedTarget, DNSRecord } from "../../types/dns";
+import type {
+  DNSLinkedTarget,
+  DNSRecord,
+  DNSReferenceMode,
+} from "../../types/dns";
 import SelectionCheckbox from "../common/SelectionCheckbox";
 import RelativeTime from "../common/connectivity/RelativeTime";
 import StatusPill from "../common/connectivity/StatusPill";
@@ -20,8 +24,10 @@ import {
   computeDNSDiff,
   formatDNSLatency,
   formatDNSTTL,
+  getDNSErrorCodeLabel,
   getDNSHealthState,
   getDNSLatencyToneClass,
+  getDNSLatencyTooltip,
   getDNSStateLabel,
   getTypeBadgeClass,
   parseDNSValues,
@@ -46,7 +52,7 @@ interface DNSTableViewProps {
   linkingRecordId?: string | null;
   onSelectRecord: (record: DNSRecord) => void;
   onScan: (record: DNSRecord) => void;
-  onAcceptReference: (record: DNSRecord) => void;
+  onAcceptReference: (record: DNSRecord, mode?: DNSReferenceMode) => void;
   onEdit: (record: DNSRecord) => void;
   onDelete: (record: DNSRecord) => void;
   onLinkTarget?: (record: DNSRecord, target: DNSLinkedTarget) => void;
@@ -101,8 +107,8 @@ export default function DNSTableView({
     const meta = DNS_STATE_META[state];
     const stateLabel = getDNSStateLabel(record, state);
     const values = parseDNSValues(record.value);
-    const firstValue = values[0] || "";
-    const extraCount = values.length > 1 ? values.length - 1 : 0;
+    const expectedValues = record.expected_values || [];
+    const expectedSet = new Set(expectedValues.map((v) => v.toLowerCase()));
 
     const isTxt = record.record_type === "TXT";
     const isSpf = isTxt && record.value.includes("v=spf1");
@@ -119,12 +125,14 @@ export default function DNSTableView({
     const suggestedTarget = record.suggested_targets?.[0];
 
     const stateTooltipParts: string[] = [];
-    if (state === "error" && record.last_error_message) {
-      stateTooltipParts.push(record.last_error_message);
-    } else if (state === "mismatch") {
+    if (state === "error") {
       stateTooltipParts.push(
-        `Esperado: ${(record.expected_values || []).join(", ")}`,
+        `${getDNSErrorCodeLabel(record)}${
+          record.last_error_message ? `: ${record.last_error_message}` : ""
+        }`,
       );
+    } else if (state === "mismatch") {
+      stateTooltipParts.push(`Esperado: ${expectedValues.join(", ")}`);
     } else if (state === "propagating") {
       const rrSummary = (record.resolver_results || [])
         .map(
@@ -133,17 +141,19 @@ export default function DNSTableView({
         )
         .join(" | ");
       stateTooltipParts.push(
-        rrSummary || "Los resolvers públicos devuelven respuestas distintas",
+        rrSummary ||
+          "Cambio reciente dentro de la ventana de TTL o propagación entre resolvers",
       );
-    } else if (state === "mutation" && latestDiff?.summary) {
-      stateTooltipParts.push(`Cambio: ${latestDiff.summary}`);
     } else if (record.resolver) {
-      stateTooltipParts.push(`Resolver: ${record.resolver}`);
+      stateTooltipParts.push(`Resuelto vía ${record.resolver}`);
     }
 
     const valueTooltip = [
       ...values,
-      latestDiff?.summary && state === "mutation"
+      state === "mismatch" && expectedValues.length > 0
+        ? `Referencia esperada: ${expectedValues.join(", ")}`
+        : null,
+      latestDiff?.summary && state === "propagating"
         ? `Cambio reciente: ${latestDiff.summary}`
         : null,
     ]
@@ -170,14 +180,14 @@ export default function DNSTableView({
             ? "bg-accent-green/[0.04]"
             : state === "error" || state === "mismatch"
               ? "bg-rose-500/[0.025]"
-              : state === "mutation" || state === "propagating"
+              : state === "propagating"
                 ? "bg-amber-500/[0.02]"
                 : ""
         }`}
       >
-        {/* Checkbox */}
+        {/* Checkbox with generous breathing room */}
         <td
-          className={`${rowPy} pl-3 pr-1 w-9`}
+          className={`${rowPy} pl-4 pr-3`}
           onClick={(e) => {
             e.stopPropagation();
             onToggleSelect(record);
@@ -190,9 +200,9 @@ export default function DNSTableView({
           />
         </td>
 
-        {/* Estado (with shape icon) */}
+        {/* Estado (full unified label, shape icon) */}
         <td
-          className={`${rowPy} px-2.5 whitespace-nowrap`}
+          className={`${rowPy} pl-2 pr-3 whitespace-nowrap`}
           title={stateTooltipParts.join(" · ") || undefined}
         >
           <StatusPill
@@ -204,7 +214,7 @@ export default function DNSTableView({
           />
         </td>
 
-        {/* Tipo */}
+        {/* Tipo (neutral badge — green/amber/red reserved for state) */}
         <td className={`${rowPy} px-2 whitespace-nowrap`}>
           <span
             title={
@@ -219,8 +229,8 @@ export default function DNSTableView({
           </span>
         </td>
 
-        {/* Dominio (w-full max-w-0 absorbs extra horizontal space) */}
-        <td className={`${rowPy} px-3 w-full max-w-0`}>
+        {/* Dominio (fixed sensible width with truncate so there's no 500px chasm before Resuelve a) */}
+        <td className={`${rowPy} px-3 max-w-0`}>
           <div className="flex items-center gap-2 min-w-0">
             <span
               className="font-semibold text-text-main group-hover:text-accent-green transition-colors text-[13px] truncate"
@@ -238,7 +248,7 @@ export default function DNSTableView({
                     ? `Vinculado al target ${linkedTarget.name} en Uptime`
                     : `Vinculado a ${linkedTarget.name} (target pausado en Uptime)`
                 }
-                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[140px] transition-colors ${
+                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[130px] transition-colors ${
                   linkedTarget.enabled
                     ? "bg-bg-dark border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40"
                     : "bg-amber-500/10 border-amber-500/35 text-amber-300 hover:bg-amber-500/20"
@@ -261,7 +271,7 @@ export default function DNSTableView({
                   onLinkTarget(record, suggestedTarget);
                 }}
                 title={`Vincular con el target ${suggestedTarget.name} en Uptime`}
-                className="hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[145px] cursor-pointer !min-h-0 !min-w-0"
+                className="hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[140px] cursor-pointer !min-h-0 !min-w-0"
               >
                 <Link2 size={10} className="shrink-0" />
                 <span className="truncate">Vincular: {suggestedTarget.name}</span>
@@ -270,33 +280,66 @@ export default function DNSTableView({
           </div>
         </td>
 
-        {/* Resuelve a */}
-        <td className={`${rowPy} px-3 max-w-0`}>
-          {firstValue ? (
+        {/* Resuelve a (absorbs flexible width so IPs, CNAME, MX & long TXT have real room) */}
+        <td className={`${rowPy} px-3 w-full max-w-0`}>
+          {values.length > 0 ? (
             <div
               className="flex items-center gap-1.5 min-w-0 font-mono text-xs"
               title={valueTooltip}
             >
-              <span className="text-text-muted truncate">{firstValue}</span>
-              {extraCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded bg-bg-dark border border-border-base text-[10px] font-semibold text-text-dim shrink-0">
-                  +{extraCount}
-                </span>
+              {state === "mismatch" && values.length <= 4 ? (
+                <div className="flex items-center gap-1.5 min-w-0 truncate">
+                  {values.map((val, idx) => {
+                    const isUnexpected =
+                      expectedSet.size > 0 &&
+                      !expectedSet.has(val.toLowerCase());
+                    return (
+                      <span
+                        key={idx}
+                        className={`truncate ${
+                          isUnexpected
+                            ? "text-rose-300 bg-rose-500/15 px-1 rounded"
+                            : "text-text-muted"
+                        }`}
+                      >
+                        {val}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <span className="text-text-muted truncate">
+                    {values.length <= 2 ? values.join(", ") : values[0]}
+                  </span>
+                  {values.length > 2 && (
+                    <span className="px-1.5 py-0.2 rounded bg-bg-dark border border-border-base text-[10px] font-semibold text-text-dim shrink-0">
+                      +{values.length - 1}
+                    </span>
+                  )}
+                </>
               )}
               {isSpf && (
-                <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold shrink-0">
+                <span className="px-1.5 py-0.2 rounded bg-slate-700/60 text-slate-200 border border-slate-600/80 text-[10px] font-bold shrink-0">
                   SPF
                 </span>
               )}
               {isDmarc && (
-                <span className="px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30 text-[10px] font-bold shrink-0">
+                <span className="px-1.5 py-0.2 rounded bg-violet-500/15 text-violet-300 border border-violet-500/35 text-[10px] font-bold shrink-0">
                   DMARC
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-xs text-text-dim font-mono">
-              {state === "pending" ? "Pendiente" : "—"}
+            <span
+              className={`text-xs font-mono ${
+                state === "error" ? "text-rose-400" : "text-text-dim"
+              }`}
+              title={record.last_error_message || undefined}
+            >
+              {state === "error"
+                ? getDNSErrorCodeLabel(record)
+                : "Pendiente"}
             </span>
           )}
         </td>
@@ -306,14 +349,12 @@ export default function DNSTableView({
           {formatDNSTTL(record.ttl)}
         </td>
 
-        {/* Latencia (integer ms, neutral when healthy) */}
+        {/* Latencia (clarified tooltip: principal resolver vs secondary resolvers) */}
         <td
           className={`${rowPy} px-2.5 font-mono text-xs whitespace-nowrap tabular-nums text-right ${getDNSLatencyToneClass(
             record.response_time_ms,
           )}`}
-          title={
-            record.resolver ? `Consultado vía ${record.resolver}` : undefined
-          }
+          title={getDNSLatencyTooltip(record)}
         >
           {formatDNSLatency(record.response_time_ms)}
         </td>
@@ -327,7 +368,7 @@ export default function DNSTableView({
           />
         </td>
 
-        {/* Acciones (hover / focus / touch) */}
+        {/* Acciones (hover / keyboard focus-within / touch) */}
         <td className={`${rowPy} pl-1 pr-3 text-right whitespace-nowrap`}>
           <DNSRowActions
             record={record}
@@ -352,26 +393,26 @@ export default function DNSTableView({
       <div className="overflow-x-auto">
         <table className="w-full table-fixed text-left text-xs border-collapse">
           <colgroup>
-            <col className="w-9" />
-            <col className="w-[126px]" />
+            <col className="w-11" />
+            <col className="w-[172px]" />
             <col className="w-[68px]" />
+            <col className="w-[280px]" />
             <col className="w-full" />
-            <col className="w-[235px]" />
             <col className="w-[72px]" />
-            <col className="w-[84px]" />
-            <col className="w-[106px]" />
-            <col className="w-[68px]" />
+            <col className="w-[82px]" />
+            <col className="w-[104px]" />
+            <col className="w-[92px]" />
           </colgroup>
           <thead>
             <tr className="border-b border-border-base text-text-dim text-[11px] font-medium bg-bg-dark/80 select-none">
-              <th scope="col" className="py-2.5 pl-3 pr-1">
+              <th scope="col" className="py-2.5 pl-4 pr-3">
                 <SelectionCheckbox
                   checked={allSelected}
                   label="Seleccionar todos los registros de esta página"
                   onChange={onToggleSelectAll}
                 />
               </th>
-              <th scope="col" className="py-2.5 px-2.5">
+              <th scope="col" className="py-2.5 pl-2 pr-3">
                 <button
                   type="button"
                   onClick={() => onSort("status")}
@@ -400,7 +441,11 @@ export default function DNSTableView({
               <th scope="col" className="py-2.5 px-2.5">
                 TTL
               </th>
-              <th scope="col" className="py-2.5 px-2.5 text-right">
+              <th
+                scope="col"
+                className="py-2.5 px-2.5 text-right"
+                title="Latencia del resolver principal (1.1.1.1)"
+              >
                 <button
                   type="button"
                   onClick={() => onSort("latency")}
@@ -435,7 +480,7 @@ export default function DNSTableView({
                 <Fragment key={group.key}>
                   {isGrouped && (
                     <tr className="bg-bg-dark/60 border-t border-border-base/60">
-                      <td colSpan={9} className="py-1.5 px-3">
+                      <td colSpan={9} className="py-1.5 px-4">
                         <button
                           type="button"
                           onClick={() => toggleGroup(group.key)}

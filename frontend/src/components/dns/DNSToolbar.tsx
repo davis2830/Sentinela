@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Download,
+  Layers,
   LayoutGrid,
   List,
   RotateCcw,
@@ -111,7 +112,7 @@ export default function DNSToolbar({
     (typeFilter !== "all" ? 1 : 0) +
     (zoneFilter !== "all" ? 1 : 0) +
     (resolverFilter !== "all" ? 1 : 0) +
-    (groupBy !== "none" ? 1 : 0);
+    (groupBy !== "none" && groupBy !== "zone" ? 1 : 0);
 
   const handleResetFilters = () => {
     onTypeFilterChange("all");
@@ -129,10 +130,10 @@ export default function DNSToolbar({
     >
       {/* Strictly Single Row on Desktop */}
       <div className="flex items-center justify-between gap-2.5 flex-wrap md:flex-nowrap">
-        {/* Left: Search + Clickable Status Chips (0s muted gray) + Avg Latency */}
+        {/* Left: Search + 4 Unified State Chips + Avg Latency */}
         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar">
           {/* Search Input */}
-          <div className="relative w-[175px] sm:w-[230px] shrink-0">
+          <div className="relative w-[170px] sm:w-[210px] shrink-0">
             <Search
               size={13}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim"
@@ -163,8 +164,9 @@ export default function DNSToolbar({
             className="hidden sm:block h-4 w-px bg-border-base/80 shrink-0"
           />
 
-          {/* Clickable Status Chips (0-count stays neutral gray) */}
+          {/* 4 Unified Status Chips (matching row, card, and drawer states exactly) */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* 1. Error de resolución */}
             <button
               type="button"
               onClick={() => toggleChip("error")}
@@ -175,7 +177,7 @@ export default function DNSToolbar({
                     ? "bg-rose-500/15 border border-rose-500/40 text-rose-400 hover:bg-rose-500/25"
                     : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
               }`}
-              title="Filtrar por registros con error de resolución o fuera de referencia esperada"
+              title="Error de resolución: NXDOMAIN, SERVFAIL o timeout"
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -189,61 +191,91 @@ export default function DNSToolbar({
               <span>{summary.errorCount} con error</span>
             </button>
 
+            {/* 2. Fuera de referencia */}
             <button
               type="button"
-              onClick={() => toggleChip("mutation")}
+              onClick={() => toggleChip("mismatch")}
               className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap !min-h-0 !min-w-0 ${
-                statusFilter === "mutation"
-                  ? "bg-amber-500 text-black ring-2 ring-amber-500/40"
-                  : summary.mutationCount > 0
-                    ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
+                statusFilter === "mismatch"
+                  ? "bg-rose-500 text-white ring-2 ring-rose-500/40"
+                  : summary.mismatchCount > 0
+                    ? "bg-rose-500/15 border border-rose-500/40 text-rose-400 hover:bg-rose-500/25"
                     : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
               }`}
-              title="Filtrar por registros con mutación reciente (24h) o propagación en curso entre resolvers"
+              title="Fuera de referencia: persiste un valor distinto a la referencia esperada"
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  statusFilter === "mutation"
+                  statusFilter === "mismatch"
+                    ? "bg-white"
+                    : summary.mismatchCount > 0
+                      ? "bg-rose-500"
+                      : "bg-slate-600"
+                }`}
+              />
+              <span>{summary.mismatchCount} fuera de referencia</span>
+            </button>
+
+            {/* 3. Propagando */}
+            <button
+              type="button"
+              onClick={() => toggleChip("propagating")}
+              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap !min-h-0 !min-w-0 ${
+                statusFilter === "propagating"
+                  ? "bg-amber-500 text-black ring-2 ring-amber-500/40"
+                  : summary.propagatingCount > 0
+                    ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
+                    : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
+              }`}
+              title="Propagando: cambió hace menos de un TTL o los resolvers públicos aún discrepan"
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  statusFilter === "propagating"
                     ? "bg-black"
-                    : summary.mutationCount > 0
+                    : summary.propagatingCount > 0
                       ? "bg-amber-400"
                       : "bg-slate-600"
                 }`}
               />
-              <span>{summary.mutationCount} con mutación</span>
+              <span>{summary.propagatingCount} propagando</span>
             </button>
 
+            {/* 4. Resuelto */}
             <button
               type="button"
-              onClick={() => toggleChip("stable")}
+              onClick={() => toggleChip("resolved")}
               className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap !min-h-0 !min-w-0 ${
-                statusFilter === "stable"
+                statusFilter === "resolved"
                   ? "bg-emerald-500 text-black ring-2 ring-emerald-500/40"
-                  : summary.stableCount > 0
+                  : summary.resolvedCount > 0
                     ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
                     : "bg-bg-dark border border-border-base text-text-dim hover:text-text-main"
               }`}
-              title="Filtrar por registros resueltos y estables"
+              title="Resuelto: coincide con la referencia o responde de forma consistente"
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  statusFilter === "stable"
+                  statusFilter === "resolved"
                     ? "bg-black"
-                    : summary.stableCount > 0
+                    : summary.resolvedCount > 0
                       ? "bg-emerald-400"
                       : "bg-slate-600"
                 }`}
               />
               <span>
-                {summary.stableCount}{" "}
-                {summary.stableCount === 1 ? "estable" : "estables"}
+                {summary.resolvedCount}{" "}
+                {summary.resolvedCount === 1 ? "resuelto" : "resueltos"}
               </span>
             </button>
           </div>
 
-          {/* Inline Avg Latency */}
+          {/* Inline Avg Latency (principal resolver average) */}
           {summary.avgLatencyMs != null && (
-            <div className="hidden lg:flex items-center pl-2.5 ml-1 border-l border-border-base/80 shrink-0 font-mono text-[11px] text-text-dim whitespace-nowrap">
+            <div
+              className="hidden xl:flex items-center pl-2.5 ml-1 border-l border-border-base/80 shrink-0 font-mono text-[11px] text-text-dim whitespace-nowrap"
+              title="Latencia promedio del resolver principal (1.1.1.1) entre los registros visibles"
+            >
               <span>Latencia prom.</span>
               <span className="ml-1.5 font-semibold text-text-main tabular-nums">
                 {formatDNSLatency(summary.avgLatencyMs)}
@@ -252,8 +284,32 @@ export default function DNSToolbar({
           )}
         </div>
 
-        {/* Right: Filtros Popover (Tipo, Zona, Resolver, Agrupar, Densidad, Exportar CSV) + View Switcher */}
+        {/* Right: Quick Group-by-Zone Toggle + Filtros Popover + View Switcher */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Direct Por zona toggle so DNS Zones are first-class */}
+          <button
+            type="button"
+            onClick={(e) => {
+              if (e.detail > 0) e.currentTarget.blur();
+              onGroupByChange(groupBy === "zone" ? "none" : "zone");
+            }}
+            aria-pressed={groupBy === "zone"}
+            title="Agrupar registros por zona DNS"
+            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer !min-h-0 !min-w-0 ${
+              groupBy === "zone"
+                ? "bg-accent-green/10 border-accent-green/50 text-accent-green"
+                : "bg-bg-dark border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover"
+            }`}
+          >
+            <Layers size={12} className="shrink-0" />
+            <span>Por zona</span>
+            {facets.zones.length > 0 && (
+              <span className="font-mono text-[10px] opacity-80">
+                {facets.zones.length}
+              </span>
+            )}
+          </button>
+
           <div ref={popoverRef} className="relative">
             <button
               type="button"
@@ -286,7 +342,7 @@ export default function DNSToolbar({
                   <span className="text-xs font-semibold text-text-main">
                     Filtros y preferencias
                   </span>
-                  {activeFiltersCount > 0 && (
+                  {(activeFiltersCount > 0 || groupBy !== "none") && (
                     <button
                       type="button"
                       onClick={handleResetFilters}

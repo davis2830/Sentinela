@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 import time
 from datetime import timedelta
@@ -34,6 +35,79 @@ class DNSMonitorService:
         else:
             items = raw_values or []
         return {str(v).strip() for v in items if str(v).strip()}
+
+    @staticmethod
+    def _values_to_cidr_reference(raw_values):
+        """Convert IPv4/IPv6 answers into deduplicated /24 (IPv4) or /48 (IPv6) CIDR ranges."""
+        result = set()
+        for val in DNSMonitorService._normalize_value_set(raw_values):
+            if "/" in val:
+                try:
+                    result.add(str(ipaddress.ip_network(val, strict=False)))
+                    continue
+                except ValueError:
+                    pass
+            try:
+                addr = ipaddress.ip_address(val)
+                prefix = 24 if addr.version == 4 else 48
+                result.add(str(ipaddress.ip_network(f"{addr}/{prefix}", strict=False)))
+            except ValueError:
+                result.add(val)
+        return sorted(result)
+
+    @staticmethod
+    def _evaluate_reference_match(current_values, expected_values, reference_mode="exact"):
+        """Compare resolved DNS answers against expected values according to reference_mode.
+
+        Modes:
+        - exact: exact set match (still honors explicit CIDR notation like 216.198.79.0/24).
+        - cidr: every resolved IP must fall inside at least one configured CIDR/network
+                (bare IPv4 defaults to /24, bare IPv6 defaults to /48).
+        - provider: every resolved IP must share the same /24 (IPv4) or /48 (IPv6) provider
+                    prefix as any expected IP.
+        """
+        expected_set = DNSMonitorService._normalize_value_set(expected_values)
+        if not expected_set:
+            return None
+        current_set = DNSMonitorService._normalize_value_set(current_values)
+        if not current_set:
+            return False
+
+        mode = (reference_mode or "exact").lower()
+        has_explicit_cidr = any("/" in e for e in expected_set)
+
+        if mode == "exact" and not has_explicit_cidr:
+            return {v.lower() for v in expected_set} == {v.lower() for v in current_set}
+
+        networks = []
+        literals = set()
+        for entry in expected_set:
+            if "/" in entry:
+                try:
+                    networks.append(ipaddress.ip_network(entry, strict=False))
+                    continue
+                except ValueError:
+                    pass
+            try:
+                addr = ipaddress.ip_address(entry)
+                if mode in ("cidr", "provider"):
+                    prefix = 24 if addr.version == 4 else 48
+                    networks.append(ipaddress.ip_network(f"{addr}/{prefix}", strict=False))
+                else:
+                    networks.append(ipaddress.ip_network(f"{addr}/{addr.max_prefixlen}", strict=False))
+            except ValueError:
+                literals.add(entry.lower())
+
+        for val in current_set:
+            if val.lower() in literals:
+                continue
+            try:
+                addr = ipaddress.ip_address(val)
+            except ValueError:
+                return False
+            if not any(addr in net for net in networks):
+                return False
+        return True
 
     @staticmethod
     def _query_single_resolver(clean_domain, rec_type, nameserver_ip, label):
@@ -257,14 +331,20 @@ class DNSMonitorService:
     @staticmethod
     @transaction.atomic
     @beta_creation("dns_records")
-    def create_record(organization_id, domain, record_type, expected_values=None):
+    def create_record(organization_id, domain, record_type, expected_values=None, reference_mode="exact"):
         """Create a new DNS record to monitor and trigger immediate resolution."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+        exp_list = list(expected_values or [])
+        mode = reference_mode or DNSRecord.ReferenceMode.EXACT
         record, created = DNSRecord.objects.get_or_create(
             organization_id=organization_id,
             domain=clean_domain,
             record_type=record_type,
-            defaults={"expected_values": expected_values or []},
+            defaults={
+                "expected_values": exp_list,
+                "reference_mode": mode,
+                "reference_updated_at": timezone.now() if exp_list else None,
+            },
         )
         if not created:
             return record
@@ -292,14 +372,20 @@ class DNSMonitorService:
 
     @staticmethod
     @transaction.atomic
-    def update_record(record_id, organization_id, domain=None, record_type=None, expected_values=None):
-        """Update domain or record_type for a DNS record."""
+    def update_record(record_id, organization_id, domain=None, record_type=None, expected_values=None, reference_mode=None):
+        """Update domain, record_type, expected_values, or reference_mode for a DNS record."""
         record = DNSRecord.objects.get(id=record_id, organization_id=organization_id)
+        if reference_mode is not None:
+            record.reference_mode = reference_mode
         if expected_values is not None:
             record.expected_values = expected_values
-            expected_set = DNSMonitorService._normalize_value_set(expected_values)
-            current_set = DNSMonitorService._normalize_value_set(record.value)
-            record.matches_expected = (expected_set == current_set) if (expected_set and current_set) else None
+            record.reference_updated_at = timezone.now() if expected_values else None
+        if expected_values is not None or reference_mode is not None:
+            record.matches_expected = DNSMonitorService._evaluate_reference_match(
+                record.value,
+                record.expected_values,
+                record.reference_mode,
+            )
         if domain:
             record.domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         if record_type:
@@ -342,15 +428,31 @@ class DNSMonitorService:
 
     @staticmethod
     @transaction.atomic
-    def accept_current_as_reference(record_id, organization_id):
+    def accept_current_as_reference(record_id, organization_id, reference_mode=None):
         """Accept the currently resolved DNS values as the expected reference baseline."""
         record = DNSRecord.objects.select_for_update().get(id=record_id, organization_id=organization_id)
         current_set = DNSMonitorService._normalize_value_set(record.value)
         if not current_set:
             raise ValueError("El registro no tiene valores resueltos para guardar como referencia.")
-        record.expected_values = sorted(current_set)
+        mode = reference_mode or record.reference_mode or DNSRecord.ReferenceMode.EXACT
+        if mode not in {c[0] for c in DNSRecord.ReferenceMode.choices}:
+            raise ValueError("Modo de referencia inválido.")
+        record.reference_mode = mode
+        if mode == DNSRecord.ReferenceMode.CIDR:
+            record.expected_values = DNSMonitorService._values_to_cidr_reference(current_set)
+        else:
+            record.expected_values = sorted(current_set)
+        record.reference_updated_at = timezone.now()
         record.matches_expected = True
-        record.save(update_fields=["expected_values", "matches_expected", "updated_at"])
+        record.save(
+            update_fields=[
+                "expected_values",
+                "reference_mode",
+                "reference_updated_at",
+                "matches_expected",
+                "updated_at",
+            ]
+        )
         return record
 
     @staticmethod
@@ -394,9 +496,12 @@ class DNSMonitorService:
         old_set = DNSMonitorService._normalize_value_set(old_value)
         new_set = DNSMonitorService._normalize_value_set(new_value)
         canonical_new = "\n".join(sorted(new_set))
-        expected_set = DNSMonitorService._normalize_value_set(record.expected_values)
 
-        record.matches_expected = (expected_set == new_set) if expected_set else None
+        record.matches_expected = DNSMonitorService._evaluate_reference_match(
+            new_set,
+            record.expected_values,
+            record.reference_mode,
+        )
         # Compare sets so round-robin IP ordering never triggers false mutations
         value_changed = bool(old_set) and (old_set != new_set)
 

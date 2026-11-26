@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { DNSLinkedTarget, DNSRecord } from "../../types/dns";
+import type {
+  DNSLinkedTarget,
+  DNSRecord,
+  DNSReferenceMode,
+} from "../../types/dns";
 import DNSCard from "./DNSCard";
 import type { DNSRecordGroup } from "./useDNSRecords";
 
@@ -13,7 +17,7 @@ interface DNSCardGridViewProps {
   onToggleSelect: (record: DNSRecord) => void;
   onSelectRecord: (record: DNSRecord) => void;
   onScan: (record: DNSRecord) => void;
-  onAcceptReference: (record: DNSRecord) => void;
+  onAcceptReference: (record: DNSRecord, mode?: DNSReferenceMode) => void;
   onEdit: (record: DNSRecord) => void;
   onDelete: (record: DNSRecord) => void;
   onLinkTarget?: (record: DNSRecord, target: DNSLinkedTarget) => void;
