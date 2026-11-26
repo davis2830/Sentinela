@@ -36,6 +36,9 @@ export function useDomainsWorkspace() {
   const [savingManualDateId, setSavingManualDateId] = useState<string | null>(
     null,
   );
+  const [savingAutoRenewId, setSavingAutoRenewId] = useState<string | null>(
+    null,
+  );
   const [linkingDomainId, setLinkingDomainId] = useState<string | null>(null);
   const [watchingSuggestion, setWatchingSuggestion] = useState<string | null>(
     null,
@@ -189,6 +192,46 @@ export function useDomainsWorkspace() {
     onError: () => {
       directory.setMessage("No se pudo guardar la fecha manual.");
       setSavingManualDateId(null);
+    },
+  });
+
+  const saveAutoRenewMutation = useMutation({
+    mutationFn: async ({
+      domain,
+      autoRenew,
+    }: {
+      domain: DomainInfo;
+      autoRenew: boolean | null;
+    }) => {
+      setSavingAutoRenewId(domain.id);
+      const res = await api.patch(`domains/${domain.id}/`, {
+        auto_renew: autoRenew,
+      });
+      return res.data?.data as DomainInfo | undefined;
+    },
+    onSuccess: (updated) => {
+      invalidateDomains();
+      if (selectedDomain && updated && selectedDomain.id === updated.id) {
+        setSelectedDomain(updated);
+      }
+      if (updated) {
+        const label =
+          updated.auto_renew === true
+            ? "activa"
+            : updated.auto_renew === false
+              ? "desactivada"
+              : "sin confirmar";
+        directory.setMessage(
+          `Renovación automática de ${updated.domain}: ${label}.`,
+        );
+      }
+      setSavingAutoRenewId(null);
+    },
+    onError: () => {
+      directory.setMessage(
+        "No se pudo actualizar el estado de renovación automática.",
+      );
+      setSavingAutoRenewId(null);
     },
   });
 
@@ -469,6 +512,7 @@ export function useDomainsWorkspace() {
     scanningId,
     acknowledgingId,
     savingManualDateId,
+    savingAutoRenewId,
     linkingDomainId,
     watchingSuggestion,
     showModal,
@@ -495,6 +539,7 @@ export function useDomainsWorkspace() {
     watchSuggestionMutation,
     updateMutation,
     saveManualDateMutation,
+    saveAutoRenewMutation,
     acknowledgeChangesMutation,
     linkTargetMutation,
     scanMutation,

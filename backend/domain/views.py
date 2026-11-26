@@ -98,9 +98,11 @@ class DomainDetailView(APIView):
         domain = request.data.get("domain")
         has_manual = "manual_expiration_date" in request.data
         manual_val = request.data.get("manual_expiration_date") if has_manual else ...
-        if not domain and not has_manual:
+        has_auto_renew = "auto_renew" in request.data
+        auto_renew_val = request.data.get("auto_renew") if has_auto_renew else ...
+        if not domain and not has_manual and not has_auto_renew:
             return error_response(
-                "Domain or manual_expiration_date is required.",
+                "Domain, manual_expiration_date, or auto_renew is required.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         try:
@@ -109,6 +111,7 @@ class DomainDetailView(APIView):
                 org_id,
                 domain=domain,
                 manual_expiration_date=manual_val,
+                auto_renew=auto_renew_val,
             )
             serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(serializer.data)

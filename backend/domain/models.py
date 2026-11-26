@@ -16,9 +16,11 @@ class DomainInfo(OrganizationOwnedModel):
     creation_date = models.DateTimeField(null=True, blank=True)
     expiration_date = models.DateTimeField(null=True, blank=True)
     manual_expiration_date = models.DateField(null=True, blank=True)
+    auto_renew = models.BooleanField(null=True, blank=True, default=None)
     last_updated = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=500, blank=True)
     name_servers = models.TextField(blank=True)
+    ns_health = models.JSONField(default=dict, blank=True)
     registrant_country = models.CharField(max_length=100, blank=True)
     days_until_expiration = models.IntegerField(null=True, blank=True)
     is_locked = models.BooleanField(default=None, null=True)
@@ -48,6 +50,7 @@ class DomainChangeHistory(BaseModel):
         REGISTRAR = "registrar", "Registrador"
         NAME_SERVERS = "name_servers", "Nameservers"
         IS_LOCKED = "is_locked", "Bloqueo de transferencia"
+        STATUS = "status", "Estados EPP"
         EXPIRATION_DATE = "expiration_date", "Fecha de vencimiento"
 
     domain_info = models.ForeignKey(

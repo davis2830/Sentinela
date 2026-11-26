@@ -49,6 +49,7 @@ export default function DomainsPage() {
     scanningId,
     acknowledgingId,
     savingManualDateId,
+    savingAutoRenewId,
     linkingDomainId,
     watchingSuggestion,
     showModal,
@@ -75,6 +76,7 @@ export default function DomainsPage() {
     watchSuggestionMutation,
     updateMutation,
     saveManualDateMutation,
+    saveAutoRenewMutation,
     acknowledgeChangesMutation,
     linkTargetMutation,
     scanMutation,
@@ -405,12 +407,16 @@ export default function DomainsPage() {
           isScanning={scanningId === selectedDomain.id}
           isAcknowledging={acknowledgingId === selectedDomain.id}
           isSavingManualDate={savingManualDateId === selectedDomain.id}
+          isSavingAutoRenew={savingAutoRenewId === selectedDomain.id}
           isLinking={linkingDomainId === selectedDomain.id}
           onSelectDomain={setSelectedDomain}
           onScan={(dom) => scanMutation.mutate(dom.id)}
           onAcknowledgeChanges={(dom) => acknowledgeChangesMutation.mutate(dom)}
           onSaveManualExpiration={(dom, dateStr) =>
             saveManualDateMutation.mutate({ domain: dom, dateStr })
+          }
+          onSetAutoRenew={(dom, autoRenew) =>
+            saveAutoRenewMutation.mutate({ domain: dom, autoRenew })
           }
           onEdit={(dom) => handleOpenEdit(dom)}
           onDelete={setDeleteTarget}

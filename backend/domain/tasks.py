@@ -36,6 +36,9 @@ def scan_whois(self, domain_id):
     res = DomainService.perform_whois_query(domain)
 
     if res.get("success"):
+        from .services import _check_authoritative_nameservers
+
+        ns_health = _check_authoritative_nameservers(domain, res.get("name_servers", []))
         DomainService.update_domain_scan(
             domain_id=domain_info.id,
             registrar=res.get("registrar", ""),
@@ -52,6 +55,7 @@ def scan_whois(self, domain_id):
             error_message="",
             data_source=res.get("data_source", "whois"),
             source_url=res.get("source_url", ""),
+            ns_health=ns_health,
         )
         logger.info(
             "WHOIS scan complete for %s: expires in %s days (locked: %s)",

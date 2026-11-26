@@ -1,8 +1,14 @@
 import ipaddress
 import logging
+import time
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from urllib.parse import urlsplit
 
+import dns.flags
+import dns.message
+import dns.query
+import dns.rdatatype
+import dns.resolver
 from django.db import transaction
 from django.utils import timezone
 from common.beta_quota import beta_creation
@@ -100,6 +106,88 @@ def _normalize_ns_set(raw_ns):
     else:
         items = str(raw_ns).replace(",", "\n").splitlines()
     return {str(n).strip().lower().rstrip(".") for n in items if str(n).strip()}
+
+
+def _normalize_status_set(raw_status):
+    if not raw_status:
+        return set()
+    if isinstance(raw_status, (list, tuple, set)):
+        items = raw_status
+    else:
+        items = str(raw_status).split(",")
+    return {str(s).strip().lower().replace(" ", "") for s in items if str(s).strip()}
+
+
+def _check_authoritative_nameservers(domain, registry_ns_list):
+    """Verify authoritative response, latency, SOA serial consistency, and zone vs registry NS delegation."""
+    ns_hosts = sorted(_normalize_ns_set(registry_ns_list))
+    if not ns_hosts:
+        return {}
+
+    pub_resolver = dns.resolver.Resolver(configure=False)
+    pub_resolver.nameservers = ["1.1.1.1", "8.8.8.8"]
+    pub_resolver.lifetime = 4.0
+    pub_resolver.timeout = 2.5
+
+    # 1. Fetch live NS records published in the DNS zone to compare against RDAP/WHOIS registry NS
+    zone_ns = []
+    try:
+        zone_answers = pub_resolver.resolve(domain, "NS")
+        zone_ns = sorted({str(r).strip().lower().rstrip(".") for r in zone_answers if str(r).strip()})
+    except Exception:
+        zone_ns = []
+
+    delegation_consistent = None
+    if zone_ns and ns_hosts:
+        delegation_consistent = set(zone_ns) == set(ns_hosts)
+
+    # 2. Query SOA directly against each registry nameserver (capped at 6 NS for bounded scan time)
+    servers = []
+    serials = set()
+    responding_count = 0
+
+    for host in ns_hosts[:6]:
+        entry = {
+            "host": host,
+            "ip": "",
+            "responding": False,
+            "authoritative": False,
+            "soa_serial": None,
+            "latency_ms": None,
+            "error": "",
+        }
+        try:
+            a_answers = pub_resolver.resolve(host, "A")
+            ns_ip = str(a_answers[0]).strip()
+            entry["ip"] = ns_ip
+
+            query_msg = dns.message.make_query(domain, dns.rdatatype.SOA)
+            start = time.perf_counter()
+            resp = dns.query.udp(query_msg, ns_ip, timeout=3.0)
+            entry["latency_ms"] = round((time.perf_counter() - start) * 1000, 1)
+            entry["responding"] = True
+            entry["authoritative"] = bool(resp.flags & dns.flags.AA)
+            responding_count += 1
+
+            for rrset in resp.answer:
+                if rrset.rdtype == dns.rdatatype.SOA:
+                    for rdata in rrset:
+                        entry["soa_serial"] = int(rdata.serial)
+                        serials.add(int(rdata.serial))
+                        break
+        except Exception as exc:
+            entry["error"] = str(exc)[:160]
+        servers.append(entry)
+
+    return {
+        "total_count": len(servers),
+        "responding_count": responding_count,
+        "soa_consistent": len(serials) <= 1 if responding_count >= 2 else (True if responding_count == 1 else None),
+        "soa_serials": sorted(serials),
+        "zone_ns": zone_ns,
+        "delegation_consistent": delegation_consistent,
+        "servers": servers,
+    }
 
 
 def _days_from_manual_date(manual_date):
@@ -309,6 +397,7 @@ class DomainService:
         error_message="",
         data_source="",
         source_url="",
+        ns_health=None,
     ):
         """Update a domain info record with RDAP/WHOIS results and log registration changes."""
         domain_info = DomainInfo.objects.get(id=domain_id)
@@ -355,6 +444,13 @@ class DomainService:
                     )
                 )
 
+            old_st = _normalize_status_set(domain_info.status)
+            new_st = _normalize_status_set(status)
+            if old_st and new_st and old_st != new_st:
+                changes_recorded.append(
+                    ("status", domain_info.status, status)
+                )
+
         canonical_ns = "\n".join(sorted(_normalize_ns_set(name_servers)))
         effective_days = days_until_expiration
         if effective_days is None and domain_info.manual_expiration_date:
@@ -369,6 +465,8 @@ class DomainService:
         domain_info.last_updated = last_updated
         domain_info.status = status
         domain_info.name_servers = canonical_ns
+        if ns_health is not None:
+            domain_info.ns_health = ns_health
         domain_info.registrant_country = registrant_country
         domain_info.days_until_expiration = effective_days
         domain_info.is_locked = is_locked
@@ -502,8 +600,15 @@ class DomainService:
 
     @staticmethod
     @transaction.atomic
-    def update_domain_record(domain_id, organization_id, domain=None, manual_expiration_date=..., trigger_scan=True):
-        """Update domain name and/or manual_expiration_date for an existing domain record."""
+    def update_domain_record(
+        domain_id,
+        organization_id,
+        domain=None,
+        manual_expiration_date=...,
+        auto_renew=...,
+        trigger_scan=True,
+    ):
+        """Update domain name, manual_expiration_date, and/or auto_renew confirmation."""
         domain_info = DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
         domain_changed = False
 
@@ -520,6 +625,14 @@ class DomainService:
                 domain_info.days_until_expiration = _days_from_manual_date(parsed_manual)
                 if parsed_manual and not domain_info.data_source:
                     domain_info.data_source = "manual"
+
+        if auto_renew is not ...:
+            if auto_renew is None:
+                domain_info.auto_renew = None
+            elif isinstance(auto_renew, bool):
+                domain_info.auto_renew = auto_renew
+            else:
+                raise ValueError("Valor de auto_renew inválido.")
 
         domain_info.save()
 

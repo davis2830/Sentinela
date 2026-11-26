@@ -1,9 +1,35 @@
 export interface DomainChangeHistoryItem {
   id: string;
-  field_name: "registrar" | "name_servers" | "is_locked" | "expiration_date" | string;
+  field_name:
+    | "registrar"
+    | "name_servers"
+    | "is_locked"
+    | "status"
+    | "expiration_date"
+    | string;
   old_value: string;
   new_value: string;
   changed_at: string | null;
+}
+
+export interface DomainNSServerHealth {
+  host: string;
+  ip: string;
+  responding: boolean;
+  authoritative: boolean;
+  soa_serial: number | null;
+  latency_ms: number | null;
+  error?: string;
+}
+
+export interface DomainNSHealth {
+  total_count: number;
+  responding_count: number;
+  soa_consistent: boolean | null;
+  soa_serials?: number[];
+  zone_ns?: string[];
+  delegation_consistent: boolean | null;
+  servers?: DomainNSServerHealth[];
 }
 
 export interface DomainLinkedTarget {
@@ -53,11 +79,13 @@ export interface DomainInfo {
   creation_date: string | null;
   expiration_date: string | null;
   manual_expiration_date?: string | null;
+  auto_renew?: boolean | null;
   effective_expiration_date?: string | null;
   effective_days_until_expiration?: number | null;
   last_updated: string | null;
   status: string[] | string | null;
   name_servers: string[] | string | null;
+  ns_health?: DomainNSHealth | null;
   registrant_country: string | null;
   days_until_expiration: number | null;
   is_locked?: boolean | null;

@@ -75,7 +75,11 @@ class DomainModuleTests(TestCase):
             data_source="rdap",
         )
         self.assertIsNotNone(updated.last_change_at)
-        self.assertEqual(DomainChangeHistory.objects.filter(domain_info=updated).count(), 2)
+        changes = list(DomainChangeHistory.objects.filter(domain_info=updated).values_list("field_name", flat=True))
+        self.assertEqual(len(changes), 3)
+        self.assertIn("name_servers", changes)
+        self.assertIn("is_locked", changes)
+        self.assertIn("status", changes)
 
         data = DomainInfoSerializer(updated).data
         self.assertTrue(data["has_unacknowledged_changes"])
@@ -85,6 +89,56 @@ class DomainModuleTests(TestCase):
         resp = client.post(f"/api/v1/domains/{updated.id}/acknowledge-changes/")
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.json()["data"]["has_unacknowledged_changes"])
+
+    def test_auto_renew_patch_and_ns_health_serialization(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        resp = client.patch(f"/api/v1/domains/{self.domain.id}/", {"auto_renew": True}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIs(resp.json()["data"]["auto_renew"], True)
+
+        resp = client.patch(f"/api/v1/domains/{self.domain.id}/", {"auto_renew": False}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIs(resp.json()["data"]["auto_renew"], False)
+
+        ns_health_sample = {
+            "total_count": 2,
+            "responding_count": 2,
+            "soa_consistent": True,
+            "soa_serials": [2026112501],
+            "zone_ns": ["ns1.cloudflare.com", "ns2.cloudflare.com"],
+            "delegation_consistent": True,
+            "servers": [
+                {
+                    "host": "ns1.cloudflare.com",
+                    "ip": "108.162.193.1",
+                    "responding": True,
+                    "authoritative": True,
+                    "soa_serial": 2026112501,
+                    "latency_ms": 14.2,
+                    "error": "",
+                }
+            ],
+        }
+        updated = DomainService.update_domain_scan(
+            domain_id=self.domain.id,
+            registrar="Cloudflare, Inc.",
+            creation_date=self.domain.creation_date,
+            expiration_date=self.domain.expiration_date,
+            last_updated=timezone.now(),
+            status="clientTransferProhibited",
+            name_servers="ns1.cloudflare.com\nns2.cloudflare.com",
+            registrant_country="",
+            days_until_expiration=160,
+            is_locked=True,
+            data_source="rdap",
+            ns_health=ns_health_sample,
+        )
+        data = DomainInfoSerializer(updated).data
+        self.assertEqual(data["ns_health"]["responding_count"], 2)
+        self.assertIs(data["ns_health"]["soa_consistent"], True)
+        self.assertIs(data["ns_health"]["delegation_consistent"], True)
 
     def test_manual_expiration_fallback_for_unsupported_tld(self):
         gt_domain = DomainInfo.objects.create(

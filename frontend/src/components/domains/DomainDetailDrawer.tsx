@@ -15,6 +15,7 @@ import {
   Copy,
   ExternalLink,
   History,
+  Info,
   Link2,
   Lock,
   Maximize2,
@@ -60,11 +61,13 @@ interface DomainDetailDrawerProps {
   isScanning: boolean;
   isAcknowledging?: boolean;
   isSavingManualDate?: boolean;
+  isSavingAutoRenew?: boolean;
   isLinking?: boolean;
   onSelectDomain: (domain: DomainInfo) => void;
   onScan: (domain: DomainInfo) => void;
   onAcknowledgeChanges: (domain: DomainInfo) => void;
   onSaveManualExpiration: (domain: DomainInfo, dateStr: string | null) => void;
+  onSetAutoRenew?: (domain: DomainInfo, autoRenew: boolean | null) => void;
   onEdit: (domain: DomainInfo) => void;
   onDelete: (domain: DomainInfo) => void;
   onLinkTarget?: (domain: DomainInfo, target: DomainLinkedTarget) => void;
@@ -78,11 +81,13 @@ export default function DomainDetailDrawer({
   isScanning,
   isAcknowledging = false,
   isSavingManualDate = false,
+  isSavingAutoRenew = false,
   isLinking = false,
   onSelectDomain,
   onScan,
   onAcknowledgeChanges,
   onSaveManualExpiration,
+  onSetAutoRenew,
   onEdit,
   onDelete,
   onLinkTarget,
@@ -178,6 +183,46 @@ export default function DomainDetailDrawer({
 
   const destinations = domain.alert_summary?.destinations || [];
   const alertRules = domain.alert_summary?.rules || [];
+  const nsHealth = domain.ns_health;
+  const nsServerMap = new Map(
+    (nsHealth?.servers || []).map((s) => [s.host.toLowerCase(), s]),
+  );
+
+  const transferLockCode =
+    eppStatuses.find((s) =>
+      s.toLowerCase().replace(/\s+/g, "").includes("transferprohibited"),
+    ) || "clientTransferProhibited";
+
+  const dnssecLow = (domain.dnssec || "").toLowerCase();
+  const dnssecSigned =
+    Boolean(dnssecLow) &&
+    dnssecLow.includes("signed") &&
+    !dnssecLow.includes("unsigned");
+
+  const expiringSoon =
+    days !== null && days <= thresholds.warningDays && days > 0;
+
+  const nsHealthTotal = nsHealth?.total_count ?? 0;
+  const nsHealthResponding = nsHealth?.responding_count ?? 0;
+  const nsHealthAllOk =
+    nsHealthTotal > 0 &&
+    nsHealthResponding === nsHealthTotal &&
+    nsHealth?.soa_consistent !== false &&
+    nsHealth?.delegation_consistent !== false;
+
+  const nsHealthTooltip = nsHealth?.servers?.length
+    ? nsHealth.servers
+        .map((s) => {
+          if (!s.responding) return `${s.host}: sin respuesta`;
+          const parts = [
+            s.latency_ms != null ? `${s.latency_ms} ms` : null,
+            s.authoritative ? "autoritativo (AA)" : "no autoritativo",
+            s.soa_serial != null ? `SOA ${s.soa_serial}` : null,
+          ].filter(Boolean);
+          return `${s.host}: ${parts.join(" · ")}`;
+        })
+        .join("\n")
+    : undefined;
 
   const barColor =
     state === "expired" || state === "critical"
@@ -519,6 +564,78 @@ export default function DomainDetailDrawer({
                   </div>
                 </>
               )}
+
+              {/* Renovación automática (estado manual: RDAP/WHOIS no lo expone) */}
+              <div
+                className={`pt-2 mt-1 border-t border-border-base/50 flex items-center justify-between gap-2 flex-wrap text-[11px] ${
+                  expiringSoon && domain.auto_renew !== true
+                    ? "text-amber-300"
+                    : "text-text-dim"
+                }`}
+              >
+                <span
+                  className="inline-flex items-center gap-1.5"
+                  title="RDAP/WHOIS no publica si la renovación automática está activa; confírmala tras revisar tu registrador."
+                >
+                  {domain.auto_renew === true ? (
+                    <>
+                      <Check size={12} className="text-emerald-400 shrink-0" />
+                      <span>
+                        Renovación automática:{" "}
+                        <strong className="text-emerald-300 font-medium">
+                          activa
+                        </strong>
+                      </span>
+                    </>
+                  ) : domain.auto_renew === false ? (
+                    <>
+                      <AlertTriangle
+                        size={12}
+                        className="text-amber-400 shrink-0"
+                      />
+                      <span>
+                        Renovación automática:{" "}
+                        <strong className="text-amber-300 font-medium">
+                          desactivada
+                        </strong>
+                      </span>
+                    </>
+                  ) : (
+                    <span>
+                      Renovación automática:{" "}
+                      <strong
+                        className={
+                          expiringSoon
+                            ? "text-amber-200 font-medium"
+                            : "text-text-muted font-medium"
+                        }
+                      >
+                        sin confirmar
+                      </strong>
+                    </span>
+                  )}
+                </span>
+
+                {canEdit && onSetAutoRenew && (
+                  <button
+                    type="button"
+                    disabled={isSavingAutoRenew}
+                    onClick={() =>
+                      onSetAutoRenew(
+                        domain,
+                        domain.auto_renew === true ? false : true,
+                      )
+                    }
+                    className="px-2 py-0.5 rounded-md border border-border-base bg-bg-card text-[11px] text-text-muted hover:text-accent-green hover:border-accent-green/50 disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+                  >
+                    {isSavingAutoRenew
+                      ? "Guardando..."
+                      : domain.auto_renew === true
+                        ? "Marcar desactivada"
+                        : "Marcar como activa"}
+                  </button>
+                )}
+              </div>
             </section>
           ) : (
             <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 p-3.5 space-y-2.5">
@@ -556,94 +673,199 @@ export default function DomainDetailDrawer({
             </section>
           )}
 
-          {/* 2B. KEY TECHNICAL FACTS (Lock, Nameservers, Last Updated — visible immediately) */}
+          {/* 2B. SECURITY, PRIVACY & AUTHORITATIVE NAMESERVERS (compact, zero repetition) */}
           <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 divide-y divide-border-base/50">
-            {/* Bloqueo de transferencia */}
-            <div className="px-3.5 py-2.5 flex items-center justify-between gap-3">
-              <span className="text-text-dim shrink-0">Bloqueo</span>
+            {/* Row 1: Transfer Lock + DNSSEC in one line */}
+            <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 flex-wrap">
               {domain.is_locked === true ? (
                 <span
                   className="inline-flex items-center gap-1.5 text-text-main font-medium"
-                  title="El registrador bloquea transferencias no autorizadas (clientTransferProhibited)"
+                  title={`Código EPP: ${transferLockCode}. Impide transferencias no autorizadas; no certifica la seguridad general del dominio.`}
                 >
                   <Lock size={13} className="text-emerald-400 shrink-0" />
                   <span>Transferencia bloqueada</span>
-                  <Check size={12} className="text-emerald-400 shrink-0" />
                 </span>
               ) : domain.is_locked === false ? (
                 <span
-                  className="inline-flex items-center gap-1.5 text-amber-300 font-medium text-right"
-                  title="Activa el bloqueo de transferencia en tu registrador para prevenir secuestros"
+                  className="inline-flex items-center gap-1.5 text-amber-300 font-medium"
+                  title="Activa el bloqueo de transferencia en tu registrador para prevenir transferencias no autorizadas."
                 >
                   <Unlock size={13} className="text-amber-400 shrink-0" />
                   <span>Sin bloqueo: podría transferirse</span>
                 </span>
               ) : (
-                <span className="text-text-dim">Sin datos del registro</span>
+                <span className="text-text-dim">
+                  Bloqueo: sin datos del registro
+                </span>
+              )}
+
+              <span
+                className={`inline-flex items-center gap-1 text-[11px] ${
+                  dnssecSigned ? "text-emerald-300" : "text-text-dim"
+                }`}
+                title={
+                  dnssecSigned
+                    ? "DNSSEC activo. Verifica que el registro DS del registrador coincida con la zona para evitar fallas de resolución."
+                    : "Firma tus registros DNS para evitar suplantación."
+                }
+              >
+                <span>
+                  DNSSEC:{" "}
+                  <strong
+                    className={
+                      dnssecSigned
+                        ? "text-emerald-300 font-medium"
+                        : "text-text-muted font-medium"
+                    }
+                  >
+                    {dnssecSigned ? "activado" : "no activado"}
+                  </strong>
+                </span>
+                <Info size={12} className="shrink-0 opacity-75" />
+              </span>
+            </div>
+
+            {/* Row 2: Titular (privacy redaction) + Last updated */}
+            <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 flex-wrap text-[11px]">
+              <span className="text-text-dim">
+                Titular:{" "}
+                <span className="text-text-muted">
+                  {domain.registrant_country
+                    ? domain.registrant_country
+                    : "oculto por privacidad"}
+                </span>
+              </span>
+              {domain.last_updated && (
+                <span
+                  className="font-mono text-text-dim"
+                  title="Última modificación publicada en el registro"
+                >
+                  modificado {formatDomainDate(domain.last_updated)}
+                </span>
               )}
             </div>
 
-            {/* Nameservers */}
-            <div className="px-3.5 py-2.5 flex items-start justify-between gap-3">
-              <span className="text-text-dim shrink-0 pt-0.5">Nameservers</span>
-              <div className="flex items-start gap-2 min-w-0 flex-1 justify-end">
-                {nsList.length > 0 ? (
-                  <>
-                    <div className="font-mono text-[11px] text-text-main text-right space-y-0.5 min-w-0">
-                      {nsList.map((ns, idx) => (
-                        <div key={idx} className="truncate" title={ns}>
-                          {ns}
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleCopyNs()}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border-base bg-bg-card text-[11px] text-text-muted hover:text-text-main hover:border-border-accent shrink-0 cursor-pointer !min-h-0"
-                      title="Copiar nameservers"
+            {/* Row 3: Authoritative Nameservers + Live Health + Delegation Check + DNS link */}
+            <div className="px-3.5 py-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-text-dim font-medium">Nameservers</span>
+                  {nsHealthTotal > 0 && (
+                    <span
+                      title={nsHealthTooltip}
+                      className={`inline-flex items-center gap-1 text-[11px] font-medium ${
+                        nsHealthAllOk ? "text-emerald-400" : "text-amber-300"
+                      }`}
                     >
-                      {copiedNs ? (
+                      {nsHealthAllOk ? (
                         <>
-                          <Check size={11} className="text-accent-green" />
-                          <span className="text-accent-green">Copiado</span>
+                          <Check size={12} className="shrink-0" />
+                          <span>
+                            {nsHealthResponding} de {nsHealthTotal} responden
+                          </span>
+                        </>
+                      ) : nsHealthResponding < nsHealthTotal ? (
+                        <>
+                          <AlertTriangle size={12} className="shrink-0" />
+                          <span>
+                            {nsHealthResponding} de {nsHealthTotal} responden
+                          </span>
+                        </>
+                      ) : nsHealth?.soa_consistent === false ? (
+                        <>
+                          <AlertTriangle size={12} className="shrink-0" />
+                          <span>SOA distinto entre NS</span>
                         </>
                       ) : (
                         <>
-                          <Copy size={11} />
-                          <span>Copiar</span>
+                          <AlertTriangle size={12} className="shrink-0" />
+                          <span>Delegación inconsistente</span>
                         </>
                       )}
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-text-dim">Sin datos</span>
+                    </span>
+                  )}
+                </div>
+
+                {nsList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyNs()}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border border-border-base bg-bg-card text-[11px] text-text-muted hover:text-text-main hover:border-border-accent shrink-0 cursor-pointer !min-h-0"
+                    title="Copiar nameservers"
+                  >
+                    {copiedNs ? (
+                      <>
+                        <Check size={11} className="text-accent-green" />
+                        <span className="text-accent-green">Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={11} />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
+
+              {nsList.length > 0 ? (
+                <div className="font-mono text-[11px] text-text-main leading-relaxed break-all">
+                  {nsList.map((ns, idx) => {
+                    const srv = nsServerMap.get(ns.toLowerCase());
+                    const srvTitle = srv
+                      ? srv.responding
+                        ? `${ns} (${srv.ip || "IP"}) · ${srv.latency_ms ?? "?"} ms${srv.authoritative ? " · autoritativo" : ""}${srv.soa_serial != null ? ` · SOA ${srv.soa_serial}` : ""}`
+                        : `${ns}: sin respuesta${srv.error ? ` (${srv.error})` : ""}`
+                      : ns;
+                    return (
+                      <span key={ns} title={srvTitle}>
+                        {idx > 0 && (
+                          <span
+                            aria-hidden="true"
+                            className="mx-1.5 text-text-dim"
+                          >
+                            ·
+                          </span>
+                        )}
+                        <span
+                          className={
+                            srv && !srv.responding
+                              ? "text-amber-300 underline decoration-dotted"
+                              : "text-text-main"
+                          }
+                        >
+                          {ns}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-text-dim">Sin nameservers reportados</div>
+              )}
+
+              {nsHealth?.delegation_consistent === false &&
+                nsHealth.zone_ns &&
+                nsHealth.zone_ns.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200 leading-relaxed">
+                    Delegación inconsistente: los NS de la zona (
+                    <span className="font-mono">
+                      {nsHealth.zone_ns.join(", ")}
+                    </span>
+                    ) no coinciden con los del registro.
+                  </div>
+                )}
+
+              <div className="pt-0.5">
+                <Link
+                  to={`/dns?search=${encodeURIComponent(domain.domain)}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-green hover:underline"
+                >
+                  <span>Ver registros de {domain.domain}</span>
+                  <ArrowRight size={12} />
+                </Link>
+              </div>
             </div>
-
-            {/* Modificado en el registro */}
-            {domain.last_updated && (
-              <div className="px-3.5 py-2.5 flex items-center justify-between gap-3">
-                <span className="text-text-dim">Modificado en el registro</span>
-                <span className="font-mono text-text-muted">
-                  {formatDomainDate(domain.last_updated)}
-                </span>
-              </div>
-            )}
-
-            {/* DNSSEC */}
-            {domain.dnssec && (
-              <div className="px-3.5 py-2.5 flex items-center justify-between gap-3">
-                <span className="text-text-dim">DNSSEC</span>
-                <span className="font-mono text-text-muted">
-                  {domain.dnssec.toLowerCase().includes("unsigned")
-                    ? "Sin firmar"
-                    : domain.dnssec.toLowerCase().includes("signed")
-                      ? "Firmado"
-                      : domain.dnssec}
-                </span>
-              </div>
-            )}
           </section>
 
           {/* 2C. ACTIONABLE NOTIFICATION WARNING (outside accordion when 0 destinations) */}
@@ -686,7 +908,7 @@ export default function DomainDetailDrawer({
                   )}
                   {deps.dns_count > 0 && (
                     <Link
-                      to="/dns"
+                      to={`/dns?search=${encodeURIComponent(domain.domain)}`}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-bg-card border border-border-base text-text-main hover:border-accent-green/50 hover:text-accent-green transition-colors"
                     >
                       <span>
@@ -827,19 +1049,40 @@ export default function DomainDetailDrawer({
               </button>
 
               {eppOpen && (
-                <div className="border-t border-border-base/60 p-3 space-y-1.5">
+                <div className="border-t border-border-base/60 p-3 flex flex-wrap gap-1.5">
                   {eppStatuses.map((raw, idx) => {
                     const info = formatEPPStatusHuman(raw);
                     return (
-                      <div
+                      <span
                         key={idx}
-                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-bg-card border border-border-base/60"
+                        title={
+                          info.scope === "registry"
+                            ? `${info.raw} · Protegido a nivel de registro TLD`
+                            : info.scope === "registrar"
+                              ? `${info.raw} · Protegido por el registrador`
+                              : info.raw
+                        }
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] ${
+                          info.scope === "registry"
+                            ? "bg-sky-500/10 border-sky-500/40 text-sky-200"
+                            : info.protective
+                              ? "bg-bg-card border-emerald-500/30 text-text-main"
+                              : "bg-bg-card border-border-base/70 text-text-muted"
+                        }`}
                       >
-                        <span className="text-text-main">{info.label}</span>
-                        <span className="font-mono text-[10px] text-text-dim truncate max-w-[180px]">
-                          {info.raw}
-                        </span>
-                      </div>
+                        <span>{info.label}</span>
+                        {info.scopeLabel && (
+                          <span
+                            className={`px-1.5 py-px rounded text-[10px] font-mono ${
+                              info.scope === "registry"
+                                ? "bg-sky-500/20 text-sky-300"
+                                : "bg-bg-dark text-text-dim"
+                            }`}
+                          >
+                            {info.scopeLabel}
+                          </span>
+                        )}
+                      </span>
                     );
                   })}
                 </div>

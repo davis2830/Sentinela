@@ -6,6 +6,7 @@ import { useLinkedResource } from "../../hooks/useLinkedResource";
 import { useUrlFilter } from "../../hooks/useUrlFilter";
 import { useAuthStore } from "../../store/authStore";
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../services/api";
 import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
@@ -51,7 +52,18 @@ export function useDNSRecordsWorkspace() {
     "CAA",
     "PTR",
   ] as const);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search") || "";
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
+
+  useEffect(() => {
+    const paramSearch = searchParams.get("search");
+    if (paramSearch !== null && paramSearch !== searchTerm) {
+      setSearchTerm(paramSearch);
+    }
+    // Only react when URL query changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [viewMode, setViewMode] = usePersistentViewMode("dns_records", "table");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);

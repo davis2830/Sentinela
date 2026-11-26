@@ -249,45 +249,84 @@ export function formatDomainExpiredAgo(days: number): string {
   return `venció hace ${abs} d`;
 }
 
+export type EPPScope = "registrar" | "registry" | "general";
+
 export function formatEPPStatusHuman(raw: string): {
   label: string;
   raw: string;
   protective: boolean;
+  scope: EPPScope;
+  scopeLabel: string;
 } {
   const code = raw.trim();
   const low = code.toLowerCase().replace(/\s+/g, "");
-  if (low.includes("clienttransferprohibited")) {
+  const scope: EPPScope = low.startsWith("server")
+    ? "registry"
+    : low.startsWith("client")
+      ? "registrar"
+      : "general";
+  const scopeLabel =
+    scope === "registry"
+      ? "Registro TLD"
+      : scope === "registrar"
+        ? "Registrador"
+        : "";
+
+  if (low.includes("transferprohibited")) {
     return {
-      label: "Bloqueo de transferencia (registrador)",
+      label: "Transferencia bloqueada",
       raw: code,
       protective: true,
+      scope,
+      scopeLabel,
     };
   }
-  if (low.includes("servertransferprohibited")) {
-    return {
-      label: "Bloqueo de transferencia (registro TLD)",
-      raw: code,
-      protective: true,
-    };
-  }
-  if (low.includes("clientdeleteprohibited") || low.includes("serverdeleteprohibited")) {
+  if (low.includes("deleteprohibited")) {
     return {
       label: "Eliminación bloqueada",
       raw: code,
       protective: true,
+      scope,
+      scopeLabel,
     };
   }
-  if (low.includes("clientupdateprohibited") || low.includes("serverupdateprohibited")) {
+  if (low.includes("updateprohibited")) {
     return {
       label: "Cambios bloqueados",
       raw: code,
       protective: true,
+      scope,
+      scopeLabel,
+    };
+  }
+  if (low.includes("renewprohibited")) {
+    return {
+      label: "Renovación bloqueada",
+      raw: code,
+      protective: false,
+      scope,
+      scopeLabel,
+    };
+  }
+  if (low.includes("hold")) {
+    return {
+      label: "Dominio suspendido (Hold)",
+      raw: code,
+      protective: false,
+      scope,
+      scopeLabel,
     };
   }
   if (low === "ok" || low === "active") {
-    return { label: "Activo", raw: code, protective: false };
+    return {
+      label: "Activo",
+      raw: code,
+      protective: false,
+      scope: "general",
+      scopeLabel: "",
+    };
   }
-  return { label: code, raw: code, protective: false };
+  return { label: code, raw: code, protective: false, scope, scopeLabel };
 }
 
 export function formatChangeFieldLabel(field: string): string {
@@ -298,6 +337,8 @@ export function formatChangeFieldLabel(field: string): string {
       return "Nameservers";
     case "is_locked":
       return "Bloqueo de transferencia";
+    case "status":
+      return "Estados EPP";
     case "expiration_date":
       return "Vencimiento";
     default:
