@@ -1,4 +1,4 @@
-FROM nginx:1.30.6-alpine
+FROM nginx:1.30.7-alpine
 
 RUN apk upgrade --no-cache \
     && touch /var/run/nginx.pid \

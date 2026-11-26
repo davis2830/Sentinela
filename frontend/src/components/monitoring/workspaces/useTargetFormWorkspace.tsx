@@ -74,7 +74,11 @@ export function useTargetFormWorkspace({
   const [probeSearch, setProbeSearch] = useState("");
   const debouncedProbeSearch = useDebouncedValue(probeSearch, 300);
   // Fetch private satellite agents
-  const { data: probeRows = [], isLoading: probesLoading, isError: probesFailed } = useQuery<AgentProbe[]>({
+  const {
+    data: probeRows = [],
+    isLoading: probesLoading,
+    isError: probesFailed,
+  } = useQuery<AgentProbe[]>({
     queryKey: [
       "agent-probes-select",
       user?.organization?.id,
@@ -82,7 +86,8 @@ export function useTargetFormWorkspace({
     ],
     queryFn: async ({ signal }) => {
       const response = await api.get("agent-probes/", {
-        params: { page: 1, search: debouncedProbeSearch }, signal,
+        params: { page: 1, search: debouncedProbeSearch },
+        signal,
       });
       return (response.data?.data || []) as AgentProbe[];
     },

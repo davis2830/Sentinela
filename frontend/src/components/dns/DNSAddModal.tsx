@@ -144,7 +144,10 @@ export default function DNSAddModal({
     Boolean(expectedInput.trim()),
   );
 
-  const activeTypes = isEditing ? [recordTypeInput] : selectedTypes;
+  const activeTypes = useMemo(
+    () => (isEditing ? [recordTypeInput] : selectedTypes),
+    [isEditing, recordTypeInput, selectedTypes],
+  );
   const primaryType = activeTypes[0] || "A";
   const cidrSupported = activeTypes.some((t) => t === "A" || t === "AAAA");
 

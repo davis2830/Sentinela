@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -103,17 +103,17 @@ export default function TargetDetailDrawer({
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < targets.length - 1;
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (hasPrev && onSelectTarget) {
       onSelectTarget(targets[currentIndex - 1]);
     }
-  };
+  }, [hasPrev, onSelectTarget, targets, currentIndex]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (hasNext && onSelectTarget) {
       onSelectTarget(targets[currentIndex + 1]);
     }
-  };
+  }, [hasNext, onSelectTarget, targets, currentIndex]);
 
   // Keyboard navigation: Esc to close, ArrowUp/ArrowDown to navigate
   useEffect(() => {
@@ -137,7 +137,7 @@ export default function TargetDetailDrawer({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex, hasPrev, hasNext, targets, onClose]);
+  }, [handlePrev, handleNext, onClose]);
 
   // Click outside to close More menu
   useEffect(() => {

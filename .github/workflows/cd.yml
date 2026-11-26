@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
+      - 'senti9-v*.*.*'
     branches:
       - main
       - master
@@ -11,6 +12,10 @@ on:
     inputs:
       deploy_production:
         description: 'Deploy this exact revision after successful CI and environment approval'
+        default: false
+        type: boolean
+      publish_senti9:
+        description: 'Build, test and publish Senti9 agent image (GHCR + optional Docker Hub)'
         default: false
         type: boolean
 
@@ -23,6 +28,7 @@ env:
   BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
   FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
   GATEWAY_IMAGE: ghcr.io/${{ github.repository }}/gateway
+  SENTI9_IMAGE: ghcr.io/${{ github.repository }}/senti9
 
 jobs:
   release-gate:
@@ -50,6 +56,7 @@ jobs:
   # -------------------------------------------------------------
   build-and-publish:
     name: Build & Push Production Images
+    if: "!startsWith(github.ref, 'refs/tags/senti9-v')"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -138,6 +145,9 @@ jobs:
     name: Deploy to Production Environment
     needs: [build-and-publish, release-gate]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     environment:
       name: production
       url: ${{ vars.PRODUCTION_URL }}
@@ -173,10 +183,13 @@ jobs:
           DEPLOY_SSH_HOST: ${{ secrets.PROD_SERVER_HOST }}
           DEPLOY_USER: ${{ secrets.PROD_SERVER_USER }}
           PUBLIC_HEALTHCHECK_URL: ${{ secrets.PROD_HEALTHCHECK_URL }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DEPLOY_IMAGE_TAG="sha-${GITHUB_SHA:0:7}"
           {
-          printf 'sentinel_probe_url=%q\nsentinel_release_tag=%q\n' "$PUBLIC_HEALTHCHECK_URL" "$DEPLOY_IMAGE_TAG"
+          printf 'sentinel_probe_url=%q\nsentinel_release_tag=%q\nghcr_user=%q\nghcr_token=%q\n' \
+            "$PUBLIC_HEALTHCHECK_URL" "$DEPLOY_IMAGE_TAG" "$GHCR_USER" "$GHCR_TOKEN"
           cat << 'EOF'
             set -Eeuo pipefail
             cd /opt/sentinel-noc
@@ -184,6 +197,9 @@ jobs:
             . ./.env
             set +a
             export PUBLIC_HEALTHCHECK_URL="$sentinel_probe_url" DEPLOY_IMAGE_TAG="$sentinel_release_tag"
+            if [ -n "${ghcr_token:-}" ]; then
+              printf '%s' "$ghcr_token" | docker login ghcr.io -u "$ghcr_user" --password-stdin >/dev/null
+            fi
             stamp="$(date -u +%Y%m%dT%H%M%SZ)"
             mkdir -p backups
             previous_tag="$IMAGE_TAG"
@@ -240,3 +256,96 @@ jobs:
             exit 1
           EOF
           } | ssh "$DEPLOY_USER@$DEPLOY_SSH_HOST" 'bash -s'
+
+  # -------------------------------------------------------------
+  # 3. BUILD, TEST & PUBLISH SENTI9 AGENT IMAGE
+  # -------------------------------------------------------------
+  publish-senti9:
+    name: Test & Publish Senti9 Agent
+    if: startsWith(github.ref, 'refs/tags/senti9-v') || (github.event_name == 'workflow_dispatch' && inputs.publish_senti9)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Senti9 Agent Tests (no network, read-only)
+        run: |
+          bash -n sentinine/install.sh
+          docker build --target tests -t senti9-tests:cd sentinine
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=128m --cap-drop ALL --security-opt no-new-privileges:true senti9-tests:cd
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (if configured)
+        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Metadata for Senti9 (GHCR)
+        id: meta-senti9-ghcr
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.SENTI9_IMAGE }}
+          tags: |
+            type=match,pattern=senti9-v(.*),group=1
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/senti9-v') }}
+
+      - name: Build and Push Senti9 to GHCR
+        id: push-ghcr
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sentinine
+          target: production
+          push: true
+          tags: ${{ steps.meta-senti9-ghcr.outputs.tags }}
+          labels: ${{ steps.meta-senti9-ghcr.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract Metadata for Senti9 (Docker Hub)
+        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+        id: meta-senti9-dockerhub
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/senti9
+          tags: |
+            type=match,pattern=senti9-v(.*),group=1
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/senti9-v') }}
+
+      - name: Build and Push Senti9 to Docker Hub (if configured)
+        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+        id: push-dockerhub
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sentinine
+          target: production
+          push: true
+          tags: ${{ steps.meta-senti9-dockerhub.outputs.tags }}
+          labels: ${{ steps.meta-senti9-dockerhub.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Publish Senti9 Digest Summary
+        run: |
+          {
+            echo "### Senti9 Image Published"
+            echo "- **GHCR Digest:** \`${{ steps.push-ghcr.outputs.digest }}\`"
+            if [ -n "${{ steps.push-dockerhub.outputs.digest }}" ]; then
+              echo "- **Docker Hub Digest:** \`${{ secrets.DOCKERHUB_USERNAME }}/senti9@${{ steps.push-dockerhub.outputs.digest }}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

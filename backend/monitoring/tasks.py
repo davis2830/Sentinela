@@ -1,7 +1,5 @@
 from datetime import timedelta
 import logging
-import socket
-from time import perf_counter
 from common.scan_limits import guarded_scan, enqueue_many
 from common.subscriptions import eligible_organization_ids, monitoring_allowed
 
@@ -10,8 +8,6 @@ from django.utils import timezone
 
 from .models import AgentProbe, MonitoringTarget
 from .services import MonitoringService
-from common import safe_http
-from common.security import resolve_safe_target_endpoint
 
 logger = logging.getLogger(__name__)
 

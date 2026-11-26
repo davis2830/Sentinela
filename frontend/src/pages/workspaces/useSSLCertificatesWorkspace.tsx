@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
@@ -138,7 +138,7 @@ export function useSSLCertificatesWorkspace() {
   const selectionScope = JSON.stringify(directory.params);
   useEffect(() => setSelectedIds([]), [selectionScope]);
 
-  const allCerts = certificates || [];
+  const allCerts = useMemo(() => certificates || [], [certificates]);
 
   // Keep selectedCert synced when background polling or scan updates the list
   useEffect(() => {
@@ -258,12 +258,13 @@ export function useSSLCertificatesWorkspace() {
               message: [cert.domain, statusTxt, days]
                 .filter(Boolean)
                 .join(" · "),
-              tone: cert.error_message || !cert.is_valid
-                ? "danger"
-                : cert.days_remaining != null &&
-                    cert.days_remaining <= thresholds.warningDays
-                  ? "warning"
-                  : "success",
+              tone:
+                cert.error_message || !cert.is_valid
+                  ? "danger"
+                  : cert.days_remaining != null &&
+                      cert.days_remaining <= thresholds.warningDays
+                    ? "warning"
+                    : "success",
             };
           },
           onView: (cert) => setSelectedCert(cert),

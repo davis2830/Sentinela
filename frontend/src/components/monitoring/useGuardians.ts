@@ -309,9 +309,9 @@ export function useGuardians({
 
     for (const p of sortedProbes) {
       const state = getGuardianHealthState(p);
-      let key = "";
-      let label = "";
-      let icon: LucideIcon = Cpu;
+      let key: string;
+      let label: string;
+      let icon: LucideIcon;
 
       if (groupBy === "platform") {
         const plat = getGuardianPlatform(p);

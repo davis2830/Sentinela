@@ -304,7 +304,9 @@ export function useDNSRecordsWorkspace() {
       setLinkingRecordId(null);
     },
     onError: () => {
-      directory.setMessage("No se pudo vincular el registro DNS con el target.");
+      directory.setMessage(
+        "No se pudo vincular el registro DNS con el target.",
+      );
       setLinkingRecordId(null);
     },
   });
@@ -562,8 +564,7 @@ export function useDNSRecordsWorkspace() {
       const err = apiFailure(caughtError);
       emitScanFeedback({
         message:
-          err.response?.data?.message ||
-          "No se pudo guardar el registro DNS.",
+          err.response?.data?.message || "No se pudo guardar el registro DNS.",
         tone: "danger",
       });
     } finally {

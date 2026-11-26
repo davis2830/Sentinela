@@ -654,9 +654,9 @@ export function useSSLCertificates({
     for (const c of sortedCertificates) {
       const state = getSSLHealthState(c, thresholds);
       const days = c.days_remaining;
-      let key = "";
-      let label = "";
-      let icon: LucideIcon = Calendar;
+      let key: string;
+      let label: string;
+      let icon: LucideIcon;
       let order = 50;
 
       if (groupBy === "expiry_bucket") {

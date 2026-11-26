@@ -106,14 +106,13 @@ export default function DNSDetailDrawer({
   const [resolversOpen, setResolversOpen] = useState(resolversDisagree);
 
   useEffect(() => {
-    const nextState = getDNSHealthState(record);
-    setHistoryOpen(nextState === "rotating" || nextState === "propagating");
+    setHistoryOpen(state === "rotating" || state === "propagating");
     setResolversOpen(
-      nextState === "propagating" && record.propagation_status === "propagating",
+      state === "propagating" && record.propagation_status === "propagating",
     );
     setMenuOpen(false);
     setCopiedValues(false);
-  }, [record.id, record.propagation_status]);
+  }, [record.id, record.propagation_status, state]);
 
   // Prev / Next navigation across sorted records
   const currentIdx = records.findIndex((r) => r.id === record.id);
