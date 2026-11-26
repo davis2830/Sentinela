@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCapability } from "../../hooks/useCapability";
 import type { SSLCertificate } from "../../types/ssl";
+import { TABLE_ACTION_BTN } from "../common/connectivity/tableTokens";
 
 interface SSLCertificateRowActionsProps {
   cert: SSLCertificate;
@@ -141,10 +142,10 @@ export default function SSLCertificateRowActions({
           }}
           title="Comprobar certificado ahora"
           aria-label={`Comprobar ${cert.domain} ahora`}
-          className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60 transition-colors cursor-pointer !min-h-0 !min-w-0"
+          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60`}
         >
           <RefreshCw
-            size={13}
+            size={16}
             className={isScanning ? "animate-spin text-accent-green" : ""}
           />
         </button>
@@ -161,11 +162,11 @@ export default function SSLCertificateRowActions({
         aria-expanded={menuOpen}
         aria-label={`Más acciones para ${cert.domain}`}
         title="Más acciones (cadena, huella, editar, eliminar)"
-        className={`table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-text-main hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 ${
+        className={`${TABLE_ACTION_BTN} text-text-dim hover:text-text-main hover:bg-white/10 ${
           menuOpen ? "bg-white/10 text-text-main" : ""
         }`}
       >
-        <MoreHorizontal size={14} />
+        <MoreHorizontal size={16} />
       </button>
 
       {menuOpen &&

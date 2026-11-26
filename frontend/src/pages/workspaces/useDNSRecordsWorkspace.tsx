@@ -18,6 +18,10 @@ import type {
   DNSChangeHistory,
   DNSTestResolutionResult,
 } from "../../types/dns";
+import {
+  getDNSHealthState,
+  getDNSStateLabel,
+} from "../../components/dns/useDNSRecords";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
 import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
 
@@ -148,6 +152,7 @@ export function useDNSRecordsWorkspace() {
   const scanMutation = useMutation({
     mutationFn: async (id: string) => {
       setScanningId(id);
+      const current = records?.find((r) => r.id === id);
       const response = await api.post(`dns-records/${id}/scan/`);
       const queued = response.data?.data as QueuedScan;
       return waitForFreshScan<DNSRecord>(
@@ -155,6 +160,27 @@ export function useDNSRecordsWorkspace() {
         async () =>
           (await api.get(`dns-records/${id}/`)).data?.data as DNSRecord,
         (record) => record.last_scanned_at,
+        {
+          label: current?.domain,
+          formatResult: (rec) => {
+            const st = getDNSHealthState(rec);
+            const lat =
+              rec.response_time_ms != null
+                ? `${Math.round(rec.response_time_ms)} ms`
+                : null;
+            const stateTxt = getDNSStateLabel(rec, st).toLowerCase();
+            return {
+              message: [rec.domain, lat, stateTxt].filter(Boolean).join(" · "),
+              tone:
+                st === "resolved"
+                  ? "success"
+                  : st === "propagating"
+                    ? "warning"
+                    : "danger",
+            };
+          },
+          onView: (rec) => setSelectedRecord(rec),
+        },
       );
     },
     onSuccess: (updatedRecord) => {

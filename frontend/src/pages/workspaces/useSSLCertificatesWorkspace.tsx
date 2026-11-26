@@ -213,6 +213,7 @@ export function useSSLCertificatesWorkspace() {
   const scanMutation = useMutation({
     mutationFn: async (id: string) => {
       setScanningId(id);
+      const current = allCerts.find((c) => c.id === id);
       const response = await api.post(`ssl-certificates/${id}/scan/`);
       const queued = response.data?.data as QueuedScan;
       return waitForFreshScan<SSLCertificate>(
@@ -221,6 +222,34 @@ export function useSSLCertificatesWorkspace() {
           (await api.get(`ssl-certificates/${id}/`)).data
             ?.data as SSLCertificate,
         (certificate) => certificate.last_scanned_at,
+        {
+          label: current?.domain,
+          formatResult: (cert) => {
+            const days =
+              cert.days_remaining != null
+                ? cert.days_remaining <= 0
+                  ? "vencido"
+                  : `en ${cert.days_remaining} d`
+                : null;
+            const statusTxt = cert.error_message
+              ? "con problemas"
+              : cert.is_valid
+                ? "válido"
+                : "inválido";
+            return {
+              message: [cert.domain, statusTxt, days]
+                .filter(Boolean)
+                .join(" · "),
+              tone: cert.error_message || !cert.is_valid
+                ? "danger"
+                : cert.days_remaining != null &&
+                    cert.days_remaining <= thresholds.warningDays
+                  ? "warning"
+                  : "success",
+            };
+          },
+          onView: (cert) => setSelectedCert(cert),
+        },
       );
     },
     onSuccess: (updatedCert) => {

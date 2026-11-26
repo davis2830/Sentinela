@@ -18,6 +18,11 @@ import RelativeTime, {
   formatExactTime,
 } from "../common/connectivity/RelativeTime";
 import StatusPill from "../common/connectivity/StatusPill";
+import {
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  getTableRowClass,
+} from "../common/connectivity/tableTokens";
 import GuardianRowActions from "./GuardianRowActions";
 import {
   GUARDIAN_QUEUE_WARN_THRESHOLD,
@@ -85,7 +90,8 @@ export default function Senti9TableView({
   };
 
   const isCompact = density === "compact";
-  const paddingY = isCompact ? "py-2.5" : "py-3.5";
+  const rowHeightClass = getTableRowClass(density);
+  const paddingY = "py-0 align-middle";
 
   const renderRow = (probe: AgentProbe) => {
     const state = getGuardianHealthState(probe);
@@ -131,7 +137,7 @@ export default function Senti9TableView({
             onSelectProbe(probe, "operation");
           }
         }}
-        className={`group cursor-pointer transition-colors border-b border-border-base/60 ${rowBgClass}`}
+        className={`group ${rowHeightClass} cursor-pointer transition-colors border-b border-border-base/60 ${rowBgClass}`}
       >
         {/* 1. Estado */}
         <td className={`${paddingY} px-3 whitespace-nowrap w-[144px]`}>
@@ -178,7 +184,7 @@ export default function Senti9TableView({
               onClick={(e) => handleCopy(e, identifier, probe.id)}
               title="Copiar identificador"
               aria-label={`Copiar identificador de ${probe.name}`}
-              className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 text-text-dim hover:text-text-main transition-opacity cursor-pointer !min-h-0 !min-w-0"
+              className="compact-btn shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 text-text-dim hover:text-text-main transition-opacity cursor-pointer"
             >
               {copiedId === probe.id ? (
                 <Check size={11} className="text-accent-green" />
@@ -401,10 +407,12 @@ export default function Senti9TableView({
             <col className="w-[114px]" />
             <col className="w-[104px]" />
             <col className="w-[96px]" />
-            <col className="w-[144px]" />
+            <col className="w-[168px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
-            <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
+            <tr
+              className={`${TABLE_HEAD_ROW} bg-bg-dark/90 font-semibold text-text-dim select-none`}
+            >
               <th
                 scope="col"
                 aria-sort={
@@ -414,7 +422,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("status")}
                 title="Ordenar por estado (problemas primero)"
               >
@@ -439,7 +447,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("name")}
                 title="Ordenar por nombre"
               >
@@ -455,7 +463,7 @@ export default function Senti9TableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 whitespace-nowrap">
+              <th scope="col" className={`${TABLE_HEAD_CELL} whitespace-nowrap`}>
                 Plataforma
               </th>
               <th
@@ -467,7 +475,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("monitors")}
                 title="Ordenar por monitores asignados"
               >
@@ -492,7 +500,7 @@ export default function Senti9TableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("heartbeat")}
                 title="Ordenar por última señal"
               >
@@ -508,15 +516,15 @@ export default function Senti9TableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 whitespace-nowrap">
+              <th scope="col" className={`${TABLE_HEAD_CELL} whitespace-nowrap`}>
                 Latidos (8)
               </th>
-              <th scope="col" className="py-2 px-3 whitespace-nowrap">
+              <th scope="col" className={`${TABLE_HEAD_CELL} whitespace-nowrap`}>
                 Telemetría
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 text-right whitespace-nowrap bg-transparent"
+                className={`${TABLE_HEAD_CELL} text-right whitespace-nowrap bg-transparent`}
               >
                 Acciones
               </th>

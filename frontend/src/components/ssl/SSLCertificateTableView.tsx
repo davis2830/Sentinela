@@ -20,6 +20,13 @@ import {
   formatRelativeAgo,
 } from "../common/connectivity/RelativeTime";
 import StatusPill from "../common/connectivity/StatusPill";
+import {
+  TABLE_CELL,
+  TABLE_CHECK_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  getTableRowClass,
+} from "../common/connectivity/tableTokens";
 import SSLCertificateRowActions from "./SSLCertificateRowActions";
 import {
   SSL_STATE_META,
@@ -84,8 +91,8 @@ export default function SSLCertificateTableView({
   const allSelected =
     sortedCertificates.length > 0 &&
     selectedIds.length === sortedCertificates.length;
-  const isCompact = density === "compact";
-  const paddingY = isCompact ? "py-2" : "py-3";
+  const rowHeightClass = getTableRowClass(density);
+  const paddingY = "py-0 align-middle";
 
   const renderRow = (cert: SSLCertificate) => {
     const isSelected = selectedIds.includes(cert.id);
@@ -142,11 +149,11 @@ export default function SSLCertificateTableView({
             onSelectCert(cert, "overview");
           }
         }}
-        className={`group cursor-pointer transition-colors border-b border-border-base/60 ${rowBgClass}`}
+        className={`group ${rowHeightClass} cursor-pointer transition-colors border-b border-border-base/60 ${rowBgClass}`}
       >
         {/* 1. Checkbox */}
         <td
-          className={`${paddingY} px-2.5 text-center`}
+          className={TABLE_CHECK_CELL}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -156,7 +163,7 @@ export default function SSLCertificateTableView({
             aria-label={`Seleccionar ${cert.domain}`}
             title={isSelected ? "Deseleccionar" : "Seleccionar"}
             onClick={() => onToggleSelect(cert)}
-            className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
+            className="sentinel-selection compact-btn grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer mr-3"
           >
             <span
               className={`grid h-4 w-4 place-items-center rounded transition-colors ${
@@ -264,7 +271,7 @@ export default function SSLCertificateTableView({
                   onLinkTarget(cert, suggested[0]);
                 }}
                 title={`Target activo coincidente en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
-                className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-transparent border border-dashed border-border-base text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors max-w-[180px] cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
+                className="compact-btn shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-transparent border border-dashed border-border-base text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors max-w-[180px] cursor-pointer disabled:opacity-50"
               >
                 <Link2 size={10} className="shrink-0" />
                 <span className="truncate">
@@ -368,7 +375,7 @@ export default function SSLCertificateTableView({
                 ? `Ver SANs (${cert.san_domains.length}): ${cert.san_domains.slice(0, 6).join(", ")}${cert.san_domains.length > 6 ? "…" : ""}`
                 : "Ver dominios SAN"
             }
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer !min-h-0 !min-w-0"
+            className="compact-btn inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer"
           >
             <Layers size={10} className="text-sky-400 shrink-0" />
             <span>
@@ -404,25 +411,27 @@ export default function SSLCertificateTableView({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[940px] table-fixed text-left text-xs text-text-main border-collapse">
           <colgroup>
-            <col className="w-[38px]" />
+            <col className="w-11" />
             <col className="w-[136px]" />
             <col />
             <col className="w-[164px]" />
             <col className="w-[126px]" />
             <col className="w-[172px]" />
             <col className="w-[88px]" />
-            <col className="w-[84px]" />
+            <col className="w-[92px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
-            <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
-              <th scope="col" className="py-2 px-2.5 text-center">
+            <tr
+              className={`${TABLE_HEAD_ROW} bg-bg-dark/90 font-semibold text-text-dim select-none`}
+            >
+              <th scope="col" className={TABLE_CHECK_CELL}>
                 <button
                   type="button"
                   role="checkbox"
                   aria-checked={allSelected}
                   aria-label="Seleccionar todos los certificados de esta página"
                   onClick={onSelectAll}
-                  className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
+                  className="sentinel-selection compact-btn grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer mr-3"
                 >
                   <span
                     className={`grid h-4 w-4 place-items-center rounded transition-colors ${
@@ -448,7 +457,7 @@ export default function SSLCertificateTableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-2.5 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("status")}
                 title="Ordenar por estado (problemas y vencidos primero)"
               >
@@ -473,7 +482,7 @@ export default function SSLCertificateTableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("domain")}
                 title="Ordenar por dominio"
               >
@@ -489,7 +498,7 @@ export default function SSLCertificateTableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-3 whitespace-nowrap">
+              <th scope="col" className={`${TABLE_HEAD_CELL} whitespace-nowrap`}>
                 Emisor
               </th>
               <th
@@ -501,7 +510,7 @@ export default function SSLCertificateTableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("grade")}
                 title="Ordenar por grado de seguridad TLS"
               >
@@ -526,7 +535,7 @@ export default function SSLCertificateTableView({
                       : "descending"
                     : "none"
                 }
-                className="py-2 px-3 whitespace-nowrap cursor-pointer hover:text-text-main"
+                className={`${TABLE_HEAD_CELL} whitespace-nowrap cursor-pointer hover:text-text-main`}
                 onClick={() => onSortChange("expiry")}
                 title="Ordenar por vencimiento más próximo"
               >
@@ -542,12 +551,12 @@ export default function SSLCertificateTableView({
                   />
                 </div>
               </th>
-              <th scope="col" className="py-2 px-2.5 whitespace-nowrap">
+              <th scope="col" className={`${TABLE_CELL} whitespace-nowrap`}>
                 SANs
               </th>
               <th
                 scope="col"
-                className="py-2 px-3 text-right whitespace-nowrap bg-transparent"
+                className={`${TABLE_HEAD_CELL} text-right whitespace-nowrap bg-transparent`}
               >
                 Acciones
               </th>

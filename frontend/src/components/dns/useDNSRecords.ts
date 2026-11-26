@@ -399,9 +399,9 @@ export function useDNSRecords(
   const [density, setDensityState] = useState<DNSDensity>(() => {
     try {
       const saved = localStorage.getItem(DENSITY_STORAGE_KEY);
-      return saved === "compact" ? "compact" : "comfortable";
+      return saved === "comfortable" ? "comfortable" : "compact";
     } catch {
-      return "comfortable";
+      return "compact";
     }
   });
 

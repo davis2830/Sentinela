@@ -4,17 +4,19 @@ import { hasCapability, type Capability } from "../../hooks/useCapability";
 import { useAuthStore } from "../../store/authStore";
 import "./resource-controls.css";
 
-/** One 20 px selection mark inside an unpainted 44 px pointer target. */
+/** Compact 16px selection mark inside a 24px target aligned with tableTokens. */
 export default function SelectionCheckbox({
   checked,
   label,
   onChange,
   capability,
+  className = "",
 }: {
   checked: boolean;
   label: string;
   onChange: (event: MouseEvent<HTMLButtonElement>) => void;
   capability?: Capability;
+  className?: string;
 }) {
   const user = useAuthStore((state) => state.user);
   if (capability && !hasCapability(user, capability)) return null;
@@ -29,14 +31,14 @@ export default function SelectionCheckbox({
         event.stopPropagation();
         onChange(event);
       }}
-      className="sentinel-selection grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-transparent p-0"
+      className={`sentinel-selection compact-btn grid h-6 w-6 shrink-0 place-items-center rounded bg-transparent p-0 cursor-pointer ${className}`}
     >
       <span
         aria-hidden="true"
-        className={`grid h-5 w-5 shrink-0 place-items-center rounded-md transition-colors ${checked ? "bg-accent-green text-black ring-2 ring-accent-green/40" : "border border-border-base/90 bg-bg-dark/80 text-transparent"}`}
+        className={`grid h-4 w-4 shrink-0 place-items-center rounded transition-colors ${checked ? "bg-accent-green text-black ring-1 ring-accent-green/40" : "border border-border-base/90 bg-bg-dark/80 text-transparent"}`}
       >
         <Check
-          size={12}
+          size={10}
           strokeWidth={3}
           className={checked ? "opacity-100" : "opacity-0"}
         />

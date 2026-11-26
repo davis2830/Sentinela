@@ -17,6 +17,14 @@ import type {
 import SelectionCheckbox from "../common/SelectionCheckbox";
 import RelativeTime from "../common/connectivity/RelativeTime";
 import StatusPill from "../common/connectivity/StatusPill";
+import {
+  TABLE_CELL,
+  TABLE_CHECK_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  TABLE_PILL,
+  getTableRowClass,
+} from "../common/connectivity/tableTokens";
 import DNSRowActions from "./DNSRowActions";
 import {
   DNS_STATE_META,
@@ -85,7 +93,7 @@ export default function DNSTableView({
   const toggleGroup = (key: string) =>
     setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const rowPy = density === "compact" ? "py-1.5" : "py-2.5";
+  const rowHeightClass = getTableRowClass(density);
   const allSelected =
     allVisibleRecords.length > 0 &&
     selectedIds.length === allVisibleRecords.length;
@@ -175,7 +183,7 @@ export default function DNSTableView({
           }
         }}
         onClick={() => onSelectRecord(record)}
-        className={`group transition-colors cursor-pointer hover:bg-bg-card-hover/70 focus:outline-none focus-visible:bg-bg-card-hover/80 ${
+        className={`group ${rowHeightClass} transition-colors cursor-pointer hover:bg-bg-card-hover/70 focus:outline-none focus-visible:bg-bg-card-hover/80 ${
           isSelected
             ? "bg-accent-green/[0.04]"
             : state === "error" || state === "mismatch"
@@ -185,9 +193,9 @@ export default function DNSTableView({
                 : ""
         }`}
       >
-        {/* Checkbox with generous breathing room */}
+        {/* Checkbox with mr-3 spacing before Estado */}
         <td
-          className={`${rowPy} pl-4 pr-3`}
+          className={TABLE_CHECK_CELL}
           onClick={(e) => {
             e.stopPropagation();
             onToggleSelect(record);
@@ -197,12 +205,13 @@ export default function DNSTableView({
             checked={isSelected}
             label={`Seleccionar ${record.record_type} ${record.domain}`}
             onChange={() => onToggleSelect(record)}
+            className="mr-3"
           />
         </td>
 
         {/* Estado (full unified label, shape icon) */}
         <td
-          className={`${rowPy} pl-2 pr-3 whitespace-nowrap`}
+          className={`${TABLE_CELL} whitespace-nowrap`}
           title={stateTooltipParts.join(" · ") || undefined}
         >
           <StatusPill
@@ -214,14 +223,14 @@ export default function DNSTableView({
           />
         </td>
 
-        {/* Tipo (neutral badge — green/amber/red reserved for state) */}
-        <td className={`${rowPy} px-2 whitespace-nowrap`}>
+        {/* Tipo (neutral compact badge matching Uptime protocol pill scale) */}
+        <td className={`${TABLE_CELL} whitespace-nowrap`}>
           <span
             title={
               DNS_TYPE_TOOLTIPS[record.record_type] ||
               `Registro ${record.record_type}`
             }
-            className={`inline-flex items-center justify-center min-w-[44px] px-2 py-0.5 rounded-full text-[11px] font-mono font-bold border ${getTypeBadgeClass(
+            className={`inline-flex items-center justify-center min-w-[32px] ${TABLE_PILL} rounded font-mono font-bold border ${getTypeBadgeClass(
               record.record_type,
             )}`}
           >
@@ -229,8 +238,8 @@ export default function DNSTableView({
           </span>
         </td>
 
-        {/* Dominio (fixed sensible width with truncate so there's no 500px chasm before Resuelve a) */}
-        <td className={`${rowPy} px-3 max-w-0`}>
+        {/* Dominio (fixed sensible width with truncate) */}
+        <td className={`${TABLE_CELL} max-w-0`}>
           <div className="flex items-center gap-2 min-w-0">
             <span
               className="font-semibold text-text-main group-hover:text-accent-green transition-colors text-[13px] truncate"
@@ -271,7 +280,7 @@ export default function DNSTableView({
                   onLinkTarget(record, suggestedTarget);
                 }}
                 title={`Vincular con el target ${suggestedTarget.name} en Uptime`}
-                className="hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[140px] cursor-pointer !min-h-0 !min-w-0"
+                className="compact-btn hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[140px] cursor-pointer"
               >
                 <Link2 size={10} className="shrink-0" />
                 <span className="truncate">Vincular: {suggestedTarget.name}</span>
@@ -280,8 +289,8 @@ export default function DNSTableView({
           </div>
         </td>
 
-        {/* Resuelve a (absorbs flexible width so IPs, CNAME, MX & long TXT have real room) */}
-        <td className={`${rowPy} px-3 w-full max-w-0`}>
+        {/* Resuelve a (absorbs flexible width) */}
+        <td className={`${TABLE_CELL} w-full max-w-0`}>
           {values.length > 0 ? (
             <div
               className="flex items-center gap-1.5 min-w-0 font-mono text-xs"
@@ -345,13 +354,13 @@ export default function DNSTableView({
         </td>
 
         {/* TTL */}
-        <td className={`${rowPy} px-2.5 font-mono text-xs text-text-muted whitespace-nowrap tabular-nums`}>
+        <td className={`${TABLE_CELL} font-mono text-xs text-text-muted whitespace-nowrap tabular-nums`}>
           {formatDNSTTL(record.ttl)}
         </td>
 
         {/* Latencia (clarified tooltip: principal resolver vs secondary resolvers) */}
         <td
-          className={`${rowPy} px-2.5 font-mono text-xs whitespace-nowrap tabular-nums text-right ${getDNSLatencyToneClass(
+          className={`${TABLE_CELL} font-mono text-xs whitespace-nowrap tabular-nums text-right ${getDNSLatencyToneClass(
             record.response_time_ms,
           )}`}
           title={getDNSLatencyTooltip(record)}
@@ -360,7 +369,7 @@ export default function DNSTableView({
         </td>
 
         {/* Revisado */}
-        <td className={`${rowPy} px-2.5 text-xs text-text-dim whitespace-nowrap tabular-nums`}>
+        <td className={`${TABLE_CELL} text-xs text-text-dim whitespace-nowrap tabular-nums`}>
           <RelativeTime
             value={record.last_scanned_at}
             emptyLabel="Nunca"
@@ -369,7 +378,7 @@ export default function DNSTableView({
         </td>
 
         {/* Acciones (hover / keyboard focus-within / touch) */}
-        <td className={`${rowPy} pl-1 pr-3 text-right whitespace-nowrap`}>
+        <td className="pl-1 pr-3 py-0 align-middle text-right whitespace-nowrap">
           <DNSRowActions
             record={record}
             variant="table"
@@ -395,77 +404,83 @@ export default function DNSTableView({
           <colgroup>
             <col className="w-11" />
             <col className="w-[172px]" />
-            <col className="w-[68px]" />
-            <col className="w-[280px]" />
+            <col className="w-[64px]" />
+            <col className="w-[270px]" />
             <col className="w-full" />
             <col className="w-[72px]" />
             <col className="w-[82px]" />
             <col className="w-[104px]" />
-            <col className="w-[92px]" />
+            <col className="w-[116px]" />
           </colgroup>
           <thead>
-            <tr className="border-b border-border-base text-text-dim text-[11px] font-medium bg-bg-dark/80 select-none">
-              <th scope="col" className="py-2.5 pl-4 pr-3">
+            <tr
+              className={`${TABLE_HEAD_ROW} border-b border-border-base text-text-dim font-medium bg-bg-dark/80 select-none`}
+            >
+              <th scope="col" className={TABLE_CHECK_CELL}>
                 <SelectionCheckbox
                   checked={allSelected}
                   label="Seleccionar todos los registros de esta página"
                   onChange={onToggleSelectAll}
+                  className="mr-3"
                 />
               </th>
-              <th scope="col" className="py-2.5 pl-2 pr-3">
+              <th scope="col" className={TABLE_HEAD_CELL}>
                 <button
                   type="button"
                   onClick={() => onSort("status")}
-                  className="inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer !min-h-0 !min-w-0"
+                  className="compact-btn inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer"
                 >
                   <span>Estado</span>
                   <SortIcon col="status" />
                 </button>
               </th>
-              <th scope="col" className="py-2.5 px-2">
+              <th scope="col" className={TABLE_HEAD_CELL}>
                 Tipo
               </th>
-              <th scope="col" className="py-2.5 px-3">
+              <th scope="col" className={TABLE_HEAD_CELL}>
                 <button
                   type="button"
                   onClick={() => onSort("domain")}
-                  className="inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer !min-h-0 !min-w-0"
+                  className="compact-btn inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer"
                 >
                   <span>Dominio</span>
                   <SortIcon col="domain" />
                 </button>
               </th>
-              <th scope="col" className="py-2.5 px-3">
+              <th scope="col" className={TABLE_HEAD_CELL}>
                 Resuelve a
               </th>
-              <th scope="col" className="py-2.5 px-2.5">
+              <th scope="col" className={TABLE_HEAD_CELL}>
                 TTL
               </th>
               <th
                 scope="col"
-                className="py-2.5 px-2.5 text-right"
+                className={`${TABLE_HEAD_CELL} text-right`}
                 title="Latencia del resolver principal (1.1.1.1)"
               >
                 <button
                   type="button"
                   onClick={() => onSort("latency")}
-                  className="inline-flex items-center justify-end gap-1 hover:text-text-main transition-colors cursor-pointer !min-h-0 !min-w-0"
+                  className="compact-btn inline-flex items-center justify-end gap-1 hover:text-text-main transition-colors cursor-pointer"
                 >
                   <span>Latencia</span>
                   <SortIcon col="latency" />
                 </button>
               </th>
-              <th scope="col" className="py-2.5 px-2.5">
+              <th scope="col" className={TABLE_HEAD_CELL}>
                 <button
                   type="button"
                   onClick={() => onSort("checked")}
-                  className="inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer !min-h-0 !min-w-0"
+                  className="compact-btn inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer"
                 >
                   <span>Revisado</span>
                   <SortIcon col="checked" />
                 </button>
               </th>
-              <th scope="col" className="py-2.5 pl-1 pr-3 text-right">
+              <th
+                scope="col"
+                className="pl-1 pr-3 py-0 align-middle text-right"
+              >
                 Acciones
               </th>
             </tr>

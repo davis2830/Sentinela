@@ -26,6 +26,13 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import type { MonitoringTarget } from "../../types/monitoring";
+import {
+  TABLE_ACTION_BTN,
+  TABLE_CHECK_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  getTableRowClass,
+} from "../common/connectivity/tableTokens";
 
 interface TargetTableViewProps {
   sortedTargets: MonitoringTarget[];
@@ -162,7 +169,8 @@ export default function TargetTableView({
     const historySlots = getTargetHistorySlots(target, 8);
     const statusKind = getTargetStatusKind(target);
     const isCompact = density === "compact";
-    const paddingY = isCompact ? "py-2" : "py-3";
+    const rowHeightClass = getTableRowClass(density);
+    const paddingY = "py-0 align-middle";
     const isDown = statusKind === "down";
     const isOnline = statusKind === "up";
     const isPaused = statusKind === "paused";
@@ -195,7 +203,7 @@ export default function TargetTableView({
             onClick(target);
           }
         }}
-        className={`group cursor-pointer transition-colors border-b border-border-base/70 ${
+        className={`group ${rowHeightClass} cursor-pointer transition-colors border-b border-border-base/70 ${
           isSelected
             ? "bg-accent-green/5"
             : isPaused
@@ -209,7 +217,7 @@ export default function TargetTableView({
       >
         {/* 1. Selection Checkbox */}
         <td
-          className={`${paddingY} px-2.5 w-8 text-center`}
+          className={TABLE_CHECK_CELL}
           onClick={(e) => e.stopPropagation()}
         >
           <button
@@ -219,7 +227,7 @@ export default function TargetTableView({
             aria-label={`Seleccionar ${target.name}`}
             title={isSelected ? "Deseleccionar" : "Seleccionar"}
             onClick={() => onSelectToggle(target)}
-            className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
+            className="sentinel-selection compact-btn grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer mr-3"
           >
             <span
               className={`grid h-4 w-4 place-items-center rounded transition-colors ${
@@ -415,38 +423,41 @@ export default function TargetTableView({
 
         {/* 6. Acciones - Fade in on hover, background matches row */}
         <td
-          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[110px] ${
+          className={`${paddingY} px-2.5 text-right whitespace-nowrap w-[148px] ${
             isDown ? "bg-[#1c1217]" : "bg-transparent"
           } group-hover:bg-white/[0.03] transition-colors`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-end gap-1.5">
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
+          <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
               {onAlert && (
                 <button
                   type="button"
                   onClick={() => onAlert(target)}
                   title="Vincular regla de alerta"
-                  className="table-action-btn p-1 rounded text-text-dim hover:text-accent-yellow hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 h-6 w-6 grid place-items-center"
+                  aria-label={`Vincular alerta a ${target.name}`}
+                  className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-yellow hover:bg-white/10`}
                 >
-                  <Bell size={13} />
+                  <Bell size={16} />
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => onEdit(target)}
                 title="Editar target"
-                className="table-action-btn p-1 rounded text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 h-6 w-6 grid place-items-center"
+                aria-label={`Editar ${target.name}`}
+                className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-green hover:bg-white/10`}
               >
-                <Pencil size={13} />
+                <Pencil size={16} />
               </button>
               <button
                 type="button"
                 onClick={() => onDelete(target)}
                 title="Eliminar target"
-                className="table-action-btn p-1 rounded text-text-dim hover:text-accent-red hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 h-6 w-6 grid place-items-center"
+                aria-label={`Eliminar ${target.name}`}
+                className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-red hover:bg-white/10`}
               >
-                <Trash2 size={13} />
+                <Trash2 size={16} />
               </button>
             </div>
 
@@ -595,8 +606,10 @@ export default function TargetTableView({
         <div className="w-full">
           <table className="w-full text-left text-xs text-text-main border-collapse">
             <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md shadow-sm border-b border-border-base">
-              <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">
-                <th scope="col" className="py-2 px-2.5 w-8 text-center">
+              <tr
+                className={`${TABLE_HEAD_ROW} bg-bg-dark/90 font-semibold text-text-dim select-none`}
+              >
+                <th scope="col" className={TABLE_CHECK_CELL}>
                   <button
                     type="button"
                     role="checkbox"
@@ -606,7 +619,7 @@ export default function TargetTableView({
                       allSelected ? "Deseleccionar todos" : "Seleccionar todos"
                     }
                     onClick={onSelectAllToggle}
-                    className="sentinel-selection grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer !min-h-0 !min-w-0"
+                    className="sentinel-selection compact-btn grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer mr-3"
                   >
                     <span
                       className={`grid h-4 w-4 place-items-center rounded transition-colors ${
@@ -625,7 +638,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[105px]"
+                  className={`${TABLE_HEAD_CELL} cursor-pointer hover:text-text-main w-[105px]`}
                   onClick={() => onSortChange("status")}
                   title="Ordenar por estado (Caídos primero)"
                 >
@@ -643,7 +656,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-3 cursor-pointer hover:text-text-main w-full"
+                  className={`${TABLE_HEAD_CELL} cursor-pointer hover:text-text-main w-full`}
                   onClick={() => onSortChange("name")}
                   title="Ordenar por nombre"
                 >
@@ -661,7 +674,7 @@ export default function TargetTableView({
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 cursor-pointer hover:text-text-main w-[135px]"
+                  className={`${TABLE_HEAD_CELL} cursor-pointer hover:text-text-main w-[135px]`}
                   onClick={() => onSortChange("latency")}
                   title="Ordenar por latencia"
                 >
@@ -677,12 +690,12 @@ export default function TargetTableView({
                     />
                   </div>
                 </th>
-                <th scope="col" className="py-2 px-2.5 w-[90px]">
+                <th scope="col" className={`${TABLE_HEAD_CELL} w-[90px]`}>
                   Historial (8)
                 </th>
                 <th
                   scope="col"
-                  className="py-2 px-2.5 text-right w-[110px] bg-inherit"
+                  className={`${TABLE_HEAD_CELL} text-right w-[148px] bg-inherit`}
                 >
                   Acciones
                 </th>

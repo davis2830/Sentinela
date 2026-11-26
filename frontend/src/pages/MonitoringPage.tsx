@@ -173,6 +173,7 @@ export default function MonitoringPage() {
   const scanMutation = useMutation({
     mutationFn: async (id: string) => {
       setScanningId(id);
+      const current = targets?.find((t) => t.id === id);
       const res = await api.post(`/monitoring/${id}/scan/`);
       const queued = res.data?.data as QueuedScan;
       return waitForFreshScan<MonitoringTarget>(
@@ -180,6 +181,30 @@ export default function MonitoringPage() {
         async () =>
           (await api.get(`/monitoring/${id}/`)).data?.data as MonitoringTarget,
         (target) => target.last_checked_at,
+        {
+          label: current?.name,
+          formatResult: (t) => {
+            const lat =
+              t.last_latency != null ? `${Math.round(t.last_latency)} ms` : null;
+            const statusMap: Record<string, string> = {
+              up: "online",
+              slow: "lento",
+              down: "caído",
+              error: "error",
+            };
+            const st = statusMap[t.last_status || ""] || "actualizado";
+            return {
+              message: [t.name, lat, st].filter(Boolean).join(" · "),
+              tone:
+                t.last_status === "up"
+                  ? "success"
+                  : t.last_status === "slow"
+                    ? "warning"
+                    : "danger",
+            };
+          },
+          onView: (t) => handleSelectTarget(t),
+        },
       );
     },
     onSuccess: (updatedTarget) => {

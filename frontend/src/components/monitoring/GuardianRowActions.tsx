@@ -1,5 +1,6 @@
 import { Activity, Plus, Terminal } from "lucide-react";
 import type { AgentProbe } from "../../types/agent_probe";
+import { TABLE_ACTION_BTN } from "../common/connectivity/tableTokens";
 import { TargetEnabledSwitch } from "./TargetTableControls";
 import { getGuardianHealthState } from "./useGuardians";
 import type { GuardianActionSection } from "./Senti9TableView";
@@ -44,9 +45,9 @@ export default function GuardianRowActions({
           onClick={() => onCreateMonitor(probe.id)}
           title="Agregar monitor LAN en este guardián"
           aria-label={`Agregar monitor LAN en ${probe.name}`}
-          className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-green hover:bg-white/10`}
         >
-          <Plus size={13} />
+          <Plus size={16} />
         </button>
       )}
       <button
@@ -54,9 +55,9 @@ export default function GuardianRowActions({
         onClick={() => onSelect(probe, "operation")}
         title="Ver telemetría y detalle operativo"
         aria-label={`Ver telemetría de ${probe.name}`}
-        className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-emerald-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+        className={`${TABLE_ACTION_BTN} text-text-dim hover:text-emerald-400 hover:bg-white/10`}
       >
-        <Activity size={13} />
+        <Activity size={16} />
       </button>
       {admin && (
         <button
@@ -64,9 +65,9 @@ export default function GuardianRowActions({
           onClick={() => onSelect(probe, "install")}
           title="Consola: comandos de despliegue Docker"
           aria-label={`Consola de despliegue Docker de ${probe.name}`}
-          className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-sky-400 hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-sky-400 hover:bg-white/10`}
         >
-          <Terminal size={13} />
+          <Terminal size={16} />
         </button>
       )}
     </>
@@ -76,9 +77,9 @@ export default function GuardianRowActions({
       onClick={() => onSelect(probe, "security")}
       title="Ver auditoría de retiro"
       aria-label={`Ver auditoría de retiro de ${probe.name}`}
-      className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-text-main hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0"
+      className={`${TABLE_ACTION_BTN} text-text-dim hover:text-text-main hover:bg-white/10`}
     >
-      <Activity size={13} />
+      <Activity size={16} />
     </button>
   );
 

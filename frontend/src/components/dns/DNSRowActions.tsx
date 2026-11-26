@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useCapability } from "../../hooks/useCapability";
 import type { DNSRecord, DNSReferenceMode } from "../../types/dns";
+import { TABLE_ACTION_BTN } from "../common/connectivity/tableTokens";
 
 interface DNSRowActionsProps {
   record: DNSRecord;
@@ -147,10 +148,10 @@ export default function DNSRowActions({
           }}
           title="Comprobar ahora"
           aria-label={`Comprobar ${record.record_type} ${record.domain} ahora`}
-          className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60 transition-colors cursor-pointer !min-h-0 !min-w-0"
+          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-accent-green hover:bg-white/10 disabled:opacity-60`}
         >
           <RefreshCw
-            size={13}
+            size={16}
             className={isScanning ? "animate-spin text-accent-green" : ""}
           />
         </button>
@@ -166,9 +167,9 @@ export default function DNSRowActions({
           }}
           title="Definir valor actual como referencia"
           aria-label={`Definir valor actual de ${record.domain} como referencia`}
-          className="table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-emerald-400 hover:bg-white/10 disabled:opacity-60 transition-colors cursor-pointer !min-h-0 !min-w-0"
+          className={`${TABLE_ACTION_BTN} text-text-dim hover:text-emerald-400 hover:bg-white/10 disabled:opacity-60`}
         >
-          <CheckCircle2 size={13} />
+          <CheckCircle2 size={16} />
         </button>
       )}
 
@@ -183,11 +184,11 @@ export default function DNSRowActions({
         aria-expanded={menuOpen}
         aria-label={`Más acciones para ${record.record_type} ${record.domain}`}
         title="Más acciones (definir referencia, copiar valores, editar, eliminar)"
-        className={`table-action-btn h-6 w-6 grid shrink-0 place-items-center rounded-md text-text-dim hover:text-text-main hover:bg-white/10 transition-colors cursor-pointer !min-h-0 !min-w-0 ${
+        className={`${TABLE_ACTION_BTN} text-text-dim hover:text-text-main hover:bg-white/10 ${
           menuOpen ? "bg-white/10 text-text-main" : ""
         }`}
       >
-        <MoreHorizontal size={14} />
+        <MoreHorizontal size={16} />
       </button>
 
       {menuOpen &&
