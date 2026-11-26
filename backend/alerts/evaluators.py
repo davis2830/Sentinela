@@ -347,8 +347,13 @@ class MetricEvaluators:
         triggered = False
 
         for domain in domains:
-            if domain.expiration_date and domain.expiration_date <= threshold_date:
-                days_left = (domain.expiration_date - now).days
+            exp_dt = domain.expiration_date
+            if exp_dt is None and domain.manual_expiration_date is not None:
+                from datetime import datetime, timezone as dt_timezone
+
+                exp_dt = datetime.combine(domain.manual_expiration_date, datetime.min.time(), tzinfo=dt_timezone.utc)
+            if exp_dt and exp_dt <= threshold_date:
+                days_left = (exp_dt - now).days
                 AlertService.create_alert(
                     organization_id=rule.organization_id,
                     rule_id=rule.id,

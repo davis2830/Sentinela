@@ -70,7 +70,7 @@ def scan_whois(self, domain_id):
             name_servers="",
             registrant_country="",
             days_until_expiration=None,
-            is_locked=False,
+            is_locked=None,
             whois_server="",
             dnssec="",
             error_message=f"WHOIS error: {res.get('error_message')}",

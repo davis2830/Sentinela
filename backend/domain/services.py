@@ -1,21 +1,61 @@
+import ipaddress
 import logging
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
+from urllib.parse import urlsplit
 
 from django.db import transaction
-from common.beta_quota import beta_creation
 from django.utils import timezone
+from common.beta_quota import beta_creation
 
-from .models import DomainInfo
+from .models import DomainChangeHistory, DomainInfo
 
 logger = logging.getLogger(__name__)
 
+MULTIPART_TLDS = {
+    "co.uk",
+    "org.uk",
+    "com.mx",
+    "org.mx",
+    "gob.mx",
+    "com.gt",
+    "org.gt",
+    "gob.gt",
+    "edu.gt",
+    "com.ar",
+    "com.br",
+    "com.co",
+    "com.es",
+    "com.pe",
+    "com.au",
+    "co.jp",
+    "com.sv",
+    "com.hn",
+    "com.cr",
+    "com.pa",
+}
+
+
+def extract_root_domain(host):
+    """Extract the registrable apex domain from a hostname (best-effort without PSL)."""
+    clean = (host or "").strip().lower().rstrip(".")
+    if not clean or "." not in clean:
+        return None
+    try:
+        ipaddress.ip_address(clean)
+        return None
+    except ValueError:
+        pass
+    parts = [p for p in clean.split(".") if p]
+    if len(parts) <= 2:
+        return clean
+    last_two = f"{parts[-2]}.{parts[-1]}"
+    if last_two in MULTIPART_TLDS and len(parts) >= 3:
+        return ".".join(parts[-3:])
+    return last_two
+
 
 def _parse_date(date_value):
-    """Parse a WHOIS date value into a timezone-aware datetime.
-
-    WHOIS dates can be a single datetime, a list of datetimes, or a string.
-    Returns the most recent/valid date if a list is provided.
-    """
+    """Parse a WHOIS date value into a timezone-aware datetime."""
     if not date_value:
         return None
 
@@ -36,17 +76,50 @@ def _parse_date(date_value):
     return None
 
 
-class DomainService:
-    """Service for domain WHOIS monitoring.
+def _parse_manual_date(value):
+    """Parse YYYY-MM-DD or date object for manual_expiration_date."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value.strip()[:10])
+        except ValueError as exc:
+            raise ValueError("Fecha manual inválida. Usa formato AAAA-MM-DD.") from exc
+    raise ValueError("Fecha manual inválida.")
 
-    Handles CRUD operations for domain info, deep WHOIS scanning,
-    anti-hijacking lock detection, expiration timeline tracking, and bulk operations.
-    All business logic lives here, not in views.
+
+def _normalize_ns_set(raw_ns):
+    if not raw_ns:
+        return set()
+    if isinstance(raw_ns, (list, tuple, set)):
+        items = raw_ns
+    else:
+        items = str(raw_ns).replace(",", "\n").splitlines()
+    return {str(n).strip().lower().rstrip(".") for n in items if str(n).strip()}
+
+
+def _days_from_manual_date(manual_date):
+    if not manual_date:
+        return None
+    today = timezone.now().date()
+    return (manual_date - today).days
+
+
+class DomainService:
+    """Service for domain WHOIS / RDAP monitoring.
+
+    Handles CRUD operations for domain info, RDAP/WHOIS scanning,
+    transfer-lock & hijacking change detection, manual expiration fallback,
+    cross-module unwatched domain discovery, and bulk operations.
     """
 
     @staticmethod
     def perform_whois_query(domain):
-        """Performs a live WHOIS query, extracts registrar, dates, EPP status, and nameservers."""
+        """Performs a live RDAP/WHOIS query, extracts registrar, dates, EPP status, and nameservers."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
 
         try:
@@ -81,6 +154,7 @@ class DomainService:
                 if not status_list
                 else (
                     "transferprohibited" in status_lower
+                    or "transfer prohibited" in status_lower
                     or "locked" in status_lower
                     or "clienttransferprohibited" in status_lower
                     or "servertransferprohibited" in status_lower
@@ -90,9 +164,9 @@ class DomainService:
             # Normalize nameservers
             raw_ns = w.name_servers or []
             if isinstance(raw_ns, str):
-                ns_list = [n.strip().lower() for n in raw_ns.split() if n.strip()]
+                ns_list = sorted({n.strip().lower().rstrip(".") for n in raw_ns.split() if n.strip()})
             elif isinstance(raw_ns, list):
-                ns_list = [str(n).strip().lower() for n in raw_ns if str(n).strip()]
+                ns_list = sorted({str(n).strip().lower().rstrip(".") for n in raw_ns if str(n).strip()})
             else:
                 ns_list = []
 
@@ -102,15 +176,14 @@ class DomainService:
 
             now = datetime.now(dt_timezone.utc)
             days_until_expiration = None
-            life_percentage = 0.0
+            remaining_percentage = None
 
             if expiration_date:
                 days_until_expiration = (expiration_date - now).days
-
                 if creation_date:
                     total_sec = max((expiration_date - creation_date).total_seconds(), 1)
-                    elapsed_sec = max((now - creation_date).total_seconds(), 0)
-                    life_percentage = round(min(max(elapsed_sec / total_sec * 100, 0), 100), 1)
+                    remaining_sec = max((expiration_date - now).total_seconds(), 0)
+                    remaining_percentage = round(min(max(remaining_sec / total_sec * 100, 0), 100), 1)
 
             country = str(w.country or "")
             whois_server = str(getattr(w, "whois_server", "") or "")
@@ -126,7 +199,7 @@ class DomainService:
                 "expiration_date": expiration_date,
                 "last_updated": last_updated,
                 "days_until_expiration": days_until_expiration,
-                "life_percentage": life_percentage,
+                "remaining_percentage": remaining_percentage,
                 "is_locked": is_locked,
                 "status": status_list,
                 "name_servers": ns_list,
@@ -146,8 +219,8 @@ class DomainService:
                 "expiration_date": None,
                 "last_updated": None,
                 "days_until_expiration": None,
-                "life_percentage": 0.0,
-                "is_locked": False,
+                "remaining_percentage": None,
+                "is_locked": None,
                 "status": [],
                 "name_servers": [],
                 "registrant_country": "",
@@ -158,30 +231,50 @@ class DomainService:
 
     @staticmethod
     def test_whois(domain):
-        """Live WHOIS query preview without persisting to database."""
+        """Live RDAP/WHOIS query preview without persisting to database."""
         return DomainService.perform_whois_query(domain)
 
     @staticmethod
     def list_domains(organization_id):
-        """Return all domain info records for an organization."""
-        return DomainInfo.objects.filter(organization_id=organization_id).order_by("-created_at")
+        """Return all domain info records for an organization (with prefetched history & links)."""
+        return (
+            DomainInfo.objects.filter(organization_id=organization_id)
+            .prefetch_related("change_history", "targetcoverage_set__target")
+            .order_by("days_until_expiration", "domain")
+        )
 
     @staticmethod
     def get_domain(domain_id, organization_id):
         """Return a single domain info by ID within an organization."""
-        return DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
+        return (
+            DomainInfo.objects.filter(id=domain_id, organization_id=organization_id)
+            .prefetch_related("change_history", "targetcoverage_set__target")
+            .get()
+        )
 
     @staticmethod
     @transaction.atomic
     @beta_creation("domains")
-    def create_domain(organization_id, domain):
-        """Create a new domain info record and trigger immediate WHOIS scan."""
+    def create_domain(organization_id, domain, manual_expiration_date=None):
+        """Create a new domain info record and trigger immediate RDAP/WHOIS scan."""
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
+        parsed_manual = _parse_manual_date(manual_expiration_date)
+        manual_days = _days_from_manual_date(parsed_manual)
         domain_info, created = DomainInfo.objects.get_or_create(
             organization_id=organization_id,
             domain=clean_domain,
+            defaults={
+                "manual_expiration_date": parsed_manual,
+                "days_until_expiration": manual_days,
+                "data_source": "manual" if parsed_manual else "",
+            },
         )
         if not created:
+            if parsed_manual is not None:
+                domain_info.manual_expiration_date = parsed_manual
+                if not domain_info.expiration_date:
+                    domain_info.days_until_expiration = manual_days
+                domain_info.save(update_fields=["manual_expiration_date", "days_until_expiration", "updated_at"])
             return domain_info
         from .tasks import scan_whois
         from common.executions import initial_scan
@@ -217,41 +310,166 @@ class DomainService:
         data_source="",
         source_url="",
     ):
-        """Update a domain info record with WHOIS scan results and security attributes."""
+        """Update a domain info record with RDAP/WHOIS results and log registration changes."""
         domain_info = DomainInfo.objects.get(id=domain_id)
         from common.execution_context import assert_current
 
         assert_current(domain_info)
+        now = timezone.now()
+
         if error_message:
             domain_info.error_message = error_message[:500]
-            domain_info.last_scanned_at = timezone.now()
-            domain_info.save(update_fields=["error_message", "last_scanned_at", "updated_at"])
+            domain_info.last_scanned_at = now
+            # If a manual expiration fallback exists, keep days_until_expiration fresh
+            if not domain_info.expiration_date and domain_info.manual_expiration_date:
+                domain_info.days_until_expiration = _days_from_manual_date(domain_info.manual_expiration_date)
+                if not domain_info.data_source:
+                    domain_info.data_source = "manual"
+            domain_info.save(
+                update_fields=["error_message", "last_scanned_at", "days_until_expiration", "data_source", "updated_at"]
+            )
             return domain_info
-        domain_info.data_source = data_source
+
+        # Detect security-relevant changes vs previously verified scan
+        had_baseline = bool(domain_info.last_successful_at)
+        changes_recorded = []
+        if had_baseline:
+            old_reg = (domain_info.registrar or "").strip()
+            new_reg = (registrar or "").strip()
+            if old_reg and new_reg and old_reg.lower() != new_reg.lower():
+                changes_recorded.append(("registrar", old_reg, new_reg))
+
+            old_ns = _normalize_ns_set(domain_info.name_servers)
+            new_ns = _normalize_ns_set(name_servers)
+            if old_ns and new_ns and old_ns != new_ns:
+                changes_recorded.append(
+                    ("name_servers", "\n".join(sorted(old_ns)), "\n".join(sorted(new_ns)))
+                )
+
+            if domain_info.is_locked is not None and is_locked is not None and domain_info.is_locked != is_locked:
+                changes_recorded.append(
+                    (
+                        "is_locked",
+                        "Transferencia bloqueada" if domain_info.is_locked else "Sin bloqueo",
+                        "Transferencia bloqueada" if is_locked else "Sin bloqueo",
+                    )
+                )
+
+        canonical_ns = "\n".join(sorted(_normalize_ns_set(name_servers)))
+        effective_days = days_until_expiration
+        if effective_days is None and domain_info.manual_expiration_date:
+            effective_days = _days_from_manual_date(domain_info.manual_expiration_date)
+
+        domain_info.data_source = data_source or ("manual" if domain_info.manual_expiration_date else "")
         domain_info.source_url = source_url
-        domain_info.last_successful_at = timezone.now()
+        domain_info.last_successful_at = now
         domain_info.registrar = registrar
         domain_info.creation_date = creation_date
         domain_info.expiration_date = expiration_date
         domain_info.last_updated = last_updated
         domain_info.status = status
-        domain_info.name_servers = name_servers
+        domain_info.name_servers = canonical_ns
         domain_info.registrant_country = registrant_country
-        domain_info.days_until_expiration = days_until_expiration
+        domain_info.days_until_expiration = effective_days
         domain_info.is_locked = is_locked
         domain_info.whois_server = whois_server
         domain_info.dnssec = dnssec
-        domain_info.last_scanned_at = timezone.now()
-        domain_info.error_message = error_message
+        domain_info.last_scanned_at = now
+        domain_info.error_message = ""
+
+        if changes_recorded:
+            domain_info.last_change_at = now
+            for field_name, old_val, new_val in changes_recorded:
+                DomainChangeHistory.objects.create(
+                    domain_info=domain_info,
+                    field_name=field_name,
+                    old_value=old_val,
+                    new_value=new_val,
+                )
+
         domain_info.save()
         return domain_info
+
+    @staticmethod
+    @transaction.atomic
+    def acknowledge_changes(domain_id, organization_id):
+        """Acknowledge reviewed registration changes (NS/registrar/lock)."""
+        domain_info = DomainInfo.objects.select_for_update().get(id=domain_id, organization_id=organization_id)
+        domain_info.changes_acknowledged_at = timezone.now()
+        domain_info.save(update_fields=["changes_acknowledged_at", "updated_at"])
+        return domain_info
+
+    @staticmethod
+    def get_change_history(domain_id, organization_id, limit=50):
+        domain_info = DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
+        return domain_info.change_history.all()[:limit]
+
+    @staticmethod
+    def get_unwatched_domains(organization_id):
+        """Discover root domains active in Uptime, SSL, or DNS that are not yet monitored in DomainInfo."""
+        from dns_monitor.models import DNSRecord
+        from monitoring.models import MonitoringTarget
+        from ssl_monitor.models import SSLCertificate
+
+        watched = set(
+            DomainInfo.objects.filter(organization_id=organization_id).values_list("domain", flat=True)
+        )
+        watched_lower = {d.lower().rstrip(".") for d in watched}
+
+        discovered = {}
+
+        def _record(host, bucket):
+            root = extract_root_domain(host)
+            if not root or root in watched_lower:
+                return
+            entry = discovered.setdefault(
+                root,
+                {"domain": root, "targets_count": 0, "dns_count": 0, "ssl_count": 0, "sources": set()},
+            )
+            entry[bucket] += 1
+            entry["sources"].add(host.lower().rstrip("."))
+
+        for endpoint in MonitoringTarget.objects.filter(
+            organization_id=organization_id,
+            target_type__in=("http", "https"),
+            runner_type="cloud",
+            agent_probe__isnull=True,
+        ).values_list("endpoint", flat=True):
+            try:
+                host = urlsplit(endpoint).hostname
+                if host:
+                    _record(host, "targets_count")
+            except ValueError:
+                continue
+
+        for dom in SSLCertificate.objects.filter(organization_id=organization_id).values_list("domain", flat=True):
+            _record(dom, "ssl_count")
+
+        for dom in DNSRecord.objects.filter(organization_id=organization_id).values_list("domain", flat=True):
+            _record(dom, "dns_count")
+
+        result = []
+        for entry in discovered.values():
+            result.append(
+                {
+                    "domain": entry["domain"],
+                    "targets_count": entry["targets_count"],
+                    "dns_count": entry["dns_count"],
+                    "ssl_count": entry["ssl_count"],
+                    "sources": sorted(entry["sources"])[:5],
+                }
+            )
+        result.sort(
+            key=lambda x: (-(x["targets_count"] + x["ssl_count"] + x["dns_count"]), x["domain"])
+        )
+        return result[:10]
 
     @staticmethod
     def get_domain_stats(organization_id):
         """Returns KPI summary statistics for monitored WHOIS domains."""
         domains = DomainInfo.objects.filter(organization_id=organization_id)
         total = domains.count()
-        active = domains.filter(error_message="", days_until_expiration__gt=30).count()
+        active = domains.filter(error_message="", days_until_expiration__gt=60).count()
         expiring_30d = domains.filter(
             error_message="", days_until_expiration__gte=0, days_until_expiration__lte=30
         ).count()
@@ -284,20 +502,36 @@ class DomainService:
 
     @staticmethod
     @transaction.atomic
-    def update_domain_record(domain_id, organization_id, domain):
-        """Update domain name for an existing WHOIS domain record."""
-        clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
+    def update_domain_record(domain_id, organization_id, domain=None, manual_expiration_date=..., trigger_scan=True):
+        """Update domain name and/or manual_expiration_date for an existing domain record."""
         domain_info = DomainInfo.objects.get(id=domain_id, organization_id=organization_id)
-        domain_info.domain = clean_domain
-        domain_info.save()
-        from .tasks import scan_whois
-        from common.executions import initial_scan
+        domain_changed = False
 
-        initial_scan(domain_info, scan_whois)
+        if domain:
+            clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].lower()
+            if clean_domain != domain_info.domain:
+                domain_info.domain = clean_domain
+                domain_changed = True
+
+        if manual_expiration_date is not ...:
+            parsed_manual = _parse_manual_date(manual_expiration_date)
+            domain_info.manual_expiration_date = parsed_manual
+            if not domain_info.expiration_date:
+                domain_info.days_until_expiration = _days_from_manual_date(parsed_manual)
+                if parsed_manual and not domain_info.data_source:
+                    domain_info.data_source = "manual"
+
+        domain_info.save()
+
+        if trigger_scan and domain_changed:
+            from .tasks import scan_whois
+            from common.executions import initial_scan
+
+            initial_scan(domain_info, scan_whois)
         return domain_info
 
     @staticmethod
-    def get_expiring_soon(organization_id, days=30):
+    def get_expiring_soon(organization_id, days=60):
         """Return domains expiring within the given number of days."""
         threshold = timezone.now() + timedelta(days=days)
         return DomainInfo.objects.filter(

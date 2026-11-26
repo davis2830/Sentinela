@@ -9,6 +9,7 @@ from common.diagnostics import ConfigurationDiagnosticAPIView
 from common.responses import error_response, queued_scan_response, success_response
 
 from .serializers import (
+    DomainChangeHistorySerializer,
     DomainInfoCreateSerializer,
     DomainInfoSerializer,
 )
@@ -62,6 +63,7 @@ class DomainListView(APIView):
             domain_info = DomainService.create_domain(
                 organization_id=org_id,
                 domain=serializer.validated_data["domain"],
+                manual_expiration_date=serializer.validated_data.get("manual_expiration_date"),
             )
 
             response_serializer = DomainInfoSerializer(domain_info, context={"request": request})
@@ -94,10 +96,20 @@ class DomainDetailView(APIView):
     def patch(self, request, domain_id):
         org_id = request.user.organization_id
         domain = request.data.get("domain")
-        if not domain:
-            return error_response("Domain is required.", status_code=status.HTTP_400_BAD_REQUEST)
+        has_manual = "manual_expiration_date" in request.data
+        manual_val = request.data.get("manual_expiration_date") if has_manual else ...
+        if not domain and not has_manual:
+            return error_response(
+                "Domain or manual_expiration_date is required.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         try:
-            domain_info = DomainService.update_domain_record(domain_id, org_id, domain)
+            domain_info = DomainService.update_domain_record(
+                domain_id,
+                org_id,
+                domain=domain,
+                manual_expiration_date=manual_val,
+            )
             serializer = DomainInfoSerializer(domain_info, context={"request": request})
             return success_response(serializer.data)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
@@ -242,3 +254,56 @@ class DomainBulkActionView(APIView):
             return success_response(res)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class DomainAcknowledgeChangesView(APIView):
+    """Acknowledge reviewed domain registration changes (NS, registrar, transfer lock).
+
+    POST /api/v1/domains/{id}/acknowledge-changes/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, domain_id):
+        org_id = request.user.organization_id
+        try:
+            domain_info = DomainService.acknowledge_changes(domain_id, org_id)
+            serializer = DomainInfoSerializer(domain_info, context={"request": request})
+            return success_response(serializer.data)
+        except ObjectDoesNotExist:
+            return error_response("Domain not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except (ValueError, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class DomainChangeHistoryView(APIView):
+    """List registration change history for a domain.
+
+    GET /api/v1/domains/{id}/history/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, domain_id):
+        org_id = request.user.organization_id
+        limit = int(request.query_params.get("limit", 50))
+        try:
+            history = DomainService.get_change_history(domain_id, org_id, limit=limit)
+            serializer = DomainChangeHistorySerializer(history, many=True)
+            return success_response(serializer.data)
+        except ObjectDoesNotExist:
+            return error_response("Domain not found.", status_code=status.HTTP_404_NOT_FOUND)
+
+
+class DomainSuggestionsView(APIView):
+    """Discover unwatched root domains used across Uptime, SSL, and DNS.
+
+    GET /api/v1/domains/suggestions/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        org_id = request.user.organization_id
+        suggestions = DomainService.get_unwatched_domains(org_id)
+        return success_response(suggestions)

@@ -1,74 +1,38 @@
-import ModalSurface from "../components/common/ModalSurface";
-import ResourceActionButtons from "../components/common/ResourceActionButtons";
-import SelectionCheckbox from "../components/common/SelectionCheckbox";
+import { createPortal } from "react-dom";
 import {
-  expirationTone,
-  hasMeasurement,
-  healthPalette,
-  domainExpiryTone,
-} from "../utils/healthPresentation";
-import MeasurementStatus from "../components/common/MeasurementStatus";
+  AlertTriangle,
+  Check,
+  Globe2,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
+import ModalSurface from "../components/common/ModalSurface";
+import { healthPalette } from "../utils/healthPresentation";
 import { useCompactViewport } from "../hooks/useCompactViewport";
 import {
-  ReadFailure,
-  DirectoryPagination,
   ActionFeedback,
+  DirectoryPagination,
+  ReadFailure,
 } from "../components/common/DirectoryState";
 import { useDomainsWorkspace } from "./workspaces/useDomainsWorkspace";
 import ConfigurationDiagnosticNotice from "../components/common/ConfigurationDiagnosticNotice";
 import AdminButton from "../components/common/AdminButton";
-import ScanAction from "../components/common/ScanAction";
-import { createPortal } from "react-dom";
-import StatusBadge from "../components/common/StatusBadge";
 import EmptyState from "../components/common/EmptyState";
 import ConfirmDelete from "../components/common/ConfirmDelete";
+import { NOCBulkActionBar, NOCPageHeader } from "../components/common/noc";
+import DomainToolbar from "../components/domains/DomainToolbar";
 import DomainTableView from "../components/domains/DomainTableView";
+import DomainCardGridView from "../components/domains/DomainCardGridView";
+import DomainDetailDrawer from "../components/domains/DomainDetailDrawer";
 import {
-  NOCPageHeader,
-  NOCToolbar,
-  NOCBulkActionBar,
-  NOCDrawer,
-} from "../components/common/noc";
-import {
-  Plus,
-  Loader2,
-  Trash2,
-  Calendar,
-  Building,
-  X,
-  AlertTriangle,
-  Server,
-  Globe2,
-  Pencil,
-  Clock,
-  ExternalLink,
-  Zap,
-  Download,
-  Lock,
-  Unlock,
-  Check,
-} from "lucide-react";
-
-type FilterType = "all" | "expiring" | "expired";
-
-function renderNameServersList(nsData: unknown): string[] {
-  if (!nsData) return [];
-  if (Array.isArray(nsData))
-    return nsData.map((item) => String(item).toLowerCase());
-  if (typeof nsData === "string") {
-    try {
-      const parsed = JSON.parse(nsData);
-      if (Array.isArray(parsed))
-        return parsed.map((item) => String(item).toLowerCase());
-    } catch {
-      return nsData
-        .split(/[\s,]+/)
-        .filter(Boolean)
-        .map((s) => s.toLowerCase());
-    }
-  }
-  return [];
-}
+  formatDomainDate,
+  useDomains,
+} from "../components/domains/useDomains";
 
 export default function DomainsPage() {
   const compact = useCompactViewport();
@@ -76,8 +40,6 @@ export default function DomainsPage() {
     directory,
     isError,
     refetch,
-    filter,
-    setFilter,
     searchTerm,
     setSearchTerm,
     viewMode,
@@ -85,31 +47,40 @@ export default function DomainsPage() {
     selectedIds,
     setSelectedIds,
     scanningId,
+    acknowledgingId,
+    savingManualDateId,
+    linkingDomainId,
+    watchingSuggestion,
     showModal,
     editingDomain,
     selectedDomain,
     setSelectedDomain,
     domainInput,
     setDomainInput,
+    manualExpirationInput,
+    setManualExpirationInput,
     deleteTarget,
     setDeleteTarget,
-    drawerTab,
-    setDrawerTab,
     bulkDeleting,
+    bulkScanning,
     diagnostic,
     isTestingWhois,
     testResult,
     setTestResult,
     autoRefresh,
-    stats,
     domains,
+    unwatchedSuggestions,
     isLoading,
     createMutation,
+    watchSuggestionMutation,
     updateMutation,
+    saveManualDateMutation,
+    acknowledgeChangesMutation,
+    linkTargetMutation,
     scanMutation,
     deleteMutation,
     handleToggleSelect,
-    handleSelectAllToggle,
+    handleBulkScan,
     handleBulkDelete,
     handleTestWhois,
     handleExportCSV,
@@ -117,14 +88,89 @@ export default function DomainsPage() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmitModal,
-    getStatusType,
-    calculateLifePercentage,
-    totalCount,
-    expiringCount,
-    filteredDomains,
   } = useDomainsWorkspace();
 
+  const {
+    thresholds,
+    setThresholds,
+    statusFilter,
+    setStatusFilter,
+    registrarFilter,
+    setRegistrarFilter,
+    tldFilter,
+    setTldFilter,
+    lockFilter,
+    setLockFilter,
+    nsFilter,
+    setNsFilter,
+    groupBy,
+    setGroupBy,
+    sortKey,
+    sortDir,
+    handleSort,
+    density,
+    setDensity,
+    summary,
+    facets,
+    sortedDomains,
+    groupedDomains,
+  } = useDomains(domains || []);
+
+  const hasActiveFilters =
+    Boolean(searchTerm) ||
+    statusFilter !== "all" ||
+    registrarFilter !== "all" ||
+    tldFilter !== "all" ||
+    lockFilter !== "all" ||
+    nsFilter !== "all";
+
+  const handleToggleSelectAllVisible = () => {
+    if (sortedDomains.length === 0) return;
+    if (selectedIds.length === sortedDomains.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(sortedDomains.map((d) => d.id));
+    }
+  };
+
+  // Impact warning when deleting a domain that has linked targets or dependent resources
+  const buildDeleteWarning = (): string | undefined => {
+    if (!deleteTarget) return undefined;
+    const parts: string[] = [];
+    if (deleteTarget.linked_targets && deleteTarget.linked_targets.length > 0) {
+      parts.push(
+        `Se desvinculará de ${deleteTarget.linked_targets
+          .map((t) => t.name)
+          .join(", ")} en Uptime.`,
+      );
+    }
+    const deps = deleteTarget.dependencies;
+    if (
+      deps &&
+      (deps.targets_count > 0 || deps.dns_count > 0 || deps.ssl_count > 0)
+    ) {
+      const items = [
+        deps.targets_count > 0
+          ? `${deps.targets_count} ${deps.targets_count === 1 ? "target" : "targets"}`
+          : null,
+        deps.dns_count > 0
+          ? `${deps.dns_count} ${deps.dns_count === 1 ? "registro DNS" : "registros DNS"}`
+          : null,
+        deps.ssl_count > 0
+          ? `${deps.ssl_count} ${deps.ssl_count === 1 ? "certificado" : "certificados"}`
+          : null,
+      ].filter(Boolean);
+      parts.push(
+        `Dejarás de vigilar el vencimiento del dominio del que dependen ${items.join(" · ")}.`,
+      );
+    }
+    return parts.length > 0 ? parts.join(" ") : undefined;
+  };
+
+  const primarySuggestion = unwatchedSuggestions[0];
+
   if (isError && !domains) return <ReadFailure retry={refetch} />;
+
   return (
     <div className="compact-workspace space-y-4 animate-in fade-in duration-300 font-sans">
       {isError && domains && <ReadFailure stale retry={refetch} />}
@@ -135,7 +181,7 @@ export default function DomainsPage() {
       <NOCPageHeader
         title="Dominios & WHOIS"
         badgeText="DOMAIN WATCH"
-        description="Supervisión continua de vigencia ICANN, registradores autorizados, servidores de nombres DNS y fechas de renovación."
+        description="Te avisamos antes de que venzan tus dominios o cambien sus datos de registro."
         icon={<Globe2 size={26} />}
         autoRefresh={{
           enabled: autoRefresh.enabled,
@@ -146,63 +192,121 @@ export default function DomainsPage() {
           blockedReason: autoRefresh.blockedReason,
         }}
         actions={
-          <>
-            <AdminButton
-              capability="domain.create"
-              type="button"
-              onClick={handleOpenCreate}
-              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>Registrar Dominio</span>
-            </AdminButton>
-          </>
+          <AdminButton
+            capability="domain.create"
+            type="button"
+            onClick={handleOpenCreate}
+            className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
+          >
+            <Plus size={16} />
+            <span>Agregar dominio</span>
+          </AdminButton>
         }
       />
 
-      {/* 3. TOOLBAR: Omnibar Search + Status Filter Chips + Persistent Grid/Table Switcher */}
-      <NOCToolbar
-        layout="inline"
-        countsScope="total de la organización"
-        utilities={[
-          {
-            label: "Exportar resultados filtrados",
-            icon: <Download size={16} />,
-            onClick: () => void handleExportCSV(),
-            disabled: !domains?.length,
-          },
-        ]}
-        searchTerm={searchTerm}
+      {/* 2. SINGLE-ROW TOOLBAR */}
+      <DomainToolbar
+        summary={summary}
+        thresholds={thresholds}
+        onThresholdsChange={setThresholds}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        registrarFilter={registrarFilter}
+        onRegistrarFilterChange={setRegistrarFilter}
+        tldFilter={tldFilter}
+        onTldFilterChange={setTldFilter}
+        lockFilter={lockFilter}
+        onLockFilterChange={setLockFilter}
+        nsFilter={nsFilter}
+        onNsFilterChange={setNsFilter}
+        facets={facets}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        density={density}
+        onDensityChange={setDensity}
+        search={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por dominio o registrador acreditado..."
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        statusPills={[
-          { id: "all", label: "Todos", count: totalCount, variant: "all" },
-          {
-            id: "expiring",
-            label: "Por expirar",
-            count: expiringCount,
-            variant: "warning",
-          },
-          {
-            id: "expired",
-            label: "Vencidos",
-            count: stats?.expired ?? "—",
-            variant: "danger",
-          },
-        ]}
-        selectedStatus={filter}
-        onStatusChange={(cat) => setFilter(cat as FilterType)}
+        onSelectDomain={setSelectedDomain}
+        onExportCSV={handleExportCSV}
+        canExport={Boolean(domains?.length)}
       />
 
-      {/* 4. FLOATING BULK ACTIONS BAR */}
+      {/* 2B. UNWATCHED DOMAIN DISCOVERY CALLOUT (cross-module value) */}
+      {primarySuggestion && (
+        <div className="w-full max-w-[1400px] mx-auto rounded-xl border border-sky-500/30 bg-sky-500/[0.06] px-3.5 py-2 flex items-center justify-between gap-3 flex-wrap text-xs">
+          <div className="flex items-center gap-2 min-w-0 text-text-muted">
+            <Sparkles size={14} className="text-sky-400 shrink-0" />
+            <span className="truncate">
+              Detectamos{" "}
+              <strong className="font-mono text-text-main">
+                {primarySuggestion.domain}
+              </strong>{" "}
+              en otros módulos (
+              {[
+                primarySuggestion.targets_count > 0
+                  ? `${primarySuggestion.targets_count} ${primarySuggestion.targets_count === 1 ? "target" : "targets"}`
+                  : null,
+                primarySuggestion.dns_count > 0
+                  ? `${primarySuggestion.dns_count} DNS`
+                  : null,
+                primarySuggestion.ssl_count > 0
+                  ? `${primarySuggestion.ssl_count} SSL`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              ). ¿Vigilar su vencimiento?
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <AdminButton
+              capability="domain.create"
+              type="button"
+              disabled={watchingSuggestion === primarySuggestion.domain}
+              onClick={() =>
+                watchSuggestionMutation.mutate(primarySuggestion.domain)
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-green/15 border border-accent-green/45 text-accent-green hover:bg-accent-green/25 font-semibold text-[11px] disabled:opacity-50 transition-colors cursor-pointer !min-h-0"
+            >
+              {watchingSuggestion === primarySuggestion.domain ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Plus size={12} />
+              )}
+              <span>Vigilar {primarySuggestion.domain}</span>
+            </AdminButton>
+            {unwatchedSuggestions.length > 1 && (
+              <span className="text-[11px] text-text-dim font-mono">
+                +{unwatchedSuggestions.length - 1} más
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3. FLOATING BULK ACTIONS BAR */}
       <NOCBulkActionBar
         selectedCount={selectedIds.length}
         onClearSelection={() => setSelectedIds([])}
         itemLabel="dominios"
         actions={
           <>
+            <AdminButton
+              capability="domain.scan"
+              type="button"
+              onClick={handleBulkScan}
+              disabled={bulkScanning}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-bg-dark border border-border-accent text-text-main font-semibold rounded-full text-xs hover:border-accent-green hover:text-accent-green transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw
+                size={13}
+                className={bulkScanning ? "animate-spin" : ""}
+              />
+              {bulkScanning ? "Comprobando..." : "Comprobar ahora"}
+            </AdminButton>
             <AdminButton
               capability="domain.delete"
               type="button"
@@ -217,235 +321,74 @@ export default function DomainsPage() {
         }
       />
 
-      {/* 5. MAIN CONTENT: DUAL VIEW (COMPACT TABLE OR GRID) */}
+      {/* 4. MAIN CONTENT: COMPACT 48px TABLE OR STATUS CARDS */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
-      ) : filteredDomains && filteredDomains.length > 0 ? (
+      ) : sortedDomains.length > 0 ? (
         viewMode === "table" && !compact ? (
-          /* Compact NOC Table View */
           <DomainTableView
-            domains={filteredDomains}
+            groups={groupedDomains}
+            allVisibleDomains={sortedDomains}
+            activeDomainId={selectedDomain?.id ?? null}
+            thresholds={thresholds}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAllToggle}
-            onSelectDomain={(d) => setSelectedDomain(d)}
-            onScan={(id, e) => {
-              e.stopPropagation();
-              scanMutation.mutate(id);
-            }}
+            onToggleSelectAll={handleToggleSelectAllVisible}
+            density={density}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
             scanningId={scanningId}
-            onEdit={(d, e) => handleOpenEdit(d, e)}
-            onDelete={(d, e) => {
-              e.stopPropagation();
-              setDeleteTarget(d);
-            }}
+            linkingDomainId={linkingDomainId}
+            onSelectDomain={setSelectedDomain}
+            onScan={(dom) => scanMutation.mutate(dom.id)}
+            onEdit={(dom) => handleOpenEdit(dom)}
+            onDelete={setDeleteTarget}
+            onLinkTarget={(dom, target) =>
+              linkTargetMutation.mutate({ domain: dom, target })
+            }
           />
         ) : (
-          /* Grid Cards View */
-          <div className="connectivity-card-grid">
-            {filteredDomains.map((domain) => {
-              const isSelected = selectedIds.includes(domain.id);
-              const days = domain.days_until_expiration;
-              const measured =
-                hasMeasurement(domain.last_scanned_at) &&
-                domain.status !== "error" &&
-                !domain.error_message;
-              const expiryTone = expirationTone(days, measured);
-              const nsList = renderNameServersList(domain.name_servers);
-              const lifePct = calculateLifePercentage(domain);
-
-              return (
-                <div
-                  data-testid="connectivity-card"
-                  key={domain.id}
-                  onClick={() => setSelectedDomain(domain)}
-                  className={`bg-bg-card border rounded-2xl p-5 hover:border-accent-green/50 transition-all flex flex-col justify-between cursor-pointer group shadow-sm relative ${
-                    isSelected
-                      ? "border-accent-green bg-accent-green/[0.02] ring-1 ring-accent-green/40"
-                      : "border-border-base/70"
-                  }`}
-                >
-                  <div>
-                    {/* Header: Checkbox + Domain Name + Lock Badge */}
-                    <div className="flex items-start justify-between gap-2 mb-3.5">
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        <h3
-                          className="font-bold text-text-main truncate text-base group-hover:text-accent-green transition-colors font-sans"
-                          title={domain.domain}
-                        >
-                          {domain.domain}
-                        </h3>
-                      </div>
-
-                      {/* EPP Lock Badge */}
-                      {domain.is_locked == null ? (
-                        <span className="text-text-muted">
-                          Sin información EPP
-                        </span>
-                      ) : domain.is_locked ? (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1 shrink-0 ${healthPalette[measured ? "success" : "muted"].badge}`}
-                        >
-                          <Lock size={10} />
-                          Protegido
-                        </span>
-                      ) : (
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1 shrink-0 ${healthPalette[measured ? "warning" : "muted"].badge}`}
-                        >
-                          <Unlock size={10} />
-                          Sin Bloqueo
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Card Content Details */}
-                    <div className="space-y-2 text-xs text-text-muted bg-bg-dark/50 rounded-xl p-3 border border-border-base/40">
-                      <div className="flex items-center justify-between border-b border-border-base/40 pb-1.5">
-                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
-                          <Building size={13} /> Registrador:
-                        </span>
-                        <span
-                          className="font-mono text-text-main font-semibold truncate max-w-[170px]"
-                          title={domain.registrar || ""}
-                        >
-                          {domain.registrar || "Desconocido"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between border-b border-border-base/40 pb-1.5">
-                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
-                          <Calendar size={13} /> Expiración:
-                        </span>
-                        <span className="font-mono text-text-main">
-                          {domain.expiration_date
-                            ? new Date(
-                                domain.expiration_date,
-                              ).toLocaleDateString("es-ES")
-                            : "N/A"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-text-dim font-medium">
-                          <Clock size={13} /> Días restantes:
-                        </span>
-                        <span
-                          className={`font-mono font-bold ${
-                            healthPalette[expiryTone].text
-                          }`}
-                        >
-                          {days !== null
-                            ? days <= 0
-                              ? "Expirado"
-                              : `${days} días`
-                            : "N/A"}
-                        </span>
-                      </div>
-
-                      {/* Lifecycle Progress Bar */}
-                      {lifePct !== null && (
-                        <div className="pt-1">
-                          <div className="w-full h-1.5 bg-bg-dark rounded-full overflow-hidden border border-border-base/50">
-                            <div
-                              className={`h-full transition-all duration-500 rounded-full ${
-                                healthPalette[expiryTone].fill
-                              }`}
-                              style={{ width: `${lifePct}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Footer: Nameservers + Actions */}
-                  <div className="mt-4 pt-3 border-t border-border-base/40 flex items-center justify-between text-xs text-text-dim relative pl-11">
-                    <div
-                      data-card-selection
-                      className="absolute bottom-0 left-0"
-                    >
-                      <SelectionCheckbox
-                        checked={isSelected}
-                        label={`Seleccionar ${domain.domain}`}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggleSelect(domain);
-                        }}
-                      />
-                    </div>
-
-                    <span
-                      className="font-mono text-xs bg-bg-dark px-2 py-0.5 rounded-md border border-border-base/50 truncate max-w-[160px]"
-                      title={nsList.join(", ")}
-                    >
-                      {nsList.length > 0
-                        ? `${nsList.length} NS activos`
-                        : "Sin NS"}
-                    </span>
-
-                    <div className="flex items-center gap-1">
-                      <ResourceActionButtons
-                        label={`Acciones de ${domain.domain}`}
-                        actions={[
-                          {
-                            label: "Editar dominio",
-                            onClick: (e) => handleOpenEdit(domain, e),
-                            capability: "domain.update",
-                            icon: (
-                              <>
-                                <Pencil size={14} />
-                              </>
-                            ),
-                          },
-                          {
-                            label: "Eliminar dominio",
-                            onClick: (e) => {
-                              e.stopPropagation();
-                              setDeleteTarget(domain);
-                            },
-                            capability: "domain.delete",
-                            danger: true,
-                            icon: (
-                              <>
-                                <Trash2 size={14} />
-                              </>
-                            ),
-                          },
-                        ]}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DomainCardGridView
+            groups={groupedDomains}
+            activeDomainId={selectedDomain?.id ?? null}
+            thresholds={thresholds}
+            selectedIds={selectedIds}
+            scanningId={scanningId}
+            onToggleSelect={handleToggleSelect}
+            onSelectDomain={setSelectedDomain}
+            onScan={(dom) => scanMutation.mutate(dom.id)}
+            onEdit={(dom) => handleOpenEdit(dom)}
+            onDelete={setDeleteTarget}
+          />
         )
       ) : (
         <EmptyState
-          capability="domain.create"
-          icon={Globe2}
+          capability={hasActiveFilters ? undefined : "domain.create"}
+          showAddIcon={!hasActiveFilters}
           title={
-            searchTerm || filter !== "all"
-              ? "No se encontraron dominios con los filtros aplicados"
-              : "No hay dominios registrados"
+            hasActiveFilters
+              ? "Sin coincidencias para estos filtros"
+              : "No hay dominios vigilados"
           }
           description={
-            searchTerm || filter !== "all"
-              ? "Prueba a cambiar el término de búsqueda o restablecer los filtros."
-              : "Comienza a monitorear la vigencia y datos WHOIS de tus dominios corporativos."
+            hasActiveFilters
+              ? "Prueba con otro dominio, registrador, TLD o estado."
+              : "Agrega un dominio para vigilar su vencimiento, bloqueo de transferencia y nameservers."
           }
           actionLabel={
-            searchTerm || filter !== "all"
-              ? "Limpiar Filtros"
-              : "Registrar Dominio"
+            hasActiveFilters ? "Limpiar filtros" : "Agregar primer dominio"
           }
           onAction={() => {
-            if (searchTerm || filter !== "all") {
+            if (hasActiveFilters) {
               setSearchTerm("");
-              setFilter("all");
+              setStatusFilter("all");
+              setRegistrarFilter("all");
+              setTldFilter("all");
+              setLockFilter("all");
+              setNsFilter("all");
             } else {
               handleOpenCreate();
             }
@@ -453,358 +396,32 @@ export default function DomainsPage() {
         />
       )}
 
-      {/* 6. SLIDE-OVER DETAIL DRAWER */}
-      <NOCDrawer
-        isOpen={!!selectedDomain}
-        onClose={() => setSelectedDomain(null)}
-        title={selectedDomain?.domain || ""}
-        subtitle={
-          selectedDomain && (
-            <div className="flex items-center gap-2">
-              <span>
-                Registrador: {selectedDomain.registrar || "Desconocido"}
-              </span>
-              <span>&bull;</span>
-              <a
-                href={`http://${selectedDomain.domain}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-green hover:underline flex items-center gap-1"
-              >
-                Abrir <ExternalLink size={11} />
-              </a>
-            </div>
-          )
-        }
-        statusBadge={
-          selectedDomain && (
-            <div className="flex items-center gap-2">
-              {selectedDomain.is_locked == null ? (
-                <span className="text-text-muted text-sm">
-                  Bloqueo EPP desconocido
-                </span>
-              ) : selectedDomain.is_locked ? (
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1 ${healthPalette.success.badge}`}
-                >
-                  <Lock size={11} />
-                  EPP Protegido
-                </span>
-              ) : (
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1 ${healthPalette.warning.badge}`}
-                >
-                  <Unlock size={11} />
-                  Sin Bloqueo EPP
-                </span>
-              )}
-              <StatusBadge status={getStatusType(selectedDomain)} />
-            </div>
-          )
-        }
-        headerActions={
-          selectedDomain && (
-            <ScanAction
-              resource={selectedDomain}
-              route="domains"
-              pending={scanMutation.isPending}
-              onScan={() => scanMutation.mutateAsync(selectedDomain.id)}
-            />
-          )
-        }
-        quickKpis={
-          selectedDomain && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-xs text-text-dim font-sans">
-                  Días Restantes
-                </div>
-                <div
-                  className={`text-base font-bold mt-0.5 ${
-                    healthPalette[domainExpiryTone(selectedDomain)].text
-                  }`}
-                >
-                  {selectedDomain.days_until_expiration !== null
-                    ? `${selectedDomain.days_until_expiration}d`
-                    : "N/A"}
-                </div>
-              </div>
-              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-xs text-text-dim font-sans">
-                  Fecha Expiración
-                </div>
-                <div className="text-sm font-semibold text-text-main mt-0.5 truncate">
-                  {selectedDomain.expiration_date
-                    ? new Date(
-                        selectedDomain.expiration_date,
-                      ).toLocaleDateString("es-ES")
-                    : "N/A"}
-                </div>
-              </div>
-              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-xs text-text-dim font-sans">
-                  Fecha Creación
-                </div>
-                <div className="text-sm font-semibold text-text-muted mt-0.5 truncate">
-                  {selectedDomain.creation_date
-                    ? new Date(selectedDomain.creation_date).toLocaleDateString(
-                        "es-ES",
-                      )
-                    : "N/A"}
-                </div>
-              </div>
-              <div className="bg-bg-dark/80 border border-border-base/70 rounded-xl p-2.5">
-                <div className="text-xs text-text-dim font-sans">
-                  Servidores NS
-                </div>
-                <div className="text-sm font-semibold text-accent-blue mt-0.5">
-                  {renderNameServersList(selectedDomain.name_servers).length} NS
-                </div>
-              </div>
-            </div>
-          )
-        }
-        tabs={[
-          { id: "overview", label: "Vigencia & Renovación" },
-          { id: "security", label: "Seguridad EPP & Privacidad" },
-          { id: "nameservers", label: "Delegación Nameservers" },
-        ]}
-        activeTab={drawerTab}
-        onTabChange={(t) => setDrawerTab(t as typeof drawerTab)}
-        footerActions={
-          selectedDomain && (
-            <>
-              <AdminButton
-                capability="domain.update"
-                type="button"
-                onClick={() => handleOpenEdit(selectedDomain)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-border-base text-text-muted hover:text-text-main hover:bg-bg-dark rounded-full text-xs font-semibold transition-colors cursor-pointer"
-              >
-                <Pencil size={14} />
-                Editar Dominio
-              </AdminButton>
-              <AdminButton
-                capability="domain.delete"
-                type="button"
-                onClick={() => setDeleteTarget(selectedDomain)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-accent-red/10 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white rounded-full text-xs font-semibold transition-colors cursor-pointer"
-              >
-                <Trash2 size={14} />
-                Eliminar Dominio
-              </AdminButton>
-            </>
-          )
-        }
-        maxWidthClass="max-w-2xl"
-      >
-        {selectedDomain && (
-          <MeasurementStatus snapshot={selectedDomain.scan_availability} />
-        )}
-        {selectedDomain && (
-          <section className="p-3 border border-border-base rounded-xl text-sm text-text-muted">
-            <p>
-              Procedencia de los datos:{" "}
-              {selectedDomain.data_source?.toUpperCase() ||
-                "Sin procedencia confirmada"}
-            </p>
-            {selectedDomain.error_message && (
-              <p className="text-accent-yellow">
-                Falló la consulta; se conservan los datos anteriores
-                disponibles.
-              </p>
-            )}
-          </section>
-        )}
-        {selectedDomain && drawerTab === "overview" && (
-          <div className="space-y-4">
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs">
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Registrador Acreditado:
-                </span>
-                <span className="font-mono font-semibold text-text-main truncate max-w-[280px]">
-                  {selectedDomain.registrar || "Desconocido"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Fecha Creación:
-                </span>
-                <span className="font-mono text-text-main">
-                  {selectedDomain.creation_date
-                    ? new Date(selectedDomain.creation_date).toLocaleDateString(
-                        "es-ES",
-                      )
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Fecha Expiración:
-                </span>
-                <span className="font-mono font-bold text-text-main">
-                  {selectedDomain.expiration_date
-                    ? new Date(
-                        selectedDomain.expiration_date,
-                      ).toLocaleDateString("es-ES")
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-border-base/40 pb-2">
-                <span className="text-text-dim font-medium">
-                  Última Modificación en Registry:
-                </span>
-                <span className="font-mono text-text-muted">
-                  {selectedDomain.last_updated
-                    ? new Date(selectedDomain.last_updated).toLocaleDateString(
-                        "es-ES",
-                      )
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-dim font-medium">
-                  Última Comprobación WHOIS:
-                </span>
-                <span className="font-mono text-text-muted">
-                  {selectedDomain.last_scanned_at
-                    ? new Date(selectedDomain.last_scanned_at).toLocaleString(
-                        "es-ES",
-                      )
-                    : "Nunca"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* 5. NON-BLUR INTERACTIVE DETAIL DRAWER */}
+      {selectedDomain && (
+        <DomainDetailDrawer
+          domain={selectedDomain}
+          domains={sortedDomains}
+          thresholds={thresholds}
+          isScanning={scanningId === selectedDomain.id}
+          isAcknowledging={acknowledgingId === selectedDomain.id}
+          isSavingManualDate={savingManualDateId === selectedDomain.id}
+          isLinking={linkingDomainId === selectedDomain.id}
+          onSelectDomain={setSelectedDomain}
+          onScan={(dom) => scanMutation.mutate(dom.id)}
+          onAcknowledgeChanges={(dom) => acknowledgeChangesMutation.mutate(dom)}
+          onSaveManualExpiration={(dom, dateStr) =>
+            saveManualDateMutation.mutate({ domain: dom, dateStr })
+          }
+          onEdit={(dom) => handleOpenEdit(dom)}
+          onDelete={setDeleteTarget}
+          onLinkTarget={(dom, target) =>
+            linkTargetMutation.mutate({ domain: dom, target })
+          }
+          onClose={() => setSelectedDomain(null)}
+        />
+      )}
 
-        {selectedDomain &&
-          selectedDomain.is_locked == null &&
-          drawerTab === "security" && (
-            <p className="p-4 text-text-muted">
-              El proveedor no informó bloqueo de transferencia. No se puede
-              afirmar si el dominio está protegido.
-            </p>
-          )}
-        {selectedDomain &&
-          selectedDomain.is_locked != null &&
-          drawerTab === "security" && (
-            <div className="space-y-4">
-              <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4 space-y-3 text-xs">
-                {/* Domain Lock Banner */}
-                <div
-                  className={`p-3.5 rounded-2xl border flex items-start gap-2.5 ${
-                    selectedDomain.is_locked
-                      ? healthPalette.success.badge
-                      : "bg-accent-yellow/10 border-accent-yellow/30 text-text-main"
-                  }`}
-                >
-                  {selectedDomain.is_locked == null ? (
-                    <span className="text-text-muted text-sm">
-                      Bloqueo EPP desconocido
-                    </span>
-                  ) : selectedDomain.is_locked ? (
-                    <Lock
-                      className="text-accent-green shrink-0 mt-0.5"
-                      size={16}
-                    />
-                  ) : (
-                    <Unlock
-                      className="text-accent-yellow shrink-0 mt-0.5"
-                      size={16}
-                    />
-                  )}
-                  <div>
-                    <h4 className="font-bold text-xs">
-                      {selectedDomain.is_locked
-                        ? "Bloqueo Anti-Transferencia Activo (Domain Lock)"
-                        : "Atención: Dominio sin Bloqueo de Transferencia"}
-                    </h4>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {selectedDomain.is_locked
-                        ? "El registrador ha activado la directiva clientTransferProhibited. Esta señal reduce transferencias accidentales; no certifica la seguridad del dominio."
-                        : "El dominio no tiene activo el bloqueo de transferencia. Se recomienda habilitarlo en el registrador para prevenir Domain Hijacking."}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-between border-b border-border-base/40 pb-2">
-                  <span className="text-text-dim font-medium">
-                    País Registrante:
-                  </span>
-                  <span className="font-bold font-mono text-text-main">
-                    {selectedDomain.registrant_country || "No disponible"}
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-border-base/40 pb-2">
-                  <span className="text-text-dim font-medium">
-                    Servidor WHOIS:
-                  </span>
-                  <span className="font-bold font-mono text-text-main">
-                    {selectedDomain.whois_server || "whois.iana.org"}
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-border-base/40 pb-2">
-                  <span className="text-text-dim font-medium">DNSSEC:</span>
-                  <span className="font-bold font-mono text-text-main">
-                    {selectedDomain.dnssec || "unsigned"}
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-border-base/40 pb-2">
-                  <span className="text-text-dim font-medium">
-                    Estado ICANN / EPP:
-                  </span>
-                  <span className="font-bold font-mono text-accent-green break-all max-w-[280px]">
-                    {Array.isArray(selectedDomain.status)
-                      ? selectedDomain.status.join(", ")
-                      : selectedDomain.status || "Activo"}
-                  </span>
-                </div>
-                {selectedDomain.error_message && (
-                  <div className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-xl text-accent-red">
-                    {selectedDomain.error_message}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-        {selectedDomain && drawerTab === "nameservers" && (
-          <div className="space-y-4">
-            <div className="bg-bg-dark/80 border border-border-base rounded-2xl p-4">
-              <h4 className="text-xs font-semibold text-text-muted mb-3 flex items-center gap-1.5">
-                <Server size={14} className="text-accent-green" />
-                Servidores de Nombres Delegados en el TLD
-              </h4>
-              {renderNameServersList(selectedDomain.name_servers).length > 0 ? (
-                <div className="space-y-2">
-                  {renderNameServersList(selectedDomain.name_servers).map(
-                    (ns, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 bg-bg-card border border-border-base/60 rounded-xl text-xs font-mono text-text-main flex items-center gap-2"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-accent-green" />
-                        <span className="font-bold">{ns}</span>
-                        <span className="ml-auto text-xs text-text-dim font-sans font-medium">
-                          Autoritativo
-                        </span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-text-dim font-mono">
-                  No se detectaron servidores de nombres delegados para este
-                  dominio.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-      </NOCDrawer>
-
-      {/* 7. CREATE / EDIT FORM MODAL WITH LIVE TEST WHOIS */}
+      {/* 6. ADD / EDIT DOMAIN MODAL (with live RDAP/WHOIS preview + manual expiration date) */}
       {showModal &&
         typeof document !== "undefined" &&
         createPortal(
@@ -813,25 +430,20 @@ export default function DomainsPage() {
             onClick={handleCloseModal}
           >
             <ModalSurface
-              label={
-                editingDomain
-                  ? "Editar Dominio"
-                  : "Monitorear Nuevo Dominio WHOIS"
-              }
+              label={editingDomain ? "Editar dominio" : "Agregar dominio"}
               onClose={handleCloseModal}
               className="bg-bg-card border border-border-base rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl"
             >
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold text-text-main flex items-center gap-2 font-sans">
                   <Globe2 size={19} className="text-accent-green" />
-                  {editingDomain
-                    ? "Editar Dominio"
-                    : "Monitorear Nuevo Dominio WHOIS"}
+                  {editingDomain ? "Editar dominio" : "Agregar dominio"}
                 </h2>
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="text-text-muted hover:text-text-main transition-colors p-1"
+                  aria-label="Cerrar ventana"
+                  className="text-text-muted hover:text-text-main transition-colors p-1 cursor-pointer"
                 >
                   <X size={20} />
                 </button>
@@ -840,12 +452,12 @@ export default function DomainsPage() {
               <form onSubmit={handleSubmitModal} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                    Nombre de Dominio FQDN
+                    Dominio raíz
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="ej. empresa.com o micoope.com.gt"
+                    placeholder="ej. empresa.com o empresa.com.gt"
                     value={domainInput}
                     onChange={(e) => {
                       setDomainInput(e.target.value);
@@ -853,20 +465,39 @@ export default function DomainsPage() {
                     }}
                     className="w-full bg-bg-dark border border-border-base rounded-xl px-4 py-2.5 text-sm text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green font-mono"
                   />
-                  <p className="text-xs text-text-dim mt-1.5">
-                    Ingresa el dominio corporativo raíz (ej.{" "}
-                    <code>empresa.com</code> sin https://).
-                  </p>
                 </div>
 
-                {/* Test WHOIS Button */}
+                {/* Optional manual expiration date (for TLDs like .gt without RDAP/WHOIS) */}
+                <details
+                  open={Boolean(manualExpirationInput)}
+                  className="border border-border-base rounded-xl p-3 bg-bg-dark/40"
+                >
+                  <summary className="text-xs font-semibold text-text-muted cursor-pointer select-none">
+                    Fecha de vencimiento manual (opcional)
+                  </summary>
+                  <div className="mt-2.5 space-y-1.5">
+                    <input
+                      type="date"
+                      value={manualExpirationInput}
+                      onChange={(e) => setManualExpirationInput(e.target.value)}
+                      className="w-full bg-bg-dark border border-border-base rounded-lg px-3 py-2 text-xs font-mono text-text-main focus:outline-none focus:border-accent-green"
+                    />
+                    <p className="text-[11px] text-text-dim leading-relaxed">
+                      Útil para TLDs de país (ej.{" "}
+                      <span className="font-mono">.gt</span>) que no publican
+                      fecha de vencimiento en RDAP/WHOIS. Si RDAP devuelve la
+                      fecha real, se usa la oficial.
+                    </p>
+                  </div>
+                </details>
+
                 <div className="pt-1">
                   <AdminButton
                     capability="domain.test"
                     type="button"
                     onClick={handleTestWhois}
                     disabled={!domainInput.trim() || isTestingWhois}
-                    className="w-full py-2 px-4 rounded-xl border border-border-base bg-bg-dark hover:bg-bg-dark/80 text-text-main text-xs font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                    className="w-full py-2 px-4 rounded-xl border border-border-base bg-bg-dark hover:bg-bg-card-hover text-text-main text-xs font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isTestingWhois ? (
                       <>
@@ -874,113 +505,73 @@ export default function DomainsPage() {
                           className="animate-spin text-accent-green"
                           size={14}
                         />
-                        <span>Consultando registro WHOIS/RDAP...</span>
+                        <span>Consultando RDAP / WHOIS...</span>
                       </>
                     ) : (
                       <>
                         <Zap size={14} className="text-accent-yellow" />
-                        <span>Probar configuración</span>
+                        <span>Probar consulta de registro</span>
                       </>
                     )}
                   </AdminButton>
-                  <ConfigurationDiagnosticNotice
-                    notice={diagnostic.notice}
-                    remaining={diagnostic.remaining}
-                  />
                 </div>
+                <ConfigurationDiagnosticNotice
+                  notice={diagnostic.notice}
+                  remaining={diagnostic.remaining}
+                />
 
-                {/* Test Result Live Preview */}
                 {testResult && (
                   <div
                     className={`p-3.5 rounded-2xl border text-xs animate-in fade-in duration-200 ${
                       testResult.success
                         ? healthPalette.success.badge
-                        : healthPalette.danger.badge
+                        : healthPalette.warning.badge
                     }`}
                   >
                     {testResult.success ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
                           <span
                             className={`font-bold flex items-center gap-1.5 ${healthPalette.success.text}`}
                           >
-                            <Check size={14} /> Consulta Exitosa
+                            <Check size={14} /> Registro encontrado
                           </span>
-                          {testResult.is_locked == null ? (
-                            <span className="text-text-dim">
-                              Bloqueo EPP desconocido
-                            </span>
-                          ) : testResult.is_locked ? (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 ${healthPalette.success.badge}`}
-                            >
-                              <Lock size={10} /> Transfer Lock Activo
-                            </span>
-                          ) : (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 ${healthPalette.warning.badge}`}
-                            >
-                              <Unlock size={10} /> Sin Bloqueo
-                            </span>
-                          )}
+                          <span className="font-mono text-[11px] text-text-dim">
+                            {testResult.days_until_expiration != null
+                              ? `en ${testResult.days_until_expiration} d · ${formatDomainDate(testResult.expiration_date)}`
+                              : "Sin fecha en registro"}
+                          </span>
                         </div>
-
-                        <div className="font-mono text-xs bg-bg-dark/70 p-2.5 rounded-xl border border-border-base/50 space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-text-dim">Registrador:</span>
-                            <span className="font-bold truncate max-w-[200px]">
-                              {testResult.registrar || "Desconocido"}
-                            </span>
+                        <div className="text-[11px] text-text-muted space-y-0.5">
+                          <div>
+                            Registrador:{" "}
+                            <strong className="text-text-main">
+                              {testResult.registrar || "No reportado"}
+                            </strong>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-text-dim">
-                              Vigencia Restante:
-                            </span>
-                            <span className="font-bold text-accent-green">
-                              {testResult.days_until_expiration !== null
-                                ? `${testResult.days_until_expiration} días`
-                                : "N/A"}
-                            </span>
+                          <div>
+                            Bloqueo de transferencia:{" "}
+                            <strong className="text-text-main">
+                              {testResult.is_locked === true
+                                ? "Bloqueado"
+                                : testResult.is_locked === false
+                                  ? "Sin bloqueo"
+                                  : "Sin datos"}
+                            </strong>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-text-dim">
-                              Fecha Vencimiento:
-                            </span>
-                            <span>
-                              {testResult.expiration_date
-                                ? new Date(
-                                    testResult.expiration_date,
-                                  ).toLocaleDateString("es-ES")
-                                : "N/A"}
-                            </span>
-                          </div>
-                          {testResult.name_servers &&
-                            testResult.name_servers.length > 0 && (
-                              <div className="pt-1 border-t border-border-base/40 text-text-dim">
-                                <span>
-                                  Nameservers ({testResult.name_servers.length}
-                                  ):
-                                </span>
-                                <div className="text-text-main truncate">
-                                  {testResult.name_servers
-                                    .slice(0, 2)
-                                    .join(", ")}
-                                  {testResult.name_servers.length > 2
-                                    ? " ..."
-                                    : ""}
-                                </div>
-                              </div>
-                            )}
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-1">
-                        <div className="font-bold flex items-center gap-1.5">
+                        <div className="font-bold flex items-center gap-1.5 text-amber-300">
                           <AlertTriangle size={14} />
-                          <span>Fallo en la consulta WHOIS</span>
+                          <span>Sin datos públicos del registro</span>
                         </div>
-                        <p className="text-xs font-mono opacity-90">
-                          {testResult.error_message}
+                        <p className="text-[11px] text-text-muted">
+                          {testResult.error_message ||
+                            "Este TLD no expone datos RDAP/WHOIS."}
+                          {" "}Puedes agregar el dominio igualmente y definir una
+                          fecha de vencimiento manual arriba.
                         </p>
                       </div>
                     )}
@@ -1008,9 +599,9 @@ export default function DomainsPage() {
                     {createMutation.isPending || updateMutation.isPending ? (
                       <Loader2 className="animate-spin" size={18} />
                     ) : editingDomain ? (
-                      "Actualizar"
+                      "Guardar cambios"
                     ) : (
-                      "Guardar y Monitorear"
+                      "Agregar dominio"
                     )}
                   </AdminButton>
                 </div>
@@ -1020,14 +611,16 @@ export default function DomainsPage() {
           document.body,
         )}
 
-      {/* 8. DELETE CONFIRMATION MODAL */}
+      {/* 7. DELETE CONFIRMATION MODAL (with linked target & dependency impact warning) */}
       <ConfirmDelete
         isOpen={!!deleteTarget}
-        itemName={deleteTarget?.domain || "este dominio"}
+        itemName={deleteTarget?.domain || ""}
+        warning={buildDeleteWarning()}
         isDeleting={deleteMutation.isPending}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}
       />
+
       <DirectoryPagination directory={directory} />
     </div>
   );

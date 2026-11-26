@@ -1,307 +1,473 @@
-import ResourceActionButtons from "../common/ResourceActionButtons";
-import SelectionCheckbox from "../common/SelectionCheckbox";
-
-import React from "react";
-import type { DomainInfo } from "../../types/domain";
+import { Fragment, useState } from "react";
+import { Link } from "react-router-dom";
 import {
-  expirationTone,
-  hasMeasurement,
-  healthPalette,
-} from "../../utils/healthPresentation";
-import {
-  Pencil,
-  Trash2,
-  ExternalLink,
-  Globe2,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
+  Link2,
   Lock,
   Unlock,
-  Server,
 } from "lucide-react";
+import type { DomainInfo, DomainLinkedTarget } from "../../types/domain";
+import SelectionCheckbox from "../common/SelectionCheckbox";
+import RelativeTime from "../common/connectivity/RelativeTime";
+import StatusPill from "../common/connectivity/StatusPill";
+import {
+  TABLE_CELL,
+  TABLE_CHECK_CELL,
+  TABLE_HEAD_CELL,
+  TABLE_HEAD_ROW,
+  getTableRowClass,
+} from "../common/connectivity/tableTokens";
+import DomainRowActions from "./DomainRowActions";
+import {
+  DOMAIN_STATE_META,
+  formatDomainDate,
+  formatDomainExpiredAgo,
+  getDomainHealthState,
+  getDomainRemainingPercent,
+  getEffectiveDaysRemaining,
+  getEffectiveExpirationIso,
+  parseDomainNameServers,
+  type DomainDensity,
+  type DomainGroup,
+  type DomainSortDir,
+  type DomainSortKey,
+  type DomainThresholds,
+} from "./useDomains";
 
-export interface DomainTableViewProps {
-  domains: DomainInfo[];
+interface DomainTableViewProps {
+  groups: DomainGroup[];
+  allVisibleDomains: DomainInfo[];
+  activeDomainId?: string | null;
+  thresholds: DomainThresholds;
   selectedIds: string[];
   onToggleSelect: (domain: DomainInfo) => void;
-  onSelectAll: () => void;
-  onSelectDomain: (domain: DomainInfo) => void;
-  onScan: (id: string, e: React.MouseEvent) => void;
+  onToggleSelectAll: () => void;
+  density: DomainDensity;
+  sortKey: DomainSortKey;
+  sortDir: DomainSortDir;
+  onSort: (key: DomainSortKey) => void;
   scanningId: string | null;
-  onEdit: (domain: DomainInfo, e: React.MouseEvent) => void;
-  onDelete: (domain: DomainInfo, e: React.MouseEvent) => void;
+  linkingDomainId?: string | null;
+  onSelectDomain: (domain: DomainInfo) => void;
+  onScan: (domain: DomainInfo) => void;
+  onEdit: (domain: DomainInfo) => void;
+  onDelete: (domain: DomainInfo) => void;
+  onLinkTarget?: (domain: DomainInfo, target: DomainLinkedTarget) => void;
 }
 
 export default function DomainTableView({
-  domains,
+  groups,
+  allVisibleDomains,
+  activeDomainId = null,
+  thresholds,
   selectedIds,
   onToggleSelect,
-  onSelectAll,
+  onToggleSelectAll,
+  density,
+  sortKey,
+  sortDir,
+  onSort,
+  scanningId,
+  linkingDomainId = null,
   onSelectDomain,
+  onScan,
   onEdit,
   onDelete,
+  onLinkTarget,
 }: DomainTableViewProps) {
-  const allSelected =
-    domains.length > 0 && selectedIds.length === domains.length;
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
 
-  const calculateLifePercentage = (domain: DomainInfo) => {
-    if (!domain.creation_date || !domain.expiration_date) return null;
-    const start = new Date(domain.creation_date).getTime();
-    const end = new Date(domain.expiration_date).getTime();
-    const now = Date.now();
-    const total = end - start;
-    if (total <= 0) return 100;
-    const elapsed = now - start;
-    return Math.min(Math.max(Math.round((elapsed / total) * 100), 0), 100);
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const rowHeightClass = getTableRowClass(density);
+  const allSelected =
+    allVisibleDomains.length > 0 &&
+    selectedIds.length === allVisibleDomains.length;
+
+  const SortIcon = ({ col }: { col: DomainSortKey }) => {
+    if (sortKey !== col) {
+      return <ArrowUpDown size={11} className="text-text-dim/60 shrink-0" />;
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp size={11} className="text-accent-green shrink-0" />
+    ) : (
+      <ArrowDown size={11} className="text-accent-green shrink-0" />
+    );
   };
 
-  const parseNameservers = (nsData: unknown): string[] => {
-    if (!nsData) return [];
-    if (Array.isArray(nsData))
-      return nsData.map((s) => String(s).toLowerCase());
-    if (typeof nsData === "string") {
-      try {
-        const parsed = JSON.parse(nsData);
-        if (Array.isArray(parsed))
-          return parsed.map((s) => String(s).toLowerCase());
-      } catch {
-        return nsData
-          .split(/[\s,]+/)
-          .filter(Boolean)
-          .map((s) => s.toLowerCase());
-      }
-    }
-    return [];
+  const renderRow = (domain: DomainInfo) => {
+    const isSelected = selectedIds.includes(domain.id);
+    const isActive = activeDomainId === domain.id;
+    const state = getDomainHealthState(domain, thresholds);
+    const meta = DOMAIN_STATE_META[state];
+    const days = getEffectiveDaysRemaining(domain);
+    const expIso = getEffectiveExpirationIso(domain);
+    const remainingPct = getDomainRemainingPercent(domain);
+    const nsList = parseDomainNameServers(domain.name_servers);
+    const linkedTarget = domain.linked_targets?.[0];
+    const suggestedTarget = domain.suggested_targets?.[0];
+
+    const expiryToneClass =
+      state === "expired" || state === "critical"
+        ? "text-rose-400 font-semibold"
+        : state === "expiring"
+          ? "text-amber-400 font-semibold"
+          : "text-text-main font-semibold";
+
+    const barColorClass =
+      state === "expired" || state === "critical"
+        ? "bg-rose-500"
+        : state === "expiring"
+          ? "bg-amber-400"
+          : "bg-emerald-400/80";
+
+    const stateTooltip =
+      state === "changed"
+        ? "Cambios detectados en registrador, nameservers o bloqueo de transferencia"
+        : state === "no_data"
+          ? "El registro TLD no expone datos RDAP/WHOIS; puedes agregar fecha de vencimiento manual"
+          : state === "expiring" || state === "critical"
+            ? `Por expirar (aviso ≤ ${thresholds.warningDays} d · crítico ≤ ${thresholds.criticalDays} d)`
+            : meta.label;
+
+    return (
+      <tr
+        key={domain.id}
+        tabIndex={0}
+        aria-label={domain.domain}
+        onKeyDown={(e) => {
+          if (
+            e.target === e.currentTarget &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            onSelectDomain(domain);
+          }
+        }}
+        onClick={() => onSelectDomain(domain)}
+        className={`group ${rowHeightClass} transition-colors cursor-pointer hover:bg-bg-card-hover/70 focus:outline-none focus-visible:bg-bg-card-hover/80 ${
+          isActive
+            ? "bg-accent-green/[0.08] ring-1 ring-inset ring-accent-green/35"
+            : isSelected
+              ? "bg-accent-green/[0.04]"
+              : state === "expired" || state === "critical"
+                ? "bg-rose-500/[0.025]"
+                : state === "expiring" || state === "changed"
+                  ? "bg-amber-500/[0.02]"
+                  : ""
+        }`}
+      >
+        {/* Checkbox */}
+        <td
+          className={TABLE_CHECK_CELL}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect(domain);
+          }}
+        >
+          <SelectionCheckbox
+            checked={isSelected}
+            label={`Seleccionar ${domain.domain}`}
+            onChange={() => onToggleSelect(domain)}
+            className="mr-3"
+          />
+        </td>
+
+        {/* Estado */}
+        <td className={`${TABLE_CELL} whitespace-nowrap`} title={stateTooltip}>
+          <StatusPill
+            tone={meta.tone}
+            shape={meta.shape}
+            label={meta.label}
+            size="xs"
+            title={stateTooltip}
+          />
+        </td>
+
+        {/* Dominio (flexible w-full max-w-0) + Uptime link chip */}
+        <td className={`${TABLE_CELL} w-full max-w-0`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="font-semibold text-text-main group-hover:text-accent-green transition-colors text-[13px] truncate"
+              title={domain.domain}
+            >
+              {domain.domain}
+            </span>
+
+            {linkedTarget && (
+              <Link
+                to={`/monitoring?target=${encodeURIComponent(linkedTarget.id)}`}
+                onClick={(e) => e.stopPropagation()}
+                title={
+                  linkedTarget.enabled
+                    ? `Vinculado al target ${linkedTarget.name} en Uptime`
+                    : `Vinculado a ${linkedTarget.name} (pausado en Uptime)`
+                }
+                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[150px] transition-colors ${
+                  linkedTarget.enabled
+                    ? "bg-bg-dark border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40"
+                    : "bg-amber-500/10 border-amber-500/35 text-amber-300 hover:bg-amber-500/20"
+                }`}
+              >
+                <ArrowUpRight size={10} className="shrink-0" />
+                <span className="truncate">
+                  {linkedTarget.name}
+                  {!linkedTarget.enabled ? " (pausado)" : ""}
+                </span>
+              </Link>
+            )}
+
+            {!linkedTarget && suggestedTarget && onLinkTarget && (
+              <button
+                type="button"
+                disabled={linkingDomainId === domain.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLinkTarget(domain, suggestedTarget);
+                }}
+                title={`Vincular con el target ${suggestedTarget.name} en Uptime`}
+                className="compact-btn hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-dashed border-border-accent/80 bg-bg-dark/80 text-[10px] text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors shrink-0 max-w-[145px] cursor-pointer"
+              >
+                <Link2 size={10} className="shrink-0" />
+                <span className="truncate">
+                  Vincular: {suggestedTarget.name}
+                </span>
+              </button>
+            )}
+          </div>
+        </td>
+
+        {/* Registrador */}
+        <td className={`${TABLE_CELL} max-w-0`}>
+          <span
+            className="block truncate text-xs text-text-muted"
+            title={domain.registrar || "Sin registrador reportado"}
+          >
+            {domain.registrar || "—"}
+          </span>
+        </td>
+
+        {/* Bloqueo de transferencia */}
+        <td className={`${TABLE_CELL} whitespace-nowrap`}>
+          {domain.is_locked === true ? (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-text-muted"
+              title="Bloqueo de transferencia activo: el dominio no puede transferirse sin autorización"
+            >
+              <Lock size={13} className="text-emerald-400 shrink-0" />
+              <span>Bloqueado</span>
+            </span>
+          ) : domain.is_locked === false ? (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-amber-300 font-medium"
+              title="Sin bloqueo: el dominio podría transferirse a otro registrador"
+            >
+              <Unlock size={13} className="text-amber-400 shrink-0" />
+              <span>Sin bloqueo</span>
+            </span>
+          ) : (
+            <span
+              className="text-xs text-text-dim"
+              title="El registro no informa el estado del bloqueo de transferencia"
+            >
+              —
+            </span>
+          )}
+        </td>
+
+        {/* Vence: en 159 d · 4 may 2027 + thin remaining bar */}
+        <td className={`${TABLE_CELL} whitespace-nowrap`}>
+          {days !== null ? (
+            <div
+              className="space-y-1"
+              title={
+                remainingPct !== null
+                  ? `${remainingPct} % restante${
+                      !domain.expiration_date && domain.manual_expiration_date
+                        ? " (fecha manual)"
+                        : ""
+                    }`
+                  : undefined
+              }
+            >
+              <div className="flex items-center gap-1.5 font-mono text-xs tabular-nums">
+                <span className={expiryToneClass}>
+                  {days <= 0 ? formatDomainExpiredAgo(days) : `en ${days} d`}
+                </span>
+                {expIso && days > 0 && (
+                  <span className="text-[11px] text-text-dim">
+                    · {formatDomainDate(expIso)}
+                  </span>
+                )}
+              </div>
+              {remainingPct !== null && (
+                <div className="h-1 w-full max-w-[140px] rounded-full bg-bg-dark overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${barColorClass}`}
+                    style={{ width: `${Math.max(remainingPct, 3)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-xs text-text-dim font-mono">Sin fecha</span>
+          )}
+        </td>
+
+        {/* NS */}
+        <td
+          className={`${TABLE_CELL} font-mono text-xs text-text-muted whitespace-nowrap tabular-nums`}
+          title={
+            nsList.length > 0
+              ? nsList.join("\n")
+              : "Sin servidores de nombres registrados"
+          }
+        >
+          {nsList.length > 0 ? `${nsList.length} NS` : "—"}
+        </td>
+
+        {/* Revisado */}
+        <td className={`${TABLE_CELL} text-xs text-text-dim whitespace-nowrap tabular-nums`}>
+          <RelativeTime
+            value={domain.last_scanned_at}
+            emptyLabel="Nunca"
+            className="font-mono text-[11px]"
+          />
+        </td>
+
+        {/* Acciones */}
+        <td className="pl-1 pr-3 py-0 align-middle text-right whitespace-nowrap">
+          <DomainRowActions
+            domain={domain}
+            variant="table"
+            isScanning={scanningId === domain.id}
+            onScan={onScan}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        </td>
+      </tr>
+    );
   };
 
   return (
     <div
       data-testid="connectivity-table"
-      className="connectivity-directory-table min-w-0 max-w-full bg-bg-card border border-border-base/70 rounded-2xl overflow-hidden shadow-sm font-sans"
+      className="connectivity-directory-table w-full max-w-[1400px] mx-auto min-w-0 bg-bg-card border border-border-base/80 rounded-2xl overflow-hidden shadow-sm"
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+        <table className="w-full min-w-[960px] table-fixed text-left text-xs border-collapse">
+          <colgroup>
+            <col className="w-11" />
+            <col className="w-[132px]" />
+            <col className="w-full" />
+            <col className="w-[160px]" />
+            <col className="w-[116px]" />
+            <col className="w-[178px]" />
+            <col className="w-[68px]" />
+            <col className="w-[96px]" />
+            <col className="w-[88px]" />
+          </colgroup>
           <thead>
-            <tr className="border-b border-border-base text-text-muted text-xs bg-bg-dark/80">
-              <th scope="col" className="py-3 px-3.5 w-10">
+            <tr
+              className={`${TABLE_HEAD_ROW} border-b border-border-base text-text-dim font-medium bg-bg-dark/80 select-none`}
+            >
+              <th scope="col" className={TABLE_CHECK_CELL}>
                 <SelectionCheckbox
                   checked={allSelected}
-                  label="Seleccionar todos los recursos de esta página"
-                  onChange={onSelectAll}
+                  label="Seleccionar todos los dominios de esta página"
+                  onChange={onToggleSelectAll}
+                  className="mr-3"
                 />
               </th>
-              <th scope="col" className="py-3 px-4">
-                Dominio FQDN
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                <button
+                  type="button"
+                  onClick={() => onSort("status")}
+                  className="compact-btn inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer"
+                >
+                  <span>Estado</span>
+                  <SortIcon col="status" />
+                </button>
               </th>
-              <th scope="col" className="py-3 px-3">
-                Registrador ICANN
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                <button
+                  type="button"
+                  onClick={() => onSort("domain")}
+                  className="compact-btn inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer"
+                >
+                  <span>Dominio</span>
+                  <SortIcon col="domain" />
+                </button>
               </th>
-              <th scope="col" className="py-3 px-3">
-                Bloqueo EPP
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                Registrador
               </th>
-              <th scope="col" className="py-3 px-3">
-                Vigencia & Timeline
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                Bloqueo
               </th>
-              <th scope="col" className="py-3 px-3">
-                Fecha Vencimiento
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                <button
+                  type="button"
+                  onClick={() => onSort("expiry")}
+                  className="compact-btn inline-flex items-center gap-1 hover:text-text-main transition-colors cursor-pointer"
+                >
+                  <span>Vence</span>
+                  <SortIcon col="expiry" />
+                </button>
               </th>
-              <th scope="col" className="py-3 px-3">
-                Servidores NS
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                NS
               </th>
-              <th scope="col" className="py-3 px-4 text-right">
+              <th scope="col" className={TABLE_HEAD_CELL}>
+                Revisado
+              </th>
+              <th
+                scope="col"
+                className="pl-1 pr-3 py-0 align-middle text-right"
+              >
                 Acciones
               </th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-border-base/40">
-            {domains.map((domain) => {
-              const isSelected = selectedIds.includes(domain.id);
-              const days = domain.days_until_expiration;
-              const measured =
-                hasMeasurement(domain.last_scanned_at) &&
-                domain.status !== "error" &&
-                !domain.error_message;
-              const expiryTone = expirationTone(days, measured);
-              const lifePct = calculateLifePercentage(domain);
-              const nsList = parseNameservers(domain.name_servers);
-
+            {groups.map((group) => {
+              const isGrouped = group.key !== "all";
+              const isCollapsed = Boolean(collapsedGroups[group.key]);
               return (
-                <tr
-                  key={domain.id}
-                  onClick={() => onSelectDomain(domain)}
-                  tabIndex={0}
-                  aria-label={domain.domain}
-                  onKeyDown={(e) => {
-                    if (
-                      e.target === e.currentTarget &&
-                      (e.key === "Enter" || e.key === " ")
-                    ) {
-                      e.preventDefault();
-                      onSelectDomain(domain);
-                    }
-                  }}
-                  className={`hover:bg-bg-card-hover/80 transition-colors cursor-pointer group ${
-                    isSelected ? "bg-accent-green/[0.03]" : ""
-                  }`}
-                >
-                  {/* Row Checkbox */}
-                  <td
-                    className="py-3 px-3.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelect(domain);
-                    }}
-                  >
-                    <SelectionCheckbox
-                      checked={isSelected}
-                      label={`Seleccionar ${domain.domain}`}
-                      onChange={() => onToggleSelect(domain)}
-                    />
-                  </td>
-
-                  {/* Domain Name */}
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <Globe2
-                        size={14}
-                        className="text-accent-green shrink-0"
-                      />
-                      <span className="font-bold text-text-main group-hover:text-accent-green transition-colors text-sm">
-                        {domain.domain}
-                      </span>
-                      <a
-                        href={`http://${domain.domain}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-text-dim hover:text-accent-green shrink-0"
-                        title="Abrir dominio"
-                      >
-                        <ExternalLink size={11} />
-                      </a>
-                    </div>
-                  </td>
-
-                  {/* Registrar */}
-                  <td
-                    className="py-3 px-3 text-text-muted text-xs truncate max-w-[170px]"
-                    title={domain.registrar || ""}
-                  >
-                    {domain.registrar || "Desconocido"}
-                  </td>
-
-                  {/* EPP Domain Lock */}
-                  <td className="py-3 px-3">
-                    {domain.is_locked == null ? (
-                      <span className="text-text-dim">Sin información EPP</span>
-                    ) : domain.is_locked ? (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${healthPalette[measured ? "success" : "muted"].badge}`}
-                      >
-                        <Lock size={10} />
-                        Protegido
-                      </span>
-                    ) : (
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${healthPalette[measured ? "warning" : "muted"].badge}`}
-                      >
-                        <Unlock size={10} />
-                        Sin Bloqueo
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Days remaining & Lifecycle timeline */}
-                  <td className="py-3 px-3 min-w-[140px]">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-mono font-bold">
-                          {days !== null ? (
-                            <span className={healthPalette[expiryTone].text}>
-                              {days <= 0 ? "Expirado" : `${days} días`}
-                            </span>
+                <Fragment key={group.key}>
+                  {isGrouped && (
+                    <tr className="bg-bg-dark/60 border-t border-border-base/60">
+                      <td colSpan={9} className="py-1.5 px-4">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.key)}
+                          className="compact-btn inline-flex items-center gap-1.5 text-[11px] font-semibold text-text-muted hover:text-text-main cursor-pointer"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight size={13} />
                           ) : (
-                            <span className="text-text-dim">-</span>
+                            <ChevronDown size={13} />
                           )}
-                        </span>
-                        {lifePct !== null && (
-                          <span className="text-xs font-mono text-text-dim">
-                            {lifePct}% consumido
+                          <span>{group.label}</span>
+                          <span className="px-1.5 py-0.2 rounded-full bg-bg-card border border-border-base text-[10px] font-mono text-text-dim">
+                            {group.domains.length}
                           </span>
-                        )}
-                      </div>
-
-                      {/* Micro Progress Bar */}
-                      {lifePct !== null && (
-                        <div className="w-full h-1 bg-bg-dark rounded-full overflow-hidden border border-border-base/50">
-                          <div
-                            className={`h-full transition-all duration-500 rounded-full ${
-                              healthPalette[expiryTone].fill
-                            }`}
-                            style={{ width: `${lifePct}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Expiration Date */}
-                  <td className="py-3 px-3 text-text-dim font-mono text-xs whitespace-nowrap">
-                    {domain.expiration_date
-                      ? new Date(domain.expiration_date).toLocaleDateString(
-                          "es-ES",
-                        )
-                      : "N/A"}
-                  </td>
-
-                  {/* Nameservers */}
-                  <td className="py-3 px-3 font-mono text-xs">
-                    {nsList.length > 0 ? (
-                      <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-blue/10 text-accent-blue border border-accent-blue/30 text-xs font-medium"
-                        title={nsList.join(", ")}
-                      >
-                        <Server size={11} />
-                        {nsList.length} NS
-                      </span>
-                    ) : (
-                      <span className="text-text-dim text-xs">Sin NS</span>
-                    )}
-                  </td>
-
-                  {/* Actions */}
-                  <td className="py-3 px-4 text-right">
-                    <div
-                      className="flex items-center justify-end gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ResourceActionButtons
-                        label={`Acciones de ${domain.domain}`}
-                        actions={[
-                          {
-                            label: "Editar dominio",
-                            onClick: (e) => onEdit(domain, e),
-                            capability: "domain.update",
-                            icon: (
-                              <>
-                                <Pencil size={14} />
-                              </>
-                            ),
-                          },
-                          {
-                            label: "Eliminar dominio",
-                            onClick: (e) => onDelete(domain, e),
-                            capability: "domain.delete",
-                            danger: true,
-                            icon: (
-                              <>
-                                <Trash2 size={14} />
-                              </>
-                            ),
-                          },
-                        ]}
-                      />
-                    </div>
-                  </td>
-                </tr>
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                  {!isCollapsed && group.domains.map(renderRow)}
+                </Fragment>
               );
             })}
           </tbody>

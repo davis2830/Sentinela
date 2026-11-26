@@ -1,51 +1,55 @@
+import React, { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
-import { domainStatus } from "../../utils/healthPresentation";
 import { bulkOutcome } from "../../utils/bulkOutcome";
 import { apiFailure } from "../../services/errors";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
 import { useLinkedResource } from "../../hooks/useLinkedResource";
-import { useUrlFilter } from "../../hooks/useUrlFilter";
 import { useAuthStore } from "../../store/authStore";
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../services/api";
 import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
 import type {
-  DomainInfo,
   CreateDomainInfoData,
-  DomainStats,
+  DomainInfo,
+  DomainLinkedTarget,
   DomainTestWhoisResult,
+  UnwatchedDomainSuggestion,
 } from "../../types/domain";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
 import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
+import {
+  DOMAIN_STATE_META,
+  getDomainHealthState,
+  getEffectiveDaysRemaining,
+} from "../../components/domains/useDomains";
 
-/** Data, mutations and transient workflow state; rendering stays in the page. */
+/** Data, mutations and transient workflow state; rendering stays in DomainsPage. */
 export function useDomainsWorkspace() {
   const organizationId = useAuthStore((state) => state.user?.organization?.id);
-
   const queryClient = useQueryClient();
 
-  // State
-  const [filter, setFilter] = useUrlFilter("status", [
-    "all",
-    "expiring",
-    "expired",
-  ] as const);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = usePersistentViewMode("domains", "table");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+  const [savingManualDateId, setSavingManualDateId] = useState<string | null>(
+    null,
+  );
+  const [linkingDomainId, setLinkingDomainId] = useState<string | null>(null);
+  const [watchingSuggestion, setWatchingSuggestion] = useState<string | null>(
+    null,
+  );
 
   // Modals & Drawer State
   const [showModal, setShowModal] = useState(false);
   const [editingDomain, setEditingDomain] = useState<DomainInfo | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<DomainInfo | null>(null);
   const [domainInput, setDomainInput] = useState("");
+  const [manualExpirationInput, setManualExpirationInput] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DomainInfo | null>(null);
-  const [drawerTab, setDrawerTab] = useState<
-    "overview" | "security" | "nameservers"
-  >("overview");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkScanning, setBulkScanning] = useState(false);
 
   // Live Test WHOIS State
   const diagnostic = useConfigurationDiagnostic();
@@ -54,70 +58,232 @@ export function useDomainsWorkspace() {
     null,
   );
 
-  // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
-
-  const { data: stats } = useQuery<DomainStats>({
-    queryKey: ["domain-stats", organizationId],
-    queryFn: async () => {
-      const response = await api.get("domains/stats/");
-      return (response.data?.data || {}) as DomainStats;
-    },
-    refetchInterval: autoRefresh.refetchInterval,
-  });
 
   const directory = useConnectivityDirectory<DomainInfo>(
     "domains/",
     "domains",
-    { search: searchTerm, status: filter },
+    { search: searchTerm },
     autoRefresh.refetchInterval,
   );
   const { data: domains, isLoading, isError, refetch } = directory;
   const selectionScope = JSON.stringify(directory.params);
   useEffect(() => setSelectedIds([]), [selectionScope]);
 
+  // Keep selectedDomain synced with fresh query results
+  useEffect(() => {
+    if (!selectedDomain || !domains) return;
+    const fresh = domains.find((d) => d.id === selectedDomain.id);
+    if (fresh && fresh !== selectedDomain) {
+      setSelectedDomain(fresh);
+    }
+  }, [domains, selectedDomain]);
+
+  // Cross-module unwatched root domains discovery (e.g., gctechops.com used in DNS/SSL/Uptime)
+  const { data: unwatchedSuggestions } = useQuery<UnwatchedDomainSuggestion[]>({
+    queryKey: ["domain-suggestions", organizationId],
+    queryFn: async () => {
+      const response = await api.get("domains/suggestions/");
+      return (response.data?.data || []) as UnwatchedDomainSuggestion[];
+    },
+    enabled: Boolean(organizationId),
+    staleTime: 60_000,
+  });
+
+  const invalidateDomains = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["domains", organizationId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["domain-stats", organizationId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["domain-suggestions", organizationId],
+    });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: CreateDomainInfoData) => {
-      await api.post("domains/", data);
+      const res = await api.post("domains/", data);
+      return res.data?.data as DomainInfo | undefined;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
-      queryClient.invalidateQueries({
-        queryKey: ["domain-stats", organizationId],
-      });
+    onSuccess: (created) => {
+      invalidateDomains();
       handleCloseModal();
+      if (created) {
+        directory.setMessage(
+          `Dominio ${created.domain} agregado. Comprobando registro...`,
+        );
+      }
+    },
+  });
+
+  const watchSuggestionMutation = useMutation({
+    mutationFn: async (domainName: string) => {
+      setWatchingSuggestion(domainName);
+      const res = await api.post("domains/", { domain: domainName });
+      return res.data?.data as DomainInfo | undefined;
+    },
+    onSuccess: (created) => {
+      invalidateDomains();
+      setWatchingSuggestion(null);
+      if (created) {
+        directory.setMessage(
+          `Ahora vigilamos el vencimiento de ${created.domain}.`,
+        );
+      }
+    },
+    onError: () => {
+      setWatchingSuggestion(null);
+      directory.setMessage("No se pudo agregar el dominio sugerido.");
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, domain }: { id: string; domain: string }) => {
-      await api.patch(`domains/${id}/`, { domain });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
-      queryClient.invalidateQueries({
-        queryKey: ["domain-stats", organizationId],
+    mutationFn: async ({
+      id,
+      domain,
+      manual_expiration_date,
+    }: {
+      id: string;
+      domain?: string;
+      manual_expiration_date?: string | null;
+    }) => {
+      const res = await api.patch(`domains/${id}/`, {
+        ...(domain ? { domain } : {}),
+        manual_expiration_date: manual_expiration_date || null,
       });
+      return res.data?.data as DomainInfo | undefined;
+    },
+    onSuccess: (updated) => {
+      invalidateDomains();
+      if (selectedDomain && updated && selectedDomain.id === updated.id) {
+        setSelectedDomain(updated);
+      }
       handleCloseModal();
+    },
+  });
+
+  const saveManualDateMutation = useMutation({
+    mutationFn: async ({
+      domain,
+      dateStr,
+    }: {
+      domain: DomainInfo;
+      dateStr: string | null;
+    }) => {
+      setSavingManualDateId(domain.id);
+      const res = await api.patch(`domains/${domain.id}/`, {
+        manual_expiration_date: dateStr,
+      });
+      return res.data?.data as DomainInfo | undefined;
+    },
+    onSuccess: (updated) => {
+      invalidateDomains();
+      if (selectedDomain && updated && selectedDomain.id === updated.id) {
+        setSelectedDomain(updated);
+      }
+      directory.setMessage("Fecha manual de vencimiento guardada.");
+      setSavingManualDateId(null);
+    },
+    onError: () => {
+      directory.setMessage("No se pudo guardar la fecha manual.");
+      setSavingManualDateId(null);
+    },
+  });
+
+  const acknowledgeChangesMutation = useMutation({
+    mutationFn: async (domain: DomainInfo) => {
+      setAcknowledgingId(domain.id);
+      const res = await api.post(`domains/${domain.id}/acknowledge-changes/`);
+      return res.data?.data as DomainInfo | undefined;
+    },
+    onSuccess: (updated) => {
+      invalidateDomains();
+      if (selectedDomain && updated && selectedDomain.id === updated.id) {
+        setSelectedDomain(updated);
+      }
+      directory.setMessage(
+        updated
+          ? `Cambios confirmados para ${updated.domain}.`
+          : "Cambios confirmados.",
+      );
+      setAcknowledgingId(null);
+    },
+    onError: () => {
+      directory.setMessage("No se pudieron confirmar los cambios.");
+      setAcknowledgingId(null);
+    },
+  });
+
+  const linkTargetMutation = useMutation({
+    mutationFn: async ({
+      domain,
+      target,
+    }: {
+      domain: DomainInfo;
+      target: DomainLinkedTarget;
+    }) => {
+      setLinkingDomainId(domain.id);
+      await api.patch(`/monitoring/${target.id}/coverage/`, {
+        domain: [domain.id],
+      });
+      return { domain, target };
+    },
+    onSuccess: ({ domain, target }) => {
+      invalidateDomains();
+      void queryClient.invalidateQueries({
+        queryKey: ["monitoring-targets", organizationId],
+      });
+      directory.setMessage(
+        `${domain.domain} vinculado al target ${target.name} en Uptime.`,
+      );
+      setLinkingDomainId(null);
+    },
+    onError: () => {
+      directory.setMessage("No se pudo vincular el dominio con el target.");
+      setLinkingDomainId(null);
     },
   });
 
   const scanMutation = useMutation({
     mutationFn: async (id: string) => {
       setScanningId(id);
+      const current = domains?.find((d) => d.id === id);
       const response = await api.post(`domains/${id}/scan/`);
       const queued = response.data?.data as QueuedScan;
       return waitForFreshScan<DomainInfo>(
         queued,
         async () => (await api.get(`domains/${id}/`)).data?.data as DomainInfo,
         (domain) => domain.last_scanned_at,
+        {
+          label: current?.domain,
+          formatResult: (dom) => {
+            const st = getDomainHealthState(dom);
+            const days = getEffectiveDaysRemaining(dom);
+            const label = DOMAIN_STATE_META[st].label.toLowerCase();
+            const daysPart =
+              days !== null ? (days <= 0 ? "vencido" : `en ${days} d`) : null;
+            return {
+              message: [dom.domain, label, daysPart]
+                .filter(Boolean)
+                .join(" · "),
+              tone:
+                st === "valid"
+                  ? "success"
+                  : st === "expiring" || st === "changed"
+                    ? "warning"
+                    : st === "no_data" || st === "pending"
+                      ? "info"
+                      : "danger",
+            };
+          },
+          onView: (dom) => setSelectedDomain(dom),
+        },
       );
     },
     onSuccess: (updatedDomain) => {
-      queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
-      queryClient.invalidateQueries({
-        queryKey: ["domain-stats", organizationId],
-      });
+      invalidateDomains();
       if (
         selectedDomain &&
         updatedDomain &&
@@ -137,10 +303,7 @@ export function useDomainsWorkspace() {
       await api.delete(`domains/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
-      queryClient.invalidateQueries({
-        queryKey: ["domain-stats", organizationId],
-      });
+      invalidateDomains();
       if (selectedDomain?.id === deleteTarget?.id) {
         setSelectedDomain(null);
       }
@@ -148,7 +311,7 @@ export function useDomainsWorkspace() {
     },
   });
 
-  // Bulk Actions via backend endpoint
+  // Selection & Bulk Actions
   const handleToggleSelect = (domain: DomainInfo) => {
     setSelectedIds((prev) =>
       prev.includes(domain.id)
@@ -157,12 +320,24 @@ export function useDomainsWorkspace() {
     );
   };
 
-  const handleSelectAllToggle = () => {
-    if (!filteredDomains || filteredDomains.length === 0) return;
-    if (selectedIds.length === filteredDomains.length) {
+  const handleBulkScan = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkScanning(true);
+    try {
+      const response = await api.post("domains/bulk-action/", {
+        action: "scan",
+        domain_ids: selectedIds,
+      });
+      const outcome = bulkOutcome(response.data.data, selectedIds);
       setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredDomains.map((d: DomainInfo) => d.id));
+      directory.setMessage(outcome.message);
+    } catch {
+      directory.setMessage(
+        "No se pudo iniciar la comprobación masiva. Intenta nuevamente.",
+      );
+    } finally {
+      setBulkScanning(false);
+      invalidateDomains();
     }
   };
 
@@ -192,13 +367,10 @@ export function useDomainsWorkspace() {
     }
 
     setBulkDeleting(false);
-    queryClient.invalidateQueries({ queryKey: ["domains", organizationId] });
-    queryClient.invalidateQueries({
-      queryKey: ["domain-stats", organizationId],
-    });
+    invalidateDomains();
   };
 
-  // Test WHOIS Query Live in Modal
+  // Live Test RDAP/WHOIS Query in Modal
   const handleTestWhois = async () => {
     if (!domainInput.trim()) return;
     setIsTestingWhois(true);
@@ -222,20 +394,21 @@ export function useDomainsWorkspace() {
         success: false,
         domain: cleanDomain,
         error_message:
-          err.response?.data?.message || "Error al consultar servidores WHOIS.",
+          err.response?.data?.message ||
+          "No se pudieron obtener datos RDAP/WHOIS. Puedes definir una fecha manual.",
       });
     } finally {
       setIsTestingWhois(false);
     }
   };
 
-  // Export CSV Report
   const handleExportCSV = () => void directory.exportCSV();
 
   // Modal Handlers
   const handleOpenCreate = () => {
     setEditingDomain(null);
     setDomainInput("");
+    setManualExpirationInput("");
     setTestResult(null);
     setShowModal(true);
   };
@@ -244,6 +417,7 @@ export function useDomainsWorkspace() {
     if (e) e.stopPropagation();
     setEditingDomain(domain);
     setDomainInput(domain.domain);
+    setManualExpirationInput(domain.manual_expiration_date || "");
     setTestResult(null);
     setShowModal(true);
   };
@@ -252,6 +426,7 @@ export function useDomainsWorkspace() {
     setShowModal(false);
     setEditingDomain(null);
     setDomainInput("");
+    setManualExpirationInput("");
     setTestResult(null);
   };
 
@@ -266,42 +441,25 @@ export function useDomainsWorkspace() {
     }
 
     if (editingDomain) {
-      updateMutation.mutate({ id: editingDomain.id, domain: cleanDomain });
+      updateMutation.mutate({
+        id: editingDomain.id,
+        domain: cleanDomain,
+        manual_expiration_date: manualExpirationInput || null,
+      });
     } else {
-      createMutation.mutate({ domain: cleanDomain });
+      createMutation.mutate({
+        domain: cleanDomain,
+        manual_expiration_date: manualExpirationInput || null,
+      });
     }
   };
 
-  const getStatusType = domainStatus;
-
-  const calculateLifePercentage = (domain: DomainInfo) => {
-    if (!domain.creation_date || !domain.expiration_date) return null;
-    const start = new Date(domain.creation_date).getTime();
-    const end = new Date(domain.expiration_date).getTime();
-    const now = Date.now();
-    const total = end - start;
-    if (total <= 0) return 100;
-    const elapsed = now - start;
-    return Math.min(Math.max(Math.round((elapsed / total) * 100), 0), 100);
-  };
-
-  // KPI Calculations
-  const allDomains = domains || [];
-  const totalCount = stats?.total ?? "—";
-  const activeCount = stats?.active ?? "—";
-  const expiringCount = stats?.expiring_30d ?? "—";
-  const lockedCount = stats?.locked_count ?? "—";
-
-  // Filtered & Searched Domains
-  const filteredDomains = allDomains;
-
   useLinkedResource(domains, selectedDomain, setSelectedDomain);
+
   return {
     directory,
     isError,
     refetch,
-    filter,
-    setFilter,
     searchTerm,
     setSearchTerm,
     viewMode,
@@ -309,31 +467,40 @@ export function useDomainsWorkspace() {
     selectedIds,
     setSelectedIds,
     scanningId,
+    acknowledgingId,
+    savingManualDateId,
+    linkingDomainId,
+    watchingSuggestion,
     showModal,
     editingDomain,
     selectedDomain,
     setSelectedDomain,
     domainInput,
     setDomainInput,
+    manualExpirationInput,
+    setManualExpirationInput,
     deleteTarget,
     setDeleteTarget,
-    drawerTab,
-    setDrawerTab,
     bulkDeleting,
+    bulkScanning,
     diagnostic,
     isTestingWhois,
     testResult,
     setTestResult,
     autoRefresh,
-    stats,
     domains,
+    unwatchedSuggestions: unwatchedSuggestions || [],
     isLoading,
     createMutation,
+    watchSuggestionMutation,
     updateMutation,
+    saveManualDateMutation,
+    acknowledgeChangesMutation,
+    linkTargetMutation,
     scanMutation,
     deleteMutation,
     handleToggleSelect,
-    handleSelectAllToggle,
+    handleBulkScan,
     handleBulkDelete,
     handleTestWhois,
     handleExportCSV,
@@ -341,12 +508,5 @@ export function useDomainsWorkspace() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmitModal,
-    getStatusType,
-    calculateLifePercentage,
-    totalCount,
-    activeCount,
-    expiringCount,
-    lockedCount,
-    filteredDomains,
   };
 }
