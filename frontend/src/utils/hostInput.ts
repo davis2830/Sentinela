@@ -363,3 +363,82 @@ export function matchesDomainTree(host: string, apex: string): boolean {
   if (!h || !a) return false;
   return h === a || h.endsWith(`.${a}`);
 }
+
+const VALID_DNS_RECORD_TYPES = new Set([
+  "A",
+  "AAAA",
+  "CNAME",
+  "MX",
+  "TXT",
+  "NS",
+  "SOA",
+  "SRV",
+  "CAA",
+  "PTR",
+]);
+
+export interface DnsBatchEntry {
+  raw: string;
+  host: string;
+  explicitType: string | null;
+  valid: boolean;
+  reason?: string;
+}
+
+/**
+ * Parses batch DNS lines in either "host" (uses selected chips)
+ * or "host TYPE" format (e.g. "api.empresa.com A", "empresa.com MX").
+ */
+export function parseDnsBatchLines(text: string): DnsBatchEntry[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  return lines.map((raw) => {
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const parsedHost = parseHostAndPort(parts[0] || "");
+    const host = parsedHost.host;
+
+    let explicitType: string | null = null;
+    if (parts.length >= 2) {
+      const candidateType = parts[1].toUpperCase();
+      if (!VALID_DNS_RECORD_TYPES.has(candidateType)) {
+        return {
+          raw,
+          host,
+          explicitType: null,
+          valid: false,
+          reason: `Tipo DNS inválido (${parts[1]})`,
+        };
+      }
+      explicitType = candidateType;
+    }
+
+    if (!isValidHost(host, { allowUnderscore: true, allowSingleLabel: true })) {
+      return {
+        raw,
+        host,
+        explicitType,
+        valid: false,
+        reason: "Host inválido",
+      };
+    }
+
+    const dedupKey = `${host}::${explicitType || "*"}`;
+    if (seen.has(dedupKey)) {
+      return {
+        raw,
+        host,
+        explicitType,
+        valid: false,
+        reason: "Repetido en la lista",
+      };
+    }
+    seen.add(dedupKey);
+
+    return { raw, host, explicitType, valid: true };
+  });
+}
+

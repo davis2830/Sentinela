@@ -490,7 +490,7 @@ export function useDomainsWorkspace() {
         const res = await api.patch(`domains/${editingDomain.id}/`, {
           domain: first.domain,
           manual_expiration_date: first.manual_expiration_date,
-          ...(first.auto_renew !== null ? { auto_renew: first.auto_renew } : {}),
+          auto_renew: first.auto_renew,
         });
         const updated = res.data?.data as DomainInfo | undefined;
         invalidateDomains();

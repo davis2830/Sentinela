@@ -31,10 +31,33 @@ const COMMON_SSL_PORTS = [
   { port: 8443, label: "8443 Paneles" },
   { port: 636, label: "636 LDAPS" },
   { port: 465, label: "465 SMTPS" },
+  { port: 587, label: "587 SMTP" },
   { port: 993, label: "993 IMAPS" },
+  { port: 143, label: "143 IMAP" },
 ];
 
-const STARTTLS_PORTS = new Set([587, 143, 389, 25, 110]);
+type StartTlsProtocol = "SMTP" | "IMAP" | "LDAP" | "POP3";
+
+interface TlsConfig {
+  mode: "direct" | "starttls";
+  protocol: StartTlsProtocol | null;
+}
+
+function inferTlsConfigFromPort(port: number): TlsConfig {
+  switch (port) {
+    case 587:
+    case 25:
+      return { mode: "starttls", protocol: "SMTP" };
+    case 143:
+      return { mode: "starttls", protocol: "IMAP" };
+    case 389:
+      return { mode: "starttls", protocol: "LDAP" };
+    case 110:
+      return { mode: "starttls", protocol: "POP3" };
+    default:
+      return { mode: "direct", protocol: null };
+  }
+}
 
 export interface SSLModalSubmitPayload {
   items: { domain: string; port: number }[];
@@ -80,12 +103,22 @@ export default function SSLAddModal({
   onClose,
 }: SSLAddModalProps) {
   const isEditing = Boolean(editingCert);
-  const { destinations, isLoadingDestinations, targets } =
-    useOrgContextForAddModal(true);
+  const {
+    allChannels,
+    destinations,
+    isLoadingDestinations,
+    targets,
+    dnsItems,
+    watchedDomains,
+    quickCreateDestination,
+    isCreatingDestination,
+    toggleChannelEnabled,
+    isTogglingChannel,
+  } = useOrgContextForAddModal(true);
 
   const [batchMode, setBatchMode] = useState(false);
   const [batchText, setBatchText] = useState("");
-  const [tlsMode, setTlsMode] = useState<"direct" | "starttls">("direct");
+  const [tlsOverride, setTlsOverride] = useState<TlsConfig | null>(null);
   const [linkChecked, setLinkChecked] = useState(true);
   const [alsoWatchDns, setAlsoWatchDns] = useState(false);
   const [alsoWatchDomain, setAlsoWatchDomain] = useState(false);
@@ -97,14 +130,16 @@ export default function SSLAddModal({
   const hostValid = isValidHost(cleanHost, { allowSingleLabel: true });
   const portValid = isValidPort(portInput);
   const isInternal = Boolean(cleanHost && isInternalOrPrivateHost(cleanHost));
-  const isStartTlsPort = STARTTLS_PORTS.has(portInput);
 
+  const inferredTls = useMemo(
+    () => inferTlsConfigFromPort(portInput),
+    [portInput],
+  );
+  const activeTls = tlsOverride || inferredTls;
+
+  // Reset manual TLS override whenever port changes so deduction stays automatic
   useEffect(() => {
-    if (STARTTLS_PORTS.has(portInput)) {
-      setTlsMode("starttls");
-    } else {
-      setTlsMode("direct");
-    }
+    setTlsOverride(null);
   }, [portInput]);
 
   // Duplicate detection by host + port
@@ -132,7 +167,20 @@ export default function SSLAddModal({
     return matches[0] || null;
   }, [targets, cleanHost, batchMode, isEditing]);
 
-  // Batch parsing
+  // Existing coverage checks for "Vigilar también"
+  const apexDomain =
+    hostValid && !isInternal ? extractRegistrableDomain(cleanHost) : "";
+  const dnsAlreadyWatched = Boolean(
+    cleanHost &&
+      dnsItems.some(
+        (d) => d.domain === cleanHost && (d.record_type === "A" || d.record_type === "AAAA"),
+      ),
+  );
+  const domainAlreadyWatched = Boolean(
+    apexDomain && watchedDomains.includes(apexDomain),
+  );
+
+  // Batch parsing (host or host:port per line)
   const batchEntries = useMemo(
     () => (batchMode ? parseBatchHostLines(batchText) : []),
     [batchMode, batchText],
@@ -152,9 +200,9 @@ export default function SSLAddModal({
       onDomainInputChange(p.host);
       if (p.port && isValidPort(p.port)) {
         onPortInputChange(p.port);
-        setExtractedNotice(`URL normalizada a ${p.host}:${p.port}`);
+        setExtractedNotice(`Extraído de URL: ${p.host}:${p.port}`);
       } else {
-        setExtractedNotice(`URL normalizada a ${p.host}`);
+        setExtractedNotice(`Extraído de URL: ${p.host}`);
       }
     } else {
       onDomainInputChange(raw);
@@ -167,6 +215,22 @@ export default function SSLAddModal({
   const canSubmit = batchMode
     ? validBatchEntries.length > 0 && invalidBatchEntries.length === 0
     : hostValid && portValid && !duplicateCert;
+
+  const disabledReason = batchMode
+    ? invalidBatchEntries.length > 0
+      ? "Corrige las líneas con error antes de guardar"
+      : "Escribe al menos un host por línea"
+    : !cleanHost
+      ? "Escribe un dominio o host"
+      : !hostValid
+        ? "Dominio o host inválido"
+        : !portValid
+          ? "Puerto fuera de rango (1-65535)"
+          : duplicateCert
+            ? "Este certificado ya está vigilado"
+            : isInternal
+              ? "Los hosts internos requieren Guardián Senti9"
+              : "Completa el campo requerido";
 
   const submitItems = (keepOpen = false) => {
     if (!canSubmit) return;
@@ -183,8 +247,10 @@ export default function SSLAddModal({
     void onSubmitPayload({
       items: [{ domain: cleanHost, port: portInput }],
       linkTargetId: matchingTarget && linkChecked ? matchingTarget.id : null,
-      alsoWatchDns: !isEditing && !isInternal && alsoWatchDns,
-      alsoWatchDomain: !isEditing && !isInternal && alsoWatchDomain,
+      alsoWatchDns:
+        !isEditing && !isInternal && !dnsAlreadyWatched && alsoWatchDns,
+      alsoWatchDomain:
+        !isEditing && !isInternal && !domainAlreadyWatched && alsoWatchDomain,
       keepOpen,
     });
   };
@@ -194,20 +260,85 @@ export default function SSLAddModal({
     submitItems(false);
   };
 
-  const apexDomain = cleanHost ? extractRegistrableDomain(cleanHost) : "";
-
   const submitLabel = isEditing
     ? "Guardar cambios"
     : batchMode
       ? `Agregar ${validBatchEntries.length || ""} ${validBatchEntries.length === 1 ? "certificado" : "certificados"}`.trim()
       : "Agregar certificado";
 
+  const testResultSlot =
+    testResult && !batchMode ? (
+      <div
+        className={`rounded-xl border px-3 py-2 text-xs animate-in fade-in duration-150 ${
+          testResult.is_valid
+            ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-200"
+            : "border-rose-500/40 bg-rose-500/10 text-rose-200"
+        }`}
+      >
+        {testResult.is_valid ? (
+          <div className="flex items-center gap-1.5 font-mono text-[11px] flex-wrap">
+            <Check size={13} className="text-emerald-400 shrink-0" />
+            <span className="font-sans font-semibold text-emerald-300">
+              {parseIssuerOrganization(testResult.issuer)}
+            </span>
+            {testResult.tls_version && (
+              <span>· {formatTLSVersion(testResult.tls_version)}</span>
+            )}
+            {testResult.security_grade && (
+              <span>· {testResult.security_grade}</span>
+            )}
+            {testResult.days_remaining != null && (
+              <span>
+                ·{" "}
+                {testResult.days_remaining <= 0
+                  ? `venció hace ${Math.abs(testResult.days_remaining)} días`
+                  : `vence en ${testResult.days_remaining} días`}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-start gap-2">
+              <XCircle size={14} className="text-rose-400 shrink-0 mt-0.5" />
+              <span className="font-medium leading-snug">
+                {testResult.days_remaining != null &&
+                testResult.days_remaining <= 0
+                  ? `El certificado venció hace ${Math.abs(testResult.days_remaining)} días`
+                  : testResult.error_message ||
+                    "No se pudo completar la conexión TLS"}
+              </span>
+            </div>
+            <p className="text-[11px] text-rose-200/80 pl-5">
+              Puedes agregarlo igual para vigilar este problema y recibir
+              alertas.
+            </p>
+          </div>
+        )}
+      </div>
+    ) : undefined;
+
   return (
     <ResourceAddModal
       title={isEditing ? "Editar certificado" : "Agregar certificado"}
       icon={<Lock size={17} className="text-accent-green shrink-0" />}
+      headerAction={
+        !isEditing ? (
+          <button
+            type="button"
+            onClick={() => {
+              setBatchMode((p) => !p);
+              onClearTestResult();
+            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border-base bg-bg-dark text-[11px] text-text-muted hover:text-accent-green hover:border-accent-green/50 transition-colors cursor-pointer !min-h-0"
+          >
+            <Layers size={11} />
+            <span>{batchMode ? "Uno solo" : "Agregar varios"}</span>
+          </button>
+        ) : undefined
+      }
       submitLabel={submitLabel}
       submitCapability={isEditing ? "ssl_monitor.update" : "ssl_monitor.create"}
+      disabledReason={disabledReason}
       testCapability={!batchMode ? "ssl_monitor.test" : undefined}
       testLabel="Probar"
       testingLabel="Probando TLS..."
@@ -216,6 +347,7 @@ export default function SSLAddModal({
           ? "Probamos la conexión TLS. No se guarda nada."
           : undefined
       }
+      testResultSlot={testResultSlot}
       canTest={canTest}
       isTesting={isTesting}
       onTest={!batchMode ? () => onTest(cleanHost, portInput) : undefined}
@@ -227,87 +359,171 @@ export default function SSLAddModal({
       onSubmit={handleFormSubmit}
       onClose={onClose}
       destinations={destinations}
+      allChannels={allChannels}
       isLoadingDestinations={isLoadingDestinations}
+      onQuickCreateDestination={quickCreateDestination}
+      isCreatingDestination={isCreatingDestination}
+      onToggleChannelEnabled={toggleChannelEnabled}
+      isTogglingChannel={isTogglingChannel}
       focusKey={`${editingCert?.id || "new"}-${batchMode ? "batch" : "single"}`}
       moreOptionsOpen={moreOptionsOpen}
       onToggleMoreOptions={() => setMoreOptionsOpen((p) => !p)}
       moreOptionsSummary={
         [
-          tlsMode === "starttls" ? "STARTTLS" : null,
+          activeTls.mode === "starttls"
+            ? `STARTTLS/${activeTls.protocol || "SMTP"}`
+            : "TLS directo",
           alsoWatchDns || alsoWatchDomain ? "Cobertura extra" : null,
         ]
           .filter(Boolean)
-          .join(" · ") || undefined
+          .join(" · ")
       }
       moreOptionsContent={
         <>
-          <div className="space-y-1.5">
-            <span className="block text-[11px] font-medium text-text-muted">
-              Modo de negociación TLS
-            </span>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(
-                [
-                  { id: "direct", label: "TLS directo (HTTPS, LDAPS)" },
-                  { id: "starttls", label: "STARTTLS (587, 143, 389)" },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setTlsMode(opt.id)}
-                  className={`px-2.5 py-1.5 rounded-lg border text-[11px] text-left transition-colors cursor-pointer !min-h-0 ${
-                    tlsMode === opt.id
-                      ? "bg-accent-green/15 border-accent-green/50 text-accent-green font-semibold"
-                      : "bg-bg-card border-border-base text-text-muted hover:text-text-main"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          {/* TLS mode & protocol override (deduced automatically from port) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-text-muted">
+                Modo y protocolo TLS
+              </span>
+              <span className="text-[10px] font-mono text-text-dim">
+                {tlsOverride ? "manual" : "deducido del puerto"}
+              </span>
             </div>
-            {tlsMode === "starttls" && (
-              <p className="text-[11px] text-amber-300/90 leading-relaxed">
-                Los puertos con STARTTLS inician en texto plano antes de negociar
-                TLS; la prueba rápida solo valida TLS directo, pero puedes
-                agregar el certificado igualmente.
-              </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setTlsOverride({ mode: "direct", protocol: null })
+                }
+                className={`px-2.5 py-1.5 rounded-lg border text-[11px] text-left transition-colors cursor-pointer !min-h-0 ${
+                  activeTls.mode === "direct"
+                    ? "bg-accent-green/15 border-accent-green/50 text-accent-green font-semibold"
+                    : "bg-bg-card border-border-base text-text-muted hover:text-text-main"
+                }`}
+              >
+                TLS directo
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setTlsOverride({
+                    mode: "starttls",
+                    protocol: activeTls.protocol || "SMTP",
+                  })
+                }
+                className={`px-2.5 py-1.5 rounded-lg border text-[11px] text-left transition-colors cursor-pointer !min-h-0 ${
+                  activeTls.mode === "starttls"
+                    ? "bg-accent-green/15 border-accent-green/50 text-accent-green font-semibold"
+                    : "bg-bg-card border-border-base text-text-muted hover:text-text-main"
+                }`}
+              >
+                STARTTLS
+              </button>
+            </div>
+
+            {activeTls.mode === "starttls" && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="text-[11px] text-text-dim">Protocolo:</span>
+                {(["SMTP", "IMAP", "LDAP", "POP3"] as StartTlsProtocol[]).map(
+                  (proto) => (
+                    <button
+                      key={proto}
+                      type="button"
+                      onClick={() =>
+                        setTlsOverride({ mode: "starttls", protocol: proto })
+                      }
+                      className={`px-2 py-0.5 rounded-md border font-mono text-[11px] transition-colors cursor-pointer !min-h-0 ${
+                        activeTls.protocol === proto
+                          ? "bg-sky-500/20 border-sky-500/50 text-sky-300 font-semibold"
+                          : "bg-bg-card border-border-base text-text-dim hover:text-text-main"
+                      }`}
+                    >
+                      {proto}
+                    </button>
+                  ),
+                )}
+              </div>
             )}
           </div>
 
+          {/* Symmetrical "Vigilar también" with real typed names & "Ya vigilado" detection */}
           {!isEditing && !batchMode && !isInternal && (
             <div className="pt-2 border-t border-border-base/50 space-y-1.5">
               <span className="block text-[11px] font-medium text-text-muted">
                 Vigilar también
               </span>
-              <label className="flex items-center gap-2 text-xs text-text-main cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={alsoWatchDns}
-                  onChange={(e) => setAlsoWatchDns(e.target.checked)}
-                  className="rounded border-border-accent bg-bg-dark text-accent-green focus:ring-accent-green/40"
-                />
-                <span>
-                  Registro DNS (A) de{" "}
-                  <span className="font-mono text-text-muted">
-                    {cleanHost || "este host"}
-                  </span>
-                </span>
-              </label>
-              <label className="flex items-center gap-2 text-xs text-text-main cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={alsoWatchDomain}
-                  onChange={(e) => setAlsoWatchDomain(e.target.checked)}
-                  className="rounded border-border-accent bg-bg-dark text-accent-green focus:ring-accent-green/40"
-                />
-                <span>
-                  Vencimiento del dominio{" "}
-                  <span className="font-mono text-text-muted">
-                    {apexDomain || "raíz"}
-                  </span>
-                </span>
-              </label>
+              {hostValid ? (
+                <>
+                  <label
+                    className={`flex items-center justify-between gap-2 text-xs ${
+                      dnsAlreadyWatched
+                        ? "text-text-dim cursor-default"
+                        : "text-text-main cursor-pointer"
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        disabled={dnsAlreadyWatched}
+                        checked={dnsAlreadyWatched ? true : alsoWatchDns}
+                        onChange={(e) => setAlsoWatchDns(e.target.checked)}
+                        className="rounded border-border-accent bg-bg-dark text-accent-green focus:ring-accent-green/40 disabled:opacity-50"
+                      />
+                      <span className="truncate">
+                        Registro DNS (A) de{" "}
+                        <span className="font-mono text-text-muted">
+                          {cleanHost}
+                        </span>
+                      </span>
+                    </span>
+                    {dnsAlreadyWatched && (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 shrink-0">
+                        <Check size={11} />
+                        <span>Ya vigilado</span>
+                      </span>
+                    )}
+                  </label>
+
+                  {apexDomain && (
+                    <label
+                      className={`flex items-center justify-between gap-2 text-xs ${
+                        domainAlreadyWatched
+                          ? "text-text-dim cursor-default"
+                          : "text-text-main cursor-pointer"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          disabled={domainAlreadyWatched}
+                          checked={
+                            domainAlreadyWatched ? true : alsoWatchDomain
+                          }
+                          onChange={(e) => setAlsoWatchDomain(e.target.checked)}
+                          className="rounded border-border-accent bg-bg-dark text-accent-green focus:ring-accent-green/40 disabled:opacity-50"
+                        />
+                        <span className="truncate">
+                          Vencimiento de{" "}
+                          <span className="font-mono text-text-muted">
+                            {apexDomain}
+                          </span>
+                        </span>
+                      </span>
+                      {domainAlreadyWatched && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 shrink-0">
+                          <Check size={11} />
+                          <span>Ya vigilado</span>
+                        </span>
+                      )}
+                    </label>
+                  )}
+                </>
+              ) : (
+                <p className="text-[11px] text-text-dim">
+                  Escribe un dominio o host para ver qué más puedes vigilar.
+                </p>
+              )}
             </div>
           )}
         </>
@@ -318,27 +534,12 @@ export default function SSLAddModal({
         <div className="space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
             <div className="sm:col-span-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <label
-                  htmlFor="ssl-host-input"
-                  className="text-xs font-semibold text-text-muted"
-                >
-                  Dominio o host <span className="text-rose-400">*</span>
-                </label>
-                {!isEditing && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBatchMode(true);
-                      onClearTestResult();
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-accent-green transition-colors cursor-pointer !min-h-0"
-                  >
-                    <Layers size={11} />
-                    <span>Agregar varios</span>
-                  </button>
-                )}
-              </div>
+              <label
+                htmlFor="ssl-host-input"
+                className="block text-xs font-semibold text-text-muted mb-1.5"
+              >
+                Dominio o host <span className="text-rose-400">*</span>
+              </label>
               <input
                 id="ssl-host-input"
                 data-autofocus
@@ -347,7 +548,7 @@ export default function SSLAddModal({
                 placeholder="api.tuempresa.com"
                 value={domainInput}
                 onChange={(e) => handleDomainChange(e.target.value)}
-                className={`w-full bg-bg-dark border rounded-xl px-3.5 py-2 text-sm text-text-main placeholder:text-text-dim focus:outline-none font-mono ${
+                className={`w-full bg-bg-dark border rounded-xl px-3.5 py-2 text-sm text-text-main placeholder:text-text-dim/45 focus:outline-none font-mono ${
                   domainInput.trim() && !hostValid
                     ? "border-rose-500/70 focus:border-rose-400"
                     : "border-border-base focus:border-accent-green"
@@ -382,7 +583,7 @@ export default function SSLAddModal({
             </div>
           </div>
 
-          {/* Clickable common port chips */}
+          {/* Clickable common port chips (including STARTTLS ports 587 & 143) */}
           <div className="flex items-center gap-1.5 flex-wrap">
             {COMMON_SSL_PORTS.map((item) => (
               <button
@@ -409,6 +610,17 @@ export default function SSLAddModal({
             </p>
           )}
 
+          {activeTls.mode === "starttls" && (
+            <p className="text-[11px] text-sky-300">
+              Modo deducido:{" "}
+              <strong className="font-mono">
+                STARTTLS/{activeTls.protocol || "SMTP"}
+              </strong>{" "}
+              para el puerto <span className="font-mono">{portInput}</span>.
+              Puedes ajustarlo en Más opciones.
+            </p>
+          )}
+
           {domainInput.trim() && !hostValid && (
             <p className="text-[11px] text-rose-400">
               Ingresa un dominio o host válido (ej. api.tuempresa.com).
@@ -427,28 +639,24 @@ export default function SSLAddModal({
               htmlFor="ssl-batch-input"
               className="text-xs font-semibold text-text-muted"
             >
-              Lista de hosts (uno por línea, opcional `:puerto`)
+              Varios certificados
             </label>
-            <button
-              type="button"
-              onClick={() => setBatchMode(false)}
-              className="text-[11px] text-accent-green hover:underline cursor-pointer !min-h-0"
-            >
-              Volver a uno solo
-            </button>
+            <span className="text-[11px] font-mono text-text-dim">
+              Formato: host o host:puerto por línea
+            </span>
           </div>
           <textarea
             id="ssl-batch-input"
             data-autofocus
             rows={5}
-            placeholder={"api.tuempresa.com\npanel.tuempresa.com:8443\nldap.tuempresa.com:636"}
+            placeholder={"api.tuempresa.com\npanel.tuempresa.com:8443\ncorreo.tuempresa.com:587"}
             value={batchText}
             onChange={(e) => setBatchText(e.target.value)}
-            className="w-full bg-bg-dark border border-border-base rounded-xl p-3 text-xs font-mono text-text-main placeholder:text-text-dim focus:outline-none focus:border-accent-green"
+            className="w-full bg-bg-dark border border-border-base rounded-xl p-3 text-xs font-mono text-text-main placeholder:text-text-dim/45 focus:outline-none focus:border-accent-green"
           />
           {batchEntries.length > 0 && (
-            <div className="space-y-1 text-[11px]">
-              <div className="flex items-center gap-2 font-mono">
+            <div className="space-y-1 text-[11px] font-mono">
+              <div className="flex items-center gap-2">
                 <span className="text-emerald-400">
                   {validBatchEntries.length} válidos
                 </span>
@@ -459,7 +667,7 @@ export default function SSLAddModal({
                 )}
               </div>
               {invalidBatchEntries.slice(0, 3).map((inv, idx) => (
-                <div key={idx} className="text-rose-300 font-mono truncate">
+                <div key={idx} className="text-rose-300 truncate">
                   {inv.raw} — {inv.reason}
                 </div>
               ))}
@@ -489,87 +697,29 @@ export default function SSLAddModal({
         </div>
       )}
 
-      {/* STARTTLS port notice */}
-      {isStartTlsPort && !batchMode && (
-        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-[11px] text-sky-200 leading-relaxed">
-          El puerto <span className="font-mono font-semibold">{portInput}</span>{" "}
-          suele usar STARTTLS (no inicia en TLS directo). Puedes agregarlo igual
-          y ajustar el modo en Más opciones.
-        </div>
-      )}
-
-      {/* Internal host -> suggest Guardián Senti9 */}
+      {/* Internal host -> Guardián Senti9 (same pattern as Uptime modal) */}
       {isInternal && !batchMode && (
         <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 font-semibold text-sky-200">
               <Server size={13} className="text-sky-400 shrink-0" />
-              <span>Host de red privada detectado</span>
+              <span>Host interno · usa Guardián Senti9</span>
             </span>
             <Link
               to="/monitoring/senti9"
-              onClick={onClose}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-accent-green hover:underline font-semibold shrink-0"
             >
-              <span>Guardián Senti9</span>
+              <span>Abrir Senti9</span>
               <ArrowUpRight size={11} />
             </Link>
           </div>
           <p className="text-[11px] text-sky-200/85 leading-relaxed">
-            La nube no alcanza direcciones internas ({cleanHost}). Usa un agente
+            El ejecutor cloud no alcanza{" "}
+            <span className="font-mono">{cleanHost}</span>. Configura un agente
             Guardián Senti9 dentro de tu red para vigilar certificados internos.
           </p>
-        </div>
-      )}
-
-      {/* 1-line inline test result (never blocks saving!) */}
-      {testResult && !batchMode && (
-        <div
-          className={`rounded-xl border px-3 py-2.5 text-xs animate-in fade-in duration-150 ${
-            testResult.is_valid
-              ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-200"
-              : "border-rose-500/40 bg-rose-500/10 text-rose-200"
-          }`}
-        >
-          {testResult.is_valid ? (
-            <div className="flex items-center gap-2 font-mono text-[11px] flex-wrap">
-              <Check size={14} className="text-emerald-400 shrink-0" />
-              <span className="font-sans font-semibold text-emerald-300">
-                {parseIssuerOrganization(testResult.issuer)}
-              </span>
-              {testResult.tls_version && (
-                <span>· {formatTLSVersion(testResult.tls_version)}</span>
-              )}
-              {testResult.security_grade && (
-                <span>· {testResult.security_grade}</span>
-              )}
-              {testResult.days_remaining != null && (
-                <span>
-                  ·{" "}
-                  {testResult.days_remaining <= 0
-                    ? `venció hace ${Math.abs(testResult.days_remaining)} días`
-                    : `vence en ${testResult.days_remaining} días`}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <div className="flex items-start gap-2">
-                <XCircle size={14} className="text-rose-400 shrink-0 mt-0.5" />
-                <span className="font-medium leading-snug">
-                  {testResult.days_remaining != null &&
-                  testResult.days_remaining <= 0
-                    ? `El certificado venció hace ${Math.abs(testResult.days_remaining)} días`
-                    : testResult.error_message ||
-                      "No se pudo completar la conexión TLS"}
-                </span>
-              </div>
-              <p className="text-[11px] text-rose-200/80 pl-5">
-                Puedes agregarlo igualmente para monitorear el fallo y recibir
-                alertas.
-              </p>
-            </div>
-          )}
         </div>
       )}
 

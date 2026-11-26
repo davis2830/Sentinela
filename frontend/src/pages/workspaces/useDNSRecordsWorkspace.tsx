@@ -15,6 +15,7 @@ import {
   type QueuedScan,
 } from "../../utils/scanPolling";
 import type { DNSModalSubmitPayload } from "../../components/dns/DNSAddModal";
+import { extractRegistrableDomain } from "../../utils/hostInput";
 import type {
   DNSRecord,
   DNSRecordType,
@@ -505,6 +506,34 @@ export function useDNSRecordsWorkspace() {
         if (created) createdList.push(created);
       }
 
+      const first = createdList[0];
+      if (first && payload.alsoWatchSsl) {
+        try {
+          await api.post("ssl-certificates/", {
+            domain: first.domain,
+            port: 443,
+          });
+          void queryClient.invalidateQueries({
+            queryKey: ["ssl-certificates", organizationId],
+          });
+        } catch {
+          // Non-fatal companion creation
+        }
+      }
+      if (first && payload.alsoWatchDomain) {
+        try {
+          const apex = extractRegistrableDomain(first.domain);
+          if (apex) {
+            await api.post("domains/", { domain: apex });
+            void queryClient.invalidateQueries({
+              queryKey: ["domains", organizationId],
+            });
+          }
+        } catch {
+          // Non-fatal companion creation
+        }
+      }
+
       invalidateDNS();
       if (payload.keepOpen) {
         setDomainInput("");
@@ -514,7 +543,6 @@ export function useDNSRecordsWorkspace() {
         handleCloseModal();
       }
 
-      const first = createdList[0];
       if (createdList.length === 1 && first) {
         emitScanFeedback({
           message: `Registro DNS agregado · ${first.record_type} ${first.domain}`,
