@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
@@ -42,7 +43,18 @@ export function useSSLCertificatesWorkspace() {
     "expiring",
     "valid",
   ] as const);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(
+    () => searchParams.get("search") || "",
+  );
+
+  useEffect(() => {
+    const paramSearch = searchParams.get("search");
+    if (paramSearch !== null && paramSearch !== searchTerm) {
+      setSearchTerm(paramSearch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [issuerFilter, setIssuerFilter] = useState("all");
   const [tlsFilter, setTlsFilter] = useState("all");
   const [gradeFilter, setGradeFilter] = useState("all");

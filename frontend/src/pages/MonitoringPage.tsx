@@ -64,7 +64,17 @@ export default function MonitoringPage() {
 
   const [scanningId, setScanningId] = useState<string | null>(null);
   const autoRefresh = useConnectivityRefresh();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(
+    () => navigationParams.get("search") || "",
+  );
+
+  useEffect(() => {
+    const paramSearch = navigationParams.get("search");
+    if (paramSearch !== null && paramSearch !== searchTerm) {
+      setSearchTerm(paramSearch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigationParams]);
   const [statusFilter, setStatusFilter] = useUrlFilter("status", [
     "all",
     "up",

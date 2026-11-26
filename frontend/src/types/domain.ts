@@ -60,6 +60,12 @@ export interface DomainAlertSummary {
     name: string;
     channel_type: string;
   }[];
+  effective_thresholds?: {
+    warning_days: number;
+    critical_days: number;
+    steps: number[];
+    source: "rules" | "default";
+  };
 }
 
 export interface UnwatchedDomainSuggestion {

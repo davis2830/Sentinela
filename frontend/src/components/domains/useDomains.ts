@@ -23,11 +23,15 @@ export type DomainLockFilter = "all" | "locked" | "unlocked" | "unknown";
 export interface DomainThresholds {
   warningDays: number;
   criticalDays: number;
+  steps?: number[];
+  source?: "rules" | "default" | "custom";
 }
 
 export const DEFAULT_DOMAIN_THRESHOLDS: DomainThresholds = {
   warningDays: 60,
   criticalDays: 14,
+  steps: [60, 30, 14, 7],
+  source: "default",
 };
 
 export interface DomainStateMeta {
@@ -222,11 +226,35 @@ export function getDomainHealthState(
     if (domain.has_unacknowledged_changes) return "changed";
     if (days <= thresholds.criticalDays) return "critical";
     if (days <= thresholds.warningDays) return "expiring";
+    if (days <= 30 && domain.auto_renew !== true) return "expiring";
     return "valid";
   }
 
   if (domain.has_unacknowledged_changes) return "changed";
   return "no_data";
+}
+
+/** Merge explicitly linked targets with domain-tree dependent targets without duplicates. */
+export function getDomainRelatedTargets(
+  domain: DomainInfo,
+): { id: string; name: string; enabled: boolean }[] {
+  const seen = new Set<string>();
+  const merged: { id: string; name: string; enabled: boolean }[] = [];
+
+  for (const t of domain.linked_targets || []) {
+    if (!seen.has(t.id)) {
+      seen.add(t.id);
+      merged.push({ id: t.id, name: t.name, enabled: t.enabled });
+    }
+  }
+  for (const t of domain.dependencies?.targets || []) {
+    if (!seen.has(t.id)) {
+      seen.add(t.id);
+      merged.push({ id: t.id, name: t.name, enabled: t.enabled });
+    }
+  }
+  merged.sort((a, b) => Number(b.enabled) - Number(a.enabled));
+  return merged;
 }
 
 /** Unambiguous Spanish date: "4 may 2027" (never "4/5/2027"). */
@@ -410,27 +438,45 @@ export interface DomainGroup {
   domains: DomainInfo[];
 }
 
-const THRESHOLDS_STORAGE_KEY = "sentinela_domain_thresholds_v1";
+const THRESHOLDS_STORAGE_KEY = "sentinela_domain_thresholds_v2";
 const DENSITY_STORAGE_KEY = "sentinela_domain_density_v1";
 
 export function useDomains(domains: DomainInfo[]) {
-  const [thresholds, setThresholdsState] = useState<DomainThresholds>(() => {
-    try {
-      const raw = localStorage.getItem(THRESHOLDS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (
-          typeof parsed.warningDays === "number" &&
-          typeof parsed.criticalDays === "number"
-        ) {
-          return parsed;
+  const [customThresholds, setCustomThresholdsState] =
+    useState<DomainThresholds | null>(() => {
+      try {
+        const raw = localStorage.getItem(THRESHOLDS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (
+            typeof parsed.warningDays === "number" &&
+            typeof parsed.criticalDays === "number"
+          ) {
+            return { ...parsed, source: "custom" as const };
+          }
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
+      return null;
+    });
+
+  // Single source of truth: read active AlertRules thresholds from backend unless user explicitly overrides locally
+  const serverThresholds: DomainThresholds = useMemo(() => {
+    const eff = domains.find((d) => d.alert_summary?.effective_thresholds)
+      ?.alert_summary?.effective_thresholds;
+    if (eff) {
+      return {
+        warningDays: eff.warning_days,
+        criticalDays: eff.critical_days,
+        steps: eff.steps,
+        source: eff.source,
+      };
     }
     return DEFAULT_DOMAIN_THRESHOLDS;
-  });
+  }, [domains]);
+
+  const thresholds: DomainThresholds = customThresholds || serverThresholds;
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [registrarFilter, setRegistrarFilter] = useState<string>("all");
@@ -451,11 +497,18 @@ export function useDomains(domains: DomainInfo[]) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(THRESHOLDS_STORAGE_KEY, JSON.stringify(thresholds));
+      if (customThresholds) {
+        localStorage.setItem(
+          THRESHOLDS_STORAGE_KEY,
+          JSON.stringify(customThresholds),
+        );
+      } else {
+        localStorage.removeItem(THRESHOLDS_STORAGE_KEY);
+      }
     } catch {
       // ignore
     }
-  }, [thresholds]);
+  }, [customThresholds]);
 
   useEffect(() => {
     try {
@@ -465,7 +518,13 @@ export function useDomains(domains: DomainInfo[]) {
     }
   }, [density]);
 
-  const setThresholds = (next: DomainThresholds) => setThresholdsState(next);
+  const setThresholds = (next: DomainThresholds | null) => {
+    if (!next || next.source === "rules" || next.source === "default") {
+      setCustomThresholdsState(null);
+    } else {
+      setCustomThresholdsState({ ...next, source: "custom" });
+    }
+  };
   const setDensity = (next: DomainDensity) => setDensityState(next);
 
   const handleSort = (key: DomainSortKey) => {

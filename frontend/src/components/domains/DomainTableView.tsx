@@ -28,6 +28,7 @@ import {
   formatDomainDate,
   formatDomainExpiredAgo,
   getDomainHealthState,
+  getDomainRelatedTargets,
   getDomainRemainingPercent,
   getEffectiveDaysRemaining,
   getEffectiveExpirationIso,
@@ -112,8 +113,22 @@ export default function DomainTableView({
     const expIso = getEffectiveExpirationIso(domain);
     const remainingPct = getDomainRemainingPercent(domain);
     const nsList = parseDomainNameServers(domain.name_servers);
-    const linkedTarget = domain.linked_targets?.[0];
+    const relatedTargets = getDomainRelatedTargets(domain);
+    const primaryTarget = relatedTargets[0];
+    const extraTargetsCount = Math.max(0, relatedTargets.length - 1);
     const suggestedTarget = domain.suggested_targets?.[0];
+    const nsTooltip =
+      domain.ns_health?.servers && domain.ns_health.servers.length > 0
+        ? domain.ns_health.servers
+            .map((s) =>
+              s.responding
+                ? `${s.host} (${s.latency_ms ?? "?"} ms)`
+                : `${s.host} (sin respuesta)`,
+            )
+            .join("\n")
+        : nsList.length > 0
+          ? nsList.join("\n")
+          : "Sin servidores de nombres registrados";
 
     const expiryToneClass =
       state === "expired" || state === "critical"
@@ -202,30 +217,43 @@ export default function DomainTableView({
               {domain.domain}
             </span>
 
-            {linkedTarget && (
+            {primaryTarget && (
               <Link
-                to={`/monitoring?target=${encodeURIComponent(linkedTarget.id)}`}
+                to={
+                  extraTargetsCount > 0
+                    ? `/monitoring?search=${encodeURIComponent(domain.domain)}`
+                    : `/monitoring?target=${encodeURIComponent(primaryTarget.id)}`
+                }
                 onClick={(e) => e.stopPropagation()}
                 title={
-                  linkedTarget.enabled
-                    ? `Vinculado al target ${linkedTarget.name} en Uptime`
-                    : `Vinculado a ${linkedTarget.name} (pausado en Uptime)`
+                  extraTargetsCount > 0
+                    ? `Targets relacionados: ${relatedTargets
+                        .map((t) => `${t.name}${t.enabled ? "" : " (pausado)"}`)
+                        .join(" · ")}`
+                    : primaryTarget.enabled
+                      ? `Vinculado al target ${primaryTarget.name} en Uptime`
+                      : `Vinculado a ${primaryTarget.name} (pausado en Uptime)`
                 }
-                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[150px] transition-colors ${
-                  linkedTarget.enabled
+                className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-medium shrink-0 max-w-[175px] transition-colors ${
+                  primaryTarget.enabled
                     ? "bg-bg-dark border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40"
                     : "bg-amber-500/10 border-amber-500/35 text-amber-300 hover:bg-amber-500/20"
                 }`}
               >
                 <ArrowUpRight size={10} className="shrink-0" />
                 <span className="truncate">
-                  {linkedTarget.name}
-                  {!linkedTarget.enabled ? " (pausado)" : ""}
+                  {primaryTarget.name}
+                  {!primaryTarget.enabled ? " (pausado)" : ""}
                 </span>
+                {extraTargetsCount > 0 && (
+                  <span className="font-mono text-[10px] text-text-dim shrink-0 ml-0.5">
+                    +{extraTargetsCount}
+                  </span>
+                )}
               </Link>
             )}
 
-            {!linkedTarget && suggestedTarget && onLinkTarget && (
+            {!primaryTarget && suggestedTarget && onLinkTarget && (
               <button
                 type="button"
                 disabled={linkingDomainId === domain.id}
@@ -283,21 +311,21 @@ export default function DomainTableView({
           )}
         </td>
 
-        {/* Vence: en 159 d · 4 may 2027 + thin remaining bar */}
-        <td className={`${TABLE_CELL} whitespace-nowrap`}>
+        {/* Vence: single-line text + 2px bottom progress bar so row stays 48px */}
+        <td
+          className={`${TABLE_CELL} relative whitespace-nowrap`}
+          title={
+            days !== null && remainingPct !== null
+              ? `${remainingPct} % restante${
+                  !domain.expiration_date && domain.manual_expiration_date
+                    ? " (fecha manual)"
+                    : ""
+                }`
+              : undefined
+          }
+        >
           {days !== null ? (
-            <div
-              className="space-y-1"
-              title={
-                remainingPct !== null
-                  ? `${remainingPct} % restante${
-                      !domain.expiration_date && domain.manual_expiration_date
-                        ? " (fecha manual)"
-                        : ""
-                    }`
-                  : undefined
-              }
-            >
+            <>
               <div className="flex items-center gap-1.5 font-mono text-xs tabular-nums">
                 <span className={expiryToneClass}>
                   {days <= 0 ? formatDomainExpiredAgo(days) : `en ${days} d`}
@@ -309,14 +337,14 @@ export default function DomainTableView({
                 )}
               </div>
               {remainingPct !== null && (
-                <div className="h-1 w-full max-w-[140px] rounded-full bg-bg-dark overflow-hidden">
+                <div className="pointer-events-none absolute inset-x-3 bottom-1 h-[2px] rounded-full bg-bg-dark overflow-hidden">
                   <div
                     className={`h-full rounded-full ${barColorClass}`}
                     style={{ width: `${Math.max(remainingPct, 3)}%` }}
                   />
                 </div>
               )}
-            </div>
+            </>
           ) : (
             <span className="text-xs text-text-dim font-mono">Sin fecha</span>
           )}
@@ -325,17 +353,16 @@ export default function DomainTableView({
         {/* NS */}
         <td
           className={`${TABLE_CELL} font-mono text-xs text-text-muted whitespace-nowrap tabular-nums`}
-          title={
-            nsList.length > 0
-              ? nsList.join("\n")
-              : "Sin servidores de nombres registrados"
-          }
+          title={nsTooltip}
         >
           {nsList.length > 0 ? `${nsList.length} NS` : "—"}
         </td>
 
         {/* Revisado */}
-        <td className={`${TABLE_CELL} text-xs text-text-dim whitespace-nowrap tabular-nums`}>
+        <td
+          className={`${TABLE_CELL} text-xs text-text-dim whitespace-nowrap tabular-nums`}
+          title="Última consulta RDAP/WHOIS (frecuencia automática: cada 12 h)"
+        >
           <RelativeTime
             value={domain.last_scanned_at}
             emptyLabel="Nunca"
@@ -368,12 +395,12 @@ export default function DomainTableView({
           <colgroup>
             <col className="w-11" />
             <col className="w-[132px]" />
-            <col className="w-full" />
-            <col className="w-[160px]" />
-            <col className="w-[116px]" />
-            <col className="w-[178px]" />
-            <col className="w-[68px]" />
-            <col className="w-[96px]" />
+            <col />
+            <col className="w-[200px]" />
+            <col className="w-[126px]" />
+            <col className="w-[186px]" />
+            <col className="w-[74px]" />
+            <col className="w-[104px]" />
             <col className="w-[88px]" />
           </colgroup>
           <thead>

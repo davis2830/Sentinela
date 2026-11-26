@@ -245,7 +245,42 @@ class DomainInfoSerializer(ScanAvailabilitySerializer):
             }
             for ch in channels_cache[org_id]
         ]
-        return {"rules": matched_rules, "destinations": destinations}
+        expiring_rules = [r for r in matched_rules if r["condition"] == "domain_expiring"]
+        steps = sorted({int(round(r["threshold"])) for r in expiring_rules if r.get("threshold") is not None}, reverse=True)
+        warning_vals = [
+            int(round(r["threshold"]))
+            for r in expiring_rules
+            if r.get("severity") != "critical" and r.get("threshold") is not None
+        ]
+        critical_vals = [
+            int(round(r["threshold"]))
+            for r in expiring_rules
+            if r.get("severity") == "critical" and r.get("threshold") is not None
+        ]
+        if expiring_rules and steps:
+            warning_days = max(warning_vals) if warning_vals else max(steps)
+            critical_days = (
+                max(critical_vals)
+                if critical_vals
+                else (min(steps) if len(steps) > 1 else min(14, max(1, warning_days - 1)))
+            )
+            source = "rules"
+        else:
+            steps = [60, 30, 14, 7]
+            warning_days = 60
+            critical_days = 14
+            source = "default"
+
+        return {
+            "rules": matched_rules,
+            "destinations": destinations,
+            "effective_thresholds": {
+                "warning_days": warning_days,
+                "critical_days": critical_days,
+                "steps": steps,
+                "source": source,
+            },
+        }
 
     class Meta:
         list_serializer_class = AvailabilityListSerializer

@@ -172,6 +172,25 @@ export default function DomainRowActions({
             onClick={(e) => e.stopPropagation()}
             className="fixed z-[70] w-52 rounded-xl border border-border-accent/70 bg-bg-dark p-1 shadow-2xl text-xs text-left animate-in fade-in zoom-in-95 duration-100"
           >
+            {canScan && (
+              <button
+                type="button"
+                role="menuitem"
+                disabled={isScanning}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onScan(domain);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-text-main hover:bg-bg-card-hover disabled:opacity-50 cursor-pointer !min-h-0"
+              >
+                <RefreshCw
+                  size={13}
+                  className={`text-accent-green shrink-0 ${isScanning ? "animate-spin" : ""}`}
+                />
+                <span>{isScanning ? "Comprobando..." : "Comprobar ahora"}</span>
+              </button>
+            )}
+
             {nsList.length > 0 && (
               <button
                 type="button"

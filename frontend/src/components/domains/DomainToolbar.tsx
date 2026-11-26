@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import type { DomainInfo } from "../../types/domain";
 import {
-  DEFAULT_DOMAIN_THRESHOLDS,
   type DomainDensity,
   type DomainGroupBy,
   type DomainLockFilter,
@@ -22,7 +21,7 @@ import {
 interface DomainToolbarProps {
   summary: DomainSummaryMetrics;
   thresholds: DomainThresholds;
-  onThresholdsChange: (next: DomainThresholds) => void;
+  onThresholdsChange: (next: DomainThresholds | null) => void;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
   registrarFilter: string;
@@ -462,18 +461,15 @@ export default function DomainToolbar({
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() =>
-                          onThresholdsChange(DEFAULT_DOMAIN_THRESHOLDS)
-                        }
+                        onClick={() => onThresholdsChange(null)}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer !min-h-0 !min-w-0 ${
-                          thresholds.warningDays === 60 &&
-                          thresholds.criticalDays === 14
+                          thresholds.source !== "custom"
                             ? "bg-accent-green/20 text-accent-green font-semibold"
                             : "bg-bg-dark text-text-dim hover:text-text-main"
                         }`}
-                        title="Recomendado para dominios (60 días de aviso, 14 días crítico)"
+                        title="Usar los umbrales configurados en Reglas de Alerta (60 · 30 · 14 · 7 d)"
                       >
-                        60 / 14 d
+                        Reglas ({thresholds.warningDays}/{thresholds.criticalDays} d)
                       </button>
                       <button
                         type="button"
@@ -481,15 +477,18 @@ export default function DomainToolbar({
                           onThresholdsChange({
                             warningDays: 30,
                             criticalDays: 7,
+                            steps: [30, 14, 7],
+                            source: "custom",
                           })
                         }
                         className={`px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer !min-h-0 !min-w-0 ${
+                          thresholds.source === "custom" &&
                           thresholds.warningDays === 30 &&
                           thresholds.criticalDays === 7
                             ? "bg-accent-green/20 text-accent-green font-semibold"
                             : "bg-bg-dark text-text-dim hover:text-text-main"
                         }`}
-                        title="Aviso a 30 días, crítico a 7 días"
+                        title="Vista local: aviso a 30 días, crítico a 7 días"
                       >
                         30 / 7 d
                       </button>
@@ -512,6 +511,8 @@ export default function DomainToolbar({
                           onThresholdsChange({
                             warningDays: w,
                             criticalDays: c,
+                            steps: [w, c],
+                            source: "custom",
                           });
                         }}
                         className="w-11 bg-transparent text-right font-mono text-text-main focus:outline-none"
@@ -533,6 +534,8 @@ export default function DomainToolbar({
                           onThresholdsChange({
                             warningDays: thresholds.warningDays,
                             criticalDays: c,
+                            steps: [thresholds.warningDays, c],
+                            source: "custom",
                           });
                         }}
                         className="w-11 bg-transparent text-right font-mono text-text-main focus:outline-none"

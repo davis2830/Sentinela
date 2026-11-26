@@ -339,11 +339,32 @@ class AlertRuleService:
                 "threshold": 0,
             },
             {
-                "name": "Dominio WHOIS por Expirar (<= 30 días)",
+                "name": "Dominio por Expirar (<= 60 días)",
+                "target_type": AlertRule.TargetType.DOMAIN,
+                "condition": AlertRule.ConditionType.DOMAIN_EXPIRING,
+                "severity": AlertRule.Severity.WARNING,
+                "threshold": 60,
+            },
+            {
+                "name": "Dominio por Expirar (<= 30 días)",
                 "target_type": AlertRule.TargetType.DOMAIN,
                 "condition": AlertRule.ConditionType.DOMAIN_EXPIRING,
                 "severity": AlertRule.Severity.WARNING,
                 "threshold": 30,
+            },
+            {
+                "name": "Dominio por Expirar (<= 14 días)",
+                "target_type": AlertRule.TargetType.DOMAIN,
+                "condition": AlertRule.ConditionType.DOMAIN_EXPIRING,
+                "severity": AlertRule.Severity.CRITICAL,
+                "threshold": 14,
+            },
+            {
+                "name": "Dominio por Expirar (<= 7 días)",
+                "target_type": AlertRule.TargetType.DOMAIN,
+                "condition": AlertRule.ConditionType.DOMAIN_EXPIRING,
+                "severity": AlertRule.Severity.CRITICAL,
+                "threshold": 7,
             },
             {
                 "name": "Puntuación de Seguridad Baja (< 70)",

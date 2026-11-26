@@ -258,9 +258,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "dns.scan_all",
         "schedule": 300.0,
     },
-    "run-domain-checks-every-1h": {
+    "run-domain-checks-every-12h": {
         "task": "domain.scan_all",
-        "schedule": 3600.0,
+        "schedule": 43200.0,
     },
     "run-security-headers-checks-every-1h": {
         "task": "security_headers.scan_all",

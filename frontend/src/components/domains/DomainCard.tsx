@@ -10,6 +10,7 @@ import {
   formatDomainDate,
   formatDomainExpiredAgo,
   getDomainHealthState,
+  getDomainRelatedTargets,
   getDomainRemainingPercent,
   getEffectiveDaysRemaining,
   getEffectiveExpirationIso,
@@ -52,19 +53,21 @@ export default function DomainCard({
   const days = getEffectiveDaysRemaining(domain);
   const expIso = getEffectiveExpirationIso(domain);
   const remainingPct = getDomainRemainingPercent(domain);
-  const linkedTarget = domain.linked_targets?.[0];
+  const relatedTargets = getDomainRelatedTargets(domain);
+  const primaryTarget = relatedTargets[0];
+  const extraTargetsCount = Math.max(0, relatedTargets.length - 1);
 
   const barColor =
     state === "expired" || state === "critical"
       ? "bg-rose-500"
-      : state === "expiring"
+      : state === "expiring" || state === "changed"
         ? "bg-amber-400"
         : "bg-emerald-400";
 
   const countColor =
     state === "expired" || state === "critical"
       ? "text-rose-400"
-      : state === "expiring"
+      : state === "expiring" || state === "changed"
         ? "text-amber-400"
         : "text-text-main";
 
@@ -189,15 +192,30 @@ export default function DomainCard({
                   ? `Venció ${formatDomainDate(expIso)}`
                   : `Vence ${formatDomainDate(expIso)}`}
               </span>
-              {linkedTarget && (
+              {primaryTarget && (
                 <Link
-                  to={`/monitoring?target=${encodeURIComponent(linkedTarget.id)}`}
+                  to={
+                    extraTargetsCount > 0
+                      ? `/monitoring?search=${encodeURIComponent(domain.domain)}`
+                      : `/monitoring?target=${encodeURIComponent(primaryTarget.id)}`
+                  }
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-0.5 text-text-muted hover:text-accent-green truncate max-w-[125px]"
-                  title={`Vinculado a ${linkedTarget.name} en Uptime`}
+                  className="inline-flex items-center gap-0.5 text-text-muted hover:text-accent-green truncate max-w-[140px]"
+                  title={
+                    extraTargetsCount > 0
+                      ? `Targets relacionados: ${relatedTargets
+                          .map((t) => `${t.name}${t.enabled ? "" : " (pausado)"}`)
+                          .join(" · ")}`
+                      : `Vinculado a ${primaryTarget.name} en Uptime`
+                  }
                 >
                   <ArrowUpRight size={10} className="shrink-0" />
-                  <span className="truncate">{linkedTarget.name}</span>
+                  <span className="truncate">{primaryTarget.name}</span>
+                  {extraTargetsCount > 0 && (
+                    <span className="font-mono text-[10px] text-text-dim shrink-0">
+                      +{extraTargetsCount}
+                    </span>
+                  )}
                 </Link>
               )}
             </div>
@@ -221,21 +239,24 @@ export default function DomainCard({
           {domain.is_locked === true ? (
             <span
               className="inline-flex items-center gap-0.5 text-emerald-400/90 shrink-0"
-              title="Bloqueo de transferencia activo"
+              title="Transferencia bloqueada"
             >
               <Lock size={11} />
             </span>
           ) : domain.is_locked === false ? (
             <span
               className="inline-flex items-center gap-0.5 text-amber-400 shrink-0"
-              title="Sin bloqueo: el dominio podría transferirse"
+              title="Sin bloqueo: podría transferirse"
             >
               <Unlock size={11} />
             </span>
           ) : null}
         </div>
 
-        <span className="inline-flex items-center gap-1 text-text-dim font-mono shrink-0">
+        <span
+          className="inline-flex items-center gap-1 text-text-dim font-mono shrink-0"
+          title="Última consulta RDAP/WHOIS (frecuencia automática: cada 12 h)"
+        >
           <Clock size={11} />
           <RelativeTime
             value={domain.last_scanned_at}

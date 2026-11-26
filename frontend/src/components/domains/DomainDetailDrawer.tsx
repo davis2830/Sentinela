@@ -183,6 +183,10 @@ export default function DomainDetailDrawer({
 
   const destinations = domain.alert_summary?.destinations || [];
   const alertRules = domain.alert_summary?.rules || [];
+  const alertSteps =
+    thresholds.steps && thresholds.steps.length > 0
+      ? thresholds.steps
+      : [thresholds.warningDays, thresholds.criticalDays];
   const nsHealth = domain.ns_health;
   const nsServerMap = new Map(
     (nsHealth?.servers || []).map((s) => [s.host.toLowerCase(), s]),
@@ -557,9 +561,10 @@ export default function DomainDetailDrawer({
                   </div>
                   <div className="flex items-center justify-between text-[11px] font-mono text-text-dim">
                     <span>{remainingPct} % restante</span>
-                    <span>
-                      aviso ≤ {thresholds.warningDays} d · crítico ≤{" "}
-                      {thresholds.criticalDays} d
+                    <span
+                      title={`Aviso ≤ ${thresholds.warningDays} d · crítico ≤ ${thresholds.criticalDays} d`}
+                    >
+                      alertas: {alertSteps.join(" · ")} d
                     </span>
                   </div>
                 </>
@@ -897,13 +902,14 @@ export default function DomainDetailDrawer({
                 <div className="flex items-center gap-2 flex-wrap text-xs">
                   {deps.targets_count > 0 && (
                     <Link
-                      to="/monitoring"
+                      to={`/monitoring?search=${encodeURIComponent(domain.domain)}`}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-bg-card border border-border-base text-text-main hover:border-accent-green/50 hover:text-accent-green transition-colors"
                     >
                       <span>
                         {deps.targets_count}{" "}
                         {deps.targets_count === 1 ? "target" : "targets"}
                       </span>
+                      <ArrowUpRight size={11} className="shrink-0 opacity-75" />
                     </Link>
                   )}
                   {deps.dns_count > 0 && (
@@ -917,24 +923,26 @@ export default function DomainDetailDrawer({
                           ? "registro DNS"
                           : "registros DNS"}
                       </span>
+                      <ArrowUpRight size={11} className="shrink-0 opacity-75" />
                     </Link>
                   )}
                   {deps.ssl_count > 0 && (
                     <Link
-                      to="/ssl"
+                      to={`/ssl?search=${encodeURIComponent(domain.domain)}`}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-bg-card border border-border-base text-text-main hover:border-accent-green/50 hover:text-accent-green transition-colors"
                     >
                       <span>
                         {deps.ssl_count}{" "}
                         {deps.ssl_count === 1 ? "certificado" : "certificados"}
                       </span>
+                      <ArrowUpRight size={11} className="shrink-0 opacity-75" />
                     </Link>
                   )}
                 </div>
               </section>
             )}
 
-          {/* 2E. COLLAPSIBLE: Alertas */}
+          {/* 2E. COLLAPSIBLE: Alertas (collapsed by default; zero duplicate warning copy) */}
           <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
             <button
               type="button"
@@ -948,47 +956,46 @@ export default function DomainDetailDrawer({
                   <ChevronRight size={13} className="text-text-dim" />
                 )}
                 <Bell size={13} className="text-amber-400 shrink-0" />
-                <span>
-                  Alertas · aviso {thresholds.warningDays} d · crítico{" "}
-                  {thresholds.criticalDays} d
-                </span>
+                <span>Alertas</span>
               </span>
-              <span className="text-[11px] text-text-dim truncate max-w-[140px]">
+              <span className="text-[11px] font-mono text-text-dim truncate max-w-[180px]">
                 {destinations.length > 0
                   ? destinations.map((d) => d.name).join(", ")
-                  : "Sin destinos"}
+                  : alertRules.length > 0
+                    ? `${alertRules.length} ${alertRules.length === 1 ? "regla" : "reglas"}`
+                    : ""}
               </span>
             </button>
 
             {alertsOpen && (
               <div className="border-t border-border-base/60 p-3 space-y-2 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-text-dim">Canales activos</span>
-                  <Link
-                    to="/notifications"
-                    className="text-accent-green hover:underline font-medium"
-                  >
-                    Gestionar canales
-                  </Link>
-                </div>
-                {destinations.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {destinations.map((ch) => (
-                      <span
-                        key={ch.id}
-                        className="px-2 py-0.5 rounded-md bg-bg-card border border-border-base text-text-main"
+                {destinations.length > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-dim">Canales activos</span>
+                      <Link
+                        to="/notifications"
+                        className="text-accent-green hover:underline font-medium"
                       >
-                        {ch.name}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-amber-300">
-                    No hay canales de notificación habilitados.
-                  </p>
+                        Gestionar canales
+                      </Link>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {destinations.map((ch) => (
+                        <span
+                          key={ch.id}
+                          className="px-2 py-0.5 rounded-md bg-bg-card border border-border-base text-text-main"
+                        >
+                          {ch.name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
                 )}
 
-                <div className="pt-1.5 border-t border-border-base/50 flex items-center justify-between">
+                <div
+                  className={`${destinations.length > 0 ? "pt-1.5 border-t border-border-base/50" : ""} flex items-center justify-between`}
+                >
                   <span className="text-text-dim">
                     Reglas activas ({alertRules.length})
                   </span>
@@ -1019,7 +1026,7 @@ export default function DomainDetailDrawer({
                   </div>
                 ) : (
                   <p className="text-text-dim">
-                    Aún no hay reglas específicas de Dominio configuradas.
+                    Sin reglas específicas de dominio configuradas.
                   </p>
                 )}
               </div>
@@ -1090,83 +1097,78 @@ export default function DomainDetailDrawer({
             </section>
           )}
 
-          {/* 2G. COLLAPSIBLE: Historial de cambios */}
-          <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
-            {changes.length === 0 ? (
-              <div className="flex items-center justify-between px-3.5 py-2.5 text-text-dim">
-                <span className="inline-flex items-center gap-2 font-medium text-text-muted">
-                  <History size={13} className="shrink-0" />
+          {/* 2G. Historial de cambios (single quiet line when 0; collapsible accordion when >0) */}
+          {changes.length === 0 ? (
+            <div className="px-1 py-1 flex items-center gap-1.5 text-[11px] text-text-dim">
+              <History size={12} className="shrink-0 opacity-75" />
+              <span>Sin cambios registrados</span>
+            </div>
+          ) : (
+            <section className="rounded-xl border border-border-base/80 bg-bg-dark/60 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-bg-card-hover/50 transition-colors cursor-pointer !min-h-0"
+              >
+                <span className="inline-flex items-center gap-2 font-medium text-text-main">
+                  {historyOpen ? (
+                    <ChevronDown size={13} className="text-text-dim" />
+                  ) : (
+                    <ChevronRight size={13} className="text-text-dim" />
+                  )}
+                  <History size={13} className="text-sky-400 shrink-0" />
                   <span>Historial de cambios</span>
                 </span>
-                <span className="font-mono text-[11px]">0</span>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setHistoryOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-bg-card-hover/50 transition-colors cursor-pointer !min-h-0"
-                >
-                  <span className="inline-flex items-center gap-2 font-medium text-text-main">
-                    {historyOpen ? (
-                      <ChevronDown size={13} className="text-text-dim" />
-                    ) : (
-                      <ChevronRight size={13} className="text-text-dim" />
-                    )}
-                    <History size={13} className="text-sky-400 shrink-0" />
-                    <span>Historial de cambios</span>
-                  </span>
-                  <span className="font-mono text-[11px] text-text-dim">
-                    {changes.length}
-                  </span>
-                </button>
+                <span className="font-mono text-[11px] text-text-dim">
+                  {changes.length}
+                </span>
+              </button>
 
-                {historyOpen && (
-                  <div className="border-t border-border-base/60 p-3 space-y-2">
-                    {changes.map((ch) => (
-                      <div
-                        key={ch.id}
-                        className="rounded-lg bg-bg-card border border-border-base/70 p-2.5 space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-text-main">
-                            {formatChangeFieldLabel(ch.field_name)}
-                          </span>
-                          <RelativeTime
-                            value={ch.changed_at}
-                            className="font-mono text-text-dim"
-                          />
-                        </div>
-                        <div className="space-y-1 font-mono text-[11px]">
-                          {ch.old_value && (
-                            <div className="px-2 py-1 rounded bg-rose-500/10 border border-rose-500/25 text-rose-300 break-all">
-                              − {ch.old_value}
-                            </div>
-                          )}
-                          {ch.new_value && (
-                            <div className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 break-all">
-                              + {ch.new_value}
-                            </div>
-                          )}
-                        </div>
+              {historyOpen && (
+                <div className="border-t border-border-base/60 p-3 space-y-2">
+                  {changes.map((ch) => (
+                    <div
+                      key={ch.id}
+                      className="rounded-lg bg-bg-card border border-border-base/70 p-2.5 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-text-main">
+                          {formatChangeFieldLabel(ch.field_name)}
+                        </span>
+                        <RelativeTime
+                          value={ch.changed_at}
+                          className="font-mono text-text-dim"
+                        />
                       </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </section>
+                      <div className="space-y-1 font-mono text-[11px]">
+                        {ch.old_value && (
+                          <div className="px-2 py-1 rounded bg-rose-500/10 border border-rose-500/25 text-rose-300 break-all">
+                            − {ch.old_value}
+                          </div>
+                        )}
+                        {ch.new_value && (
+                          <div className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 break-all">
+                            + {ch.new_value}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
-        {/* 3. SINGLE-LINE FOOTER (matching Uptime, SSL, and DNS) */}
+        {/* 3. SINGLE-LINE FOOTER (clear RDAP cadence: automatic every 12 h) */}
         <footer className="shrink-0 border-t border-border-base/80 bg-bg-dark/80 px-5 py-2.5 text-[11px] text-text-dim font-mono">
-          Último chequeo{" "}
+          Última consulta{" "}
           <RelativeTime
             value={domain.last_scanned_at}
             emptyLabel="nunca"
             className="text-text-muted"
           />{" "}
-          · {formatDataSourceLabel(domain)}
+          · {formatDataSourceLabel(domain)} · automático cada 12 h
         </footer>
       </aside>
     </div>,

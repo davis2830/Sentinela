@@ -140,6 +140,53 @@ class DomainModuleTests(TestCase):
         self.assertIs(data["ns_health"]["soa_consistent"], True)
         self.assertIs(data["ns_health"]["delegation_consistent"], True)
 
+    def test_effective_thresholds_derived_from_active_domain_alert_rules(self):
+        from alerts.models import AlertRule
+
+        AlertRule.objects.create(
+            organization=self.org,
+            name="Dominio <= 60 d",
+            target_type=AlertRule.TargetType.DOMAIN,
+            condition=AlertRule.ConditionType.DOMAIN_EXPIRING,
+            severity=AlertRule.Severity.WARNING,
+            threshold=60,
+            enabled=True,
+        )
+        AlertRule.objects.create(
+            organization=self.org,
+            name="Dominio <= 30 d",
+            target_type=AlertRule.TargetType.DOMAIN,
+            condition=AlertRule.ConditionType.DOMAIN_EXPIRING,
+            severity=AlertRule.Severity.WARNING,
+            threshold=30,
+            enabled=True,
+        )
+        AlertRule.objects.create(
+            organization=self.org,
+            name="Dominio <= 14 d",
+            target_type=AlertRule.TargetType.DOMAIN,
+            condition=AlertRule.ConditionType.DOMAIN_EXPIRING,
+            severity=AlertRule.Severity.CRITICAL,
+            threshold=14,
+            enabled=True,
+        )
+        AlertRule.objects.create(
+            organization=self.org,
+            name="Dominio <= 7 d",
+            target_type=AlertRule.TargetType.DOMAIN,
+            condition=AlertRule.ConditionType.DOMAIN_EXPIRING,
+            severity=AlertRule.Severity.CRITICAL,
+            threshold=7,
+            enabled=True,
+        )
+
+        data = DomainInfoSerializer(self.domain).data
+        eff = data["alert_summary"]["effective_thresholds"]
+        self.assertEqual(eff["warning_days"], 60)
+        self.assertEqual(eff["critical_days"], 14)
+        self.assertEqual(eff["steps"], [60, 30, 14, 7])
+        self.assertEqual(eff["source"], "rules")
+
     def test_manual_expiration_fallback_for_unsupported_tld(self):
         gt_domain = DomainInfo.objects.create(
             organization=self.org,
