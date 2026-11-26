@@ -37,6 +37,8 @@ class DNSRecord(OrganizationOwnedModel):
     last_error_message = models.CharField(max_length=500, blank=True)
     last_successful_at = models.DateTimeField(null=True, blank=True)
     resolver = models.CharField(max_length=255, blank=True)
+    resolver_results = models.JSONField(default=list, blank=True)
+    propagation_status = models.CharField(max_length=20, blank=True, default="")
     expected_values = models.JSONField(default=list, blank=True)
     matches_expected = models.BooleanField(null=True, blank=True)
 

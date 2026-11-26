@@ -15,16 +15,116 @@ logger = logging.getLogger(__name__)
 class DNSMonitorService:
     """Service for DNS record monitoring.
 
-    Handles CRUD operations for DNS records, deep resolution, latency tracking,
-    SPF/DMARC analysis, and change detection with full audit trail.
+    Handles CRUD operations for DNS records, public multi-resolver resolution,
+    propagation consistency checks, latency tracking, SPF/DMARC analysis,
+    and set-based change detection with full audit trail.
     All business logic lives here, not in views.
     """
 
+    PUBLIC_RESOLVERS = (
+        ("1.1.1.1", "Cloudflare"),
+        ("8.8.8.8", "Google"),
+    )
+
+    @staticmethod
+    def _normalize_value_set(raw_values):
+        """Return a canonical deduplicated set of non-empty DNS answer strings."""
+        if isinstance(raw_values, str):
+            items = raw_values.splitlines()
+        else:
+            items = raw_values or []
+        return {str(v).strip() for v in items if str(v).strip()}
+
+    @staticmethod
+    def _query_single_resolver(clean_domain, rec_type, nameserver_ip, label):
+        start_time = time.perf_counter()
+        try:
+            resolver = dns.resolver.Resolver(configure=False)
+            resolver.nameservers = [nameserver_ip]
+            resolver.lifetime = 5.0
+            resolver.timeout = 3.0
+            answers = resolver.resolve(clean_domain, rec_type)
+            latency_ms = round((time.perf_counter() - start_time) * 1000, 1)
+
+            values = []
+            ttl = None
+            for rdata in answers:
+                val = str(rdata).strip()
+                if val and val not in values:
+                    values.append(val)
+                if ttl is None and answers.rrset:
+                    ttl = answers.rrset.ttl
+
+            return {
+                "resolver": nameserver_ip,
+                "label": label,
+                "success": True,
+                "values": sorted(values),
+                "ttl": ttl,
+                "latency_ms": latency_ms,
+                "error_type": None,
+                "error_message": None,
+            }
+        except dns.resolver.NXDOMAIN:
+            return {
+                "resolver": nameserver_ip,
+                "label": label,
+                "success": False,
+                "values": [],
+                "ttl": None,
+                "latency_ms": round((time.perf_counter() - start_time) * 1000, 1),
+                "error_type": "NXDOMAIN",
+                "error_message": f"El dominio '{clean_domain}' no existe (NXDOMAIN).",
+            }
+        except dns.resolver.NoAnswer:
+            return {
+                "resolver": nameserver_ip,
+                "label": label,
+                "success": False,
+                "values": [],
+                "ttl": None,
+                "latency_ms": round((time.perf_counter() - start_time) * 1000, 1),
+                "error_type": "NO_ANSWER",
+                "error_message": f"No se encontró registro {rec_type} para '{clean_domain}'.",
+            }
+        except dns.resolver.NoNameservers:
+            return {
+                "resolver": nameserver_ip,
+                "label": label,
+                "success": False,
+                "values": [],
+                "ttl": None,
+                "latency_ms": round((time.perf_counter() - start_time) * 1000, 1),
+                "error_type": "SERVFAIL",
+                "error_message": f"El servidor DNS devolvió SERVFAIL para '{clean_domain}'.",
+            }
+        except dns.resolver.Timeout:
+            return {
+                "resolver": nameserver_ip,
+                "label": label,
+                "success": False,
+                "values": [],
+                "ttl": None,
+                "latency_ms": round((time.perf_counter() - start_time) * 1000, 1),
+                "error_type": "TIMEOUT",
+                "error_message": f"Tiempo de espera agotado al consultar '{clean_domain}'.",
+            }
+        except Exception as exc:
+            return {
+                "resolver": nameserver_ip,
+                "label": label,
+                "success": False,
+                "values": [],
+                "ttl": None,
+                "latency_ms": round((time.perf_counter() - start_time) * 1000, 1),
+                "error_type": "ERROR",
+                "error_message": str(exc)[:300],
+            }
+
     @staticmethod
     def resolve_dns_query(domain, record_type, nameserver=None):
-        """Resolves a DNS query, measures latency in ms, and analyzes record contents.
-
-        Returns a dictionary with status, values list, ttl, response_time_ms, and security info.
+        """Resolves a DNS query against public resolvers (1.1.1.1 & 8.8.8.8),
+        measures real resolution latency, checks propagation consistency, and analyzes SPF/DMARC.
         """
         clean_domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         rec_type = record_type.strip().upper()
@@ -34,105 +134,19 @@ class DNSMonitorService:
             from common.security import resolve_safe_target_endpoint, validate_safe_target_endpoint
 
             validate_safe_target_endpoint(f"http://{clean_domain}", allow_private=False)
+            targets = list(DNSMonitorService.PUBLIC_RESOLVERS)
             if nameserver:
                 _, _, _, nameserver_ips = resolve_safe_target_endpoint(
                     f"http://{nameserver}:53",
                     allow_private=False,
                 )
-            resolver = dns.resolver.Resolver()
-            resolver.lifetime = 8.0
-            if nameserver:
-                resolver.nameservers = [nameserver_ips[0]]
-            answers = resolver.resolve(clean_domain, rec_type)
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-
-            values = []
-            ttl = None
-            for rdata in answers:
-                values.append(str(rdata))
-                if ttl is None and answers.rrset:
-                    ttl = answers.rrset.ttl
-
-            # Specialized SPF / DMARC analysis for TXT records
-            spf_info = None
-            dmarc_info = None
-            if rec_type == "TXT":
-                for v in values:
-                    clean_val = v.strip('"')
-                    if clean_val.startswith("v=spf1"):
-                        is_permissive = "+all" in clean_val or "all" in clean_val.split()
-                        spf_info = {
-                            "raw": clean_val,
-                            "is_valid": True,
-                            "policy": "-all" if "-all" in clean_val else ("~all" if "~all" in clean_val else "?all"),
-                            "is_permissive": is_permissive,
-                        }
-                    elif clean_val.startswith("v=DMARC1"):
-                        # Extract policy p=
-                        policy = "none"
-                        for part in clean_val.split(";"):
-                            part = part.strip()
-                            if part.startswith("p="):
-                                policy = part.split("=")[1].strip()
-                        dmarc_info = {
-                            "raw": clean_val,
-                            "policy": policy,
-                            "is_enforced": policy in ("quarantine", "reject"),
-                        }
-
-            return {
-                "resolver": ", ".join(str(n) for n in resolver.nameservers),
-                "success": True,
-                "domain": clean_domain,
-                "record_type": rec_type,
-                "values": values,
-                "ttl": ttl,
-                "response_time_ms": latency_ms,
-                "spf_info": spf_info,
-                "dmarc_info": dmarc_info,
-                "error_type": None,
-                "error_message": None,
-            }
-
-        except dns.resolver.NXDOMAIN:
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            return {
-                "success": False,
-                "domain": clean_domain,
-                "record_type": rec_type,
-                "values": [],
-                "ttl": None,
-                "response_time_ms": latency_ms,
-                "error_type": "NXDOMAIN",
-                "error_message": f"El dominio '{clean_domain}' no existe (NXDOMAIN).",
-            }
-        except dns.resolver.NoAnswer:
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            return {
-                "success": False,
-                "domain": clean_domain,
-                "record_type": rec_type,
-                "values": [],
-                "ttl": None,
-                "response_time_ms": latency_ms,
-                "error_type": "NO_ANSWER",
-                "error_message": f"No se encontró registro {rec_type} para '{clean_domain}'.",
-            }
-        except dns.resolver.Timeout:
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            return {
-                "success": False,
-                "domain": clean_domain,
-                "record_type": rec_type,
-                "values": [],
-                "ttl": None,
-                "response_time_ms": latency_ms,
-                "error_type": "TIMEOUT",
-                "error_message": f"Tiempo de espera agotado al consultar '{clean_domain}'.",
-            }
+                targets = [(nameserver_ips[0], nameserver)]
         except Exception as exc:
-            latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            latency_ms = round((time.perf_counter() - start_time) * 1000, 1)
             return {
+                "resolver": "",
+                "resolver_results": [],
+                "propagation_status": "error",
                 "success": False,
                 "domain": clean_domain,
                 "record_type": rec_type,
@@ -143,6 +157,82 @@ class DNSMonitorService:
                 "error_message": str(exc),
             }
 
+        results = [
+            DNSMonitorService._query_single_resolver(clean_domain, rec_type, ip, label)
+            for ip, label in targets
+        ]
+        succeeded = [r for r in results if r["success"]]
+
+        if not succeeded:
+            primary_err = results[0]
+            return {
+                "resolver": primary_err["resolver"],
+                "resolver_results": results,
+                "propagation_status": "error",
+                "success": False,
+                "domain": clean_domain,
+                "record_type": rec_type,
+                "values": [],
+                "ttl": None,
+                "response_time_ms": primary_err["latency_ms"],
+                "error_type": primary_err["error_type"],
+                "error_message": primary_err["error_message"],
+            }
+
+        primary = succeeded[0]
+        values = primary["values"]
+        ttl = primary["ttl"]
+        latency_ms = primary["latency_ms"]
+
+        # Compare value sets across all succeeding resolvers to detect propagation drift
+        if len(succeeded) >= 2:
+            sets = [frozenset(v.lower() for v in r["values"]) for r in succeeded]
+            propagation_status = "consistent" if len(set(sets)) == 1 else "propagating"
+        else:
+            propagation_status = "consistent"
+
+        # Specialized SPF / DMARC analysis for TXT records
+        spf_info = None
+        dmarc_info = None
+        if rec_type == "TXT":
+            for v in values:
+                clean_val = v.strip('"')
+                if clean_val.startswith("v=spf1"):
+                    is_permissive = "+all" in clean_val or "all" in clean_val.split()
+                    spf_info = {
+                        "raw": clean_val,
+                        "is_valid": True,
+                        "policy": "-all" if "-all" in clean_val else ("~all" if "~all" in clean_val else "?all"),
+                        "is_permissive": is_permissive,
+                    }
+                elif clean_val.startswith("v=DMARC1"):
+                    policy = "none"
+                    for part in clean_val.split(";"):
+                        part = part.strip()
+                        if part.startswith("p="):
+                            policy = part.split("=")[1].strip()
+                    dmarc_info = {
+                        "raw": clean_val,
+                        "policy": policy,
+                        "is_enforced": policy in ("quarantine", "reject"),
+                    }
+
+        return {
+            "resolver": primary["resolver"],
+            "resolver_results": results,
+            "propagation_status": propagation_status,
+            "success": True,
+            "domain": clean_domain,
+            "record_type": rec_type,
+            "values": values,
+            "ttl": ttl,
+            "response_time_ms": latency_ms,
+            "spf_info": spf_info,
+            "dmarc_info": dmarc_info,
+            "error_type": None,
+            "error_message": None,
+        }
+
     @staticmethod
     def test_resolution(domain, record_type="A"):
         """Live interactive DNS resolution test without persisting to DB."""
@@ -150,8 +240,11 @@ class DNSMonitorService:
 
     @staticmethod
     def list_records(organization_id, domain=None):
-        """Return all DNS records for an organization."""
-        qs = DNSRecord.objects.filter(organization_id=organization_id)
+        """Return all DNS records for an organization (with prefetched history & Uptime links)."""
+        qs = (
+            DNSRecord.objects.filter(organization_id=organization_id)
+            .prefetch_related("change_history", "targetcoverage_set__target")
+        )
         if domain:
             qs = qs.filter(domain=domain)
         return qs.order_by("-created_at")
@@ -204,6 +297,9 @@ class DNSMonitorService:
         record = DNSRecord.objects.get(id=record_id, organization_id=organization_id)
         if expected_values is not None:
             record.expected_values = expected_values
+            expected_set = DNSMonitorService._normalize_value_set(expected_values)
+            current_set = DNSMonitorService._normalize_value_set(record.value)
+            record.matches_expected = (expected_set == current_set) if (expected_set and current_set) else None
         if domain:
             record.domain = domain.strip().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
         if record_type:
@@ -246,10 +342,31 @@ class DNSMonitorService:
 
     @staticmethod
     @transaction.atomic
+    def accept_current_as_reference(record_id, organization_id):
+        """Accept the currently resolved DNS values as the expected reference baseline."""
+        record = DNSRecord.objects.select_for_update().get(id=record_id, organization_id=organization_id)
+        current_set = DNSMonitorService._normalize_value_set(record.value)
+        if not current_set:
+            raise ValueError("El registro no tiene valores resueltos para guardar como referencia.")
+        record.expected_values = sorted(current_set)
+        record.matches_expected = True
+        record.save(update_fields=["expected_values", "matches_expected", "updated_at"])
+        return record
+
+    @staticmethod
+    @transaction.atomic
     def update_record_scan(
-        record_id, new_value, ttl, response_time_ms=None, error_code="", error_message="", resolver=""
+        record_id,
+        new_value,
+        ttl,
+        response_time_ms=None,
+        error_code="",
+        error_message="",
+        resolver="",
+        resolver_results=None,
+        propagation_status="",
     ):
-        """Update a DNS record with scan results, latency, and detect changes."""
+        """Update a DNS record with scan results, set-based change detection, and resolver consensus."""
         record = DNSRecord.objects.get(id=record_id)
         from common.execution_context import assert_current
 
@@ -263,17 +380,27 @@ class DNSMonitorService:
         record.last_error_message = error_message[:500]
         if resolver:
             record.resolver = resolver
+        if resolver_results is not None:
+            record.resolver_results = resolver_results
+        if propagation_status:
+            record.propagation_status = propagation_status
+
         if error_code:
             record.matches_expected = None
             record.save()
             return record
-        record.last_successful_at = now
-        record.matches_expected = (
-            (sorted(record.expected_values) == sorted(new_value.splitlines())) if record.expected_values else None
-        )
-        value_changed = sorted(old_value.splitlines()) != sorted(new_value.splitlines()) and old_value != ""
 
-        record.value = new_value
+        record.last_successful_at = now
+        old_set = DNSMonitorService._normalize_value_set(old_value)
+        new_set = DNSMonitorService._normalize_value_set(new_value)
+        canonical_new = "\n".join(sorted(new_set))
+        expected_set = DNSMonitorService._normalize_value_set(record.expected_values)
+
+        record.matches_expected = (expected_set == new_set) if expected_set else None
+        # Compare sets so round-robin IP ordering never triggers false mutations
+        value_changed = bool(old_set) and (old_set != new_set)
+
+        record.value = canonical_new
         record.ttl = ttl
         if response_time_ms is not None:
             record.response_time_ms = response_time_ms
@@ -283,8 +410,8 @@ class DNSMonitorService:
             record.last_change_at = now
             DNSChangeHistory.objects.create(
                 record=record,
-                old_value=old_value,
-                new_value=new_value,
+                old_value="\n".join(sorted(old_set)),
+                new_value=canonical_new,
             )
 
         record.save()

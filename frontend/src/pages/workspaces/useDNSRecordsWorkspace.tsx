@@ -12,6 +12,7 @@ import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
 import type {
   DNSRecord,
   DNSRecordType,
+  DNSLinkedTarget,
   CreateDNSRecordData,
   DNSChangeHistory,
   DNSTestResolutionResult,
@@ -22,7 +23,6 @@ import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
 /** Data, mutations and transient workflow state; rendering stays in the page. */
 export function useDNSRecordsWorkspace() {
   const organizationId = useAuthStore((state) => state.user?.organization?.id);
-
   const queryClient = useQueryClient();
 
   // State
@@ -45,16 +45,15 @@ export function useDNSRecordsWorkspace() {
     "PTR",
   ] as const);
   const [searchTerm, setSearchTerm] = useState("");
-  // Persistent viewMode: remembers table or grid across refreshes and updates
   const [viewMode, setViewMode] = usePersistentViewMode("dns_records", "table");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [, setScanningId] = useState<string | null>(null);
+  const [scanningId, setScanningId] = useState<string | null>(null);
+  const [acceptingRefId, setAcceptingRefId] = useState<string | null>(null);
+  const [linkingRecordId, setLinkingRecordId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DNSRecord | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<DNSRecord | null>(null);
-  const [drawerTab, setDrawerTab] = useState<
-    "history" | "details" | "security"
-  >("history");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkScanning, setBulkScanning] = useState(false);
 
   // Live Test Resolution State
   const diagnostic = useConfigurationDiagnostic();
@@ -63,7 +62,6 @@ export function useDNSRecordsWorkspace() {
     null,
   );
 
-  // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
 
   // Main DNS records query
@@ -76,6 +74,15 @@ export function useDNSRecordsWorkspace() {
   const { data: records, isLoading, isError, refetch } = directory;
   const selectionScope = JSON.stringify(directory.params);
   useEffect(() => setSelectedIds([]), [selectionScope]);
+
+  // Keep selectedRecord in sync with fresh query data
+  useEffect(() => {
+    if (!selectedRecord || !records) return;
+    const fresh = records.find((r) => r.id === selectedRecord.id);
+    if (fresh && fresh !== selectedRecord) {
+      setSelectedRecord(fresh);
+    }
+  }, [records, selectedRecord]);
 
   // Selected record change history query
   const { data: history, isLoading: isLoadingHistory } = useQuery<
@@ -92,17 +99,21 @@ export function useDNSRecordsWorkspace() {
     enabled: !!selectedRecord,
   });
 
+  const invalidateDNS = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["dns-records", organizationId],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["dns-stats", organizationId],
+    });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: CreateDNSRecordData) => {
       await api.post("dns-records/", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["dns-records", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["dns-stats", organizationId],
-      });
+      invalidateDNS();
       handleCloseModal();
     },
   });
@@ -115,15 +126,18 @@ export function useDNSRecordsWorkspace() {
       id: string;
       data: CreateDNSRecordData;
     }) => {
-      await api.patch(`dns-records/${id}/`, data);
+      const response = await api.patch(`dns-records/${id}/`, data);
+      return response.data?.data as DNSRecord | undefined;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["dns-records", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["dns-stats", organizationId],
-      });
+    onSuccess: (updatedRecord) => {
+      invalidateDNS();
+      if (
+        selectedRecord &&
+        updatedRecord &&
+        selectedRecord.id === updatedRecord.id
+      ) {
+        setSelectedRecord(updatedRecord);
+      }
       handleCloseModal();
     },
   });
@@ -141,12 +155,7 @@ export function useDNSRecordsWorkspace() {
       );
     },
     onSuccess: (updatedRecord) => {
-      queryClient.invalidateQueries({
-        queryKey: ["dns-records", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["dns-stats", organizationId],
-      });
+      invalidateDNS();
       queryClient.invalidateQueries({
         queryKey: ["dns-history", organizationId, selectedRecord?.id],
       });
@@ -164,17 +173,90 @@ export function useDNSRecordsWorkspace() {
     },
   });
 
+  const acceptReferenceMutation = useMutation({
+    mutationFn: async (record: DNSRecord) => {
+      setAcceptingRefId(record.id);
+      const response = await api.post(
+        `dns-records/${record.id}/accept-reference/`,
+      );
+      return response.data?.data as DNSRecord | undefined;
+    },
+    onSuccess: (updatedRecord) => {
+      invalidateDNS();
+      if (
+        selectedRecord &&
+        updatedRecord &&
+        selectedRecord.id === updatedRecord.id
+      ) {
+        setSelectedRecord(updatedRecord);
+      }
+      directory.setMessage(
+        updatedRecord
+          ? `Referencia actualizada para ${updatedRecord.record_type} ${updatedRecord.domain}.`
+          : "Referencia actualizada.",
+      );
+      setAcceptingRefId(null);
+    },
+    onError: () => {
+      directory.setMessage(
+        "No se pudo guardar el valor actual como referencia.",
+      );
+      setAcceptingRefId(null);
+    },
+  });
+
+  const linkTargetMutation = useMutation({
+    mutationFn: async ({
+      record,
+      target,
+    }: {
+      record: DNSRecord;
+      target: DNSLinkedTarget;
+    }) => {
+      setLinkingRecordId(record.id);
+      // Preserve any existing DNS links on that target before adding this record
+      let existingIds: string[] = [];
+      try {
+        const covRes = await api.get(`/monitoring/${target.id}/coverage/`);
+        const covData = covRes.data?.data;
+        if (Array.isArray(covData?.dns)) {
+          existingIds = covData.dns
+            .map((item: { id?: string } | string) =>
+              typeof item === "string" ? item : item?.id,
+            )
+            .filter(Boolean) as string[];
+        }
+      } catch {
+        existingIds = [];
+      }
+      const nextDnsIds = Array.from(new Set([...existingIds, record.id]));
+      await api.patch(`/monitoring/${target.id}/coverage/`, {
+        dns: nextDnsIds,
+      });
+      return { record, target };
+    },
+    onSuccess: ({ record, target }) => {
+      invalidateDNS();
+      queryClient.invalidateQueries({
+        queryKey: ["monitoring-targets", organizationId],
+      });
+      directory.setMessage(
+        `${record.record_type} ${record.domain} vinculado al target ${target.name} en Uptime.`,
+      );
+      setLinkingRecordId(null);
+    },
+    onError: () => {
+      directory.setMessage("No se pudo vincular el registro DNS con el target.");
+      setLinkingRecordId(null);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`dns-records/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["dns-records", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["dns-stats", organizationId],
-      });
+      invalidateDNS();
       if (selectedRecord?.id === deleteTarget?.id) {
         setSelectedRecord(null);
       }
@@ -182,7 +264,7 @@ export function useDNSRecordsWorkspace() {
     },
   });
 
-  // Bulk Actions via backend endpoint
+  // Bulk Actions
   const handleToggleSelect = (record: DNSRecord) => {
     setSelectedIds((prev) =>
       prev.includes(record.id)
@@ -191,12 +273,24 @@ export function useDNSRecordsWorkspace() {
     );
   };
 
-  const handleSelectAllToggle = () => {
-    if (!filteredRecords || filteredRecords.length === 0) return;
-    if (selectedIds.length === filteredRecords.length) {
+  const handleBulkScan = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkScanning(true);
+    try {
+      const response = await api.post("dns-records/bulk-action/", {
+        action: "scan",
+        record_ids: selectedIds,
+      });
+      const outcome = bulkOutcome(response.data.data, selectedIds);
       setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredRecords.map((r: DNSRecord) => r.id));
+      directory.setMessage(outcome.message);
+    } catch {
+      directory.setMessage(
+        "No se pudo iniciar la comprobación masiva. Intenta nuevamente.",
+      );
+    } finally {
+      setBulkScanning(false);
+      invalidateDNS();
     }
   };
 
@@ -226,10 +320,7 @@ export function useDNSRecordsWorkspace() {
     }
 
     setBulkDeleting(false);
-    queryClient.invalidateQueries({
-      queryKey: ["dns-records", organizationId],
-    });
-    queryClient.invalidateQueries({ queryKey: ["dns-stats", organizationId] });
+    invalidateDNS();
   };
 
   // Test DNS Resolution in Modal
@@ -272,7 +363,6 @@ export function useDNSRecordsWorkspace() {
     }
   };
 
-  // Export CSV Report
   const handleExportCSV = () => void directory.exportCSV();
 
   // Modal Handlers
@@ -315,69 +405,24 @@ export function useDNSRecordsWorkspace() {
       cleanDomain = cleanDomain.split(":")[0];
     }
 
+    const payload: CreateDNSRecordData = {
+      domain: cleanDomain,
+      record_type: recordTypeInput,
+      expected_values: expectedInput
+        .split("\n")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    };
+
     if (editingRecord) {
-      updateMutation.mutate({
-        id: editingRecord.id,
-        data: {
-          domain: cleanDomain,
-          record_type: recordTypeInput,
-          expected_values: expectedInput
-            .split("\n")
-            .map((x) => x.trim())
-            .filter(Boolean),
-        },
-      });
+      updateMutation.mutate({ id: editingRecord.id, data: payload });
     } else {
-      createMutation.mutate({
-        domain: cleanDomain,
-        record_type: recordTypeInput,
-        expected_values: expectedInput
-          .split("\n")
-          .map((x) => x.trim())
-          .filter(Boolean),
-      });
+      createMutation.mutate(payload);
     }
   };
-
-  const getTypeBadgeClass = (type: string) => {
-    switch (type) {
-      case "A":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-      case "AAAA":
-        return "bg-teal-500/10 text-teal-400 border-teal-500/30";
-      case "CNAME":
-        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
-      case "MX":
-        return "bg-violet-500/10 text-violet-400 border-violet-500/30";
-      case "TXT":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-      case "NS":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
-      case "SOA":
-        return "bg-purple-500/10 text-purple-400 border-purple-500/30";
-      case "PTR":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
-      case "CAA":
-        return "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
-      default:
-        return "bg-zinc-800 text-zinc-300 border-zinc-700";
-    }
-  };
-
-  const isRecentMutation = (dateStr: string | null) => {
-    if (!dateStr) return false;
-    const changeTime = new Date(dateStr).getTime();
-    const now = Date.now();
-    return now - changeTime < 24 * 60 * 60 * 1000;
-  };
-
-  // KPI Calculations
-  const allRecords = records || [];
-
-  // Filtered & Searched Records
-  const filteredRecords = allRecords;
 
   useLinkedResource(records, selectedRecord, setSelectedRecord);
+
   return {
     directory,
     expectedInput,
@@ -398,13 +443,15 @@ export function useDNSRecordsWorkspace() {
     setViewMode,
     selectedIds,
     setSelectedIds,
+    scanningId,
+    acceptingRefId,
+    linkingRecordId,
     deleteTarget,
     setDeleteTarget,
     selectedRecord,
     setSelectedRecord,
-    drawerTab,
-    setDrawerTab,
     bulkDeleting,
+    bulkScanning,
     diagnostic,
     isTestingResolution,
     testResult,
@@ -412,14 +459,16 @@ export function useDNSRecordsWorkspace() {
     autoRefresh,
     records,
     isLoading,
-    history,
+    history: history || [],
     isLoadingHistory,
     createMutation,
     updateMutation,
     scanMutation,
+    acceptReferenceMutation,
+    linkTargetMutation,
     deleteMutation,
     handleToggleSelect,
-    handleSelectAllToggle,
+    handleBulkScan,
     handleBulkDelete,
     handleTestResolution,
     handleExportCSV,
@@ -427,8 +476,5 @@ export function useDNSRecordsWorkspace() {
     handleOpenEdit,
     handleCloseModal,
     handleSubmit,
-    getTypeBadgeClass,
-    isRecentMutation,
-    filteredRecords,
   };
 }

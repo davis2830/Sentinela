@@ -214,6 +214,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_enabled",
             "linked_ssl_count",
             "linked_ssl_domain",
+            "linked_dns_count",
             "recent_checks",
             "uptime_24h",
             "checks_24h",
@@ -237,6 +238,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "agent_probe_enabled",
             "linked_ssl_count",
             "linked_ssl_domain",
+            "linked_dns_count",
             "recent_checks",
             "uptime_24h",
             "checks_24h",
@@ -261,15 +263,19 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
     agent_probe_enabled = serializers.BooleanField(source="agent_probe.enabled", read_only=True, allow_null=True)
     linked_ssl_count = serializers.SerializerMethodField()
     linked_ssl_domain = serializers.SerializerMethodField()
+    linked_dns_count = serializers.SerializerMethodField()
 
-    def _get_linked_ssl(self, obj):
+    def _get_coverage(self, obj):
         from monitoring.models import TargetCoverage
 
         try:
-            cov = obj.coverage
+            return obj.coverage
         except TargetCoverage.DoesNotExist:
             return None
-        return getattr(cov, "ssl", None)
+
+    def _get_linked_ssl(self, obj):
+        cov = self._get_coverage(obj)
+        return getattr(cov, "ssl", None) if cov is not None else None
 
     def get_linked_ssl_count(self, obj):
         return 1 if self._get_linked_ssl(obj) is not None else 0
@@ -277,6 +283,15 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
     def get_linked_ssl_domain(self, obj):
         ssl_obj = self._get_linked_ssl(obj)
         return ssl_obj.domain if ssl_obj is not None else None
+
+    def get_linked_dns_count(self, obj):
+        cov = self._get_coverage(obj)
+        if cov is None:
+            return 0
+        prefetched = getattr(cov, "_prefetched_objects_cache", {}).get("dns")
+        if prefetched is not None:
+            return len(prefetched)
+        return cov.dns.count()
 
     def _get_24h_counts(self, obj):
         if hasattr(obj, "checks_24h_total") and hasattr(obj, "checks_24h_up"):

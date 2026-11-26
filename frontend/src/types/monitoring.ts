@@ -35,6 +35,7 @@ export interface MonitoringTarget {
   agent_probe_enabled?: boolean | null;
   linked_ssl_count?: number;
   linked_ssl_domain?: string | null;
+  linked_dns_count?: number;
   recent_checks?: RecentCheckItem[];
   uptime_24h?: number | null;
   checks_24h?: number;

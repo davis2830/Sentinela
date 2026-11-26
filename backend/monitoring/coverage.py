@@ -113,7 +113,12 @@ def candidates(target, module):
 
 
 def snapshot(target, request):
-    links = TargetCoverage.objects.filter(target=target).select_related("ssl", "domain", "security").prefetch_related("dns").first()
+    links = (
+        TargetCoverage.objects.filter(target=target)
+        .select_related("ssl", "domain", "security")
+        .prefetch_related("dns__change_history", "dns__targetcoverage_set__target")
+        .first()
+    )
     from common.authorization import RELATED_MODULES, effective_permissions, uses_custom_permissions
     capabilities = set(effective_permissions(request.user))
     sections = {}

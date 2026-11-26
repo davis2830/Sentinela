@@ -44,6 +44,8 @@ def scan_dns_records(self, record_id):
             ttl=res.get("ttl"),
             response_time_ms=res.get("response_time_ms"),
             resolver=res.get("resolver", ""),
+            resolver_results=res.get("resolver_results", []),
+            propagation_status=res.get("propagation_status", "consistent"),
         )
         logger.info(
             "DNS scan complete for %s %s: %d values in %sms (TTL %s)",
@@ -61,6 +63,9 @@ def scan_dns_records(self, record_id):
             response_time_ms=res.get("response_time_ms"),
             error_code=res.get("error_type") or "ERROR",
             error_message=res.get("error_message") or "La consulta DNS no se completó.",
+            resolver=res.get("resolver", ""),
+            resolver_results=res.get("resolver_results", []),
+            propagation_status="error",
         )
         logger.warning(
             "DNS scan failed for %s %s (%s): %s in %sms",

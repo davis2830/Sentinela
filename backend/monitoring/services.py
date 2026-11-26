@@ -26,7 +26,7 @@ class MonitoringService:
         since_24h = now - timedelta(hours=24)
         return (
             MonitoringTarget.objects.filter(organization_id=organization_id)
-            .select_related("owner_team", "agent_probe")
+            .select_related("owner_team", "agent_probe", "coverage", "coverage__ssl")
             .annotate(
                 checks_24h_total=Count(
                     "checks",
@@ -41,11 +41,12 @@ class MonitoringService:
                 ),
             )
             .prefetch_related(
+                "coverage__dns",
                 Prefetch(
                     "checks",
                     queryset=MonitoringCheck.objects.filter(checked_at__gte=since_1h).order_by("-checked_at"),
                     to_attr="prefetched_recent_checks",
-                )
+                ),
             )
             .order_by("-created_at")
         )

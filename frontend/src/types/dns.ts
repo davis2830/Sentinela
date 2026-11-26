@@ -1,5 +1,46 @@
 export type DNSRecordType =
-  "A" | "AAAA" | "MX" | "TXT" | "NS" | "CNAME" | "SOA" | "PTR" | "CAA" | "SRV";
+  | "A"
+  | "AAAA"
+  | "MX"
+  | "TXT"
+  | "NS"
+  | "CNAME"
+  | "SOA"
+  | "PTR"
+  | "CAA"
+  | "SRV";
+
+export interface DNSResolverResult {
+  resolver: string;
+  label?: string;
+  success: boolean;
+  values: string[];
+  ttl?: number | null;
+  latency_ms?: number | null;
+  response_time_ms?: number | null;
+  error_type?: string | null;
+  error_message?: string | null;
+}
+
+export interface DNSLinkedTarget {
+  id: string;
+  name: string;
+  endpoint: string;
+  enabled: boolean;
+}
+
+export interface DNSLatestChange {
+  id: string;
+  old_value: string;
+  new_value: string;
+  changed_at: string | null;
+}
+
+export type DNSPropagationStatus =
+  | "consistent"
+  | "propagating"
+  | "error"
+  | "";
 
 export interface DNSRecord {
   scan_availability?: import("./scan").ScanAvailability;
@@ -17,8 +58,13 @@ export interface DNSRecord {
   last_error_message?: string;
   last_successful_at?: string | null;
   resolver?: string;
+  resolver_results?: DNSResolverResult[];
+  propagation_status?: DNSPropagationStatus;
   expected_values?: string[];
   matches_expected?: boolean | null;
+  latest_change?: DNSLatestChange | null;
+  linked_targets?: DNSLinkedTarget[];
+  suggested_targets?: DNSLinkedTarget[];
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +98,9 @@ export interface DNSTestResolutionResult {
   values: string[];
   ttl?: number | null;
   response_time_ms?: number | null;
+  resolver?: string | null;
+  resolver_results?: DNSResolverResult[];
+  propagation_status?: DNSPropagationStatus;
   spf_info?: {
     raw: string;
     is_valid: boolean;

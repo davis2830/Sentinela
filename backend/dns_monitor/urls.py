@@ -5,6 +5,7 @@ from .views import (
     DNSBulkScanView,
     DNSChangeHistoryView,
     DNSDomainsView,
+    DNSRecordAcceptReferenceView,
     DNSRecordDetailView,
     DNSRecordListView,
     DNSRecordScanView,
@@ -24,6 +25,11 @@ urlpatterns = [
         "<uuid:record_id>/scan/",
         DNSRecordScanView.as_view(),
         name="dns_record_scan",
+    ),
+    path(
+        "<uuid:record_id>/accept-reference/",
+        DNSRecordAcceptReferenceView.as_view(),
+        name="dns_record_accept_reference",
     ),
     path(
         "<uuid:record_id>/history/",

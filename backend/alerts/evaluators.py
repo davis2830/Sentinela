@@ -256,32 +256,50 @@ class MetricEvaluators:
 
     @staticmethod
     def _check_dns_changed(rule):
-        """Check if any DNS records have changed recently."""
+        """Check if DNS records drifted from their expected reference (or changed when no reference is set)."""
         from dns_monitor.models import DNSRecord
 
         now = timezone.now()
         recent = now - timedelta(hours=24)
 
-        records = DNSRecord.objects.filter(
-            organization_id=rule.organization_id,
-            last_change_at__gte=recent,
-        )
+        records = DNSRecord.objects.filter(organization_id=rule.organization_id)
         if rule.target_id:
             records = records.filter(id=rule.target_id)
 
         triggered = False
         for record in records:
-            AlertService.create_alert(
-                organization_id=rule.organization_id,
-                rule_id=rule.id,
-                title=f"DNS record changed: {record.domain} {record.record_type}",
-                message=f"DNS {record.record_type} record for {record.domain} has changed.",
-                severity=rule.severity,
-                target_type="dns",
-                target_id=record.id,
-                metadata={"domain": record.domain, "record_type": record.record_type},
-            )
-            triggered = True
+            has_expected = bool(record.expected_values)
+            if has_expected:
+                if record.matches_expected is False:
+                    AlertService.create_alert(
+                        organization_id=rule.organization_id,
+                        rule_id=rule.id,
+                        title=f"DNS fuera de referencia: {record.domain} {record.record_type}",
+                        message=f"El registro {record.record_type} de {record.domain} no coincide con la referencia esperada.",
+                        severity=rule.severity,
+                        target_type="dns",
+                        target_id=record.id,
+                        metadata={"domain": record.domain, "record_type": record.record_type},
+                    )
+                    triggered = True
+                elif record.matches_expected is True:
+                    AlertService.auto_resolve_alert(
+                        organization_id=rule.organization_id,
+                        rule_id=rule.id,
+                        target_id=record.id,
+                    )
+            elif record.last_change_at and record.last_change_at >= recent:
+                AlertService.create_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    title=f"DNS record changed: {record.domain} {record.record_type}",
+                    message=f"DNS {record.record_type} record for {record.domain} has changed.",
+                    severity=rule.severity,
+                    target_type="dns",
+                    target_id=record.id,
+                    metadata={"domain": record.domain, "record_type": record.record_type},
+                )
+                triggered = True
         return triggered
 
     @staticmethod

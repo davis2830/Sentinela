@@ -694,17 +694,32 @@ export default function MonitoringPage() {
                 ? Esta acción eliminará todo su historial de métricas y no se
                 puede deshacer.
               </p>
-              {(deleteConfirm.linked_ssl_count ?? 0) > 0 && (
-                <div className="mb-5 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-200 leading-relaxed">
-                  Se desvinculará {deleteConfirm.linked_ssl_count}{" "}
-                  {deleteConfirm.linked_ssl_count === 1
-                    ? "certificado SSL"
-                    : "certificados SSL"}
-                  {deleteConfirm.linked_ssl_domain
-                    ? ` (${deleteConfirm.linked_ssl_domain})`
-                    : ""}
-                  . El certificado seguirá activo en SSL &amp; TLS sin vínculo a
-                  este target.
+              {((deleteConfirm.linked_ssl_count ?? 0) > 0 ||
+                (deleteConfirm.linked_dns_count ?? 0) > 0) && (
+                <div className="mb-5 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-200 leading-relaxed space-y-1.5">
+                  {(deleteConfirm.linked_ssl_count ?? 0) > 0 && (
+                    <p>
+                      Se desvinculará {deleteConfirm.linked_ssl_count}{" "}
+                      {deleteConfirm.linked_ssl_count === 1
+                        ? "certificado SSL"
+                        : "certificados SSL"}
+                      {deleteConfirm.linked_ssl_domain
+                        ? ` (${deleteConfirm.linked_ssl_domain})`
+                        : ""}
+                      . El certificado seguirá activo en SSL &amp; TLS sin
+                      vínculo a este target.
+                    </p>
+                  )}
+                  {(deleteConfirm.linked_dns_count ?? 0) > 0 && (
+                    <p>
+                      Se desvincularán {deleteConfirm.linked_dns_count}{" "}
+                      {deleteConfirm.linked_dns_count === 1
+                        ? "registro DNS"
+                        : "registros DNS"}
+                      . Seguirán activos en Registros &amp; Zonas DNS sin
+                      vínculo a este target.
+                    </p>
+                  )}
                 </div>
               )}
               <div className="flex gap-3">

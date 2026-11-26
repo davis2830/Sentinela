@@ -148,6 +148,26 @@ class DNSRecordScanView(APIView):
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
 
 
+class DNSRecordAcceptReferenceView(APIView):
+    """Accept current resolved values as the expected reference baseline.
+
+    POST /api/v1/dns-records/{id}/accept-reference/
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, record_id):
+        org_id = request.user.organization_id
+        try:
+            record = DNSMonitorService.accept_current_as_reference(record_id, org_id)
+            serializer = DNSRecordSerializer(record, context={"request": request})
+            return success_response(serializer.data)
+        except ObjectDoesNotExist:
+            return error_response("DNS record not found.", status_code=status.HTTP_404_NOT_FOUND)
+        except (ValueError, APIException, DjangoValidationError) as exc:
+            return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
+
+
 class DNSChangeHistoryView(APIView):
     """Endpoint for listing change history of a DNS record.
 
