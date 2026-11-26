@@ -688,12 +688,25 @@ export default function MonitoringPage() {
                 </div>
                 <h2 className="text-lg font-bold">Eliminar Target</h2>
               </div>
-              <p className="text-text-muted text-sm mb-6">
+              <p className="text-text-muted text-sm mb-4">
                 ¿Seguro que deseas eliminar{" "}
                 <strong className="text-text-main">{deleteConfirm.name}</strong>
                 ? Esta acción eliminará todo su historial de métricas y no se
                 puede deshacer.
               </p>
+              {(deleteConfirm.linked_ssl_count ?? 0) > 0 && (
+                <div className="mb-5 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-200 leading-relaxed">
+                  Se desvinculará {deleteConfirm.linked_ssl_count}{" "}
+                  {deleteConfirm.linked_ssl_count === 1
+                    ? "certificado SSL"
+                    : "certificados SSL"}
+                  {deleteConfirm.linked_ssl_domain
+                    ? ` (${deleteConfirm.linked_ssl_domain})`
+                    : ""}
+                  . El certificado seguirá activo en SSL &amp; TLS sin vínculo a
+                  este target.
+                </div>
+              )}
               <div className="flex gap-3">
                 <AdminButton
                   capability="monitoring.delete"

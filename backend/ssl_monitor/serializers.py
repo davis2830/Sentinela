@@ -29,12 +29,16 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
                         "id": str(target.pk),
                         "name": target.name,
                         "endpoint": target.endpoint,
+                        "enabled": bool(target.enabled),
                     }
                 )
         return result
 
     def get_suggested_targets(self, instance):
-        if self.get_linked_targets(instance):
+        linked = self.get_linked_targets(instance)
+        linked_ids = {t["id"] for t in linked}
+        only_paused_linked = bool(linked) and all(not t.get("enabled", True) for t in linked)
+        if linked and not only_paused_linked:
             return []
         from monitoring.models import MonitoringTarget
         from monitoring.coverage import matches
@@ -49,16 +53,32 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
                     target_type__in=("http", "https"),
                     runner_type="cloud",
                     agent_probe__isnull=True,
-                ).only("id", "organization_id", "name", "endpoint", "target_type", "runner_type", "agent_probe_id")
+                )
+                .order_by("-enabled", "created_at")
+                .only(
+                    "id",
+                    "organization_id",
+                    "name",
+                    "endpoint",
+                    "enabled",
+                    "target_type",
+                    "runner_type",
+                    "agent_probe_id",
+                )
             )
         suggestions = []
         for target in cache[org_id]:
+            if str(target.pk) in linked_ids:
+                continue
+            if only_paused_linked and not target.enabled:
+                continue
             if matches(target, "ssl", instance):
                 suggestions.append(
                     {
                         "id": str(target.pk),
                         "name": target.name,
                         "endpoint": target.endpoint,
+                        "enabled": bool(target.enabled),
                     }
                 )
         return suggestions

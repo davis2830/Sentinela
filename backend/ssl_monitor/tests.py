@@ -84,9 +84,43 @@ class SSLCertificateSerializerAndOrderingTests(TestCase):
         self.assertEqual(len(data_unlinked["suggested_targets"]), 1)
         self.assertEqual(data_unlinked["suggested_targets"][0]["name"], "gctorque web")
 
-        # After linking via TargetCoverage: linked_targets populated, suggested_targets empty
+        # After linking via TargetCoverage to an active target: linked_targets populated, suggested_targets empty
         TargetCoverage.objects.create(target=target, ssl=cert)
         data_linked = SSLCertificateSerializer(cert, context={}).data
         self.assertEqual(len(data_linked["linked_targets"]), 1)
         self.assertEqual(data_linked["linked_targets"][0]["id"], str(target.id))
+        self.assertTrue(data_linked["linked_targets"][0]["enabled"])
         self.assertEqual(data_linked["suggested_targets"], [])
+
+    def test_paused_linked_target_exposes_enabled_false_and_suggests_active_target(self):
+        paused_target = MonitoringTarget.objects.create(
+            organization=self.org,
+            name="test",
+            target_type="https",
+            endpoint="https://gctorque.com/health",
+            runner_type="cloud",
+            enabled=False,
+        )
+        active_target = MonitoringTarget.objects.create(
+            organization=self.org,
+            name="gctorque web",
+            target_type="https",
+            endpoint="https://gctorque.com/",
+            runner_type="cloud",
+            enabled=True,
+        )
+        cert = SSLCertificate.objects.create(
+            organization=self.org,
+            domain="gctorque.com",
+            port=443,
+            days_remaining=30,
+            last_scanned_at=timezone.now(),
+            is_valid=True,
+        )
+        TargetCoverage.objects.create(target=paused_target, ssl=cert)
+
+        data = SSLCertificateSerializer(cert, context={}).data
+        self.assertEqual(data["linked_targets"][0]["name"], "test")
+        self.assertFalse(data["linked_targets"][0]["enabled"])
+        self.assertEqual(len(data["suggested_targets"]), 1)
+        self.assertEqual(data["suggested_targets"][0]["id"], str(active_target.id))

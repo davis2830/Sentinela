@@ -277,7 +277,7 @@ export default function SSLDetailDrawer({
               <>
                 <span>·</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded border font-bold ${healthPalette[gradeTone].badge}`}
+                  className={`px-2 py-0.5 rounded-full border font-bold leading-none ${healthPalette[gradeTone].badge}`}
                   title={getSSLGradeTooltip(cert)}
                 >
                   Grado {cert.security_grade}
@@ -307,25 +307,39 @@ export default function SSLDetailDrawer({
                   <span>{isScanning ? "Revalidando..." : "Revalidar ahora"}</span>
                 </button>
               )}
-              {linked.length > 0 ? (
-                <Link
-                  to={`/monitoring?target=${linked[0].id}`}
-                  onClick={onClose}
-                  title={`Vinculado al target ${linked[0].name}`}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-bg-card border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors"
-                >
-                  <Link2 size={12} />
-                  <span className="truncate max-w-[140px]">
-                    {linked[0].name}
-                  </span>
-                </Link>
-              ) : suggested.length > 0 && onLinkTarget ? (
+              {linked.length > 0 && (() => {
+                const primary = linked[0];
+                const isPausedTarget = primary.enabled === false;
+                return (
+                  <Link
+                    to={`/monitoring?target=${primary.id}`}
+                    onClick={onClose}
+                    title={
+                      isPausedTarget
+                        ? `Vinculado al target ${primary.name} (pausado en Uptime)`
+                        : `Vinculado al target ${primary.name}`
+                    }
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      isPausedTarget
+                        ? "bg-amber-500/10 border-amber-500/35 text-amber-300 hover:border-amber-400/60"
+                        : "bg-bg-card border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40"
+                    }`}
+                  >
+                    <Link2 size={12} />
+                    <span className="truncate max-w-[160px]">
+                      {primary.name}
+                      {isPausedTarget ? " (pausado)" : ""}
+                    </span>
+                  </Link>
+                );
+              })()}
+              {suggested.length > 0 && onLinkTarget && (
                 <button
                   type="button"
                   disabled={isLinking}
                   onClick={() => onLinkTarget(cert, suggested[0])}
-                  title={`Vincular con el target ${suggested[0].name} en Uptime`}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-bg-card border border-dashed border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/50 transition-colors cursor-pointer disabled:opacity-50 !min-h-0"
+                  title={`Vincular con el target activo ${suggested[0].name} en Uptime`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-bg-card border border-dashed border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/50 transition-colors cursor-pointer disabled:opacity-50 !min-h-0"
                 >
                   <Link2 size={12} />
                   <span className="truncate max-w-[160px]">
@@ -334,7 +348,7 @@ export default function SSLDetailDrawer({
                       : `Vincular: ${suggested[0].name}`}
                   </span>
                 </button>
-              ) : null}
+              )}
             </div>
 
             <div className="flex items-center gap-1">
@@ -691,9 +705,14 @@ export default function SSLDetailDrawer({
                     <Link
                       to={`/monitoring?target=${t.id}`}
                       onClick={onClose}
-                      className="text-accent-green hover:underline font-medium"
+                      className={
+                        t.enabled === false
+                          ? "text-amber-300 hover:underline font-medium"
+                          : "text-accent-green hover:underline font-medium"
+                      }
                     >
                       {t.name}
+                      {t.enabled === false ? " (pausado)" : ""}
                     </Link>
                     {idx < linked.length - 1 && <span>,</span>}
                   </span>

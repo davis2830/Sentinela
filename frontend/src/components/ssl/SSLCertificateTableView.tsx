@@ -192,7 +192,7 @@ export default function SSLCertificateTableView({
         </td>
 
         {/* 3. Dominio (absorbs horizontal space, with linked Uptime badge & inline problem diagnostic) */}
-        <td className={`${paddingY} px-3 max-w-0`}>
+        <td className={`${paddingY} px-3 w-full max-w-0`}>
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={`truncate font-semibold text-xs transition-colors ${
@@ -206,7 +206,7 @@ export default function SSLCertificateTableView({
             </span>
 
             {cert.port && cert.port !== 443 && (
-              <span className="shrink-0 font-mono text-[10px] px-1.5 py-0.5 bg-bg-dark border border-border-base rounded text-sky-400">
+              <span className="shrink-0 font-mono text-[10px] px-1.5 py-0.5 bg-bg-dark border border-border-base rounded-full text-sky-400">
                 :{cert.port}
               </span>
             )}
@@ -223,17 +223,39 @@ export default function SSLCertificateTableView({
               <ExternalLink size={11} />
             </a>
 
-            {linked.length > 0 ? (
-              <Link
-                to={`/monitoring?target=${linked[0].id}`}
-                onClick={(e) => e.stopPropagation()}
-                title={`Vinculado al target ${linked.map((t) => t.name).join(", ")}`}
-                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-dark border border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors max-w-[160px]"
-              >
-                <Link2 size={10} className="shrink-0 text-accent-green/80" />
-                <span className="truncate">{linked[0].name}</span>
-              </Link>
-            ) : suggested.length > 0 && onLinkTarget ? (
+            {linked.length > 0 && (() => {
+              const primary = linked[0];
+              const isPausedTarget = primary.enabled === false;
+              return (
+                <Link
+                  to={`/monitoring?target=${primary.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={
+                    isPausedTarget
+                      ? `Vinculado al target ${primary.name} (pausado en Uptime)`
+                      : `Vinculado al target ${linked.map((t) => t.name).join(", ")}`
+                  }
+                  className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors max-w-[190px] ${
+                    isPausedTarget
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:border-amber-400/60"
+                      : "bg-bg-dark border-border-base text-text-muted hover:text-accent-green hover:border-accent-green/40"
+                  }`}
+                >
+                  <Link2
+                    size={10}
+                    className={`shrink-0 ${
+                      isPausedTarget ? "text-amber-400" : "text-accent-green/80"
+                    }`}
+                  />
+                  <span className="truncate">
+                    {primary.name}
+                    {isPausedTarget ? " (pausado)" : ""}
+                  </span>
+                </Link>
+              );
+            })()}
+
+            {suggested.length > 0 && onLinkTarget && (
               <button
                 type="button"
                 disabled={linkingCertId === cert.id}
@@ -241,8 +263,8 @@ export default function SSLCertificateTableView({
                   e.stopPropagation();
                   onLinkTarget(cert, suggested[0]);
                 }}
-                title={`Target coincidente encontrado en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
-                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-transparent border border-dashed border-border-base text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors max-w-[175px] cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
+                title={`Target activo coincidente en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
+                className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-transparent border border-dashed border-border-base text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors max-w-[180px] cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
               >
                 <Link2 size={10} className="shrink-0" />
                 <span className="truncate">
@@ -251,12 +273,12 @@ export default function SSLCertificateTableView({
                     : `Vincular: ${suggested[0].name}`}
                 </span>
               </button>
-            ) : null}
+            )}
 
             {problemReason && (
               <span
                 title={cert.error_message || problemReason}
-                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono bg-rose-500/10 border border-rose-500/25 text-rose-300"
+                className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-rose-500/10 border border-rose-500/25 text-rose-300"
               >
                 <AlertTriangle size={10} className="text-rose-400 shrink-0" />
                 <span>{problemReason}</span>
@@ -275,12 +297,12 @@ export default function SSLCertificateTableView({
           </span>
         </td>
 
-        {/* 5. Seguridad (Grado ordenable + TLS) */}
+        {/* 5. Seguridad (Grado ordenable redondeado + TLS) */}
         <td className={`${paddingY} px-3 whitespace-nowrap`}>
           <div className="flex items-center gap-1.5 min-w-0 text-xs">
             {cert.security_grade && gradeMeasured ? (
               <span
-                className={`shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.2 rounded border ${healthPalette[gradeTone].badge}`}
+                className={`shrink-0 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border leading-none ${healthPalette[gradeTone].badge}`}
                 title={getSSLGradeTooltip(cert)}
               >
                 {cert.security_grade}
@@ -346,7 +368,7 @@ export default function SSLCertificateTableView({
                 ? `Ver SANs (${cert.san_domains.length}): ${cert.san_domains.slice(0, 6).join(", ")}${cert.san_domains.length > 6 ? "…" : ""}`
                 : "Ver dominios SAN"
             }
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer !min-h-0 !min-w-0"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors cursor-pointer !min-h-0 !min-w-0"
           >
             <Layers size={10} className="text-sky-400 shrink-0" />
             <span>
@@ -380,16 +402,16 @@ export default function SSLCertificateTableView({
       className="connectivity-directory-table w-full max-w-[1400px] mx-auto bg-bg-card border border-border-base rounded-2xl overflow-hidden shadow-xl font-sans"
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] table-fixed text-left text-xs text-text-main border-collapse">
+        <table className="w-full min-w-[940px] table-fixed text-left text-xs text-text-main border-collapse">
           <colgroup>
             <col className="w-[38px]" />
-            <col className="w-[138px]" />
+            <col className="w-[136px]" />
             <col />
-            <col className="w-[148px]" />
-            <col className="w-[120px]" />
-            <col className="w-[168px]" />
+            <col className="w-[164px]" />
+            <col className="w-[126px]" />
+            <col className="w-[172px]" />
+            <col className="w-[88px]" />
             <col className="w-[84px]" />
-            <col className="w-[148px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
             <tr className="bg-bg-dark/90 font-semibold text-text-dim select-none">

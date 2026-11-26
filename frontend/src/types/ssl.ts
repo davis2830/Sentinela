@@ -2,6 +2,7 @@ export interface SSLLinkedTarget {
   id: string;
   name: string;
   endpoint: string;
+  enabled?: boolean;
 }
 
 export interface SSLCertificate {

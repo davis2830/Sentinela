@@ -6,7 +6,9 @@ import {
   hasMeasurement,
   sslGradeTone,
 } from "../../utils/healthPresentation";
-import RelativeTime from "../common/connectivity/RelativeTime";
+import RelativeTime, {
+  formatExactDate,
+} from "../common/connectivity/RelativeTime";
 import { StatusShapeIcon } from "../common/connectivity/StatusPill";
 import SSLCertificateRowActions from "./SSLCertificateRowActions";
 import type { SSLDrawerSection } from "./SSLCertificateTableView";
@@ -200,6 +202,56 @@ export default function SSLCertificateCard({
                 </span>
               )}
             </h3>
+
+            {/* Inline linked / suggested Uptime pill beside domain (keeps card height compact like Uptime) */}
+            {linked.length > 0 && (() => {
+              const primary = linked[0];
+              const isPausedTarget = primary.enabled === false;
+              return (
+                <Link
+                  to={`/monitoring?target=${primary.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={
+                    isPausedTarget
+                      ? `Vinculado al target ${primary.name} (pausado en Uptime)`
+                      : `Vinculado al target ${linked.map((t) => t.name).join(", ")}`
+                  }
+                  className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors max-w-[115px] ${
+                    isPausedTarget
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-300 hover:border-amber-400/60"
+                      : "bg-bg-dark/80 border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40"
+                  }`}
+                >
+                  <Link2
+                    size={9}
+                    className={`shrink-0 ${
+                      isPausedTarget ? "text-amber-400" : "text-accent-green/80"
+                    }`}
+                  />
+                  <span className="truncate">
+                    {primary.name}
+                    {isPausedTarget ? " (pausado)" : ""}
+                  </span>
+                </Link>
+              );
+            })()}
+            {linked.length === 0 && suggested.length > 0 && onLinkTarget && (
+              <button
+                type="button"
+                disabled={isLinking}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLinkTarget(cert, suggested[0]);
+                }}
+                title={`Target activo coincidente en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
+                className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-dashed border-border-base text-text-dim hover:text-accent-green hover:border-accent-green/50 transition-colors max-w-[110px] cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
+              >
+                <Link2 size={9} className="shrink-0" />
+                <span className="truncate">
+                  {isLinking ? "..." : suggested[0].name}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Non-shifting Floating Hover Actions */}
@@ -214,7 +266,7 @@ export default function SSLCertificateCard({
           />
         </div>
 
-        {/* Line 2: Issuer · Grade (tooltip) · TLS — zero repetition */}
+        {/* Line 2: Issuer · Grade (rounded pill with tooltip) · TLS — clean & compact */}
         <div
           className={`${isCompact ? "pl-[24px] text-[11px]" : "pl-[26px] text-xs"} flex items-center gap-1.5 min-w-0 text-text-dim`}
         >
@@ -225,7 +277,7 @@ export default function SSLCertificateCard({
             <>
               <span aria-hidden="true">·</span>
               <span
-                className={`shrink-0 font-mono text-[10px] font-bold px-1 rounded border ${healthPalette[gradeTone].badge}`}
+                className={`shrink-0 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border leading-none ${healthPalette[gradeTone].badge}`}
                 title={getSSLGradeTooltip(cert)}
               >
                 {cert.security_grade}
@@ -240,8 +292,8 @@ export default function SSLCertificateCard({
           )}
         </div>
 
-        {/* Optional Line 3: Problem diagnostic OR Clickable Linked / Suggested Uptime target */}
-        {problemReason ? (
+        {/* Optional Problem Diagnostic ONLY on abnormal certs (no extra line on healthy certs) */}
+        {problemReason && (
           <div
             className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center gap-1.5 text-[11px] font-mono text-rose-300 truncate`}
             title={cert.error_message || problemReason}
@@ -249,39 +301,7 @@ export default function SSLCertificateCard({
             <AlertTriangle size={11} className="text-rose-400 shrink-0" />
             <span className="truncate">{problemReason}</span>
           </div>
-        ) : linked.length > 0 ? (
-          <div className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center`}>
-            <Link
-              to={`/monitoring?target=${linked[0].id}`}
-              onClick={(e) => e.stopPropagation()}
-              title={`Vinculado al target ${linked.map((t) => t.name).join(", ")}`}
-              className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-accent-green hover:underline underline-offset-2 truncate transition-colors"
-            >
-              <Link2 size={10} className="text-accent-green/80 shrink-0" />
-              <span className="truncate">Vinculado a: {linked[0].name}</span>
-            </Link>
-          </div>
-        ) : suggested.length > 0 && onLinkTarget ? (
-          <div className={`${isCompact ? "pl-[24px]" : "pl-[26px]"} flex items-center`}>
-            <button
-              type="button"
-              disabled={isLinking}
-              onClick={(e) => {
-                e.stopPropagation();
-                onLinkTarget(cert, suggested[0]);
-              }}
-              title={`Target coincidente encontrado en Uptime: ${suggested[0].name}. Haz clic para vincularlo.`}
-              className="inline-flex items-center gap-1 text-[11px] text-text-dim hover:text-accent-green hover:underline underline-offset-2 truncate transition-colors cursor-pointer disabled:opacity-50 !min-h-0 !min-w-0"
-            >
-              <Link2 size={10} className="shrink-0" />
-              <span className="truncate">
-                {isLinking
-                  ? "Vinculando..."
-                  : `Vincular a: ${suggested[0].name}`}
-              </span>
-            </button>
-          </div>
-        ) : null}
+        )}
       </div>
 
       {/* Bottom Block: Big Days Remaining + SANs + Remaining-Time Bar + Unambiguous Date */}
@@ -328,7 +348,7 @@ export default function SSLCertificateCard({
                 ? `Ver SANs: ${cert.san_domains.slice(0, 6).join(", ")}`
                 : "Ver dominios SAN"
             }
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors shrink-0 cursor-pointer !min-h-0 !min-w-0"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[11px] bg-bg-dark/80 border border-border-base/80 text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-colors shrink-0 cursor-pointer !min-h-0 !min-w-0"
           >
             <Layers size={10} className="text-sky-400 shrink-0" />
             <span>
@@ -375,7 +395,14 @@ export default function SSLCertificateCard({
                 ? `Vence ${formatSSLDate(cert.expiration_date)}`
                 : "Sin datos de vigencia"}
           </span>
-          <span className="inline-flex items-center gap-1 text-[10px] text-text-dim shrink-0">
+          <span
+            className="inline-flex items-center gap-1 text-[10px] text-text-dim shrink-0"
+            title={
+              cert.last_scanned_at
+                ? `Última comprobación real: ${formatExactDate(cert.last_scanned_at)}`
+                : "Sin comprobación todavía"
+            }
+          >
             <Clock size={10} className="shrink-0 opacity-75" />
             <RelativeTime
               value={cert.last_scanned_at}
