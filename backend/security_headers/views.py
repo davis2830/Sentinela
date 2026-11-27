@@ -12,6 +12,7 @@ from .serializers import (
     SecurityHeaderResultSerializer,
     SecurityHeaderTargetCreateSerializer,
     SecurityHeaderTargetSerializer,
+    SecurityHeaderTargetUpdateSerializer,
 )
 from .services import SecurityHeadersService
 
@@ -42,45 +43,30 @@ class SecurityHeaderTargetListView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        from common.security import validate_safe_public_url, SSRFSecurityException
-
         try:
-            validate_safe_public_url(serializer.validated_data["url"])
-        except SSRFSecurityException as s_exc:
-            return error_response(str(s_exc), status_code=status.HTTP_400_BAD_REQUEST)
+            from organizations.services import QuotaExceededException
 
-        # Enforce quota limits
-        if getattr(request.user, "organization", None):
-            try:
-                from organizations.services import QuotaExceededException
-
-            except QuotaExceededException as qe:
-                return error_response(
-                    str(qe),
-                    errors={
-                        "code": "QUOTA_EXCEEDED",
-                        "resource": qe.resource_type,
-                        "limit": qe.limit,
-                        "plan": qe.plan_tier,
-                    },
-                    status_code=status.HTTP_403_FORBIDDEN,
-                )
-
-        try:
             target = SecurityHeadersService.create_target(
                 organization_id=org_id,
                 name=serializer.validated_data["name"],
                 url=serializer.validated_data["url"],
                 enabled=serializer.validated_data.get("enabled", True),
             )
-            from .tasks import scan_security_headers
-
-            scan_security_headers.delay(str(target.id))
-
             response_serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
             return success_response(
                 response_serializer.data,
                 status_code=status.HTTP_201_CREATED,
+            )
+        except QuotaExceededException as qe:
+            return error_response(
+                str(qe),
+                errors={
+                    "code": "QUOTA_EXCEEDED",
+                    "resource": qe.resource_type,
+                    "limit": qe.limit,
+                    "plan": qe.plan_tier,
+                },
+                status_code=status.HTTP_403_FORBIDDEN,
             )
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(exc, status_code=status.HTTP_400_BAD_REQUEST)
@@ -111,15 +97,32 @@ class SecurityHeaderTargetDetailView(APIView):
     def patch(self, request, target_id):
         org_id = request.user.organization_id
         try:
+            existing = SecurityHeadersService.get_target(target_id, org_id)
+        except ObjectDoesNotExist:
+            return error_response(
+                "Security header target not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = SecurityHeaderTargetUpdateSerializer(
+            data=request.data,
+            context={"request": request, "existing_url": existing.url},
+        )
+        if not serializer.is_valid():
+            return error_response(
+                "Invalid input.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
             target = SecurityHeadersService.update_target(
                 target_id,
                 org_id,
-                name=request.data.get("name"),
-                url=request.data.get("url"),
-                enabled=request.data.get("enabled"),
+                **serializer.validated_data,
             )
-            serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
-            return success_response(serializer.data)
+            response_serializer = SecurityHeaderTargetSerializer(target, context={"request": request})
+            return success_response(response_serializer.data)
         except (ValueError, ObjectDoesNotExist, APIException, DjangoValidationError) as exc:
             return error_response(
                 exc,

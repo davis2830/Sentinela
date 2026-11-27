@@ -67,8 +67,31 @@ class SecurityHeadersService:
 
     @staticmethod
     def list_targets(organization_id):
-        """Return all security header targets for an organization."""
-        return SecurityHeaderTarget.objects.filter(organization_id=organization_id).order_by("-created_at")
+        """Return all security header targets for an organization with bounded prefetched results."""
+        from django.db.models import Prefetch
+
+        return (
+            SecurityHeaderTarget.objects.filter(organization_id=organization_id)
+            .prefetch_related(
+                Prefetch(
+                    "results",
+                    queryset=SecurityHeaderResult.objects.only(
+                        "id",
+                        "target_id",
+                        "score",
+                        "grade",
+                        "response_time_ms",
+                        "headers_found",
+                        "headers_missing",
+                        "info_leaks",
+                        "error_message",
+                        "checked_at",
+                    ).order_by("-checked_at"),
+                    to_attr="prefetched_recent_results",
+                )
+            )
+            .order_by("-created_at")
+        )
 
     @staticmethod
     def get_target(target_id, organization_id):
@@ -156,8 +179,10 @@ class SecurityHeadersService:
         scores = [t.last_score for t in targets if t.last_score is not None]
         avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
 
-        # Operational score bands are independent from the preserved letter grades.
-        measured = targets.filter(last_checked_at__isnull=False, last_score__gte=0, last_score__lte=100)
+        # Operational score bands exclude paused targets so chips partition total cleanly.
+        active = targets.filter(enabled=True)
+        paused = targets.filter(enabled=False).count()
+        measured = active.filter(last_checked_at__isnull=False, last_score__gte=0, last_score__lte=100)
         healthy = measured.filter(last_score__gte=70, info_leak_detected=False).count()
         warning = measured.filter(
             models.Q(last_score__gte=50, last_score__lt=70) | models.Q(last_score__gte=70, info_leak_detected=True)
@@ -174,7 +199,8 @@ class SecurityHeadersService:
             "healthy": healthy,
             "warning": warning,
             "critical": critical,
-            "unmeasured": total - measured.count(),
+            "unmeasured": active.count() - measured.count(),
+            "paused": paused,
         }
 
     @staticmethod

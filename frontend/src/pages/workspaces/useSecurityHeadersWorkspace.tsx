@@ -1,33 +1,26 @@
-import { securityTone, measuredAt } from "../../utils/endpointPresentation";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnectivityDirectory } from "../../hooks/useConnectivityDirectory";
-import { apiFailure } from "../../services/errors";
-import { bulkOutcome } from "../../utils/bulkOutcome";
-import { useLinkedResource } from "../../hooks/useLinkedResource";
-import { useUrlFilter } from "../../hooks/useUrlFilter";
-import { useAuthStore } from "../../store/authStore";
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../services/api";
-import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
-import type {
-  SecurityHeaderTarget,
-  SecurityHeaderResult,
-  CreateSecurityHeaderTargetData,
-  SecurityHeaderStats,
-  SecurityGrade,
-} from "../../types/security_headers";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
+import { useLinkedResource } from "../../hooks/useLinkedResource";
 import { usePersistentViewMode } from "../../hooks/usePersistentViewMode";
+import { useUrlFilter } from "../../hooks/useUrlFilter";
+import { api } from "../../services/api";
+import { apiFailure } from "../../services/errors";
+import { useAuthStore } from "../../store/authStore";
+import type {
+  CreateSecurityHeaderTargetData,
+  SecurityHeaderResult,
+  SecurityHeaderStats,
+  SecurityHeaderTarget,
+} from "../../types/security_headers";
+import { bulkOutcome } from "../../utils/bulkOutcome";
+import { waitForFreshScan, type QueuedScan } from "../../utils/scanPolling";
 
-type DrawerTabType = "audit" | "leaks_raw" | "history";
-
-/** Data, mutations and transient workflow state; rendering stays in the page. */
 export function useSecurityHeadersWorkspace() {
   const organizationId = useAuthStore((state) => state.user?.organization?.id);
-
   const queryClient = useQueryClient();
 
-  // State
   const [selectedTarget, setSelectedTarget] =
     useState<SecurityHeaderTarget | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -38,13 +31,11 @@ export function useSecurityHeadersWorkspace() {
   );
   const [gradeFilter, setGradeFilter] = useUrlFilter("grade", [
     "all",
-    "grade_a",
-    "grade_bc",
-    "grade_df",
     "healthy",
     "warning",
     "critical",
     "unmeasured",
+    "paused",
   ] as const);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = usePersistentViewMode(
@@ -53,14 +44,10 @@ export function useSecurityHeadersWorkspace() {
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
-  const [drawerTab, setDrawerTab] = useState<DrawerTabType>("audit");
-  const [rawHeadersFilter, setRawHeadersFilter] = useState("");
   const [bulkActionRunning, setBulkActionRunning] = useState(false);
 
-  // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
 
-  // Stats query
   const { data: stats } = useQuery<SecurityHeaderStats>({
     queryKey: ["security-header-stats", organizationId],
     queryFn: async () => {
@@ -70,7 +57,6 @@ export function useSecurityHeadersWorkspace() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  // Targets query
   const directory = useConnectivityDirectory<SecurityHeaderTarget>(
     "security-headers/",
     "security-header-targets",
@@ -81,7 +67,15 @@ export function useSecurityHeadersWorkspace() {
   const selectionScope = JSON.stringify(directory.params);
   useEffect(() => setSelectedIds([]), [selectionScope]);
 
-  // Target scan results query for selectedTarget
+  // Keep selectedTarget fresh when list updates via polling or mutation
+  useEffect(() => {
+    if (!selectedTarget || !targets) return;
+    const fresh = targets.find((t) => t.id === selectedTarget.id);
+    if (fresh && fresh !== selectedTarget) {
+      setSelectedTarget(fresh);
+    }
+  }, [targets, selectedTarget]);
+
   const { data: results, isLoading: isLoadingResults } = useQuery<
     SecurityHeaderResult[]
   >({
@@ -96,17 +90,21 @@ export function useSecurityHeadersWorkspace() {
     enabled: !!selectedTarget,
   });
 
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["security-header-targets", organizationId],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["security-header-stats", organizationId],
+    });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: CreateSecurityHeaderTargetData) => {
       await api.post("security-headers/", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-stats", organizationId],
-      });
+      invalidateAll();
       setShowForm(false);
       setEditingTarget(null);
     },
@@ -118,17 +116,12 @@ export function useSecurityHeadersWorkspace() {
       data,
     }: {
       id: string;
-      data: CreateSecurityHeaderTargetData;
+      data: Partial<CreateSecurityHeaderTargetData>;
     }) => {
       await api.patch(`security-headers/${id}/`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-stats", organizationId],
-      });
+      invalidateAll();
       setShowForm(false);
       setEditingTarget(null);
     },
@@ -148,12 +141,7 @@ export function useSecurityHeadersWorkspace() {
       );
     },
     onSuccess: (updatedTarget) => {
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-stats", organizationId],
-      });
+      invalidateAll();
       queryClient.invalidateQueries({
         queryKey: [
           "security-header-results",
@@ -180,12 +168,7 @@ export function useSecurityHeadersWorkspace() {
       await api.delete(`security-headers/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-stats", organizationId],
-      });
+      invalidateAll();
       if (selectedTarget?.id === deleteTarget?.id) {
         setSelectedTarget(null);
       }
@@ -193,7 +176,6 @@ export function useSecurityHeadersWorkspace() {
     },
   });
 
-  // Bulk Actions
   const handleToggleSelect = (target: SecurityHeaderTarget) => {
     setSelectedIds((prev) =>
       prev.includes(target.id)
@@ -202,13 +184,11 @@ export function useSecurityHeadersWorkspace() {
     );
   };
 
-  const handleSelectAllToggle = () => {
-    if (!filteredTargets || filteredTargets.length === 0) return;
-    if (selectedIds.length === filteredTargets.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredTargets.map((t) => t.id));
-    }
+  const handleToggleEnabled = (target: SecurityHeaderTarget) => {
+    updateMutation.mutate({
+      id: target.id,
+      data: { enabled: !target.enabled },
+    });
   };
 
   const handleExecuteBulkAction = async (
@@ -232,15 +212,10 @@ export function useSecurityHeadersWorkspace() {
       const outcome = bulkOutcome(response.data.data, selectedIds);
       setSelectedIds(outcome.pending);
       directory.setMessage(outcome.message);
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["security-header-stats", organizationId],
-      });
+      invalidateAll();
     } catch (err) {
       directory.setMessage(
-        apiFailure(err).response?.data.message ||
+        apiFailure(err).message ||
           "No se pudo confirmar la acción; la selección se conserva.",
       );
     } finally {
@@ -248,10 +223,8 @@ export function useSecurityHeadersWorkspace() {
     }
   };
 
-  // CSV Export Function
   const handleExportCSV = () => void directory.exportCSV();
 
-  // Form Handlers
   const handleFormSubmit = async (data: CreateSecurityHeaderTargetData) => {
     if (editingTarget) {
       await updateMutation.mutateAsync({ id: editingTarget.id, data });
@@ -265,74 +238,18 @@ export function useSecurityHeadersWorkspace() {
     setShowForm(true);
   };
 
-  const handleOpenEdit = (
-    target: SecurityHeaderTarget,
-    e?: React.MouseEvent,
-  ) => {
-    if (e) e.stopPropagation();
+  const handleOpenEdit = (target: SecurityHeaderTarget) => {
     setEditingTarget(target);
     setShowForm(true);
   };
 
-  const parseHeadersList = (
-    headers: string[] | Record<string, string> | undefined,
-  ): string[] => {
-    if (!headers) return [];
-    if (Array.isArray(headers)) return headers;
-    return Object.keys(headers);
-  };
-
-  const calculateGrade = (score: number | null): SecurityGrade | null => {
-    if (score === null) return null;
-    if (score >= 95) return "A+";
-    if (score >= 80) return "A";
-    if (score >= 70) return "B";
-    if (score >= 60) return "C";
-    if (score >= 50) return "D";
-    return "F";
-  };
-
-  // KPI Calculations
-  const allTargets = targets || [];
-  const healthTone = (t: SecurityHeaderTarget) =>
-    !measuredAt(t as unknown as Record<string, unknown>)
-      ? "muted"
-      : securityTone(t.last_score) === "success" && t.info_leak_detected
-        ? "warning"
-        : securityTone(t.last_score);
-  const totalCount = stats?.total ?? "—";
-  const gradeACount = stats?.healthy ?? "—";
-  const gradeBCCount = stats?.warning ?? "—";
-  const gradeDFCount = stats?.critical ?? "—";
-  const unmeasuredCount = stats?.unmeasured ?? "—";
-  const infoLeaksCount = stats?.info_leaks_count ?? "—";
-
-  // Filtered & Searched Targets
-  const filteredTargets = allTargets;
-
-  const latestResult: SecurityHeaderResult | null =
-    results && results.length > 0 ? results[0] : null;
-
-  const foundHeadersDict: Record<string, string> =
-    latestResult?.headers_found &&
-    typeof latestResult.headers_found === "object" &&
-    !Array.isArray(latestResult.headers_found)
-      ? (latestResult.headers_found as Record<string, string>)
-      : {};
-
-  const missingList = latestResult
-    ? parseHeadersList(latestResult.headers_missing)
-    : [];
-  const foundList = latestResult
-    ? parseHeadersList(latestResult.headers_found)
-    : [];
-  const directivesAnalysis = latestResult?.directives_analysis || {};
-  const infoLeaks = latestResult?.info_leaks || {};
-  const rawHeaders = latestResult?.raw_headers || {};
-
   useLinkedResource(targets, selectedTarget, setSelectedTarget);
+
   return {
     directory,
+    stats,
+    targets,
+    isLoading,
     isError,
     refetch,
     selectedTarget,
@@ -352,39 +269,18 @@ export function useSecurityHeadersWorkspace() {
     selectedIds,
     setSelectedIds,
     scanningId,
-    drawerTab,
-    setDrawerTab,
-    rawHeadersFilter,
-    setRawHeadersFilter,
     bulkActionRunning,
     autoRefresh,
-    targets,
-    isLoading,
     results,
     isLoadingResults,
     scanMutation,
     deleteMutation,
     handleToggleSelect,
-    handleSelectAllToggle,
+    handleToggleEnabled,
     handleExecuteBulkAction,
     handleExportCSV,
     handleFormSubmit,
     handleOpenCreate,
     handleOpenEdit,
-    calculateGrade,
-    totalCount,
-    healthTone,
-    gradeACount,
-    gradeBCCount,
-    gradeDFCount,
-    unmeasuredCount,
-    infoLeaksCount,
-    filteredTargets,
-    foundHeadersDict,
-    missingList,
-    foundList,
-    directivesAnalysis,
-    infoLeaks,
-    rawHeaders,
   };
 }

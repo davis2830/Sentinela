@@ -35615,6 +35615,7 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -35631,6 +35632,8 @@
                           "has_xfo": {
                             "type": "boolean"
                           },
+                          "headers_found_count": {},
+                          "headers_missing_count": {},
                           "id": {
                             "format": "uuid",
                             "type": "string"
@@ -35643,6 +35646,7 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "last_error_message": {},
                           "last_grade": {
                             "type": "string"
                           },
@@ -35663,6 +35667,7 @@
                           "powered_by_header": {
                             "type": "string"
                           },
+                          "recent_results": {},
                           "scan_availability": {},
                           "server_header": {
                             "type": "string"
@@ -35818,6 +35823,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -35834,6 +35840,8 @@
                         "has_xfo": {
                           "type": "boolean"
                         },
+                        "headers_found_count": {},
+                        "headers_missing_count": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -35846,6 +35854,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_message": {},
                         "last_grade": {
                           "type": "string"
                         },
@@ -35866,6 +35875,7 @@
                         "powered_by_header": {
                           "type": "string"
                         },
+                        "recent_results": {},
                         "scan_availability": {},
                         "server_header": {
                           "type": "string"
@@ -35912,6 +35922,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -35928,6 +35939,8 @@
                         "has_xfo": {
                           "type": "boolean"
                         },
+                        "headers_found_count": {},
+                        "headers_missing_count": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -35940,6 +35953,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_message": {},
                         "last_grade": {
                           "type": "string"
                         },
@@ -35960,6 +35974,7 @@
                         "powered_by_header": {
                           "type": "string"
                         },
+                        "recent_results": {},
                         "scan_availability": {},
                         "server_header": {
                           "type": "string"
@@ -36530,6 +36545,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -36546,6 +36562,8 @@
                         "has_xfo": {
                           "type": "boolean"
                         },
+                        "headers_found_count": {},
+                        "headers_missing_count": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -36558,6 +36576,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_message": {},
                         "last_grade": {
                           "type": "string"
                         },
@@ -36578,6 +36597,7 @@
                         "powered_by_header": {
                           "type": "string"
                         },
+                        "recent_results": {},
                         "scan_availability": {},
                         "server_header": {
                           "type": "string"
@@ -36664,7 +36684,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
                 "type": "object"
               }
             }
@@ -36678,6 +36708,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -36694,6 +36725,8 @@
                         "has_xfo": {
                           "type": "boolean"
                         },
+                        "headers_found_count": {},
+                        "headers_missing_count": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -36706,6 +36739,7 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "last_error_message": {},
                         "last_grade": {
                           "type": "string"
                         },
@@ -36726,6 +36760,7 @@
                         "powered_by_header": {
                           "type": "string"
                         },
+                        "recent_results": {},
                         "scan_availability": {},
                         "server_header": {
                           "type": "string"

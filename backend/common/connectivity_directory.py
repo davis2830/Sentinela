@@ -105,20 +105,24 @@ def filtered(rows, params, module):
             rows = rows.filter(last_attempt_status=state)
     if module == "security_headers":
         grade = params.get("grade", "all")
-        if grade == "healthy":
-            rows = rows.filter(last_score__gte=70, info_leak_detected=False, last_checked_at__isnull=False)
+        if grade in ("paused", "disabled"):
+            rows = rows.filter(enabled=False)
+        elif grade == "healthy":
+            rows = rows.filter(enabled=True, last_score__gte=70, info_leak_detected=False, last_checked_at__isnull=False)
         elif grade == "warning":
-            rows = rows.filter(last_score__gte=50, last_score__lt=70)
+            rows = rows.filter(enabled=True, last_checked_at__isnull=False).filter(
+                Q(last_score__gte=50, last_score__lt=70) | Q(last_score__gte=70, info_leak_detected=True)
+            )
         elif grade == "critical":
-            rows = rows.filter(Q(last_score__lt=50) | Q(info_leak_detected=True))
+            rows = rows.filter(enabled=True, last_score__lt=50, last_checked_at__isnull=False)
         elif grade == "unmeasured":
-            rows = rows.filter(last_checked_at__isnull=True)
+            rows = rows.filter(enabled=True, last_checked_at__isnull=True)
         elif grade == "grade_a":
-            rows = rows.filter(last_score__gte=80, last_checked_at__isnull=False)
+            rows = rows.filter(enabled=True, last_score__gte=80, last_checked_at__isnull=False)
         elif grade == "grade_bc":
-            rows = rows.filter(last_score__gte=60, last_score__lt=80, last_checked_at__isnull=False)
+            rows = rows.filter(enabled=True, last_score__gte=60, last_score__lt=80, last_checked_at__isnull=False)
         elif grade == "grade_df":
-            rows = rows.filter(last_score__lt=60, last_checked_at__isnull=False)
+            rows = rows.filter(enabled=True, last_score__lt=60, last_checked_at__isnull=False)
     if module == "monitoring" and params.get("tag") not in (None, "", "all"):
         rows = rows.filter(tags__contains=[params["tag"]])
     if module == "monitoring" and params.get("agent"):

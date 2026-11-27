@@ -43,6 +43,7 @@ export default function SecurityHeaderForm({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestHeaderResponse | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (target) {
@@ -56,6 +57,7 @@ export default function SecurityHeaderForm({
     }
     setTestResult(null);
     setTestError(null);
+    setSubmitError(null);
   }, [target]);
 
   const handleTestAudit = async () => {
@@ -94,6 +96,7 @@ export default function SecurityHeaderForm({
     if (!name.trim() || !url.trim()) return;
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onSubmit({
         name: name.trim(),
@@ -101,6 +104,11 @@ export default function SecurityHeaderForm({
         enabled,
       });
       onClose();
+    } catch (err: unknown) {
+      setSubmitError(
+        apiFailure(err).message ||
+          "No se pudo guardar el endpoint. Verifica la URL y tu cuota del plan.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -141,6 +149,12 @@ export default function SecurityHeaderForm({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {submitError && (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-start gap-2">
+              <AlertTriangle size={15} className="shrink-0 mt-0.5 text-rose-400" />
+              <span>{submitError}</span>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1.5">
               Nombre de la Aplicación / Servicio
