@@ -31,6 +31,7 @@ class APICheckTarget(OrganizationOwnedModel):
     request_headers = models.JSONField(default=dict, blank=True)
     request_body = models.JSONField(default=dict, blank=True)
     check_interval = models.IntegerField(default=60)
+    alert_after_failures = models.PositiveSmallIntegerField(default=2)
     enabled = models.BooleanField(default=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, null=True, blank=True)
@@ -56,6 +57,7 @@ class APICheckResult(BaseModel):
         PASS = "pass", "Pass"
         FAIL = "fail", "Fail"
         SLOW = "slow", "Slow"
+        RATE_LIMITED = "rate_limited", "Rate Limited"
         ERROR = "error", "Error"
 
     target = models.ForeignKey(
@@ -74,6 +76,7 @@ class APICheckResult(BaseModel):
     schema_failures = models.JSONField(default=list, blank=True)
     headers_valid = models.BooleanField(null=True, blank=True)
     response_headers = models.JSONField(default=dict, blank=True)
+    response_preview = models.TextField(blank=True, default="")
     error_message = models.TextField(blank=True)
     checked_at = models.DateTimeField()
 

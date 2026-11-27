@@ -77,6 +77,16 @@ class AvailabilityListSerializer(serializers.ListSerializer):
                     data = data.prefetch_related(
                         Prefetch("checks", queryset=checks, to_attr="prefetched_recent_checks")
                     )
+            elif data.model._meta.label_lower == "api_checks.apichecktarget":
+                if not any(
+                    getattr(lookup, "to_attr", None) == "prefetched_recent_results"
+                    for lookup in data._prefetch_related_lookups
+                ):
+                    result_model = apps.get_model("api_checks", "APICheckResult")
+                    recent_qs = result_model.objects.order_by("-checked_at")
+                    data = data.prefetch_related(
+                        Prefetch("results", queryset=recent_qs, to_attr="prefetched_recent_results")
+                    )
         resources = list(data)
         private = [row for row in resources if getattr(row, "runner_type", None) == "agent"]
         self.context["agent_executions"] = (

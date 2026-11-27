@@ -68,6 +68,7 @@ class APICheckService:
         request_headers=None,
         request_body=None,
         check_interval=60,
+        alert_after_failures=2,
         enabled=True,
     ):
         """Create a new API check target."""
@@ -83,6 +84,7 @@ class APICheckService:
             request_headers=request_headers or {},
             request_body=request_body or {},
             check_interval=check_interval or 60,
+            alert_after_failures=max(1, min(10, int(alert_after_failures or 2))),
             enabled=enabled,
         )
         from .tasks import run_api_check
@@ -185,17 +187,22 @@ class APICheckService:
 
     @staticmethod
     def get_api_check_stats(organization_id):
-        """Returns KPI summary statistics for API check targets."""
+        """Returns KPI summary statistics for API check targets (mutually exclusive buckets)."""
         targets = APICheckTarget.objects.filter(organization_id=organization_id)
         total = targets.count()
-        pass_count = targets.filter(last_status="pass").count()
-        slow_count = targets.filter(last_status="slow").count()
-        fail_count = targets.filter(last_status__in=["fail", "error"]).count()
+        active = targets.filter(enabled=True)
         paused_count = targets.filter(enabled=False).count()
+        pending_count = active.filter(last_checked_at__isnull=True).count()
+        measured = active.filter(last_checked_at__isnull=False)
+        pass_count = measured.filter(last_status="pass").count()
+        slow_count = measured.filter(last_status="slow").count()
+        rate_limited_count = measured.filter(last_status="rate_limited").count()
+        fail_count = measured.filter(last_status__in=["fail", "error"]).count()
 
         # Calculate average response time across recent results
         recent_results = APICheckResult.objects.filter(
             target__organization_id=organization_id,
+            target__enabled=True,
             response_time_ms__isnull=False,
         ).order_by("-checked_at")[:100]
 
@@ -207,7 +214,9 @@ class APICheckService:
             "pass_count": pass_count,
             "slow_count": slow_count,
             "fail_count": fail_count,
+            "rate_limited_count": rate_limited_count,
             "paused_count": paused_count,
+            "pending_count": pending_count,
             "avg_latency": avg_latency,
         }
 
@@ -237,6 +246,7 @@ class APICheckService:
         response_headers,
         error_message="",
         schema_failures=None,
+        response_preview="",
     ):
         """Record an API check result and update target state."""
         target = APICheckTarget.objects.get(id=target_id)
@@ -257,8 +267,10 @@ class APICheckService:
             response_headers={
                 k: v
                 for k, v in (response_headers or {}).items()
-                if k.lower() not in {"set-cookie", "authorization", "proxy-authorization", "x-api-key"}
+                if k.lower()
+                not in {"set-cookie", "cookie", "authorization", "proxy-authorization", "x-api-key", "x-auth-token"}
             },
+            response_preview=(response_preview or "")[:2100],
             error_message=error_message,
             checked_at=now,
         )

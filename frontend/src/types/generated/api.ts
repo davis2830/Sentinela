@@ -2266,7 +2266,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_after_failures?: number;
+                                alert_summary?: unknown;
                                 check_interval?: number;
+                                checks_24h?: unknown;
+                                consecutive_failures?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 enabled?: boolean;
@@ -2274,22 +2278,30 @@ export interface paths {
                                 expected_response_time_ms?: number;
                                 expected_schema?: unknown;
                                 expected_status?: number;
+                                failing_since?: unknown;
+                                failure_reason?: unknown;
+                                failures_24h?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 /** Format: date-time */
                                 last_checked_at?: string | null;
                                 last_http_status?: number | null;
                                 last_response_time_ms?: number | null;
+                                last_schema_failures?: unknown;
+                                last_schema_valid?: unknown;
                                 last_status?: string | null;
                                 /** @enum {string} */
                                 method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
                                 name: string;
                                 organization?: string;
+                                p95_latency_24h?: unknown;
+                                recent_results?: unknown;
                                 request_body?: unknown;
                                 request_headers?: unknown;
                                 scan_availability?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                                 url: string;
                             }[];
                             message?: string;
@@ -2331,6 +2343,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        alert_after_failures?: number;
                         check_interval?: number;
                         enabled?: boolean;
                         expected_headers?: {
@@ -2363,7 +2376,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_after_failures?: number;
+                                alert_summary?: unknown;
                                 check_interval?: number;
+                                checks_24h?: unknown;
+                                consecutive_failures?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 enabled?: boolean;
@@ -2371,22 +2388,30 @@ export interface paths {
                                 expected_response_time_ms?: number;
                                 expected_schema?: unknown;
                                 expected_status?: number;
+                                failing_since?: unknown;
+                                failure_reason?: unknown;
+                                failures_24h?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 /** Format: date-time */
                                 last_checked_at?: string | null;
                                 last_http_status?: number | null;
                                 last_response_time_ms?: number | null;
+                                last_schema_failures?: unknown;
+                                last_schema_valid?: unknown;
                                 last_status?: string | null;
                                 /** @enum {string} */
                                 method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
                                 name: string;
                                 organization?: string;
+                                p95_latency_24h?: unknown;
+                                recent_results?: unknown;
                                 request_body?: unknown;
                                 request_headers?: unknown;
                                 scan_availability?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                                 url: string;
                             };
                             message?: string;
@@ -2405,7 +2430,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_after_failures?: number;
+                                alert_summary?: unknown;
                                 check_interval?: number;
+                                checks_24h?: unknown;
+                                consecutive_failures?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 enabled?: boolean;
@@ -2413,22 +2442,30 @@ export interface paths {
                                 expected_response_time_ms?: number;
                                 expected_schema?: unknown;
                                 expected_status?: number;
+                                failing_since?: unknown;
+                                failure_reason?: unknown;
+                                failures_24h?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 /** Format: date-time */
                                 last_checked_at?: string | null;
                                 last_http_status?: number | null;
                                 last_response_time_ms?: number | null;
+                                last_schema_failures?: unknown;
+                                last_schema_valid?: unknown;
                                 last_status?: string | null;
                                 /** @enum {string} */
                                 method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
                                 name: string;
                                 organization?: string;
+                                p95_latency_24h?: unknown;
+                                recent_results?: unknown;
                                 request_body?: unknown;
                                 request_headers?: unknown;
                                 scan_availability?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                                 url: string;
                             };
                             message?: string;
@@ -2763,7 +2800,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_after_failures?: number;
+                                alert_summary?: unknown;
                                 check_interval?: number;
+                                checks_24h?: unknown;
+                                consecutive_failures?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 enabled?: boolean;
@@ -2771,22 +2812,30 @@ export interface paths {
                                 expected_response_time_ms?: number;
                                 expected_schema?: unknown;
                                 expected_status?: number;
+                                failing_since?: unknown;
+                                failure_reason?: unknown;
+                                failures_24h?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 /** Format: date-time */
                                 last_checked_at?: string | null;
                                 last_http_status?: number | null;
                                 last_response_time_ms?: number | null;
+                                last_schema_failures?: unknown;
+                                last_schema_valid?: unknown;
                                 last_status?: string | null;
                                 /** @enum {string} */
                                 method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
                                 name: string;
                                 organization?: string;
+                                p95_latency_24h?: unknown;
+                                recent_results?: unknown;
                                 request_body?: unknown;
                                 request_headers?: unknown;
                                 scan_availability?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                                 url: string;
                             };
                             message?: string;
@@ -2866,6 +2915,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        alert_after_failures?: number;
                         check_interval?: number;
                         enabled?: boolean;
                         expected_headers?: {
@@ -2898,7 +2948,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                alert_after_failures?: number;
+                                alert_summary?: unknown;
                                 check_interval?: number;
+                                checks_24h?: unknown;
+                                consecutive_failures?: unknown;
                                 /** Format: date-time */
                                 created_at?: string;
                                 enabled?: boolean;
@@ -2906,22 +2960,30 @@ export interface paths {
                                 expected_response_time_ms?: number;
                                 expected_schema?: unknown;
                                 expected_status?: number;
+                                failing_since?: unknown;
+                                failure_reason?: unknown;
+                                failures_24h?: unknown;
                                 /** Format: uuid */
                                 id?: string;
                                 /** Format: date-time */
                                 last_checked_at?: string | null;
                                 last_http_status?: number | null;
                                 last_response_time_ms?: number | null;
+                                last_schema_failures?: unknown;
+                                last_schema_valid?: unknown;
                                 last_status?: string | null;
                                 /** @enum {string} */
                                 method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
                                 name: string;
                                 organization?: string;
+                                p95_latency_24h?: unknown;
+                                recent_results?: unknown;
                                 request_body?: unknown;
                                 request_headers?: unknown;
                                 scan_availability?: unknown;
                                 /** Format: date-time */
                                 updated_at?: string;
+                                uptime_24h?: unknown;
                                 url: string;
                             };
                             message?: string;
@@ -2983,11 +3045,12 @@ export interface paths {
                                 id?: string;
                                 json_valid?: boolean | null;
                                 response_headers?: unknown;
+                                response_preview?: string;
                                 response_time_ms?: number | null;
                                 schema_failures?: unknown;
                                 schema_valid?: boolean | null;
                                 /** @enum {string} */
-                                status: "pass" | "fail" | "slow" | "error";
+                                status: "pass" | "fail" | "slow" | "rate_limited" | "error";
                                 target?: string;
                             }[];
                             message?: string;

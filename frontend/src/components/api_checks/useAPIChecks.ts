@@ -10,6 +10,7 @@ import type { TableDensity } from "../common/connectivity/tableTokens";
 
 export type APICheckHealthState =
   | "fail"
+  | "rate_limited"
   | "slow"
   | "pass"
   | "paused"
@@ -42,33 +43,40 @@ export const API_STATE_META: Record<APICheckHealthState, APICheckStateMeta> = {
     textClass: "text-rose-400",
     rank: 0,
   },
-  slow: {
-    label: "Lento",
+  rate_limited: {
+    label: "Limitado",
     tone: "warning",
     shape: "alert",
     textClass: "text-amber-400",
     rank: 1,
   },
+  slow: {
+    label: "Lento",
+    tone: "warning",
+    shape: "alert",
+    textClass: "text-amber-400",
+    rank: 2,
+  },
   pass: {
-    label: "Exitoso",
+    label: "Correcto",
     tone: "success",
     shape: "check",
     textClass: "text-emerald-400",
-    rank: 2,
+    rank: 3,
   },
   paused: {
     label: "Pausado",
     tone: "muted",
     shape: "pause",
     textClass: "text-slate-400",
-    rank: 3,
+    rank: 4,
   },
   pending: {
     label: "Pendiente",
     tone: "neutral",
     shape: "clock",
     textClass: "text-slate-400",
-    rank: 4,
+    rank: 5,
   },
 };
 
@@ -89,28 +97,43 @@ export function getAPICheckHealthState(
     return "pending";
   }
   const s = target.last_status.toLowerCase();
+  if (s === "rate_limited") return "rate_limited";
+  if (target.last_http_status === 429 && target.expected_status !== 429) {
+    return "rate_limited";
+  }
   if (s === "fail" || s === "error" || s === "down") return "fail";
   if (s === "slow" || s === "degraded") return "slow";
   if (s === "pass" || s === "up" || s === "ok") return "pass";
   return "pending";
 }
 
-export function getMethodBadgeClass(method: string): string {
-  switch (method.toUpperCase()) {
-    case "GET":
-      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-    case "POST":
-      return "bg-sky-500/10 text-sky-400 border-sky-500/30";
-    case "PUT":
-    case "PATCH":
-      return "bg-amber-500/10 text-amber-400 border-amber-500/30";
-    case "DELETE":
-      return "bg-rose-500/10 text-rose-400 border-rose-500/30";
-    case "HEAD":
-      return "bg-purple-500/10 text-purple-400 border-purple-500/30";
-    default:
-      return "bg-zinc-800 text-zinc-300 border-zinc-700";
-  }
+/**
+ * Neutral non-semantic badge for all HTTP methods so GET/DELETE never collide
+ * visually with green/red health status pills.
+ */
+export function getMethodBadgeClass(): string {
+  return "bg-bg-dark text-text-muted border-border-base/90";
+}
+
+/**
+ * Colors latency strictly against its OWN threshold (never inherited from row failure).
+ * - > limit: rose
+ * - >= 75% of limit: amber
+ * - < 75% of limit: neutral main text
+ */
+export function getLatencyOwnColor(
+  latencyMs: number | null | undefined,
+  maxLatencyMs: number,
+): string {
+  if (latencyMs === null || latencyMs === undefined) return "text-text-dim";
+  const limit = Math.max(1, maxLatencyMs || 2000);
+  if (latencyMs > limit) return "text-rose-400 font-semibold";
+  if (latencyMs >= limit * 0.75) return "text-amber-400 font-semibold";
+  return "text-text-main";
+}
+
+export function stripProtocol(url: string): string {
+  return url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
 }
 
 export function extractApiHost(url: string): string {
@@ -123,10 +146,20 @@ export function extractApiHost(url: string): string {
 
 export function formatApiInterval(seconds?: number | null): string {
   const sec = seconds || 60;
-  if (sec < 60) return `Cada ${sec}s`;
-  if (sec % 3600 === 0) return `Cada ${sec / 3600}h`;
-  if (sec % 60 === 0) return `Cada ${sec / 60}m`;
-  return `Cada ${sec}s`;
+  if (sec < 60) return `cada ${sec} s`;
+  if (sec % 3600 === 0) return `cada ${sec / 3600} h`;
+  if (sec % 60 === 0) return `cada ${sec / 60} min`;
+  return `cada ${sec} s`;
+}
+
+export function formatResultStatusEs(status: string): string {
+  const s = (status || "").toLowerCase();
+  if (s === "pass" || s === "up" || s === "ok") return "Correcto";
+  if (s === "slow") return "Lento";
+  if (s === "rate_limited") return "Limitado";
+  if (s === "fail") return "Fallo";
+  if (s === "error") return "Error";
+  return status || "Desconocido";
 }
 
 export function hasExpectedSchema(target: APICheckTarget): boolean {
@@ -140,6 +173,74 @@ export function hasExpectedSchema(target: APICheckTarget): boolean {
 export function getSchemaFieldCount(target: APICheckTarget): number {
   if (!hasExpectedSchema(target)) return 0;
   return Object.keys(target.expected_schema || {}).length;
+}
+
+export interface SchemaContractSummary {
+  total: number;
+  failed: number;
+  passed: number;
+  valid: boolean | null;
+  label: string;
+}
+
+export function getSchemaContractSummary(
+  target: APICheckTarget,
+): SchemaContractSummary | null {
+  const total = getSchemaFieldCount(target);
+  if (total === 0) return null;
+  const failures = target.last_schema_failures || [];
+  const valid = target.last_schema_valid ?? null;
+  if (valid === true) {
+    return {
+      total,
+      failed: 0,
+      passed: total,
+      valid: true,
+      label: `${total} ${total === 1 ? "campo" : "campos"} ✓`,
+    };
+  }
+  if (valid === false) {
+    const failed = Math.min(total, Math.max(1, failures.length));
+    const passed = Math.max(0, total - failed);
+    return {
+      total,
+      failed,
+      passed,
+      valid: false,
+      label: `${passed} de ${total} ✗`,
+    };
+  }
+  return {
+    total,
+    failed: 0,
+    passed: 0,
+    valid: null,
+    label: `${total} ${total === 1 ? "campo" : "campos"}`,
+  };
+}
+
+export function getApiFailureReason(target: APICheckTarget): string | null {
+  if (!target.enabled) return null;
+  if (target.failure_reason) return target.failure_reason;
+  const state = getAPICheckHealthState(target);
+  if (state === "pass" || state === "paused" || state === "pending") {
+    return null;
+  }
+  if (state === "rate_limited") return "429 · límite de velocidad";
+  if (target.last_http_status === null || target.last_http_status === undefined) {
+    return "sin respuesta";
+  }
+  if (target.last_http_status !== target.expected_status) {
+    return `${target.last_http_status} ≠ ${target.expected_status}`;
+  }
+  if (
+    state === "slow" &&
+    target.last_response_time_ms !== null &&
+    target.last_response_time_ms !== undefined
+  ) {
+    return `${Math.round(target.last_response_time_ms)} ms > ${target.expected_response_time_ms} ms`;
+  }
+  return null;
 }
 
 export function buildSafeCurl(target: APICheckTarget): string {
@@ -174,6 +275,7 @@ export interface APICheckGroup {
 export interface APICheckSummaryMetrics {
   total: number;
   failCount: number;
+  rateLimitedCount: number;
   slowCount: number;
   passCount: number;
   pausedCount: number;
@@ -213,6 +315,7 @@ export function useAPIChecks({
 
   const summary = useMemo<APICheckSummaryMetrics>(() => {
     let failCount = 0;
+    let rateLimitedCount = 0;
     let slowCount = 0;
     let passCount = 0;
     let pausedCount = 0;
@@ -223,6 +326,7 @@ export function useAPIChecks({
     for (const t of targets) {
       const st = getAPICheckHealthState(t);
       if (st === "fail") failCount++;
+      else if (st === "rate_limited") rateLimitedCount++;
       else if (st === "slow") slowCount++;
       else if (st === "pass") passCount++;
       else if (st === "paused") pausedCount++;
@@ -241,6 +345,7 @@ export function useAPIChecks({
     return {
       total: targets.length,
       failCount,
+      rateLimitedCount,
       slowCount,
       passCount,
       pausedCount,
@@ -323,7 +428,7 @@ export function useAPIChecks({
         map.set(key, group);
       }
       group.targets.push(t);
-      if (state === "fail" || state === "slow") {
+      if (state === "fail" || state === "slow" || state === "rate_limited") {
         group.problemCount++;
       }
     }
@@ -335,7 +440,13 @@ export function useAPIChecks({
         if (b.problemCount > 0 && a.problemCount === 0) return 1;
         return a.label.localeCompare(b.label);
       })
-      .map(({ order: _order, ...rest }) => rest);
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        icon: item.icon,
+        targets: item.targets,
+        problemCount: item.problemCount,
+      }));
   }, [sortedTargets, groupBy]);
 
   return { facets, summary, sortedTargets, groupedTargets };

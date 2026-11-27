@@ -99,11 +99,12 @@ export default function ResourceDetailDrawer({
     <div className="pointer-events-none fixed inset-0 z-40 flex justify-end">
       <aside
         ref={drawerRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="false"
         aria-label={ariaLabel}
         onClick={(e) => e.stopPropagation()}
-        className={`pointer-events-auto relative flex h-full w-full flex-col border-l border-border-accent/70 bg-bg-card shadow-[-12px_0_40px_rgba(0,0,0,0.55)] animate-in slide-in-from-right duration-200 transition-[max-width] ${
+        className={`pointer-events-auto relative flex h-full w-full flex-col border-l border-border-accent/70 bg-bg-card shadow-[-12px_0_40px_rgba(0,0,0,0.55)] animate-in slide-in-from-right duration-200 transition-[max-width] focus:outline-none ${
           expanded ? "max-w-[700px]" : "max-w-[540px]"
         }`}
       >
@@ -136,10 +137,13 @@ export default function ResourceDetailDrawer({
                 <button
                   type="button"
                   disabled={!hasPrev}
-                  onClick={onPrev}
+                  onClick={(e) => {
+                    if (e.detail > 0) e.currentTarget.blur();
+                    onPrev();
+                  }}
                   title={`${prevLabel} (↑)`}
                   aria-label={prevLabel}
-                  className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 disabled:opacity-30 cursor-pointer !min-h-0 !min-w-0"
+                  className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 disabled:opacity-30 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 !min-h-0 !min-w-0"
                 >
                   <ChevronUp size={15} />
                 </button>
@@ -148,10 +152,13 @@ export default function ResourceDetailDrawer({
                 <button
                   type="button"
                   disabled={!hasNext}
-                  onClick={onNext}
+                  onClick={(e) => {
+                    if (e.detail > 0) e.currentTarget.blur();
+                    onNext();
+                  }}
                   title={`${nextLabel} (↓)`}
                   aria-label={nextLabel}
-                  className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 disabled:opacity-30 cursor-pointer !min-h-0 !min-w-0"
+                  className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 disabled:opacity-30 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 !min-h-0 !min-w-0"
                 >
                   <ChevronDown size={15} />
                 </button>
@@ -159,20 +166,26 @@ export default function ResourceDetailDrawer({
               {expandable && (
                 <button
                   type="button"
-                  onClick={() => setExpanded((prev) => !prev)}
+                  onClick={(e) => {
+                    if (e.detail > 0) e.currentTarget.blur();
+                    setExpanded((prev) => !prev);
+                  }}
                   title={expanded ? "Contraer panel" : "Expandir panel"}
                   aria-label={expanded ? "Contraer panel" : "Expandir panel"}
-                  className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 cursor-pointer !min-h-0 !min-w-0"
+                  className="hidden sm:grid h-7 w-7 place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 !min-h-0 !min-w-0"
                 >
                   {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                 </button>
               )}
               <button
                 type="button"
-                onClick={onClose}
+                onClick={(e) => {
+                  if (e.detail > 0) e.currentTarget.blur();
+                  onClose();
+                }}
                 title="Cerrar panel (Esc)"
                 aria-label="Cerrar panel"
-                className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 cursor-pointer !min-h-0 !min-w-0"
+                className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 !min-h-0 !min-w-0"
               >
                 <X size={16} />
               </button>

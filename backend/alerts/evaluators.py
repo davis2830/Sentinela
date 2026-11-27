@@ -445,24 +445,41 @@ class MetricEvaluators:
 
     @staticmethod
     def _check_api_failed(rule):
-        """Check if any API check targets have failed."""
+        """Check if any API check targets have failed N consecutive times."""
         from api_checks.models import APICheckTarget
 
-        targets = APICheckTarget.objects.filter(organization_id=rule.organization_id, enabled=True, last_status="fail")
+        targets = APICheckTarget.objects.filter(organization_id=rule.organization_id, enabled=True)
         if rule.target_id:
             targets = targets.filter(id=rule.target_id)
 
         triggered = False
         for target in targets:
+            if target.last_status not in ("fail", "error"):
+                AlertService.auto_resolve_alert(
+                    organization_id=rule.organization_id,
+                    rule_id=rule.id,
+                    target_id=target.id,
+                )
+                continue
+
+            required = max(1, int(getattr(target, "alert_after_failures", 2) or 1))
+            recent = list(target.results.order_by("-checked_at").values_list("status", flat=True)[:required])
+            if recent and (len(recent) < required or not all(s in ("fail", "error") for s in recent)):
+                continue
+
             AlertService.create_alert(
                 organization_id=rule.organization_id,
                 rule_id=rule.id,
                 title=f"API check failed: {target.name}",
-                message=f"API check for {target.name} ({target.url}) has failed.",
+                message=f"API check for {target.name} ({target.url}) has failed {required} consecutive times.",
                 severity=rule.severity,
                 target_type="api_check",
                 target_id=target.id,
-                metadata={"url": target.url, "http_status": target.last_http_status},
+                metadata={
+                    "url": target.url,
+                    "http_status": target.last_http_status,
+                    "consecutive_failures": len(recent) or 1,
+                },
             )
             triggered = True
         return triggered

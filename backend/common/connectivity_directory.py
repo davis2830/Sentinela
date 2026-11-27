@@ -65,10 +65,12 @@ def filtered(rows, params, module):
                     last_status__in=["down", "error"] if state == "down" else [state],
                 ).exclude(guardian_paused)
         elif module == "api_checks":
-            rows = (
-                rows.filter(enabled=False)
-                if state in ("disabled", "paused")
-                else rows.filter(
+            if state in ("disabled", "paused"):
+                rows = rows.filter(enabled=False)
+            elif state == "pending":
+                rows = rows.filter(enabled=True, last_checked_at__isnull=True)
+            else:
+                rows = rows.filter(
                     enabled=True,
                     last_status__in=["fail", "error"]
                     if state == "fail"
@@ -76,7 +78,6 @@ def filtered(rows, params, module):
                     if state == "down"
                     else [state],
                 )
-            )
         elif module == "ssl_monitor":
             if state == "expiring":
                 rows = rows.filter(is_valid=True, days_remaining__gte=0, days_remaining__lte=30)

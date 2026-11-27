@@ -38,7 +38,14 @@ import type {
 import { bulkOutcome } from "../utils/bulkOutcome";
 import { waitForFreshScan, type QueuedScan } from "../utils/scanPolling";
 
-type StatusFilterType = "all" | "pass" | "slow" | "fail";
+type StatusFilterType =
+  | "all"
+  | "pass"
+  | "slow"
+  | "fail"
+  | "rate_limited"
+  | "paused"
+  | "pending";
 
 export default function APIChecksPage() {
   const compact = useCompactViewport();
@@ -61,6 +68,9 @@ export default function APIChecksPage() {
     "pass",
     "slow",
     "fail",
+    "rate_limited",
+    "paused",
+    "pending",
   ] as const);
   const [hostFilter, setHostFilter] = useState("all");
   const [schemaFilter, setSchemaFilter] = useState<APICheckSchemaFilter>("all");
@@ -323,7 +333,7 @@ export default function APIChecksPage() {
               className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-full text-xs sm:text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
               <Plus size={15} />
-              <span>Nuevo API Check</span>
+              <span>Agregar endpoint</span>
             </AdminButton>
           }
         />
@@ -466,7 +476,7 @@ export default function APIChecksPage() {
                 : "Comienza a monitorear tus endpoints REST, tiempos de respuesta y validación de schemas."
             }
             actionLabel={
-              hasActiveFilters ? "Limpiar filtros" : "Nuevo API Check"
+              hasActiveFilters ? "Limpiar filtros" : "Agregar endpoint"
             }
             onAction={() => {
               if (hasActiveFilters) {

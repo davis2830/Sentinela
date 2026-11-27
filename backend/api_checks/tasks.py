@@ -1,6 +1,8 @@
 import json
 import logging
+import re
 from common.scan_limits import guarded_scan, enqueue_many
+from common.security import SSRFSecurityException
 from common.subscriptions import eligible_organization_ids
 
 import requests
@@ -14,6 +16,58 @@ from common import safe_http
 
 logger = logging.getLogger(__name__)
 
+_SENSITIVE_KEY_RE = re.compile(
+    r"(authorization|cookie|token|secret|password|passwd|api[_-]?key|access[_-]?key|private[_-]?key|session|jwt|bearer|credential)",
+    re.IGNORECASE,
+)
+_JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")
+_BEARER_RE = re.compile(r"(Bearer\s+)[A-Za-z0-9._~+/=-]{8,}", re.IGNORECASE)
+_KV_SECRET_RE = re.compile(
+    r'("?(?:token|access_token|refresh_token|password|secret|api_key|authorization)"?\s*[:=]\s*"?)([^",\s&}]+)',
+    re.IGNORECASE,
+)
+MAX_PREVIEW_CHARS = 2048
+
+
+def _redact_string(text: str) -> str:
+    masked = _JWT_RE.sub("<JWT_REDACTADO>", text)
+    masked = _BEARER_RE.sub(r"\1<REDACTADO>", masked)
+    masked = _KV_SECRET_RE.sub(r"\1<REDACTADO>", masked)
+    return masked
+
+
+def _redact_json_value(value, depth=0):
+    if depth > 6:
+        return "..."
+    if isinstance(value, dict):
+        sanitized = {}
+        for k, v in value.items():
+            if _SENSITIVE_KEY_RE.search(str(k)):
+                sanitized[k] = "<REDACTADO>"
+            else:
+                sanitized[k] = _redact_json_value(v, depth + 1)
+        return sanitized
+    if isinstance(value, list):
+        return [_redact_json_value(item, depth + 1) for item in value[:25]]
+    if isinstance(value, str):
+        return _redact_string(value)
+    return value
+
+
+def _build_redacted_preview(response, response_body) -> str:
+    """Build a ~2 KB redacted response preview for failed/degraded executions."""
+    try:
+        if response_body is not None:
+            sanitized = _redact_json_value(response_body)
+            raw = json.dumps(sanitized, ensure_ascii=False, indent=2)
+        else:
+            raw = _redact_string(response.text[: MAX_PREVIEW_CHARS * 2])
+    except Exception:
+        return ""
+    if len(raw) > MAX_PREVIEW_CHARS:
+        return raw[:MAX_PREVIEW_CHARS] + "\n… (truncado a 2 KB)"
+    return raw
+
 
 @shared_task(bind=True, name="api_checks.run_check", soft_time_limit=510, time_limit=540)
 @guarded_scan("api_checks.APICheckTarget")
@@ -21,10 +75,7 @@ def run_api_check(self, target_id):
     """Execute an API check for a specific target.
 
     Validates HTTP status, response time, JSON validity,
-    schema compliance, and headers.
-
-    Args:
-        target_id: UUID string of the APICheckTarget.
+    schema compliance, headers, and rate-limit (429) responses.
     """
     try:
         target = APICheckTarget.objects.select_related("organization").get(id=target_id)
@@ -79,12 +130,20 @@ def run_api_check(self, target_id):
         time_ok = elapsed <= target.expected_response_time_ms
         schema_ok = schema_valid is None or schema_valid is True
 
-        if not status_ok or not schema_ok or not headers_valid:
+        error_message = ""
+        if http_status == 429 and target.expected_status != 429:
+            result_status = "rate_limited"
+            error_message = "Límite de velocidad del servidor (HTTP 429)"
+        elif not status_ok or not schema_ok or not headers_valid:
             result_status = "fail"
         elif not time_ok:
             result_status = "slow"
         else:
             result_status = "pass"
+
+        response_preview = (
+            _build_redacted_preview(response, response_body) if result_status != "pass" else ""
+        )
 
         APICheckService.record_result(
             target_id=target.id,
@@ -95,7 +154,8 @@ def run_api_check(self, target_id):
             schema_valid=schema_valid,
             headers_valid=headers_valid,
             response_headers=response_headers,
-            error_message="",
+            response_preview=response_preview,
+            error_message=error_message,
             schema_failures=schema_failures,
         )
 
@@ -117,9 +177,15 @@ def run_api_check(self, target_id):
             schema_valid=None,
             headers_valid=None,
             response_headers={},
-            error_message="Request timeout",
+            error_message="Tiempo de espera agotado",
         )
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as exc:
+        msg = str(exc).lower()
+        reason = (
+            "Host no resuelve"
+            if any(k in msg for k in ("name or service not known", "nameresolutionerror", "nodename", "getaddrinfo", "failed to resolve"))
+            else "No se pudo conectar con el endpoint"
+        )
         APICheckService.record_result(
             target_id=target.id,
             status="error",
@@ -129,7 +195,26 @@ def run_api_check(self, target_id):
             schema_valid=None,
             headers_valid=None,
             response_headers={},
-            error_message="No se pudo conectar con el endpoint.",
+            error_message=reason,
+        )
+    except SSRFSecurityException as exc:
+        msg = str(exc).lower()
+        reason = (
+            "Host no resuelve"
+            if any(k in msg for k in ("resolver", "dns", "resolución", "getaddrinfo", "dominio"))
+            else "Destino bloqueado por política de seguridad"
+        )
+        logger.error("Error checking API target=%s category=SSRFSecurityException", target.pk)
+        APICheckService.record_result(
+            target_id=target.id,
+            status="error",
+            http_status=None,
+            response_time_ms=None,
+            json_valid=None,
+            schema_valid=None,
+            headers_valid=None,
+            response_headers={},
+            error_message=reason,
         )
     except Exception as exc:
         logger.error("Error checking API target=%s category=%s", target.pk, type(exc).__name__)
@@ -142,36 +227,17 @@ def run_api_check(self, target_id):
             schema_valid=None,
             headers_valid=None,
             response_headers={},
-            error_message="No se pudo completar la medición del endpoint.",
+            error_message="No se pudo completar la medición del endpoint",
         )
 
 
 def _validate_schema(body, expected_schema):
-    """Basic schema validation.
-
-    Checks that all keys in expected_schema exist in the response body
-    and have the expected type.
-
-    Args:
-        body: The parsed JSON response body.
-        expected_schema: Dict mapping field names to expected type strings.
-
-    Returns:
-        bool: True if all fields match, False otherwise.
-    """
+    """Basic schema validation."""
     return not differences(body, expected_schema)
 
 
 def _validate_headers(response_headers, expected_headers):
-    """Validate that expected headers are present in the response.
-
-    Args:
-        response_headers: Dict of actual response headers.
-        expected_headers: Dict of expected header name -> value.
-
-    Returns:
-        bool: True if all expected headers match, False otherwise.
-    """
+    """Validate that expected headers are present in the response."""
     if not expected_headers:
         return True
 
@@ -189,10 +255,7 @@ def _validate_headers(response_headers, expected_headers):
 
 @shared_task(name="api_checks.run_all")
 def run_all_api_checks():
-    """Run API checks for all enabled targets whose check interval has elapsed.
-
-    Runs periodically via Celery Beat every 30 seconds.
-    """
+    """Run API checks for all enabled targets whose check interval has elapsed."""
     now = timezone.now()
     targets = APICheckTarget.objects.filter(
         enabled=True,

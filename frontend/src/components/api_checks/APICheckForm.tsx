@@ -77,6 +77,7 @@ export default function APICheckForm({
   const [expectedStatus, setExpectedStatus] = useState<number>(200);
   const [expectedTimeMs, setExpectedTimeMs] = useState<number>(2000);
   const [checkInterval, setCheckInterval] = useState<number>(300);
+  const [alertAfterFailures, setAlertAfterFailures] = useState<number>(2);
   const { data: subscription } = useQuery<
     import("../../types/organization").SubscriptionSummary
   >({
@@ -137,6 +138,7 @@ export default function APICheckForm({
       setExpectedStatus(target.expected_status || 200);
       setExpectedTimeMs(target.expected_response_time_ms || 2000);
       setCheckInterval(target.check_interval || 60);
+      setAlertAfterFailures(target.alert_after_failures ?? 2);
       setEnabled(target.enabled ?? true);
 
       // Parse Auth from request_headers
@@ -452,6 +454,7 @@ export default function APICheckForm({
         expected_status: Number(expectedStatus),
         expected_response_time_ms: Number(expectedTimeMs),
         check_interval: Math.max(Number(checkInterval), minInterval),
+        alert_after_failures: Math.max(1, Math.min(10, Number(alertAfterFailures) || 2)),
         enabled,
         request_headers: headers,
         request_body: body,
@@ -582,11 +585,14 @@ export default function APICheckForm({
           {!["GET", "HEAD"].includes(method) && (
             <p
               role="note"
-              className="border border-accent-yellow/30 rounded-xl p-3 text-sm text-accent-yellow"
+              className="border border-amber-500/35 bg-amber-500/10 rounded-xl p-3 text-xs text-amber-200 flex items-start gap-2"
             >
-              {method} puede modificar datos. Al habilitar este monitor se
-              ejecutará periódicamente, además de las pruebas manuales. Usa un
-              entorno o cuenta de prueba con permisos mínimos.
+              <AlertTriangle size={15} className="shrink-0 text-amber-400 mt-0.5" />
+              <span>
+                <strong>Este método ({method}) puede modificar datos.</strong>{" "}
+                Se ejecutará en cada ciclo de monitoreo. Usa un endpoint de
+                prueba con permisos mínimos.
+              </span>
             </p>
           )}
           {/* LIVE TEST RESPONSE VIEWER (Postman-style preview) */}
@@ -728,6 +734,31 @@ export default function APICheckForm({
                 Mínimo de tu plan: {minInterval} segundos.
               </p>
             </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border-base/70 bg-bg-dark/50 px-3.5 py-2.5 text-xs">
+            <div>
+              <label
+                htmlFor="api-alert-after-failures"
+                className="font-semibold text-text-main block"
+              >
+                Alertar tras fallos consecutivos
+              </label>
+              <span className="text-[11px] text-text-dim">
+                Evita falsas alarmas por parpadeos puntuales de APIs externas.
+              </span>
+            </div>
+            <select
+              id="api-alert-after-failures"
+              value={alertAfterFailures}
+              onChange={(e) => setAlertAfterFailures(Number(e.target.value))}
+              className="bg-bg-dark border border-border-base rounded-lg px-2.5 py-1.5 text-xs font-mono text-text-main focus:border-accent-green focus:outline-none cursor-pointer shrink-0"
+            >
+              <option value={1}>1 fallo (inmediato)</option>
+              <option value={2}>2 fallos seguidos (recomendado)</option>
+              <option value={3}>3 fallos seguidos</option>
+              <option value={5}>5 fallos seguidos</option>
+            </select>
           </div>
 
           {/* Advanced Configuration Tabs */}

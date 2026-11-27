@@ -1,5 +1,39 @@
 export type HTTPMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
 
+export interface APICheckSchemaFailure {
+  field: string;
+  expected: string;
+  received: string;
+  code: string;
+}
+
+export interface APICheckRecentResult {
+  id: string;
+  status: "pass" | "fail" | "slow" | "rate_limited" | "error" | string;
+  http_status: number | null;
+  response_time_ms: number | null;
+  schema_valid: boolean | null;
+  headers_valid: boolean | null;
+  reason?: string | null;
+  checked_at: string | null;
+}
+
+export interface APICheckAlertSummary {
+  rules: {
+    id: string;
+    name: string;
+    condition: string;
+    threshold: number | null;
+    severity: string;
+    snoozed_until: string | null;
+  }[];
+  destinations: {
+    id: string;
+    name: string;
+    channel_type: string;
+  }[];
+}
+
 export interface APICheckTarget {
   scan_availability?: import("./scan").ScanAvailability;
   id: string;
@@ -14,11 +48,23 @@ export interface APICheckTarget {
   request_headers?: Record<string, string>;
   request_body?: Record<string, unknown>;
   check_interval: number;
+  alert_after_failures?: number;
   enabled: boolean;
   last_checked_at: string | null;
   last_status: string | null;
   last_response_time_ms?: number | null;
   last_http_status?: number | null;
+  failure_reason?: string | null;
+  consecutive_failures?: number;
+  failing_since?: string | null;
+  last_schema_valid?: boolean | null;
+  last_schema_failures?: APICheckSchemaFailure[];
+  recent_results?: APICheckRecentResult[];
+  uptime_24h?: number | null;
+  p95_latency_24h?: number | null;
+  failures_24h?: number;
+  checks_24h?: number;
+  alert_summary?: APICheckAlertSummary;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +76,7 @@ export interface CreateAPICheckTargetData {
   expected_status: number;
   expected_response_time_ms: number;
   check_interval?: number;
+  alert_after_failures?: number;
   enabled?: boolean;
   request_headers?: Record<string, string>;
   request_body?: Record<string, unknown>;
@@ -40,19 +87,15 @@ export interface CreateAPICheckTargetData {
 export interface APICheckResult {
   id: string;
   target: string;
-  status: "pass" | "fail" | "slow" | "error" | string;
+  status: "pass" | "fail" | "slow" | "rate_limited" | "error" | string;
   http_status: number | null;
   response_time_ms: number | null;
-  schema_failures?: {
-    field: string;
-    expected: string;
-    received: string;
-    code: string;
-  }[];
+  schema_failures?: APICheckSchemaFailure[];
   json_valid: boolean | null;
   schema_valid: boolean | null;
   headers_valid: boolean | null;
   response_headers?: Record<string, string>;
+  response_preview?: string;
   error_message: string | null;
   checked_at: string;
   created_at: string;
@@ -63,7 +106,9 @@ export interface APICheckStats {
   pass_count: number;
   slow_count: number;
   fail_count: number;
+  rate_limited_count?: number;
   paused_count?: number;
+  pending_count?: number;
   avg_latency: number | null;
 }
 

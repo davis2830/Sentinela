@@ -4419,9 +4419,15 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_after_failures": {
+                            "type": "integer"
+                          },
+                          "alert_summary": {},
                           "check_interval": {
                             "type": "integer"
                           },
+                          "checks_24h": {},
+                          "consecutive_failures": {},
                           "created_at": {
                             "format": "date-time",
                             "type": "string"
@@ -4437,6 +4443,9 @@
                           "expected_status": {
                             "type": "integer"
                           },
+                          "failing_since": {},
+                          "failure_reason": {},
+                          "failures_24h": {},
                           "id": {
                             "format": "uuid",
                             "type": "string"
@@ -4454,6 +4463,8 @@
                             "nullable": true,
                             "type": "number"
                           },
+                          "last_schema_failures": {},
+                          "last_schema_valid": {},
                           "last_status": {
                             "nullable": true,
                             "type": "string"
@@ -4475,6 +4486,8 @@
                           "organization": {
                             "type": "string"
                           },
+                          "p95_latency_24h": {},
+                          "recent_results": {},
                           "request_body": {},
                           "request_headers": {},
                           "scan_availability": {},
@@ -4482,6 +4495,7 @@
                             "format": "date-time",
                             "type": "string"
                           },
+                          "uptime_24h": {},
                           "url": {
                             "type": "string"
                           }
@@ -4601,6 +4615,9 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "alert_after_failures": {
+                    "type": "integer"
+                  },
                   "check_interval": {
                     "type": "integer"
                   },
@@ -4665,9 +4682,15 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_after_failures": {
+                          "type": "integer"
+                        },
+                        "alert_summary": {},
                         "check_interval": {
                           "type": "integer"
                         },
+                        "checks_24h": {},
+                        "consecutive_failures": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -4683,6 +4706,9 @@
                         "expected_status": {
                           "type": "integer"
                         },
+                        "failing_since": {},
+                        "failure_reason": {},
+                        "failures_24h": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -4700,6 +4726,8 @@
                           "nullable": true,
                           "type": "number"
                         },
+                        "last_schema_failures": {},
+                        "last_schema_valid": {},
                         "last_status": {
                           "nullable": true,
                           "type": "string"
@@ -4721,6 +4749,8 @@
                         "organization": {
                           "type": "string"
                         },
+                        "p95_latency_24h": {},
+                        "recent_results": {},
                         "request_body": {},
                         "request_headers": {},
                         "scan_availability": {},
@@ -4728,6 +4758,7 @@
                           "format": "date-time",
                           "type": "string"
                         },
+                        "uptime_24h": {},
                         "url": {
                           "type": "string"
                         }
@@ -4766,9 +4797,15 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_after_failures": {
+                          "type": "integer"
+                        },
+                        "alert_summary": {},
                         "check_interval": {
                           "type": "integer"
                         },
+                        "checks_24h": {},
+                        "consecutive_failures": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -4784,6 +4821,9 @@
                         "expected_status": {
                           "type": "integer"
                         },
+                        "failing_since": {},
+                        "failure_reason": {},
+                        "failures_24h": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -4801,6 +4841,8 @@
                           "nullable": true,
                           "type": "number"
                         },
+                        "last_schema_failures": {},
+                        "last_schema_valid": {},
                         "last_status": {
                           "nullable": true,
                           "type": "string"
@@ -4822,6 +4864,8 @@
                         "organization": {
                           "type": "string"
                         },
+                        "p95_latency_24h": {},
+                        "recent_results": {},
                         "request_body": {},
                         "request_headers": {},
                         "scan_availability": {},
@@ -4829,6 +4873,7 @@
                           "format": "date-time",
                           "type": "string"
                         },
+                        "uptime_24h": {},
                         "url": {
                           "type": "string"
                         }
@@ -5391,9 +5436,15 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_after_failures": {
+                          "type": "integer"
+                        },
+                        "alert_summary": {},
                         "check_interval": {
                           "type": "integer"
                         },
+                        "checks_24h": {},
+                        "consecutive_failures": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -5409,6 +5460,9 @@
                         "expected_status": {
                           "type": "integer"
                         },
+                        "failing_since": {},
+                        "failure_reason": {},
+                        "failures_24h": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -5426,6 +5480,8 @@
                           "nullable": true,
                           "type": "number"
                         },
+                        "last_schema_failures": {},
+                        "last_schema_valid": {},
                         "last_status": {
                           "nullable": true,
                           "type": "string"
@@ -5447,6 +5503,8 @@
                         "organization": {
                           "type": "string"
                         },
+                        "p95_latency_24h": {},
+                        "recent_results": {},
                         "request_body": {},
                         "request_headers": {},
                         "scan_availability": {},
@@ -5454,6 +5512,7 @@
                           "format": "date-time",
                           "type": "string"
                         },
+                        "uptime_24h": {},
                         "url": {
                           "type": "string"
                         }
@@ -5533,6 +5592,9 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "alert_after_failures": {
+                    "type": "integer"
+                  },
                   "check_interval": {
                     "type": "integer"
                   },
@@ -5592,9 +5654,15 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_after_failures": {
+                          "type": "integer"
+                        },
+                        "alert_summary": {},
                         "check_interval": {
                           "type": "integer"
                         },
+                        "checks_24h": {},
+                        "consecutive_failures": {},
                         "created_at": {
                           "format": "date-time",
                           "type": "string"
@@ -5610,6 +5678,9 @@
                         "expected_status": {
                           "type": "integer"
                         },
+                        "failing_since": {},
+                        "failure_reason": {},
+                        "failures_24h": {},
                         "id": {
                           "format": "uuid",
                           "type": "string"
@@ -5627,6 +5698,8 @@
                           "nullable": true,
                           "type": "number"
                         },
+                        "last_schema_failures": {},
+                        "last_schema_valid": {},
                         "last_status": {
                           "nullable": true,
                           "type": "string"
@@ -5648,6 +5721,8 @@
                         "organization": {
                           "type": "string"
                         },
+                        "p95_latency_24h": {},
+                        "recent_results": {},
                         "request_body": {},
                         "request_headers": {},
                         "scan_availability": {},
@@ -5655,6 +5730,7 @@
                           "format": "date-time",
                           "type": "string"
                         },
+                        "uptime_24h": {},
                         "url": {
                           "type": "string"
                         }
@@ -5775,6 +5851,9 @@
                             "type": "boolean"
                           },
                           "response_headers": {},
+                          "response_preview": {
+                            "type": "string"
+                          },
                           "response_time_ms": {
                             "nullable": true,
                             "type": "number"
@@ -5789,6 +5868,7 @@
                               "pass",
                               "fail",
                               "slow",
+                              "rate_limited",
                               "error"
                             ],
                             "type": "string"

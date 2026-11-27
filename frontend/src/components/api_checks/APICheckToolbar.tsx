@@ -73,8 +73,12 @@ export default function APICheckToolbar({
   };
 
   const failCount = stats?.fail_count ?? summary.failCount;
+  const rateLimitedCount =
+    stats?.rate_limited_count ?? summary.rateLimitedCount;
   const slowCount = stats?.slow_count ?? summary.slowCount;
   const passCount = stats?.pass_count ?? summary.passCount;
+  const pausedCount = stats?.paused_count ?? summary.pausedCount;
+  const pendingCount = stats?.pending_count ?? summary.pendingCount;
   const avgLatency =
     stats?.avg_latency !== null && stats?.avg_latency !== undefined
       ? Math.round(stats.avg_latency)
@@ -87,21 +91,45 @@ export default function APICheckToolbar({
       count: failCount,
       tone: "danger",
       pulse: true,
-      title: "Filtrar por endpoints con fallos",
+      title: "Endpoints con error de conexión, código inesperado o contrato roto",
+    },
+    {
+      key: "rate_limited",
+      label: `${rateLimitedCount} ${rateLimitedCount === 1 ? "limitado" : "limitados"}`,
+      count: rateLimitedCount,
+      tone: "warning",
+      hideWhenZero: true,
+      title: "Respuestas HTTP 429 (límite de velocidad del servidor, no es una caída)",
     },
     {
       key: "slow",
-      label: `${slowCount} ${slowCount === 1 ? "lento" : "lentas"}`,
+      label: `${slowCount} ${slowCount === 1 ? "lento" : "lentos"}`,
       count: slowCount,
       tone: "warning",
-      title: "Filtrar por endpoints lentos",
+      title: "Endpoints cuya latencia superó su límite configurado",
     },
     {
       key: "pass",
-      label: `${passCount} ${passCount === 1 ? "exitosa" : "exitosas"}`,
+      label: `${passCount} ${passCount === 1 ? "correcto" : "correctos"}`,
       count: passCount,
       tone: "success",
-      title: "Filtrar por endpoints exitosos",
+      title: "Endpoints que cumplen código, latencia y contrato",
+    },
+    {
+      key: "paused",
+      label: `${pausedCount} ${pausedCount === 1 ? "pausado" : "pausados"}`,
+      count: pausedCount,
+      tone: "neutral",
+      hideWhenZero: true,
+      title: "Endpoints con monitoreo pausado",
+    },
+    {
+      key: "pending",
+      label: `${pendingCount} ${pendingCount === 1 ? "pendiente" : "pendientes"}`,
+      count: pendingCount,
+      tone: "neutral",
+      hideWhenZero: true,
+      title: "Endpoints sin ejecución registrada todavía",
     },
   ];
 
@@ -110,8 +138,8 @@ export default function APICheckToolbar({
       testId="api-checks-toolbar"
       search={search}
       onSearchChange={onSearchChange}
-      searchPlaceholder="Buscar por nombre, ruta o URL..."
-      searchAriaLabel="Buscar por nombre de API, ruta o URL de endpoint"
+      searchPlaceholder="Buscar por nombre, host o ruta..."
+      searchAriaLabel="Buscar por nombre de API, host o ruta"
       statusFilter={statusFilter}
       onStatusFilterChange={onStatusFilterChange}
       statusChips={statusChips}
@@ -162,7 +190,7 @@ export default function APICheckToolbar({
 
             <div className="space-y-1">
               <label className="block text-[11px] font-medium text-text-muted">
-                Schema JSON
+                Contrato Schema
               </label>
               <select
                 value={schemaFilter}
@@ -173,8 +201,8 @@ export default function APICheckToolbar({
                 className="w-full bg-bg-dark border border-border-base rounded-lg px-2 py-1.5 text-xs text-text-main focus:border-accent-green focus:outline-none cursor-pointer"
               >
                 <option value="all">Todos</option>
-                <option value="with_schema">Con Schema</option>
-                <option value="without_schema">Sin Schema</option>
+                <option value="with_schema">Con contrato</option>
+                <option value="without_schema">Sin contrato</option>
               </select>
             </div>
           </div>
