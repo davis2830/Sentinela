@@ -729,23 +729,18 @@ export default function APICheckForm({
                 className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono cursor-pointer"
               >
                 <option value={30} disabled={minInterval > 30}>
-                  Cada 30 seg · Business
+                  {minInterval > 30 ? "Cada 30 s · Business" : "Cada 30 s"}
                 </option>
                 <option value={60} disabled={minInterval > 60}>
-                  Cada 1 min · Pro
+                  {minInterval > 60 ? "Cada 1 min · Pro" : "Cada 1 min"}
                 </option>
-                <option value={120} disabled={minInterval > 120}>
-                  Cada 2 min · Pro
-                </option>
-                <option value={300}>Cada 5 min · Starter</option>
-                <option value={900}>Cada 15 min · Starter</option>
-                <option value={3600}>Cada 1 hora · Starter</option>
-                {![30, 60, 120, 300, 900, 3600].includes(checkInterval) && (
+                <option value={300}>Cada 5 min</option>
+                {![30, 60, 300].includes(checkInterval) && (
                   <option value={checkInterval}>
                     Cada{" "}
                     {checkInterval >= 60 && checkInterval % 60 === 0
                       ? `${checkInterval / 60} min`
-                      : `${checkInterval} seg`}
+                      : `${checkInterval} s`}
                   </option>
                 )}
               </select>
