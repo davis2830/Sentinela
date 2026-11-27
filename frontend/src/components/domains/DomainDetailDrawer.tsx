@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -11,32 +10,27 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ChevronUp,
   Copy,
   ExternalLink,
   History,
   Info,
   Link2,
   Lock,
-  Maximize2,
-  Minimize2,
   MoreHorizontal,
   Pencil,
   RefreshCw,
   Shield,
   Trash2,
   Unlock,
-  X,
 } from "lucide-react";
 import { useCapability } from "../../hooks/useCapability";
-import { useDialogFocus } from "../../hooks/useDialogFocus";
 import type {
   DomainChangeHistoryItem,
   DomainInfo,
   DomainLinkedTarget,
 } from "../../types/domain";
 import RelativeTime from "../common/connectivity/RelativeTime";
-import StatusPill, { StatusShapeIcon } from "../common/connectivity/StatusPill";
+import ResourceDetailDrawer from "../common/connectivity/ResourceDetailDrawer";
 import {
   DOMAIN_STATE_META,
   formatChangeFieldLabel,
@@ -93,13 +87,11 @@ export default function DomainDetailDrawer({
   onLinkTarget,
   onClose,
 }: DomainDetailDrawerProps) {
-  const drawerRef = useDialogFocus(true, domain.id);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canScan = useCapability("domain.scan");
   const canEdit = useCapability("domain.update");
   const canDelete = useCapability("domain.delete");
 
-  const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedNs, setCopiedNs] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -129,33 +121,6 @@ export default function DomainDetailDrawer({
   const goNext = () => {
     if (hasNext) onSelectDomain(domains[currentIdx + 1]);
   };
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (menuOpen) setMenuOpen(false);
-        else onClose();
-      } else if (
-        e.key === "ArrowUp" &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(
-          (e.target as HTMLElement)?.tagName,
-        )
-      ) {
-        e.preventDefault();
-        goPrev();
-      } else if (
-        e.key === "ArrowDown" &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(
-          (e.target as HTMLElement)?.tagName,
-        )
-      ) {
-        e.preventDefault();
-        goNext();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  });
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -253,86 +218,42 @@ export default function DomainDetailDrawer({
     }
   };
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-40 flex justify-end">
-      <aside
-        ref={drawerRef}
-        role="dialog"
-        aria-modal="false"
-        aria-label={`Detalle del dominio ${domain.domain}`}
-        onClick={(e) => e.stopPropagation()}
-        className={`pointer-events-auto relative flex h-full w-full flex-col border-l border-border-accent/70 bg-bg-card shadow-[-12px_0_40px_rgba(0,0,0,0.55)] animate-in slide-in-from-right duration-200 transition-[max-width] ${
-          expanded ? "max-w-[700px]" : "max-w-[540px]"
-        }`}
-      >
-        {/* 1. STICKY HEADER */}
-        <header className="shrink-0 border-b border-border-base/80 bg-bg-dark/90 px-5 pt-4 pb-3.5 space-y-2.5">
-          {/* Row 1: Domain + StatusPill + Prev/Next/Expand/Close */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <StatusShapeIcon
-                shape={meta.shape}
-                size={16}
-                className={`shrink-0 ${meta.textClass}`}
-              />
-              <h2
-                className="text-base font-bold text-text-main truncate"
-                title={domain.domain}
-              >
-                {domain.domain}
-              </h2>
-              <StatusPill
-                tone={meta.tone}
-                shape={meta.shape}
-                label={meta.label}
-                size="xs"
-              />
-            </div>
-
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                disabled={!hasPrev}
-                onClick={goPrev}
-                title="Dominio anterior (↑)"
-                aria-label="Dominio anterior"
-                className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 disabled:opacity-30 cursor-pointer !min-h-0 !min-w-0"
-              >
-                <ChevronUp size={15} />
-              </button>
-              <button
-                type="button"
-                disabled={!hasNext}
-                onClick={goNext}
-                title="Siguiente dominio (↓)"
-                aria-label="Siguiente dominio"
-                className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 disabled:opacity-30 cursor-pointer !min-h-0 !min-w-0"
-              >
-                <ChevronDown size={15} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setExpanded((prev) => !prev)}
-                title={expanded ? "Ancho compacto" : "Expandir panel"}
-                aria-label={expanded ? "Ancho compacto" : "Expandir panel"}
-                className="hidden sm:grid h-7 w-7 place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 cursor-pointer !min-h-0 !min-w-0"
-              >
-                {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                title="Cerrar panel (Esc)"
-                aria-label="Cerrar panel"
-                className="h-7 w-7 grid place-items-center rounded-lg text-text-dim hover:text-text-main hover:bg-white/10 cursor-pointer !min-h-0 !min-w-0"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-
+  return (
+    <ResourceDetailDrawer
+      focusKey={domain.id}
+      ariaLabel={`Detalle del dominio ${domain.domain}`}
+      title={domain.domain}
+      status={{
+        label: meta.label,
+        tone: meta.tone,
+        shape: meta.shape,
+        iconClassName: meta.textClass,
+      }}
+      hasPrev={hasPrev}
+      hasNext={hasNext}
+      onPrev={goPrev}
+      onNext={goNext}
+      prevLabel="Dominio anterior"
+      nextLabel="Siguiente dominio"
+      onEscapeIntercept={() => {
+        if (!menuOpen) return false;
+        setMenuOpen(false);
+        return true;
+      }}
+      onClose={onClose}
+      footer={
+        <>
+          Última consulta{" "}
+          <RelativeTime
+            value={domain.last_scanned_at}
+            emptyLabel="nunca"
+            className="text-text-muted"
+          />{" "}
+          · {formatDataSourceLabel(domain)} · automático cada 12 h
+        </>
+      }
+      headerExtra={
+        <>
           {/* Row 2: Registrar ↗ · registrado 4 may 2026 (single source of truth, no duplicate table) */}
           <div className="flex items-center gap-1.5 flex-wrap text-xs text-text-muted">
             {portal ? (
@@ -485,11 +406,11 @@ export default function DomainDetailDrawer({
               )}
             </div>
           </div>
-        </header>
-
-        {/* 2. SCROLLABLE BODY (zero repetition, zero hidden tabs) */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 text-xs">
-          {/* Unacknowledged security changes banner (NS / Registrar / Lock) */}
+        </>
+      }
+    >
+      <div className="space-y-3 text-xs">
+        {/* Unacknowledged security changes banner (NS / Registrar / Lock) */}
           {domain.has_unacknowledged_changes && (
             <section className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 space-y-2">
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1158,20 +1079,7 @@ export default function DomainDetailDrawer({
               )}
             </section>
           )}
-        </div>
-
-        {/* 3. SINGLE-LINE FOOTER (clear RDAP cadence: automatic every 12 h) */}
-        <footer className="shrink-0 border-t border-border-base/80 bg-bg-dark/80 px-5 py-2.5 text-[11px] text-text-dim font-mono">
-          Última consulta{" "}
-          <RelativeTime
-            value={domain.last_scanned_at}
-            emptyLabel="nunca"
-            className="text-text-muted"
-          />{" "}
-          · {formatDataSourceLabel(domain)} · automático cada 12 h
-        </footer>
-      </aside>
-    </div>,
-    document.body,
+      </div>
+    </ResourceDetailDrawer>
   );
 }

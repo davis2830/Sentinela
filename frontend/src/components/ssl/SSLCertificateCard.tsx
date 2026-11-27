@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle, Check, Clock, Layers, Link2 } from "lucide-react";
+import { AlertTriangle, Clock, Layers, Link2 } from "lucide-react";
 import type { SSLCertificate, SSLLinkedTarget } from "../../types/ssl";
 import {
   healthPalette,
   hasMeasurement,
   sslGradeTone,
 } from "../../utils/healthPresentation";
+import SelectionCheckbox from "../common/SelectionCheckbox";
 import RelativeTime, {
   formatExactDate,
 } from "../common/connectivity/RelativeTime";
@@ -159,30 +160,19 @@ export default function SSLCertificateCard({
                 />
               </span>
 
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={isSelected}
-                aria-label={`Seleccionar ${cert.domain}`}
-                title={isSelected ? "Deseleccionar" : "Seleccionar"}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectToggle(cert);
-                }}
-                className={`sentinel-selection absolute inset-0 grid place-items-center rounded-[4px] border transition-all duration-150 cursor-pointer !min-h-0 !min-w-0 ${
-                  isSelected
-                    ? "border-accent-green bg-accent-green text-black opacity-100"
-                    : forceCheckbox
-                      ? "border-slate-500 bg-bg-dark text-transparent hover:border-accent-green opacity-100"
-                      : "border-slate-500 bg-bg-dark text-transparent hover:border-accent-green opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto"
+              <div
+                className={`absolute inset-0 grid place-items-center transition-opacity duration-150 ${
+                  forceCheckbox
+                    ? "opacity-100"
+                    : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto"
                 }`}
               >
-                <Check
-                  size={11}
-                  strokeWidth={3}
-                  className={isSelected ? "opacity-100" : "opacity-0"}
+                <SelectionCheckbox
+                  checked={isSelected}
+                  label={`Seleccionar ${cert.domain}`}
+                  onChange={() => onSelectToggle(cert)}
                 />
-              </button>
+              </div>
             </div>
 
             <h3

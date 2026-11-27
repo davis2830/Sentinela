@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowUpDown,
-  Check,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -15,6 +14,7 @@ import {
   hasMeasurement,
   sslGradeTone,
 } from "../../utils/healthPresentation";
+import SelectionCheckbox from "../common/SelectionCheckbox";
 import {
   formatExactDate,
   formatRelativeAgo,
@@ -156,29 +156,11 @@ export default function SSLCertificateTableView({
           className={TABLE_CHECK_CELL}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={isSelected}
-            aria-label={`Seleccionar ${cert.domain}`}
-            title={isSelected ? "Deseleccionar" : "Seleccionar"}
-            onClick={() => onToggleSelect(cert)}
-            className="sentinel-selection compact-btn grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer mr-3"
-          >
-            <span
-              className={`grid h-4 w-4 place-items-center rounded transition-colors ${
-                isSelected
-                  ? "bg-accent-green text-black ring-1 ring-accent-green/40"
-                  : "border border-border-base/90 bg-bg-dark/80 text-transparent"
-              }`}
-            >
-              <Check
-                size={10}
-                strokeWidth={3}
-                className={isSelected ? "opacity-100" : "opacity-0"}
-              />
-            </span>
-          </button>
+          <SelectionCheckbox
+            checked={isSelected}
+            label={`Seleccionar ${cert.domain}`}
+            onChange={() => onToggleSelect(cert)}
+          />
         </td>
 
         {/* 2. Estado (shape + pill, never static padlock) */}
@@ -425,28 +407,11 @@ export default function SSLCertificateTableView({
               className={`${TABLE_HEAD_ROW} bg-bg-dark/90 font-semibold text-text-dim select-none`}
             >
               <th scope="col" className={TABLE_CHECK_CELL}>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={allSelected}
-                  aria-label="Seleccionar todos los certificados de esta página"
-                  onClick={onSelectAll}
-                  className="sentinel-selection compact-btn grid h-6 w-6 place-items-center rounded bg-transparent p-0 cursor-pointer mr-3"
-                >
-                  <span
-                    className={`grid h-4 w-4 place-items-center rounded transition-colors ${
-                      allSelected
-                        ? "bg-accent-green text-black ring-1 ring-accent-green/40"
-                        : "border border-border-base/90 bg-bg-dark/80 text-transparent"
-                    }`}
-                  >
-                    <Check
-                      size={10}
-                      strokeWidth={3}
-                      className={allSelected ? "opacity-100" : "opacity-0"}
-                    />
-                  </span>
-                </button>
+                <SelectionCheckbox
+                  checked={allSelected}
+                  label="Seleccionar todos los certificados de esta página"
+                  onChange={onSelectAll}
+                />
               </th>
               <th
                 scope="col"
