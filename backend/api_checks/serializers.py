@@ -162,48 +162,9 @@ class APICheckTargetSerializer(ScanAvailabilitySerializer):
 
     def get_alert_summary(self, instance: APICheckTarget):
         from alerts.models import AlertRule
-        from notifications.models import NotificationChannel
+        from common.alert_summary import get_target_alert_summary
 
-        org_id = instance.organization_id
-        rules_cache = self.context.setdefault("_api_org_rules", {})
-        if org_id not in rules_cache:
-            rules_cache[org_id] = list(
-                AlertRule.objects.filter(
-                    organization_id=org_id,
-                    target_type=AlertRule.TargetType.API_CHECK,
-                    enabled=True,
-                ).only("id", "name", "condition", "threshold", "severity", "target_id", "snoozed_until")
-            )
-        channels_cache = self.context.setdefault("_api_org_channels", {})
-        if org_id not in channels_cache:
-            channels_cache[org_id] = list(
-                NotificationChannel.objects.filter(
-                    organization_id=org_id,
-                    enabled=True,
-                ).only("id", "name", "channel_type")
-            )
-
-        matched_rules = [
-            {
-                "id": str(r.pk),
-                "name": r.name,
-                "condition": r.condition,
-                "threshold": r.threshold,
-                "severity": r.severity,
-                "snoozed_until": r.snoozed_until.isoformat() if r.snoozed_until else None,
-            }
-            for r in rules_cache[org_id]
-            if r.target_id is None or str(r.target_id) == str(instance.pk)
-        ]
-        destinations = [
-            {
-                "id": str(ch.pk),
-                "name": ch.name,
-                "channel_type": ch.channel_type,
-            }
-            for ch in channels_cache[org_id]
-        ]
-        return {"rules": matched_rules, "destinations": destinations}
+        return get_target_alert_summary(instance, AlertRule.TargetType.API_CHECK, self.context)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

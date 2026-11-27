@@ -1,5 +1,9 @@
 import ModalSurface from "../common/ModalSurface";
 import AdminButton from "../common/AdminButton";
+import CheckIntervalSelector, {
+  formatCheckInterval,
+  getDefaultCheckInterval,
+} from "../common/connectivity/CheckIntervalSelector";
 import { apiFailure } from "../../services/errors";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
 import ConfigurationDiagnosticNotice from "../../components/common/ConfigurationDiagnosticNotice";
@@ -95,7 +99,7 @@ export default function APICheckForm({
         Math.max(prev || target.check_interval || serverMinInterval, serverMinInterval),
       );
     } else {
-      setCheckInterval(serverMinInterval <= 60 ? 60 : serverMinInterval);
+      setCheckInterval(getDefaultCheckInterval(serverMinInterval));
     }
   }, [serverMinInterval, target]);
   const [enabled, setEnabled] = useState<boolean>(true);
@@ -723,33 +727,14 @@ export default function APICheckForm({
               <label className="block text-xs font-semibold text-text-muted mb-1.5">
                 Frecuencia de Check
               </label>
-              <select
+              <CheckIntervalSelector
                 value={checkInterval}
-                onChange={(e) => setCheckInterval(Number(e.target.value))}
-                className="w-full bg-bg-dark border border-border-base rounded-xl px-3 py-2.5 text-sm text-text-main focus:outline-none focus:border-accent-green font-mono cursor-pointer"
-              >
-                <option value={30} disabled={minInterval > 30}>
-                  {minInterval > 30 ? "Cada 30 s · Business" : "Cada 30 s"}
-                </option>
-                <option value={60} disabled={minInterval > 60}>
-                  {minInterval > 60 ? "Cada 1 min · Pro" : "Cada 1 min"}
-                </option>
-                <option value={300}>Cada 5 min</option>
-                {![30, 60, 300].includes(checkInterval) && (
-                  <option value={checkInterval}>
-                    Cada{" "}
-                    {checkInterval >= 60 && checkInterval % 60 === 0
-                      ? `${checkInterval / 60} min`
-                      : `${checkInterval} s`}
-                  </option>
-                )}
-              </select>
+                minAllowedInterval={minInterval}
+                onChange={setCheckInterval}
+                variant="select"
+              />
               <p className="mt-1 text-xs text-text-dim">
-                Mínimo de tu plan:{" "}
-                {minInterval >= 60 && minInterval % 60 === 0
-                  ? `${minInterval / 60} min`
-                  : `${minInterval} seg`}
-                .
+                Mínimo de tu plan: {formatCheckInterval(minInterval)}.
               </p>
             </div>
           </div>

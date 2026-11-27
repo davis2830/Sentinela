@@ -1,4 +1,7 @@
 import CoverageProgress from "../monitoring/CoverageProgress";
+import CheckIntervalSelector, {
+  getDefaultCheckInterval,
+} from "../common/connectivity/CheckIntervalSelector";
 import { apiFailure } from "../../services/errors";
 import { useConfigurationDiagnostic } from "../../hooks/useConfigurationDiagnostic";
 import ConfigurationDiagnosticNotice from "../../components/common/ConfigurationDiagnosticNotice";
@@ -73,7 +76,7 @@ export default function QuickStartWizardModal({
   const minAllowedInterval = serverMinInterval || 300;
   useEffect(() => {
     if (isOpen && serverMinInterval !== undefined) {
-      setInterval(Math.max(30, serverMinInterval <= 60 ? 60 : serverMinInterval));
+      setInterval(getDefaultCheckInterval(serverMinInterval));
     }
   }, [isOpen, serverMinInterval]);
 
@@ -461,48 +464,13 @@ export default function QuickStartWizardModal({
                 <label className="block text-xs font-semibold text-text-muted mb-1.5">
                   Frecuencia de Sondeo
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: "5 min", value: 300, minPlan: "Starter" },
-                    { label: "1 min", value: 60, minPlan: "Pro" },
-                    { label: "30 s", value: 30, minPlan: "Business" },
-                  ].map((opt) => {
-                    const isAllowed = opt.value >= minAllowedInterval;
-                    const isSelected = interval === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          if (isAllowed) {
-                            setInterval(opt.value);
-                          }
-                        }}
-                        disabled={!isAllowed}
-                        className={`py-2 px-2 rounded-xl border text-xs font-semibold transition-all text-center relative flex flex-col items-center justify-center min-h-[52px] ${
-                          !isAllowed
-                            ? "bg-bg-dark border-border-base/50 text-text-muted cursor-not-allowed"
-                            : isSelected
-                              ? "bg-accent-green/15 border-accent-green text-accent-green shadow-sm cursor-pointer"
-                              : "bg-bg-dark border-border-base text-text-muted hover:border-zinc-700 cursor-pointer"
-                        }`}
-                        title={!isAllowed ? `Requiere plan ${opt.minPlan}` : ""}
-                      >
-                        <span className="font-mono text-xs">{opt.label}</span>
-                        {isAllowed && opt.value === minAllowedInterval && (
-                          <span className="mt-0.5 text-xs">
-                            Recomendado para tu plan
-                          </span>
-                        )}
-                        {!isAllowed && (
-                          <span className="text-xs text-amber-400 font-mono mt-0.5 font-bold">
-                            Plan {opt.minPlan}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <CheckIntervalSelector
+                  value={interval}
+                  minAllowedInterval={minAllowedInterval}
+                  onChange={setInterval}
+                  variant="cards"
+                  order="slowest-first"
+                />
               </div>
             </div>
           )}

@@ -204,47 +204,11 @@ class DomainInfoSerializer(ScanAvailabilitySerializer):
 
     def get_alert_summary(self, instance):
         from alerts.models import AlertRule
-        from notifications.models import NotificationChannel
+        from common.alert_summary import get_target_alert_summary
 
-        org_id = instance.organization_id
-        rules_cache = self.context.setdefault("_domain_org_rules", {})
-        if org_id not in rules_cache:
-            rules_cache[org_id] = list(
-                AlertRule.objects.filter(
-                    organization_id=org_id,
-                    target_type=AlertRule.TargetType.DOMAIN,
-                    enabled=True,
-                ).only("id", "name", "condition", "threshold", "severity", "target_id", "snoozed_until")
-            )
-        channels_cache = self.context.setdefault("_domain_org_channels", {})
-        if org_id not in channels_cache:
-            channels_cache[org_id] = list(
-                NotificationChannel.objects.filter(
-                    organization_id=org_id,
-                    enabled=True,
-                ).only("id", "name", "channel_type")
-            )
-
-        matched_rules = [
-            {
-                "id": str(r.pk),
-                "name": r.name,
-                "condition": r.condition,
-                "threshold": r.threshold,
-                "severity": r.severity,
-                "snoozed_until": r.snoozed_until.isoformat() if r.snoozed_until else None,
-            }
-            for r in rules_cache[org_id]
-            if r.target_id is None or str(r.target_id) == str(instance.pk)
-        ]
-        destinations = [
-            {
-                "id": str(ch.pk),
-                "name": ch.name,
-                "channel_type": ch.channel_type,
-            }
-            for ch in channels_cache[org_id]
-        ]
+        summary = get_target_alert_summary(instance, AlertRule.TargetType.DOMAIN, self.context)
+        matched_rules = summary["rules"]
+        destinations = summary["destinations"]
         expiring_rules = [r for r in matched_rules if r["condition"] == "domain_expiring"]
         steps = sorted({int(round(r["threshold"])) for r in expiring_rules if r.get("threshold") is not None}, reverse=True)
         warning_vals = [

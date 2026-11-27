@@ -1,4 +1,5 @@
 import { apiFailure } from "../../../services/errors";
+import { getDefaultCheckInterval } from "../../common/connectivity/CheckIntervalSelector";
 import { useConfigurationDiagnostic } from "../../../hooks/useConfigurationDiagnostic";
 import { tcpParts, tcpEndpoint } from "../../../utils/networkEndpoint";
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -135,7 +136,7 @@ export function useTargetFormWorkspace({
   useEffect(() => {
     if (serverMinInterval === undefined) return;
     if (!target) {
-      setInterval(serverMinInterval <= 60 ? 60 : serverMinInterval);
+      setInterval(getDefaultCheckInterval(serverMinInterval));
     } else {
       setInterval((prev) =>
         prev < serverMinInterval ? serverMinInterval : prev,
