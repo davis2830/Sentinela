@@ -32,6 +32,7 @@ def filtered(rows, params, module):
             "ssl_monitor": ("domain", "issuer", "algorithm"),
             "dns_monitor": ("domain", "value"),
             "security_headers": ("name", "url", "server_header", "powered_by_header"),
+            "probe": ("name", "hostname", "ip_address", "version"),
         }.get(module, fields)
         for field in searchable:
             if field in (
@@ -41,6 +42,8 @@ def filtered(rows, params, module):
                 "registrar",
                 "url",
                 "hostname",
+                "ip_address",
+                "version",
                 "issuer",
                 "algorithm",
                 "value",

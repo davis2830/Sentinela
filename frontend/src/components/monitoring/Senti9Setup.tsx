@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import ModalSurface from "../common/ModalSurface";
 import { api } from "../../services/api";
+import { apiFailure } from "../../services/errors";
 import type { AgentProbe, ProbeInstallation } from "../../types/agent_probe";
 import { useAuthStore } from "../../store/authStore";
 import { useConnectivityRefresh } from "../../hooks/useConnectivityRefresh";
@@ -183,10 +184,11 @@ export default function Senti9Setup({
       void queryClient.invalidateQueries({ queryKey: ["agent-probes"] });
       void queryClient.invalidateQueries({ queryKey: ["org-subscription"] });
       onSuccess?.();
-    } catch {
+    } catch (err: unknown) {
       if (generation === active.current)
         setError(
-          "No se pudo registrar. Comprueba el nombre, tu cuota y la conexión.",
+          apiFailure(err).message ||
+            "No se pudo registrar. Comprueba el nombre, tu cuota y la conexión.",
         );
     } finally {
       if (generation === active.current) setBusy(false);

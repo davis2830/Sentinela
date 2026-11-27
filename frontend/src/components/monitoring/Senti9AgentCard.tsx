@@ -8,8 +8,9 @@ import { StatusShapeIcon } from "../common/connectivity/StatusPill";
 import GuardianRowActions from "./GuardianRowActions";
 import {
   GUARDIAN_STATE_META,
+  getGuardianDeliverySummary,
   getGuardianHealthState,
-  getGuardianHeartbeatSlots,
+  getGuardianPlatform,
   getGuardianQueueTotal,
   isGuardianVersionOutdated,
   type GuardianDensity,
@@ -80,8 +81,16 @@ export default function Senti9AgentCard({
           ? "text-amber-400"
           : "text-slate-400";
 
-  // Timestamped heartbeat slots (every bar has exact time + arrived/missed tooltip)
-  const heartbeatSlots = getGuardianHeartbeatSlots(probe, isCompact ? 14 : 16);
+  const platform = getGuardianPlatform(probe);
+  const deliverySummary = getGuardianDeliverySummary(probe);
+  const deliveryToneClass =
+    deliverySummary.tone === "danger"
+      ? "text-rose-400 font-semibold"
+      : deliverySummary.tone === "warning"
+        ? "text-amber-400 font-semibold"
+        : deliverySummary.tone === "ok"
+          ? "text-text-muted"
+          : "text-text-dim";
 
   return (
     <div
@@ -117,11 +126,9 @@ export default function Senti9AgentCard({
               className={`font-semibold truncate leading-tight min-w-0 ${
                 isCompact ? "text-[13px]" : "text-sm"
               } ${
-                isDisconnected
-                  ? "text-rose-300 font-bold"
-                  : isMuted
-                    ? "text-slate-400"
-                    : "text-text-main group-hover:text-accent-green transition-colors"
+                isMuted
+                  ? "text-slate-400"
+                  : "text-text-main group-hover:text-accent-green transition-colors"
               }`}
               title={`${probe.name} · ${detailTooltip}`}
             >
@@ -303,20 +310,17 @@ export default function Senti9AgentCard({
           </span>
         </div>
 
-        {/* Slim Heartbeat Bars with exact timestamp & missed-heartbeat tooltips */}
-        <div
-          className={`flex items-center gap-[3px] w-full ${
-            isCompact ? "h-1.5" : "h-2"
-          }`}
-          aria-label={`Latidos recientes de ${probe.name}`}
-        >
-          {heartbeatSlots.map((slot, idx) => (
-            <div
-              key={idx}
-              title={slot.tooltip}
-              className={`flex-1 h-full rounded-[2px] transition-transform hover:scale-y-125 ${slot.cls}`}
-            />
-          ))}
+        {/* Honest Footer Metadata: Platform + Real Server Ledger / Queue State */}
+        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border-base/50 text-[11px] font-mono">
+          <span className="text-text-dim truncate">
+            {platform === "windows" ? "Windows" : "Linux"}
+          </span>
+          <span
+            className={`truncate ${deliveryToneClass}`}
+            title={deliverySummary.tooltip}
+          >
+            {deliverySummary.label}
+          </span>
         </div>
       </div>
     </div>

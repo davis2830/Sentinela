@@ -9,10 +9,12 @@ export default function Senti9Quota({
   quota: QuotaMetric;
   onUpgrade?: () => void;
 }) {
+  const planExcludesGuardians = !quota.is_unlimited && quota.limit === 0;
   const nearOrAtLimit =
-    !quota.is_unlimited &&
-    quota.limit > 0 &&
-    quota.current / quota.limit >= 0.8;
+    planExcludesGuardians ||
+    (!quota.is_unlimited &&
+      quota.limit > 0 &&
+      quota.current / quota.limit >= 0.8);
 
   return (
     <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border-base bg-bg-dark/80 text-xs text-text-muted select-none">
@@ -27,7 +29,14 @@ export default function Senti9Quota({
             <strong className="font-mono font-semibold text-text-main">
               {quota.current}
             </strong>{" "}
-            guardianes (plan ilimitado)
+            {quota.current === 1 ? "guardián" : "guardianes"} (sin límite)
+          </>
+        ) : planExcludesGuardians ? (
+          <>
+            <strong className="font-mono font-semibold text-amber-300">
+              No incluido
+            </strong>{" "}
+            en Starter
           </>
         ) : (
           <>

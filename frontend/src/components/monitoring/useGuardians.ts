@@ -6,7 +6,9 @@ import type {
   StatusTone,
 } from "../common/connectivity/StatusPill";
 
-export const GUARDIAN_HEARTBEAT_INTERVAL_SEC = 30;
+export const GUARDIAN_POLL_INTERVAL_SEC = 10;
+export const GUARDIAN_ONLINE_THRESHOLD_SEC = 45;
+export const GUARDIAN_STALE_THRESHOLD_SEC = 120;
 export const GUARDIAN_QUEUE_WARN_THRESHOLD = 50;
 
 export type GuardianHealthState =
@@ -39,10 +41,10 @@ export function getGuardianHeartbeatAgeSec(probe: AgentProbe): number | null {
 }
 
 /**
- * 3-tier heartbeat state detection (heartbeat interval = 30 s):
- * - < 2 intervals (< 60 s) or backend is_online: connected (emerald)
- * - 2 to 5 intervals (60–150 s): stale_signal ("Sin señal reciente", amber early warning)
- * - > 5 intervals (> 150 s): disconnected (rose)
+ * 3-tier heartbeat state aligned with backend AgentProbe.is_online (poll_interval = 10 s, online <= 45 s):
+ * - backend is_online or age <= 45 s: connected (emerald)
+ * - 46 s to 120 s since last_heartbeat: stale_signal ("Sin señal reciente", amber early warning)
+ * - > 120 s since last_heartbeat: disconnected (rose)
  */
 export function getGuardianHealthState(probe: AgentProbe): GuardianHealthState {
   if (probe.revoked_at) return "revoked";
@@ -50,12 +52,13 @@ export function getGuardianHealthState(probe: AgentProbe): GuardianHealthState {
   if (!probe.last_heartbeat) return "pending";
 
   const ageSec = getGuardianHeartbeatAgeSec(probe);
-  if (ageSec === null) return probe.is_online ? "connected" : "disconnected";
+  if (probe.is_online) return "connected";
+  if (ageSec === null) return "disconnected";
 
-  if (ageSec < GUARDIAN_HEARTBEAT_INTERVAL_SEC * 2 || probe.is_online) {
+  if (ageSec <= GUARDIAN_ONLINE_THRESHOLD_SEC) {
     return "connected";
   }
-  if (ageSec <= GUARDIAN_HEARTBEAT_INTERVAL_SEC * 5) {
+  if (ageSec <= GUARDIAN_STALE_THRESHOLD_SEC) {
     return "stale_signal";
   }
   return "disconnected";
@@ -256,7 +259,7 @@ export function useGuardians({
         if (signalRangeFilter === "5m" && (age === null || age > 300)) return false;
         if (signalRangeFilter === "1h" && (age === null || age > 3600)) return false;
         if (signalRangeFilter === "24h" && (age === null || age > 86400)) return false;
-        if (signalRangeFilter === "stale" && (age === null || age < 60)) return false;
+        if (signalRangeFilter === "stale" && (age === null || age <= GUARDIAN_ONLINE_THRESHOLD_SEC)) return false;
       }
 
       return true;
@@ -345,88 +348,101 @@ export function useGuardians({
   return { summary, availableVersions, sortedProbes, groupedProbes };
 }
 
-export interface GuardianHeartbeatSlot {
-  status: "ok" | "stale" | "missed" | "pending" | "paused" | "revoked" | "no_data";
-  cls: string;
+export interface GuardianDeliverySummary {
+  label: string;
+  tone: "muted" | "ok" | "warning" | "danger";
   tooltip: string;
 }
 
 /**
- * Generates timestamped heartbeat slots (each representing 1 heartbeat interval of 30 s)
- * so every bar displays an exact local time and explicitly marks missed heartbeats in amber/red.
+ * Honest delivery + local queue summary derived strictly from real server receipt ledger
+ * (`probe.delivery`) and agent telemetry (`probe.telemetry.snapshot`). Never fabricates history.
  */
-export function getGuardianHeartbeatSlots(
+export function getGuardianDeliverySummary(
   probe: AgentProbe,
-  count: number,
-): GuardianHeartbeatSlot[] {
-  const now = Date.now();
-  const intervalMs = GUARDIAN_HEARTBEAT_INTERVAL_SEC * 1000;
+): GuardianDeliverySummary {
   const state = getGuardianHealthState(probe);
-  const createdMs = probe.created_at ? Date.parse(probe.created_at) : 0;
-  const lastHbMs = probe.last_heartbeat ? Date.parse(probe.last_heartbeat) : 0;
-
-  return Array.from({ length: count }).map((_, idx) => {
-    const slotEnd = now - (count - 1 - idx) * intervalMs;
-    const slotStart = slotEnd - intervalMs;
-    const timeStr = new Date(slotEnd).toLocaleTimeString("es-ES", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-
-    if (state === "revoked") {
-      return {
-        status: "revoked",
-        cls: "bg-slate-600/75",
-        tooltip: `${timeStr} · Guardián revocado`,
-      };
-    }
-
-    if (state === "paused") {
-      return {
-        status: "paused",
-        cls: "bg-slate-600/75",
-        tooltip: `${timeStr} · Guardián pausado`,
-      };
-    }
-
-    if (createdMs > 0 && slotEnd < createdMs) {
-      return {
-        status: "no_data",
-        cls: "bg-slate-900/50 border border-slate-700/75",
-        tooltip: `${timeStr} · Sin datos (guardián aún no registrado)`,
-      };
-    }
-
-    if (state === "pending" || !Number.isFinite(lastHbMs) || lastHbMs <= 0) {
-      return {
-        status: "pending",
-        cls: "bg-slate-900/50 border border-slate-700/75",
-        tooltip: `${timeStr} · Esperando primera señal`,
-      };
-    }
-
-    // Slot is after the last received heartbeat -> missed heartbeat!
-    if (slotStart > lastHbMs) {
-      const missedSec = Math.floor((slotEnd - lastHbMs) / 1000);
-      if (missedSec <= GUARDIAN_HEARTBEAT_INTERVAL_SEC * 5) {
-        return {
-          status: "stale",
-          cls: "bg-amber-400 hover:bg-amber-300",
-          tooltip: `${timeStr} · Latido atrasado (sin señal reciente)`,
-        };
-      }
-      return {
-        status: "missed",
-        cls: "bg-rose-500 hover:bg-rose-400",
-        tooltip: `${timeStr} · Latido perdido (guardián desconectado)`,
-      };
-    }
-
+  if (state === "revoked") {
     return {
-      status: "ok",
-      cls: "bg-emerald-500 hover:bg-emerald-400",
-      tooltip: `${timeStr} · Latido recibido`,
+      label: "Token revocado",
+      tone: "muted",
+      tooltip: "El guardián fue revocado y no puede recibir ni entregar chequeos.",
     };
-  });
+  }
+  if (state === "paused") {
+    return {
+      label: "Pausado",
+      tone: "muted",
+      tooltip: "El guardián está pausado y no despacha tareas nuevas.",
+    };
+  }
+  if (state === "pending") {
+    return {
+      label: "Sin señal inicial",
+      tone: "warning",
+      tooltip: "Aún no se recibe el primer latido del contenedor Senti9.",
+    };
+  }
+
+  const overdue = probe.delivery?.overdue ?? 0;
+  const pending = probe.delivery?.pending ?? 0;
+  const hasSnapshot = Boolean(probe.telemetry?.snapshot);
+  const queueTotal = getGuardianQueueTotal(probe);
+  const draining = Boolean(probe.telemetry?.snapshot?.draining);
+  const hasErrors = Boolean(probe.telemetry?.snapshot?.errors?.length);
+
+  if (overdue > 0) {
+    return {
+      label: `${overdue} ${overdue === 1 ? "vencida" : "vencidas"}`,
+      tone: "danger",
+      tooltip: `${overdue} entrega(s) vencida(s) y ${pending} pendiente(s) en el registro del servidor.`,
+    };
+  }
+  if (hasErrors) {
+    return {
+      label: "Error interno",
+      tone: "danger",
+      tooltip: "La telemetría del agente reporta errores de almacenamiento, entrega o latido.",
+    };
+  }
+  if (draining) {
+    return {
+      label: `Drenando · cola ${queueTotal}`,
+      tone: "warning",
+      tooltip: "El guardián está drenando su cola local antes de detenerse.",
+    };
+  }
+  if (queueTotal >= GUARDIAN_QUEUE_WARN_THRESHOLD) {
+    return {
+      label: `Cola ${queueTotal}`,
+      tone: "warning",
+      tooltip: `${queueTotal} mediciones locales pendientes de enviar a Sentinel.`,
+    };
+  }
+  if (pending > 0) {
+    return {
+      label: `${pending} ${pending === 1 ? "pendiente" : "pendientes"}`,
+      tone: "ok",
+      tooltip: `${pending} ejecución(es) en vuelo registradas en el servidor.`,
+    };
+  }
+  if (hasSnapshot) {
+    return {
+      label: `Cola ${queueTotal}`,
+      tone: "ok",
+      tooltip: `Cola local: ${queueTotal} · Sin entregas vencidas.`,
+    };
+  }
+  if (probe.delivery?.last_received_at) {
+    return {
+      label: "Al día",
+      tone: "ok",
+      tooltip: "Sin entregas pendientes ni vencidas en el registro del servidor.",
+    };
+  }
+  return {
+    label: "Sin entregas",
+    tone: "muted",
+    tooltip: "El guardián aún no tiene ejecuciones registradas.",
+  };
 }

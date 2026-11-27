@@ -25,12 +25,10 @@ import {
 } from "../common/connectivity/tableTokens";
 import GuardianRowActions from "./GuardianRowActions";
 import {
-  GUARDIAN_QUEUE_WARN_THRESHOLD,
   GUARDIAN_STATE_META,
+  getGuardianDeliverySummary,
   getGuardianHealthState,
-  getGuardianHeartbeatSlots,
   getGuardianPlatform,
-  getGuardianQueueTotal,
   isGuardianVersionOutdated,
   type GuardianDensity,
   type GuardianGroup,
@@ -108,10 +106,15 @@ export default function Senti9TableView({
     const assigned = probe.assigned_targets_count ?? 0;
     const activeAssigned = probe.active_targets_count ?? assigned;
     const downAssigned = probe.down_targets_count ?? 0;
-    const queueTotal = getGuardianQueueTotal(probe);
-    const queueWarn = queueTotal >= GUARDIAN_QUEUE_WARN_THRESHOLD;
-    const draining = Boolean(probe.telemetry?.snapshot?.draining);
-    const heartbeatSlots = getGuardianHeartbeatSlots(probe, 8);
+    const deliverySummary = getGuardianDeliverySummary(probe);
+    const deliveryToneClass =
+      deliverySummary.tone === "danger"
+        ? "text-rose-400 font-semibold"
+        : deliverySummary.tone === "warning"
+          ? "text-amber-400 font-semibold"
+          : deliverySummary.tone === "ok"
+            ? "text-text-muted"
+            : "text-text-dim";
 
     const identifier = probe.hostname || probe.id.slice(0, 12);
     const rowBgClass = isMuted
@@ -162,11 +165,9 @@ export default function Senti9TableView({
         <td className={`${paddingY} px-3 max-w-0`}>
           <div className="flex min-w-0 items-center gap-2">
             <span
-              className={`shrink-0 max-w-[45%] truncate font-semibold text-xs transition-colors ${isDisconnected
-                ? "text-rose-300 font-bold"
-                : isMuted
-                  ? "text-slate-400"
-                  : "text-text-main group-hover:text-accent-green"
+              className={`shrink-0 max-w-[45%] truncate font-semibold text-xs transition-colors ${isMuted
+                ? "text-slate-400"
+                : "text-text-main group-hover:text-accent-green"
                 }`}
               title={probe.name}
             >
@@ -323,44 +324,14 @@ export default function Senti9TableView({
           )}
         </td>
 
-        {/* 6. Latidos (8 barras con hora exacta, homologado con Historial (8) de Uptime) */}
+        {/* 6. Entrega & Cola (datos reales del ledger del servidor y telemetría) */}
         <td className={`${paddingY} px-3 whitespace-nowrap`}>
-          <div
-            className="flex items-center gap-1 h-3 w-20"
-            aria-label={`Latidos recientes de ${probe.name}`}
+          <span
+            className={`font-mono text-xs ${deliveryToneClass}`}
+            title={deliverySummary.tooltip}
           >
-            {heartbeatSlots.map((slot, idx) => (
-              <div
-                key={idx}
-                title={slot.tooltip}
-                className={`flex-1 h-full rounded-[2px] ${slot.cls}`}
-              />
-            ))}
-          </div>
-        </td>
-
-        {/* 7. Telemetría */}
-        <td className={`${paddingY} px-3 whitespace-nowrap`}>
-          {isMuted || isPending ? (
-            <span className="font-mono text-[11px] text-text-dim">—</span>
-          ) : probe.telemetry?.snapshot ? (
-            <span
-              className={`font-mono text-xs ${queueWarn || draining
-                ? "text-amber-400 font-semibold"
-                : "text-text-dim"
-                }`}
-              title={
-                draining
-                  ? "Guardián drenando cola antes de detenerse"
-                  : "Mediciones pendientes de enviar a Sentinel"
-              }
-            >
-              Cola {queueTotal}
-              {draining ? " · Dren." : ""}
-            </span>
-          ) : (
-            <span className="font-mono text-[11px] text-text-dim">—</span>
-          )}
+            {deliverySummary.label}
+          </span>
         </td>
 
         {/* 7. Acciones (fondo transparente para heredar exactamente el bg de la fila sin duplicar alfa) */}
@@ -404,9 +375,8 @@ export default function Senti9TableView({
             <col />
             <col className="w-[144px]" />
             <col className="w-[156px]" />
-            <col className="w-[114px]" />
-            <col className="w-[104px]" />
-            <col className="w-[96px]" />
+            <col className="w-[118px]" />
+            <col className="w-[132px]" />
             <col className="w-[168px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-bg-dark/95 backdrop-blur-md border-b border-border-base">
@@ -517,10 +487,7 @@ export default function Senti9TableView({
                 </div>
               </th>
               <th scope="col" className={`${TABLE_HEAD_CELL} whitespace-nowrap`}>
-                Latidos (8)
-              </th>
-              <th scope="col" className={`${TABLE_HEAD_CELL} whitespace-nowrap`}>
-                Telemetría
+                Entrega / Cola
               </th>
               <th
                 scope="col"
@@ -545,7 +512,7 @@ export default function Senti9TableView({
                     onClick={() => onToggleGroup(group.key)}
                     className="bg-bg-dark/70 hover:bg-bg-dark cursor-pointer transition-colors border-y border-border-base/60 select-none"
                   >
-                    <td colSpan={8} className="py-1.5 px-3">
+                    <td colSpan={7} className="py-1.5 px-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {isCollapsed ? (

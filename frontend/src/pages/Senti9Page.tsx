@@ -139,16 +139,13 @@ export default function Senti9Page() {
   const refresh = useConnectivityRefresh();
   const quota = refresh.subscription?.usage?.private_agents;
   const atQuotaLimit = Boolean(
-    quota &&
-      !quota.is_unlimited &&
-      quota.limit > 0 &&
-      quota.current >= quota.limit,
+    quota && !quota.is_unlimited && quota.current >= quota.limit,
   );
 
   const directory = useConnectivityDirectory<AgentProbe>(
     "agent-probes/",
     "agent-probes",
-    { search },
+    { search, lifecycle: "all" },
     refresh.refetchInterval,
     { pollMs: refresh.enabled ? 15000 : undefined },
   );
@@ -224,12 +221,18 @@ export default function Senti9Page() {
                 <button
                   type="button"
                   onClick={() => setPanel("upgrade")}
-                  title={`Alcanzaste el límite de tu plan (${quota?.current} de ${quota?.limit} ${quota?.limit === 1 ? "guardián" : "guardianes"}). Mejora tu plan para registrar otro.`}
+                  title={
+                    quota?.limit === 0
+                      ? "Tu plan Starter no incluye guardianes Senti9. Mejora a Pro o Business para registrar guardianes privados."
+                      : `Alcanzaste el límite de tu plan (${quota?.current} de ${quota?.limit} ${quota?.limit === 1 ? "guardián" : "guardianes"}). Mejora tu plan para registrar otro.`
+                  }
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer"
                 >
                   <Sparkles size={15} className="shrink-0" />
                   <span className="hidden md:inline">
-                    Límite alcanzado · Mejorar plan
+                    {quota?.limit === 0
+                      ? "Disponible desde Pro · Mejorar plan"
+                      : "Límite alcanzado · Mejorar plan"}
                   </span>
                   <span className="md:hidden">Mejorar plan</span>
                   <ArrowUpRight size={14} className="shrink-0" />
@@ -402,16 +405,31 @@ export default function Senti9Page() {
             </ol>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              {admin && (
-                <button
-                  type="button"
-                  onClick={() => setPanel("create")}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-accent-green hover:bg-accent-green/90 text-black transition-all shadow-md shadow-accent-green/20 cursor-pointer"
-                >
-                  <Plus size={16} />
-                  <span>Registrar guardián</span>
-                </button>
-              )}
+              {admin &&
+                (atQuotaLimit ? (
+                  <button
+                    type="button"
+                    onClick={() => setPanel("upgrade")}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer"
+                  >
+                    <Sparkles size={16} />
+                    <span>
+                      {quota?.limit === 0
+                        ? "Disponible desde Pro · Mejorar plan"
+                        : "Mejorar plan para registrar guardián"}
+                    </span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPanel("create")}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-accent-green hover:bg-accent-green/90 text-black transition-all shadow-md shadow-accent-green/20 cursor-pointer"
+                  >
+                    <Plus size={16} />
+                    <span>Registrar guardián</span>
+                  </button>
+                ))}
               <button
                 type="button"
                 onClick={() => setPanel("guide")}
