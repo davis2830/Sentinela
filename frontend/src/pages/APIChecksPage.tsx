@@ -1,56 +1,51 @@
-import { useCompactViewport } from "../hooks/useCompactViewport";
-import {
-  ReadFailure,
-  DirectoryPagination,
-  ActionFeedback,
-} from "../components/common/DirectoryState";
-import { useConnectivityDirectory } from "../hooks/useConnectivityDirectory";
-import { bulkOutcome } from "../utils/bulkOutcome";
-import { useLinkedResource } from "../hooks/useLinkedResource";
-import { useUrlFilter } from "../hooks/useUrlFilter";
-import AdminButton from "../components/common/AdminButton";
-import { useAuthStore } from "../store/authStore";
-import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../services/api";
-import { waitForFreshScan, type QueuedScan } from "../utils/scanPolling";
-import type {
-  APICheckTarget,
-  CreateAPICheckTargetData,
-  APICheckStats,
-} from "../types/api_checks";
-import EmptyState from "../components/common/EmptyState";
-import ConfirmDelete from "../components/common/ConfirmDelete";
-import APICheckCard from "../components/api_checks/APICheckCard";
-import APICheckTableView from "../components/api_checks/APICheckTableView";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Pause, Play, Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
+import APICheckCardGridView from "../components/api_checks/APICheckCardGridView";
 import APICheckDetailDrawer from "../components/api_checks/APICheckDetailDrawer";
 import APICheckForm from "../components/api_checks/APICheckForm";
+import APICheckTableView from "../components/api_checks/APICheckTableView";
+import APICheckToolbar from "../components/api_checks/APICheckToolbar";
 import {
-  NOCPageHeader,
-  NOCToolbar,
-  NOCBulkActionBar,
-} from "../components/common/noc";
+  useAPIChecks,
+  type APICheckDensity,
+  type APICheckGroupBy,
+  type APICheckSchemaFilter,
+  type APICheckSortField,
+} from "../components/api_checks/useAPIChecks";
+import AdminButton from "../components/common/AdminButton";
+import ConfirmDelete from "../components/common/ConfirmDelete";
+import {
+  ActionFeedback,
+  DirectoryPagination,
+  ReadFailure,
+} from "../components/common/DirectoryState";
+import EmptyState from "../components/common/EmptyState";
+import { NOCBulkActionBar, NOCPageHeader } from "../components/common/noc";
+import { useCompactViewport } from "../hooks/useCompactViewport";
+import { useConnectivityDirectory } from "../hooks/useConnectivityDirectory";
 import { useConnectivityRefresh } from "../hooks/useConnectivityRefresh";
+import { useLinkedResource } from "../hooks/useLinkedResource";
 import { usePersistentViewMode } from "../hooks/usePersistentViewMode";
-import {
-  Plug,
-  Plus,
-  Loader2,
-  Trash2,
-  Download,
-  Pause,
-  Play,
-} from "lucide-react";
+import { useUrlFilter } from "../hooks/useUrlFilter";
+import { api } from "../services/api";
+import { useAuthStore } from "../store/authStore";
+import type {
+  APICheckStats,
+  APICheckTarget,
+  CreateAPICheckTargetData,
+} from "../types/api_checks";
+import { bulkOutcome } from "../utils/bulkOutcome";
+import { waitForFreshScan, type QueuedScan } from "../utils/scanPolling";
 
 type StatusFilterType = "all" | "pass" | "slow" | "fail";
 
 export default function APIChecksPage() {
   const compact = useCompactViewport();
   const organizationId = useAuthStore((state) => state.user?.organization?.id);
-
   const queryClient = useQueryClient();
 
-  // State
+  // Filters & view state
   const [methodFilter, setMethodFilter] = useUrlFilter("method", [
     "all",
     "GET",
@@ -67,14 +62,33 @@ export default function APIChecksPage() {
     "slow",
     "fail",
   ] as const);
+  const [hostFilter, setHostFilter] = useState("all");
+  const [schemaFilter, setSchemaFilter] = useState<APICheckSchemaFilter>("all");
+  const [groupBy, setGroupBy] = useState<APICheckGroupBy>("none");
+  const [density, setDensity] = useState<APICheckDensity>("compact");
+  const [sortField, setSortField] = useState<APICheckSortField>("status");
+  const [sortAsc, setSortAsc] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
   const [viewMode, setViewMode] = usePersistentViewMode("api_checks", "table");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // Modals & Drawer State
+  const [showForm, setShowForm] = useState(false);
+  const [editingTarget, setEditingTarget] = useState<APICheckTarget | null>(
+    null,
+  );
+  const [selectedTarget, setSelectedTarget] = useState<APICheckTarget | null>(
+    null,
+  );
+  const [deleteTarget, setDeleteTarget] = useState<APICheckTarget | null>(null);
 
   // Read cadence follows the server plan; GET never triggers a scan.
   const autoRefresh = useConnectivityRefresh();
 
-  // Stats query
   const { data: stats } = useQuery<APICheckStats>({
     queryKey: ["api-check-stats", organizationId],
     queryFn: async () => {
@@ -84,7 +98,6 @@ export default function APIChecksPage() {
     refetchInterval: autoRefresh.refetchInterval,
   });
 
-  // List targets query
   const directory = useConnectivityDirectory<APICheckTarget>(
     "api-checks/",
     "api-check-targets",
@@ -95,19 +108,41 @@ export default function APIChecksPage() {
   const selectionScope = JSON.stringify(directory.params);
   useEffect(() => setSelectedIds([]), [selectionScope]);
 
+  const allTargets = useMemo(() => targets || [], [targets]);
+
+  // Keep selectedTarget synced when background polling updates the list
+  useEffect(() => {
+    if (!selectedTarget) return;
+    const fresh = allTargets.find((t) => t.id === selectedTarget.id);
+    if (fresh && fresh !== selectedTarget) {
+      setSelectedTarget(fresh);
+    }
+  }, [allTargets, selectedTarget]);
+
+  const { facets, summary, sortedTargets, groupedTargets } = useAPIChecks({
+    targets: allTargets,
+    hostFilter,
+    schemaFilter,
+    sortField,
+    sortAsc,
+    groupBy,
+  });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["api-check-targets", organizationId],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["api-check-stats", organizationId],
+    });
+  };
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: async (data: CreateAPICheckTargetData) => {
       await api.post("api-checks/", data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-stats", organizationId],
-      });
-    },
+    onSuccess: invalidateAll,
   });
 
   const updateMutation = useMutation({
@@ -120,14 +155,7 @@ export default function APIChecksPage() {
     }) => {
       await api.patch(`api-checks/${id}/`, data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-stats", organizationId],
-      });
-    },
+    onSuccess: invalidateAll,
   });
 
   const scanMutation = useMutation({
@@ -143,12 +171,7 @@ export default function APIChecksPage() {
       );
     },
     onSuccess: (updatedTarget) => {
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-stats", organizationId],
-      });
+      invalidateAll();
       if (
         selectedTarget &&
         updatedTarget &&
@@ -168,12 +191,7 @@ export default function APIChecksPage() {
       await api.delete(`api-checks/${id}/`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-stats", organizationId],
-      });
+      invalidateAll();
       if (selectedTarget?.id === deleteTarget?.id) {
         setSelectedTarget(null);
       }
@@ -181,7 +199,19 @@ export default function APIChecksPage() {
     },
   });
 
-  // Bulk Actions
+  const handleSort = (field: APICheckSortField) => {
+    if (sortField === field) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleToggleSelect = (target: APICheckTarget) => {
     setSelectedIds((prev) =>
       prev.includes(target.id)
@@ -191,15 +221,13 @@ export default function APIChecksPage() {
   };
 
   const handleSelectAllToggle = () => {
-    if (!filteredTargets || filteredTargets.length === 0) return;
-    if (selectedIds.length === filteredTargets.length) {
+    if (sortedTargets.length === 0) return;
+    if (selectedIds.length === sortedTargets.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredTargets.map((t: APICheckTarget) => t.id));
+      setSelectedIds(sortedTargets.map((t) => t.id));
     }
   };
-
-  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const handleBulkAction = async (
     action: "scan" | "pause" | "resume" | "delete",
@@ -211,8 +239,9 @@ export default function APIChecksPage() {
       !(await directory.confirmDelete(
         `Eliminar ${selectedIds.length} endpoints seleccionados.`,
       ))
-    )
+    ) {
       return;
+    }
 
     setBulkProcessing(true);
     try {
@@ -223,12 +252,7 @@ export default function APIChecksPage() {
       const outcome = bulkOutcome(response.data.data, selectedIds);
       setSelectedIds(outcome.pending);
       directory.setMessage(outcome.message);
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-targets", organizationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["api-check-stats", organizationId],
-      });
+      invalidateAll();
     } catch {
       directory.setMessage(
         "No se pudo confirmar la acción. No se reintentaron operaciones; revisa los recursos antes de reintentar.",
@@ -238,33 +262,14 @@ export default function APIChecksPage() {
     }
   };
 
-  // Export CSV Report
-  const handleExportCSV = () => void directory.exportCSV();
-
-  // Modals & Drawer State
-  const [showForm, setShowForm] = useState(false);
-  const [editingTarget, setEditingTarget] = useState<APICheckTarget | null>(
-    null,
-  );
-  const [selectedTarget, setSelectedTarget] = useState<APICheckTarget | null>(
-    null,
-  );
-  const [deleteTarget, setDeleteTarget] = useState<APICheckTarget | null>(null);
-
   const handleOpenCreate = () => {
     setEditingTarget(null);
     setShowForm(true);
   };
 
-  const handleOpenEdit = (target: APICheckTarget, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleOpenEdit = (target: APICheckTarget) => {
     setEditingTarget(target);
     setShowForm(true);
-  };
-
-  const handleOpenDelete = (target: APICheckTarget, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setDeleteTarget(target);
   };
 
   const handleFormSubmit = async (data: CreateAPICheckTargetData) => {
@@ -277,110 +282,99 @@ export default function APIChecksPage() {
     setEditingTarget(null);
   };
 
-  // KPI Calculations
-  const allTargets = targets || [];
-  const totalCount = stats?.total ?? "—";
-  const passCount = stats?.pass_count ?? "—";
-  const slowCount = stats?.slow_count ?? "—";
-  const failCount = stats?.fail_count ?? "—";
-
-  // Filtered & Searched Targets
-  const filteredTargets = allTargets;
+  const hasActiveFilters = Boolean(
+    searchTerm ||
+      methodFilter !== "all" ||
+      statusFilter !== "all" ||
+      hostFilter !== "all" ||
+      schemaFilter !== "all",
+  );
 
   useLinkedResource(targets, selectedTarget, setSelectedTarget);
 
   if (isError && !targets) return <ReadFailure retry={refetch} />;
+
   return (
     <div className="compact-workspace space-y-4 animate-in fade-in duration-300 font-sans">
       {isError && <ReadFailure stale={!!targets} retry={refetch} />}
       <ActionFeedback>{directory.message}</ActionFeedback>
       {directory.confirmation}
 
-      {/* 1. TOP HEADER (Standard NOC Header) */}
-      <NOCPageHeader
-        title="API Endpoints Check"
-        badgeText="API WATCHDOG"
-        description="Valida respuestas HTTP, tiempos y campos JSON desde la nube."
-        icon={<Plug size={26} />}
-        autoRefresh={{
-          enabled: autoRefresh.enabled,
-          countdown: autoRefresh.countdown,
-          onToggle: autoRefresh.toggle,
-          intervalSeconds: autoRefresh.intervalSeconds,
-          ready: autoRefresh.ready,
-          blockedReason: autoRefresh.blockedReason,
-        }}
-        actions={
-          <>
+      {/* 1. HEADER */}
+      <div className="w-full max-w-[1400px] mx-auto">
+        <NOCPageHeader
+          title="API Endpoints"
+          badgeText="API WATCHDOG"
+          description="Valida respuestas HTTP, latencia y contratos JSON desde la nube."
+          icon={<Plug size={24} />}
+          autoRefresh={{
+            enabled: autoRefresh.enabled,
+            countdown: autoRefresh.countdown,
+            onToggle: autoRefresh.toggle,
+            intervalSeconds: autoRefresh.intervalSeconds,
+            ready: autoRefresh.ready,
+            blockedReason: autoRefresh.blockedReason,
+          }}
+          actions={
             <AdminButton
               capability="api_checks.create"
               type="button"
               onClick={handleOpenCreate}
-              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
+              className="flex items-center gap-2 bg-accent-green text-black font-semibold px-4 py-2 rounded-full text-xs sm:text-sm hover:bg-accent-green/90 transition-all shadow-md shadow-accent-green/20 cursor-pointer"
             >
-              <Plus size={16} />
+              <Plus size={15} />
               <span>Nuevo API Check</span>
             </AdminButton>
-          </>
-        }
-      />
+          }
+        />
+      </div>
 
-      {/* 3. TOOLBAR: Omnibar Search + Methods + Status Pills + Grid/Table Switcher */}
-      <NOCToolbar
-        layout="inline"
-        countsScope="total de la organización"
-        utilities={[
-          {
-            label: "Exportar resultados filtrados",
-            icon: <Download size={16} />,
-            onClick: () => void handleExportCSV(),
-            disabled: !targets?.length,
-          },
-        ]}
-        searchTerm={searchTerm}
+      {/* 2. UNIFIED SINGLE-ROW TOOLBAR */}
+      <APICheckToolbar
+        stats={stats}
+        summary={summary}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(st) => setStatusFilter(st as StatusFilterType)}
+        methodFilter={methodFilter}
+        onMethodFilterChange={(m) =>
+          setMethodFilter(
+            m as "all" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD",
+          )
+        }
+        hostFilter={hostFilter}
+        onHostFilterChange={setHostFilter}
+        schemaFilter={schemaFilter}
+        onSchemaFilterChange={setSchemaFilter}
+        facets={facets}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        density={density}
+        onDensityChange={setDensity}
+        search={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por nombre de API, ruta o URL de endpoint..."
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        categoryLabel="Método:"
-        categories={[
-          { id: "all", label: "Todos" },
-          { id: "GET", label: "GET" },
-          { id: "POST", label: "POST" },
-          { id: "PUT", label: "PUT" },
-          { id: "PATCH", label: "PATCH" },
-          { id: "DELETE", label: "DELETE" },
-          { id: "HEAD", label: "HEAD" },
-        ]}
-        selectedCategory={methodFilter}
-        onCategoryChange={setMethodFilter}
-        statusPills={[
-          { id: "all", label: "Todos", count: totalCount, variant: "all" },
-          {
-            id: "pass",
-            label: "Exitosas",
-            count: passCount,
-            variant: "success",
-          },
-          { id: "slow", label: "Lentas", count: slowCount, variant: "warning" },
-          {
-            id: "fail",
-            label: "Con Fallos",
-            count: failCount,
-            variant: "danger",
-          },
-        ]}
-        selectedStatus={statusFilter}
-        onStatusChange={(st) => setStatusFilter(st as StatusFilterType)}
+        onExportCSV={() => void directory.exportCSV()}
+        canExport={sortedTargets.length > 0}
       />
 
-      {/* 4. FLOATING BULK ACTIONS BAR */}
+      {/* 3. FLOATING BULK ACTIONS BAR */}
       <NOCBulkActionBar
         selectedCount={selectedIds.length}
         onClearSelection={() => setSelectedIds([])}
         itemLabel="endpoints"
         actions={
           <>
+            <AdminButton
+              capability="api_checks.scan"
+              type="button"
+              onClick={() => handleBulkAction("scan")}
+              disabled={bulkProcessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-dark border border-border-base text-accent-green hover:bg-accent-green/10 font-semibold rounded-full text-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw size={13} />
+              Comprobar
+            </AdminButton>
             <AdminButton
               capability="api_checks.update"
               type="button"
@@ -415,96 +409,93 @@ export default function APIChecksPage() {
         }
       />
 
-      {/* 5. MAIN CONTENT: DUAL VIEW (GRID OR TABLE) */}
+      {/* 4. MAIN CONTENT: DUAL VIEW (TABLE OR CARDS) */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="animate-spin text-accent-green" size={32} />
         </div>
-      ) : filteredTargets && filteredTargets.length > 0 ? (
+      ) : sortedTargets.length > 0 ? (
         viewMode === "grid" || compact ? (
-          /* Grid View (Cards) */
-          <div className="connectivity-card-grid">
-            {filteredTargets.map((target: APICheckTarget) => (
-              <APICheckCard
-                key={target.id}
-                target={target}
-                isSelected={selectedIds.includes(target.id)}
-                onToggleSelect={() => handleToggleSelect(target)}
-                onClick={() => setSelectedTarget(target)}
-                onScan={(e) => {
-                  e.stopPropagation();
-                  scanMutation.mutate(target.id);
-                }}
-                isScanning={scanningId === target.id}
-                onEdit={(e) => handleOpenEdit(target, e)}
-                onDelete={(e) => handleOpenDelete(target, e)}
-              />
-            ))}
-          </div>
+          <APICheckCardGridView
+            targets={sortedTargets}
+            groups={groupedTargets}
+            collapsedGroups={collapsedGroups}
+            onToggleGroup={toggleGroup}
+            density={density}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onSelectTarget={setSelectedTarget}
+            onScan={(t) => scanMutation.mutate(t.id)}
+            scanningId={scanningId}
+            onEdit={handleOpenEdit}
+            onDelete={setDeleteTarget}
+          />
         ) : (
-          /* Compact NOC Table View */
           <APICheckTableView
-            targets={filteredTargets}
+            targets={sortedTargets}
+            groups={groupedTargets}
+            collapsedGroups={collapsedGroups}
+            onToggleGroup={toggleGroup}
+            density={density}
+            sortField={sortField}
+            sortAsc={sortAsc}
+            onSort={handleSort}
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onSelectAll={handleSelectAllToggle}
-            onSelectTarget={(t) => setSelectedTarget(t)}
-            onScan={(id, e) => {
-              e.stopPropagation();
-              scanMutation.mutate(id);
-            }}
+            onSelectTarget={setSelectedTarget}
+            onScan={(t) => scanMutation.mutate(t.id)}
             scanningId={scanningId}
-            onEdit={(t, e) => handleOpenEdit(t, e)}
-            onDelete={(t, e) => handleOpenDelete(t, e)}
+            onEdit={handleOpenEdit}
+            onDelete={setDeleteTarget}
           />
         )
       ) : (
-        <EmptyState
-          capability="api_checks.create"
-          icon={Plug}
-          title={
-            searchTerm || methodFilter !== "all" || statusFilter !== "all"
-              ? "No se encontraron endpoints con los filtros seleccionados"
-              : "No hay API Check targets configurados"
-          }
-          description={
-            searchTerm || methodFilter !== "all" || statusFilter !== "all"
-              ? "Intenta cambiar el término de búsqueda o restablecer los filtros activos."
-              : "Comienza a monitorear tus endpoints REST, tiempos de respuesta y validación de schemas."
-          }
-          actionLabel={
-            searchTerm || methodFilter !== "all" || statusFilter !== "all"
-              ? "Limpiar Filtros"
-              : "Nuevo API Check"
-          }
-          onAction={() => {
-            if (
-              searchTerm ||
-              methodFilter !== "all" ||
-              statusFilter !== "all"
-            ) {
-              setSearchTerm("");
-              setMethodFilter("all");
-              setStatusFilter("all");
-            } else {
-              handleOpenCreate();
+        <div className="w-full max-w-[1400px] mx-auto">
+          <EmptyState
+            capability="api_checks.create"
+            icon={Plug}
+            title={
+              hasActiveFilters
+                ? "No se encontraron endpoints con los filtros seleccionados"
+                : "No hay API Check targets configurados"
             }
-          }}
-        />
+            description={
+              hasActiveFilters
+                ? "Intenta cambiar el término de búsqueda o restablecer los filtros activos."
+                : "Comienza a monitorear tus endpoints REST, tiempos de respuesta y validación de schemas."
+            }
+            actionLabel={
+              hasActiveFilters ? "Limpiar filtros" : "Nuevo API Check"
+            }
+            onAction={() => {
+              if (hasActiveFilters) {
+                setSearchTerm("");
+                setMethodFilter("all");
+                setStatusFilter("all");
+                setHostFilter("all");
+                setSchemaFilter("all");
+              } else {
+                handleOpenCreate();
+              }
+            }}
+          />
+        </div>
       )}
 
-      {/* 6. SLIDE-OVER DETAIL DRAWER */}
+      {/* 5. NON-MODAL DETAIL DRAWER (shared ResourceDetailDrawer with Prev/Next) */}
       <APICheckDetailDrawer
         target={selectedTarget}
-        isOpen={!!selectedTarget}
+        targets={sortedTargets}
+        onSelectTarget={setSelectedTarget}
         onClose={() => setSelectedTarget(null)}
         onScan={async (id) => scanMutation.mutateAsync(id)}
         isScanning={scanningId === selectedTarget?.id}
-        onEdit={(t) => handleOpenEdit(t)}
-        onDelete={(t) => handleOpenDelete(t)}
+        onEdit={handleOpenEdit}
+        onDelete={setDeleteTarget}
       />
 
-      {/* 7. CREATE / EDIT FORM MODAL WITH LIVE TEST */}
+      {/* 6. CREATE / EDIT FORM MODAL WITH LIVE TEST */}
       {showForm && (
         <APICheckForm
           target={editingTarget}
@@ -516,7 +507,7 @@ export default function APIChecksPage() {
         />
       )}
 
-      {/* 8. DELETE CONFIRMATION MODAL */}
+      {/* 7. DELETE CONFIRMATION MODAL */}
       <ConfirmDelete
         isOpen={!!deleteTarget}
         itemName={deleteTarget?.name || "este endpoint"}
@@ -524,7 +515,10 @@ export default function APIChecksPage() {
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onClose={() => setDeleteTarget(null)}
       />
-      <DirectoryPagination directory={directory} />
+
+      <div className="w-full max-w-[1400px] mx-auto">
+        <DirectoryPagination directory={directory} />
+      </div>
     </div>
   );
 }
