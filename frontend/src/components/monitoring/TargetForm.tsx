@@ -169,6 +169,8 @@ export default function TargetForm({
     setEndpoint,
     interval,
     setInterval,
+    alertAfterFailures,
+    setAlertAfterFailures,
     enabled,
     setEnabled,
     autoCoverage,
@@ -217,7 +219,6 @@ export default function TargetForm({
   const [hasManuallyEditedName, setHasManuallyEditedName] = useState(
     Boolean(target?.name),
   );
-  const [consecutiveFailures, setConsecutiveFailures] = useState(2);
   const urlInputRef = useRef<HTMLInputElement>(null);
 
   // Autofocus on URL upon open
@@ -785,9 +786,9 @@ export default function TargetForm({
                 <div className="flex items-center gap-1 text-[11px] text-text-muted whitespace-nowrap">
                   <span>Alertar tras</span>
                   <select
-                    value={consecutiveFailures}
+                    value={alertAfterFailures}
                     onChange={(e) =>
-                      setConsecutiveFailures(Number(e.target.value))
+                      setAlertAfterFailures(Number(e.target.value))
                     }
                     className="px-2 py-1.5 rounded-lg border border-border-base bg-bg-dark font-mono text-xs text-text-main focus:outline-none"
                   >

@@ -76,6 +76,7 @@ class MonitoringService:
         custom_headers=None,
         request_body="",
         max_latency_ms=2000,
+        alert_after_failures=2,
         actor=None,
     ):
         owner_team_obj = None
@@ -100,6 +101,7 @@ class MonitoringService:
             custom_headers=custom_headers or {},
             request_body=request_body,
             max_latency_ms=max_latency_ms,
+            alert_after_failures=max(1, min(10, int(alert_after_failures or 2))),
             interval=interval,
             enabled=enabled,
             tags=tags or [],

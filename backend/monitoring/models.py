@@ -103,6 +103,10 @@ class MonitoringTarget(OrganizationOwnedModel):
     custom_headers = models.JSONField(default=dict, blank=True)
     request_body = models.TextField(blank=True, default="")
     max_latency_ms = models.PositiveIntegerField(default=2000)
+    alert_after_failures = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="Consecutive failed checks required before triggering a down alert.",
+    )
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, null=True, blank=True)
     last_latency = models.FloatField(null=True, blank=True)

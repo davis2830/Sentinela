@@ -70,6 +70,21 @@ export interface DNSRecord {
   changes_last_hour?: number;
   linked_targets?: DNSLinkedTarget[];
   suggested_targets?: DNSLinkedTarget[];
+  alert_summary?: {
+    rules: {
+      id: string;
+      name: string;
+      condition: string;
+      threshold: number;
+      severity: string;
+      snoozed_until?: string | null;
+    }[];
+    destinations: {
+      id: string;
+      name: string;
+      channel_type: string;
+    }[];
+  };
   created_at: string;
   updated_at: string;
 }

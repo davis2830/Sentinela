@@ -96,6 +96,7 @@ class MonitoringTargetListView(APIView):
                 custom_headers=serializer.validated_data.get("custom_headers", {}),
                 request_body=serializer.validated_data.get("request_body", ""),
                 max_latency_ms=serializer.validated_data.get("max_latency_ms", 2000),
+                alert_after_failures=serializer.validated_data.get("alert_after_failures", 2),
             )
             from audit.services import AuditService
 

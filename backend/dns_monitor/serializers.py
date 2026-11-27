@@ -11,6 +11,13 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
     changes_last_hour = serializers.SerializerMethodField()
     linked_targets = serializers.SerializerMethodField()
     suggested_targets = serializers.SerializerMethodField()
+    alert_summary = serializers.SerializerMethodField()
+
+    def get_alert_summary(self, instance):
+        from alerts.models import AlertRule
+        from common.alert_summary import get_target_alert_summary
+
+        return get_target_alert_summary(instance, AlertRule.TargetType.DNS, self.context)
 
     def get_latest_change(self, instance):
         cache = getattr(instance, "_prefetched_objects_cache", {})
@@ -151,6 +158,7 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "changes_last_hour",
             "linked_targets",
             "suggested_targets",
+            "alert_summary",
             "created_at",
             "updated_at",
         )
@@ -177,6 +185,7 @@ class DNSRecordSerializer(ScanAvailabilitySerializer):
             "changes_last_hour",
             "linked_targets",
             "suggested_targets",
+            "alert_summary",
             "created_at",
             "updated_at",
         )

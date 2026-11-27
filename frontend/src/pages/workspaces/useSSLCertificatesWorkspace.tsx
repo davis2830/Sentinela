@@ -74,12 +74,16 @@ export function useSSLCertificatesWorkspace() {
   const [sortField, setSortField] = useState<SSLSortField>("expiry");
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Configurable thresholds (default: amber <= 14d, red <= 7d for Let's Encrypt)
-  const [thresholds, setThresholdsState] = useState<SSLThresholds>(() =>
-    loadSSLThresholds(),
+  // Thresholds: prefer real AlertRule thresholds from backend unless user saved a custom override
+  const [customThresholds, setCustomThresholds] = useState<SSLThresholds | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      const raw = window.localStorage.getItem("sentinel_ssl_thresholds_v1");
+      return raw ? loadSSLThresholds() : null;
+    },
   );
   const setThresholds = (next: SSLThresholds) => {
-    setThresholdsState(next);
+    setCustomThresholds(next);
     saveSSLThresholds(next);
   };
 
@@ -139,6 +143,19 @@ export function useSSLCertificatesWorkspace() {
   useEffect(() => setSelectedIds([]), [selectionScope]);
 
   const allCerts = useMemo(() => certificates || [], [certificates]);
+
+  const thresholds = useMemo<SSLThresholds>(() => {
+    if (customThresholds) return customThresholds;
+    const eff = allCerts.find((c) => c.alert_summary?.effective_thresholds)
+      ?.alert_summary?.effective_thresholds;
+    if (eff) {
+      return {
+        warningDays: eff.warning_days,
+        criticalDays: eff.critical_days,
+      };
+    }
+    return loadSSLThresholds();
+  }, [allCerts, customThresholds]);
 
   // Keep selectedCert synced when background polling or scan updates the list
   useEffect(() => {

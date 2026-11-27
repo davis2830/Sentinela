@@ -20,6 +20,7 @@ export interface MonitoringTarget {
   custom_headers?: Record<string, string>;
   request_body?: string;
   max_latency_ms?: number;
+  alert_after_failures?: number;
   last_checked_at: string | null;
   last_status: string | null;
   last_latency: number | null;
@@ -87,6 +88,7 @@ export interface CreateTargetData {
   custom_headers?: Record<string, string>;
   request_body?: string;
   max_latency_ms?: number;
+  alert_after_failures?: number;
   tags?: string[];
   owner_team?: string | null;
   runner_type?: "cloud" | "agent";
@@ -104,6 +106,7 @@ export interface UpdateTargetData {
   custom_headers?: Record<string, string>;
   request_body?: string;
   max_latency_ms?: number;
+  alert_after_failures?: number;
   tags?: string[];
   owner_team?: string | null;
   runner_type?: "cloud" | "agent";

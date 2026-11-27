@@ -9030,6 +9030,7 @@
                     "data": {
                       "items": {
                         "properties": {
+                          "alert_summary": {},
                           "changes_last_hour": {},
                           "created_at": {
                             "format": "date-time",
@@ -9295,6 +9296,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
@@ -9428,6 +9430,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
@@ -10149,6 +10152,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
@@ -10373,6 +10377,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
@@ -10563,6 +10568,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
@@ -10696,6 +10702,7 @@
                   "properties": {
                     "data": {
                       "properties": {
+                        "alert_summary": {},
                         "changes_last_hour": {},
                         "created_at": {
                           "format": "date-time",
@@ -19598,6 +19605,9 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "alert_after_failures": {
+                            "type": "integer"
+                          },
                           "checks_24h": {},
                           "coverage_24h_pct": {},
                           "coverage_status": {},
@@ -19814,6 +19824,9 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "alert_after_failures": {
+                    "type": "integer"
+                  },
                   "auto_coverage": {
                     "type": "boolean"
                   },
@@ -19923,6 +19936,9 @@
                         "agent_probe_status": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "alert_after_failures": {
+                          "type": "integer"
                         },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
@@ -20073,6 +20089,9 @@
                         "agent_probe_status": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "alert_after_failures": {
+                          "type": "integer"
                         },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
@@ -21012,6 +21031,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "alert_after_failures": {
+                          "type": "integer"
+                        },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
                         "coverage_status": {},
@@ -21188,6 +21210,9 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "alert_after_failures": {
+                    "type": "integer"
+                  },
                   "custom_headers": {},
                   "enabled": {
                     "type": "boolean"
@@ -21275,6 +21300,9 @@
                         "agent_probe_status": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "alert_after_failures": {
+                          "type": "integer"
                         },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
@@ -22443,6 +22471,9 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "alert_after_failures": {
+                            "type": "integer"
+                          },
                           "checks_24h": {},
                           "coverage_24h_pct": {},
                           "coverage_status": {},
@@ -22659,6 +22690,9 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "alert_after_failures": {
+                    "type": "integer"
+                  },
                   "auto_coverage": {
                     "type": "boolean"
                   },
@@ -22768,6 +22802,9 @@
                         "agent_probe_status": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "alert_after_failures": {
+                          "type": "integer"
                         },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
@@ -22918,6 +22955,9 @@
                         "agent_probe_status": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "alert_after_failures": {
+                          "type": "integer"
                         },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
@@ -23857,6 +23897,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "alert_after_failures": {
+                          "type": "integer"
+                        },
                         "checks_24h": {},
                         "coverage_24h_pct": {},
                         "coverage_status": {},
@@ -24033,6 +24076,9 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "alert_after_failures": {
+                    "type": "integer"
+                  },
                   "custom_headers": {},
                   "enabled": {
                     "type": "boolean"
@@ -24120,6 +24166,9 @@
                         "agent_probe_status": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "alert_after_failures": {
+                          "type": "integer"
                         },
                         "checks_24h": {},
                         "coverage_24h_pct": {},

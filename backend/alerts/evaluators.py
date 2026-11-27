@@ -152,7 +152,12 @@ class MetricEvaluators:
                 )
                 continue
 
-            if target.last_status == "down":
+            if target.last_status in ("down", "error"):
+                required = max(1, int(getattr(target, "alert_after_failures", 2) or 1))
+                recent = list(target.checks.order_by("-checked_at").values_list("status", flat=True)[:required])
+                if recent and (len(recent) < required or not all(s in ("down", "error") for s in recent)):
+                    continue
+
                 AlertService.create_alert(
                     organization_id=rule.organization_id,
                     rule_id=rule.id,
@@ -161,7 +166,11 @@ class MetricEvaluators:
                     severity=rule.severity,
                     target_type="monitoring",
                     target_id=target.id,
-                    metadata={"target_name": target.name, "endpoint": target.endpoint},
+                    metadata={
+                        "target_name": target.name,
+                        "endpoint": target.endpoint,
+                        "consecutive_failures": len(recent) or 1,
+                    },
                 )
                 triggered = True
             elif target.last_status == "up":

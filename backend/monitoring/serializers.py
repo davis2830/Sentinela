@@ -199,6 +199,7 @@ class MonitoringTargetSerializer(ScanAvailabilitySerializer):
             "custom_headers",
             "request_body",
             "max_latency_ms",
+            "alert_after_failures",
             "last_checked_at",
             "last_status",
             "last_latency",
@@ -389,6 +390,7 @@ class MonitoringTargetCreateSerializer(serializers.Serializer):
     custom_headers = serializers.JSONField(required=False, default=dict)
     request_body = serializers.CharField(required=False, default="", allow_blank=True)
     max_latency_ms = serializers.IntegerField(min_value=1, required=False, default=2000)
+    alert_after_failures = serializers.IntegerField(min_value=1, max_value=10, required=False, default=2)
     tags = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     owner_team = serializers.UUIDField(required=False, allow_null=True)
     runner_type = serializers.ChoiceField(choices=["cloud", "agent"], required=False, default="cloud")
@@ -453,6 +455,7 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
     custom_headers = serializers.JSONField(required=False)
     request_body = serializers.CharField(required=False, allow_blank=True)
     max_latency_ms = serializers.IntegerField(min_value=1, required=False)
+    alert_after_failures = serializers.IntegerField(min_value=1, max_value=10, required=False)
     tags = serializers.ListField(child=serializers.CharField(), required=False)
     owner_team = serializers.UUIDField(required=False, allow_null=True)
     runner_type = serializers.ChoiceField(choices=["cloud", "agent"], required=False)

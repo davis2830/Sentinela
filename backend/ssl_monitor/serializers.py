@@ -88,7 +88,47 @@ class SSLCertificateSerializer(ScanAvailabilitySerializer):
         from alerts.models import AlertRule
         from common.alert_summary import get_target_alert_summary
 
-        return get_target_alert_summary(instance, AlertRule.TargetType.SSL, self.context)
+        summary = get_target_alert_summary(instance, AlertRule.TargetType.SSL, self.context)
+        matched_rules = summary["rules"]
+        expiring_rules = [r for r in matched_rules if r["condition"] == "ssl_expiring"]
+        steps = sorted(
+            {int(round(r["threshold"])) for r in expiring_rules if r.get("threshold") is not None},
+            reverse=True,
+        )
+        warning_vals = [
+            int(round(r["threshold"]))
+            for r in expiring_rules
+            if r.get("severity") != "critical" and r.get("threshold") is not None
+        ]
+        critical_vals = [
+            int(round(r["threshold"]))
+            for r in expiring_rules
+            if r.get("severity") == "critical" and r.get("threshold") is not None
+        ]
+        if expiring_rules and steps:
+            warning_days = max(warning_vals) if warning_vals else max(steps)
+            critical_days = (
+                max(critical_vals)
+                if critical_vals
+                else (min(steps) if len(steps) > 1 else min(7, max(1, warning_days - 1)))
+            )
+            if critical_days >= warning_days:
+                critical_days = max(1, warning_days - 1)
+            source = "rules"
+        else:
+            warning_days = 14
+            critical_days = 7
+            steps = [14, 7]
+            source = "default"
+        return {
+            **summary,
+            "effective_thresholds": {
+                "warning_days": warning_days,
+                "critical_days": critical_days,
+                "steps": steps,
+                "source": source,
+            },
+        }
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

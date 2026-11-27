@@ -32,6 +32,12 @@ export interface SSLAlertDestinationSummary {
 export interface SSLAlertSummary {
   rules: SSLAlertRuleSummary[];
   destinations: SSLAlertDestinationSummary[];
+  effective_thresholds?: {
+    warning_days: number;
+    critical_days: number;
+    steps: number[];
+    source: "rules" | "default";
+  };
 }
 
 export interface SSLCertificate {

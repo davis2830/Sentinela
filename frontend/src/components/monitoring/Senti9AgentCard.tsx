@@ -162,8 +162,8 @@ export default function Senti9AgentCard({
               <span
                 className="inline-flex items-center gap-1 shrink-0"
                 title={
-                  outdated
-                    ? `Actualización disponible (v${probe.latest_version || "1.8.0"})`
+                  outdated && probe.latest_version
+                    ? `Actualización disponible (v${probe.latest_version})`
                     : `Versión v${probe.version}`
                 }
               >

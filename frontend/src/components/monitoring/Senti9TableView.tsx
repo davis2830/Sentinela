@@ -226,8 +226,8 @@ export default function Senti9TableView({
               <span
                 className="inline-flex items-center gap-1 font-mono text-[11px] text-text-dim"
                 title={
-                  outdated
-                    ? `Actualización disponible (v${probe.latest_version || "1.8.0"})`
+                  outdated && probe.latest_version
+                    ? `Actualización disponible (v${probe.latest_version})`
                     : `Versión v${probe.version} (actualizada)`
                 }
               >

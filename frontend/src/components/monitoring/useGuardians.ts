@@ -113,8 +113,8 @@ export function getGuardianQueueTotal(probe: AgentProbe): number {
 }
 
 export function isGuardianVersionOutdated(probe: AgentProbe): boolean {
-  if (!probe.version || probe.revoked_at) return false;
-  const latest = probe.latest_version || "1.8.0";
+  if (!probe.version || !probe.latest_version || probe.revoked_at) return false;
+  const latest = probe.latest_version;
   const parse = (v: string) =>
     v
       .replace(/^v/i, "")

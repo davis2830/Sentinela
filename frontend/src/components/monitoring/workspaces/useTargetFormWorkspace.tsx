@@ -43,6 +43,9 @@ export function useTargetFormWorkspace({
   );
   const [endpoint, setEndpoint] = useState(target?.endpoint || "");
   const [interval, setInterval] = useState(target?.interval || 300);
+  const [alertAfterFailures, setAlertAfterFailures] = useState<number>(
+    target?.alert_after_failures ?? 2,
+  );
   const [enabled, setEnabled] = useState(target?.enabled ?? true);
   const user = useAuthStore((state) => state.user);
   const canAutoProvision = [
@@ -419,6 +422,10 @@ export function useTargetFormWorkspace({
         custom_headers: parsedHeaders,
         request_body: requestBody,
         max_latency_ms: Number(maxLatencyMs),
+        alert_after_failures: Math.max(
+          1,
+          Math.min(10, Number(alertAfterFailures) || 2),
+        ),
         tags,
         owner_team: ownerTeam || null,
         runner_type: runnerType,
@@ -454,6 +461,8 @@ export function useTargetFormWorkspace({
     setEndpoint,
     interval,
     setInterval,
+    alertAfterFailures,
+    setAlertAfterFailures,
     enabled,
     setEnabled,
     autoCoverage,

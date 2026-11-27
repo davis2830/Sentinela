@@ -273,7 +273,11 @@ export default function Senti9DetailDrawer({
               {outdated && (
                 <span
                   className="px-1.5 py-0.2 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px]"
-                  title={`Última versión: v${probe.latest_version || "1.8.0"}`}
+                  title={
+                    probe.latest_version
+                      ? `Última versión: v${probe.latest_version}`
+                      : "Actualización disponible"
+                  }
                 >
                   Actualización disponible
                 </span>
@@ -346,7 +350,9 @@ export default function Senti9DetailDrawer({
           "Esperando primera señal · agente Senti9"
         )}
       </span>
-      <span className="text-text-dim">poll 10 s</span>
+      {probe.version && (
+        <span className="text-text-dim">v{probe.version}</span>
+      )}
     </div>
   ) : undefined;
 
