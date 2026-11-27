@@ -84,16 +84,20 @@ export default function APICheckForm({
     queryKey: ["subscription-summary"],
     queryFn: async () =>
       (await api.get("organizations/current/subscription/")).data?.data,
+    staleTime: 60000,
   });
-  const minInterval = subscription?.limits?.min_check_interval_seconds ?? 300;
+  const serverMinInterval = subscription?.limits?.min_check_interval_seconds;
+  const minInterval = serverMinInterval ?? 300;
   useEffect(() => {
-    if (subscription)
-      setCheckInterval(
-        target
-          ? Math.max(target.check_interval || minInterval, minInterval)
-          : minInterval,
+    if (serverMinInterval === undefined) return;
+    if (target) {
+      setCheckInterval((prev) =>
+        Math.max(prev || target.check_interval || serverMinInterval, serverMinInterval),
       );
-  }, [minInterval, target, subscription]);
+    } else {
+      setCheckInterval(serverMinInterval <= 60 ? 60 : serverMinInterval);
+    }
+  }, [serverMinInterval, target]);
   const [enabled, setEnabled] = useState<boolean>(true);
 
   // Authentication states
@@ -461,6 +465,11 @@ export default function APICheckForm({
         expected_schema: schema,
       });
       onClose();
+    } catch (err: unknown) {
+      setJsonError(
+        apiFailure(err).message ||
+          "No se pudo guardar el endpoint. Verifica la URL y la configuración.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -726,12 +735,26 @@ export default function APICheckForm({
                   Cada 1 min · Pro
                 </option>
                 <option value={120} disabled={minInterval > 120}>
-                  Cada 2 min
+                  Cada 2 min · Pro
                 </option>
-                <option value={300}>Cada 5 min</option>
+                <option value={300}>Cada 5 min · Starter</option>
+                <option value={900}>Cada 15 min · Starter</option>
+                <option value={3600}>Cada 1 hora · Starter</option>
+                {![30, 60, 120, 300, 900, 3600].includes(checkInterval) && (
+                  <option value={checkInterval}>
+                    Cada{" "}
+                    {checkInterval >= 60 && checkInterval % 60 === 0
+                      ? `${checkInterval / 60} min`
+                      : `${checkInterval} seg`}
+                  </option>
+                )}
               </select>
               <p className="mt-1 text-xs text-text-dim">
-                Mínimo de tu plan: {minInterval} segundos.
+                Mínimo de tu plan:{" "}
+                {minInterval >= 60 && minInterval % 60 === 0
+                  ? `${minInterval / 60} min`
+                  : `${minInterval} seg`}
+                .
               </p>
             </div>
           </div>

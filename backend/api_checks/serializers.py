@@ -332,7 +332,8 @@ class APICheckTargetUpdateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         url = attrs.get("url")
-        if url:
+        existing_url = self.context.get("existing_url")
+        if url and (not existing_url or url.strip() != existing_url.strip()):
             from common.security import validate_safe_public_url
 
             validate_safe_public_url(url)

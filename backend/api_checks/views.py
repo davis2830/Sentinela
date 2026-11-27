@@ -103,7 +103,18 @@ class APICheckTargetDetailView(APIView):
 
     def patch(self, request, target_id):
         org_id = request.user.organization_id
-        serializer = APICheckTargetUpdateSerializer(data=request.data)
+        try:
+            existing = APICheckService.get_target(target_id, org_id)
+        except ObjectDoesNotExist:
+            return error_response(
+                "API check target not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = APICheckTargetUpdateSerializer(
+            data=request.data,
+            context={"request": request, "existing_url": existing.url},
+        )
         if not serializer.is_valid():
             return error_response(
                 "Invalid input.",

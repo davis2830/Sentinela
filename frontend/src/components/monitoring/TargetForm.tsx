@@ -179,6 +179,7 @@ export default function TargetForm({
     setAgentProbeId,
     teams,
     probes,
+    minAllowedInterval,
     tcpHost,
     setTcpHost,
     tcpPort,
@@ -756,40 +757,50 @@ export default function TargetForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             {/* Intervalo */}
             <div className="space-y-1.5">
-              <label className="font-semibold text-xs text-text-main block">
-                Frecuencia de sondeo
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="font-semibold text-xs text-text-main block">
+                  Frecuencia de sondeo
+                </label>
+                <span className="text-[11px] font-mono text-text-dim">
+                  mín. {minAllowedInterval >= 60 && minAllowedInterval % 60 === 0 ? `${minAllowedInterval / 60} min` : `${minAllowedInterval} s`}
+                </span>
+              </div>
               <div className="flex items-center gap-1.5">
                 {[
-                  { label: "15 s", val: 15, locked: true },
-                  { label: "30 s", val: 30, locked: true },
-                  { label: "1 min", val: 60, recommended: true },
-                  { label: "5 min", val: 300 },
+                  { label: "30 s", val: 30, planLabel: "Business" },
+                  {
+                    label: "1 min",
+                    val: 60,
+                    planLabel: "Pro",
+                    recommended: true,
+                  },
+                  { label: "5 min", val: 300, planLabel: "Starter" },
                 ].map((item) => {
+                  const locked = item.val < minAllowedInterval;
                   const active = interval === item.val;
                   return (
                     <button
                       key={item.val}
                       type="button"
-                      onClick={() => !item.locked && setInterval(item.val)}
-                      disabled={item.locked}
+                      onClick={() => !locked && setInterval(item.val)}
+                      disabled={locked}
                       title={
-                        item.locked
-                          ? "Disponible en planes superiores"
+                        locked
+                          ? `Disponible desde plan ${item.planLabel}`
                           : item.recommended
                             ? "Intervalo recomendado"
-                            : undefined
+                            : `Plan ${item.planLabel}`
                       }
                       className={`flex-1 py-1.5 px-2 rounded-lg border text-xs font-medium text-center transition-all ${
                         active
                           ? "bg-accent-green/15 border-accent-green text-accent-green font-semibold shadow-sm"
-                          : item.locked
+                          : locked
                             ? "bg-bg-dark/40 border-border-base/50 text-text-dim opacity-50 cursor-not-allowed"
-                            : "bg-bg-dark/60 border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover"
+                            : "bg-bg-dark/60 border-border-base text-text-muted hover:text-text-main hover:bg-bg-card-hover cursor-pointer"
                       }`}
                     >
                       <span className="inline-flex items-center justify-center gap-1.5">
-                        {item.locked && (
+                        {locked && (
                           <Lock size={11} className="text-amber-400 shrink-0" />
                         )}
                         <span>{item.label}</span>

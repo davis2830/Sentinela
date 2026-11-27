@@ -69,10 +69,13 @@ export default function QuickStartWizardModal({
     enabled: isOpen,
   });
 
-  const minAllowedInterval = subData?.limits?.min_check_interval_seconds || 300;
+  const serverMinInterval = subData?.limits?.min_check_interval_seconds;
+  const minAllowedInterval = serverMinInterval || 300;
   useEffect(() => {
-    if (isOpen && subData) setInterval(minAllowedInterval);
-  }, [isOpen, minAllowedInterval, subData]);
+    if (isOpen && serverMinInterval !== undefined) {
+      setInterval(Math.max(30, serverMinInterval <= 60 ? 60 : serverMinInterval));
+    }
+  }, [isOpen, serverMinInterval]);
 
   // Live Test State
   const diagnostic = useConfigurationDiagnostic();
@@ -460,8 +463,8 @@ export default function QuickStartWizardModal({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { label: "5 min", value: 300, minPlan: "Free" },
-                    { label: "60 s", value: 60, minPlan: "Pro" },
+                    { label: "5 min", value: 300, minPlan: "Starter" },
+                    { label: "1 min", value: 60, minPlan: "Pro" },
                     { label: "30 s", value: 30, minPlan: "Business" },
                   ].map((opt) => {
                     const isAllowed = opt.value >= minAllowedInterval;

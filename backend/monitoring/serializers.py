@@ -467,8 +467,17 @@ class MonitoringTargetUpdateSerializer(serializers.Serializer):
         # Check if target update allows private IPs based on runner or probe
         allow_private = runner_type == "agent"
 
-        # Revalidate the effective destination when changing runner as well.
-        if endpoint or "runner_type" in attrs or "agent_probe" in attrs or "target_type" in attrs:
+        # Revalidate the effective destination only when destination, runner, probe, or protocol changed.
+        endpoint_changed = bool(endpoint) and (
+            current is None or endpoint.strip() != (current.endpoint or "").strip()
+        )
+        runner_changed = (
+            current is None
+            or runner_type != getattr(current, "runner_type", None)
+            or str(agent_probe or "") != str(getattr(current, "agent_probe_id", "") or "")
+            or attrs.get("target_type", getattr(current, "target_type", None)) != getattr(current, "target_type", None)
+        )
+        if endpoint_changed or runner_changed:
             validate_agent_binding(runner_type, agent_probe, self.context.get("request"))
             from common.security import validate_safe_target_endpoint, validate_agent_target_endpoint
 

@@ -129,17 +129,19 @@ export function useTargetFormWorkspace({
     staleTime: 60000,
   });
 
-  const minAllowedInterval = subData?.limits?.min_check_interval_seconds ?? 300;
+  const serverMinInterval = subData?.limits?.min_check_interval_seconds;
+  const minAllowedInterval = serverMinInterval ?? 300;
 
   useEffect(() => {
-    if (!target && subData) setInterval(minAllowedInterval);
-  }, [target, minAllowedInterval, subData]);
-
-  useEffect(() => {
-    if (minAllowedInterval && interval < minAllowedInterval) {
-      setInterval(minAllowedInterval);
+    if (serverMinInterval === undefined) return;
+    if (!target) {
+      setInterval(serverMinInterval <= 60 ? 60 : serverMinInterval);
+    } else {
+      setInterval((prev) =>
+        prev < serverMinInterval ? serverMinInterval : prev,
+      );
     }
-  }, [interval, minAllowedInterval]);
+  }, [target, serverMinInterval]);
 
   // TCP dedicated helper state
   const [tcpHost, setTcpHost] = useState("");
